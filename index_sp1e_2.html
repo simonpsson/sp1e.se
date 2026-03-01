@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simon Pettersson — BI Analyst</title>
+    <meta name="description" content="BI Analyst specializing in Power BI, SQL, and data-driven insights. Portfolio and professional profile.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #FAFAF9;
+            --surface: #FFFFFF;
+            --text: #1C1917;
+            --text-secondary: #78716C;
+            --text-tertiary: #A8A29E;
+            --accent: #2563EB;
+            --accent-light: #EFF6FF;
+            --accent-hover: #1D4ED8;
+            --border: #E7E5E4;
+            --border-light: #F5F5F4;
+            --gradient-start: #2563EB;
+            --gradient-end: #7C3AED;
+            --radius: 12px;
+            --radius-lg: 20px;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+            --shadow-lg: 0 12px 40px rgba(0,0,0,0.08);
+            --shadow-xl: 0 20px 60px rgba(0,0,0,0.1);
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; font-size: 16px; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; -webkit-font-smoothing: antialiased; }
+        ::selection { background: var(--accent); color: white; }
+
+        .lang-switcher { display: flex; align-items: center; gap: 2px; background: var(--border-light); border-radius: 100px; padding: 3px; }
+        .lang-btn { padding: 0.3rem 0.7rem; border: none; background: transparent; border-radius: 100px; font-family: 'Outfit', sans-serif; font-size: 0.75rem; font-weight: 600; color: var(--text-tertiary); cursor: pointer; transition: all var(--transition); letter-spacing: 0.02em; }
+        .lang-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+        .lang-btn:hover:not(.active) { color: var(--text-secondary); }
+
+        nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 0 2rem; background: rgba(250, 250, 249, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid transparent; transition: var(--transition); }
+        nav.scrolled { border-bottom-color: var(--border); }
+        .nav-inner { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; height: 64px; }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--text); text-decoration: none; }
+        .nav-logo span { color: var(--accent); }
+        .nav-right { display: flex; align-items: center; gap: 1rem; }
+        .nav-links { display: flex; gap: 2rem; list-style: none; align-items: center; }
+        .nav-links a { text-decoration: none; color: var(--text-secondary); font-size: 0.875rem; font-weight: 500; letter-spacing: 0.01em; transition: color var(--transition); position: relative; }
+        .nav-links a::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 0; height: 2px; background: var(--accent); transition: width var(--transition); }
+        .nav-links a:hover { color: var(--text); }
+        .nav-links a:hover::after { width: 100%; }
+        .nav-cta { background: var(--text) !important; color: white !important; padding: 0.5rem 1.25rem !important; border-radius: 100px !important; font-size: 0.85rem !important; font-weight: 500 !important; transition: all var(--transition) !important; }
+        .nav-cta::after { display: none !important; }
+        .nav-cta:hover { background: var(--accent) !important; transform: translateY(-1px); }
+        .nav-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; }
+        .nav-toggle span { display: block; width: 24px; height: 2px; background: var(--text); margin: 6px 0; transition: var(--transition); }
+
+        .hero { min-height: 100vh; display: flex; align-items: center; padding: 8rem 2rem 4rem; position: relative; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; top: -20%; right: -10%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%); border-radius: 50%; pointer-events: none; }
+        .hero::after { content: ''; position: absolute; bottom: -10%; left: -5%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(124,58,237,0.04) 0%, transparent 70%); border-radius: 50%; pointer-events: none; }
+        .hero-inner { max-width: 1200px; margin: 0 auto; width: 100%; position: relative; }
+        .hero-label { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 1rem; background: var(--accent-light); border-radius: 100px; font-size: 0.8rem; font-weight: 500; color: var(--accent); margin-bottom: 2rem; animation: fadeUp 0.8s ease both; }
+        .hero-label .dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+        .hero h1 { font-size: clamp(2.8rem, 6vw, 4.5rem); font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 1.5rem; animation: fadeUp 0.8s ease 0.1s both; }
+        .hero h1 .gradient-text { background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .hero-description { font-family: 'Source Serif 4', Georgia, serif; font-size: 1.2rem; line-height: 1.8; color: var(--text-secondary); max-width: 580px; margin-bottom: 2.5rem; animation: fadeUp 0.8s ease 0.2s both; }
+        .hero-actions { display: flex; gap: 1rem; align-items: center; animation: fadeUp 0.8s ease 0.3s both; }
+        .btn-primary { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.85rem 2rem; background: var(--text); color: white; border: none; border-radius: 100px; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 500; cursor: pointer; text-decoration: none; transition: all var(--transition); }
+        .btn-primary:hover { background: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+        .btn-secondary { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.85rem 2rem; background: transparent; color: var(--text); border: 1.5px solid var(--border); border-radius: 100px; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 500; cursor: pointer; text-decoration: none; transition: all var(--transition); }
+        .btn-secondary:hover { border-color: var(--text); transform: translateY(-2px); }
+        .hero-stats { display: flex; gap: 3rem; margin-top: 4rem; padding-top: 3rem; border-top: 1px solid var(--border); animation: fadeUp 0.8s ease 0.4s both; }
+        .hero-stat-number { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+        .hero-stat-label { font-size: 0.8rem; color: var(--text-tertiary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.25rem; }
+
+        section { padding: 6rem 2rem; }
+        .section-inner { max-width: 1200px; margin: 0 auto; }
+        .section-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); margin-bottom: 0.75rem; }
+        .section-title { font-size: clamp(1.8rem, 3vw, 2.5rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 1rem; }
+        .section-description { font-family: 'Source Serif 4', Georgia, serif; font-size: 1.1rem; color: var(--text-secondary); max-width: 600px; margin-bottom: 3rem; }
+
+        .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+        .about-image-wrapper { position: relative; }
+        .about-image { width: 100%; aspect-ratio: 4/5; border-radius: var(--radius-lg); background: linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%); display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: var(--shadow-lg); }
+        .about-image-badge { position: absolute; bottom: -16px; right: -16px; background: var(--surface); border-radius: var(--radius); padding: 1rem 1.5rem; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 0.75rem; }
+        .about-image-badge .badge-icon { width: 40px; height: 40px; background: var(--accent-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .about-image-badge .badge-text { font-size: 0.8rem; font-weight: 600; }
+        .about-image-badge .badge-sub { font-size: 0.7rem; color: var(--text-tertiary); }
+        .about-text p { font-family: 'Source Serif 4', Georgia, serif; font-size: 1.05rem; line-height: 1.9; color: var(--text-secondary); margin-bottom: 1.25rem; }
+        .about-highlights { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2rem; }
+        .about-highlight { padding: 1rem; background: var(--border-light); border-radius: var(--radius); }
+        .about-highlight-icon { font-size: 1.4rem; margin-bottom: 0.5rem; }
+        .about-highlight-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.2rem; }
+        .about-highlight-desc { font-size: 0.78rem; color: var(--text-tertiary); }
+
+        .skills-section { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .skills-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+        .skill-card { padding: 2rem; border: 1px solid var(--border); border-radius: var(--radius-lg); transition: all var(--transition); position: relative; overflow: hidden; }
+        .skill-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end)); opacity: 0; transition: opacity var(--transition); }
+        .skill-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-4px); }
+        .skill-card:hover::before { opacity: 1; }
+        .skill-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin-bottom: 1.25rem; }
+        .skill-card:nth-child(1) .skill-icon { background: #FEF3C7; }
+        .skill-card:nth-child(2) .skill-icon { background: #DBEAFE; }
+        .skill-card:nth-child(3) .skill-icon { background: #D1FAE5; }
+        .skill-card:nth-child(4) .skill-icon { background: #EDE9FE; }
+        .skill-card:nth-child(5) .skill-icon { background: #FCE7F3; }
+        .skill-card:nth-child(6) .skill-icon { background: #FEE2E2; }
+        .skill-name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .skill-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1rem; }
+        .skill-level { display: flex; gap: 4px; }
+        .skill-level-dot { width: 32px; height: 4px; border-radius: 2px; background: var(--border); }
+        .skill-level-dot.active { background: var(--accent); }
+
+        .portfolio-card { border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); background: var(--surface); transition: all var(--transition); }
+        .portfolio-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-xl); }
+        .portfolio-image { width: 100%; aspect-ratio: 21/9; background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        .portfolio-image .mock-dashboard { width: 85%; height: 80%; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 1rem; display: grid; gap: 0.5rem; }
+        .mock-row { display: flex; gap: 0.5rem; }
+        .mock-kpi { flex: 1; height: 36px; background: rgba(255,255,255,0.06); border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); }
+        .mock-chart { flex: 2; min-height: 60px; background: rgba(37,99,235,0.15); border-radius: 6px; border: 1px solid rgba(37,99,235,0.2); }
+        .mock-chart-sm { flex: 1; min-height: 60px; background: rgba(124,58,237,0.12); border-radius: 6px; border: 1px solid rgba(124,58,237,0.18); }
+        .portfolio-info { padding: 1.5rem 2rem; }
+        .portfolio-tags { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+        .portfolio-tag { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.3rem 0.75rem; border-radius: 100px; background: var(--accent-light); color: var(--accent); }
+        .portfolio-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .portfolio-desc { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
+
+        .experience-section { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .timeline { position: relative; padding-left: 3rem; }
+        .timeline::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: var(--border); }
+        .timeline-item { position: relative; padding-bottom: 3rem; }
+        .timeline-item:last-child { padding-bottom: 0; }
+        .timeline-dot { position: absolute; left: -3rem; top: 6px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); border: 3px solid var(--accent); }
+        .timeline-item:first-child .timeline-dot { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-light); }
+        .timeline-date { font-size: 0.78rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.3rem; }
+        .timeline-role { font-size: 1.15rem; font-weight: 600; margin-bottom: 0.15rem; }
+        .timeline-company { font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
+        .timeline-desc { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.7; }
+        .timeline-skills { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+        .timeline-skill { font-size: 0.72rem; font-weight: 500; padding: 0.25rem 0.65rem; background: var(--border-light); border-radius: 100px; color: var(--text-secondary); }
+
+        .cert-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
+        .cert-card { display: flex; align-items: center; gap: 1rem; padding: 1.25rem 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); transition: all var(--transition); }
+        .cert-card:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+        .cert-icon { width: 44px; height: 44px; min-width: 44px; background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end)); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; }
+        .cert-name { font-size: 0.9rem; font-weight: 600; }
+        .cert-issuer { font-size: 0.78rem; color: var(--text-tertiary); }
+
+        .contact-section { background: var(--text); color: white; text-align: center; }
+        .contact-section .section-label { color: rgba(255,255,255,0.5); }
+        .contact-section .section-title { color: white; }
+        .contact-section .section-description { color: rgba(255,255,255,0.6); margin: 0 auto 3rem; }
+        .contact-links { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        .contact-link { display: inline-flex; align-items: center; gap: 0.6rem; padding: 0.9rem 1.75rem; border-radius: 100px; font-size: 0.9rem; font-weight: 500; text-decoration: none; transition: all var(--transition); border: 1.5px solid rgba(255,255,255,0.15); color: white; }
+        .contact-link:hover { border-color: var(--accent); background: var(--accent); transform: translateY(-2px); }
+        .contact-link svg { width: 18px; height: 18px; }
+
+        footer { background: var(--text); border-top: 1px solid rgba(255,255,255,0.08); padding: 2rem; text-align: center; }
+        footer p { font-size: 0.8rem; color: rgba(255,255,255,0.3); }
+
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.7s ease, transform 0.7s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        @media (max-width: 900px) { .about-grid { grid-template-columns: 1fr; gap: 2.5rem; } .skills-grid { grid-template-columns: repeat(2, 1fr); } .hero-stats { gap: 2rem; } }
+        @media (max-width: 600px) { .nav-links { display: none; } .nav-toggle { display: block; } .nav-links.open { display: flex; flex-direction: column; position: absolute; top: 64px; left: 0; right: 0; background: var(--bg); padding: 1.5rem 2rem; border-bottom: 1px solid var(--border); gap: 1rem; } section { padding: 4rem 1.25rem; } .skills-grid { grid-template-columns: 1fr; } .hero-stats { flex-direction: column; gap: 1.5rem; } .hero-actions { flex-direction: column; align-items: flex-start; } .about-highlights { grid-template-columns: 1fr; } .contact-links { flex-direction: column; align-items: center; } }
+    </style>
+</head>
+<body>
+
+<nav id="nav">
+    <div class="nav-inner">
+        <a href="#" class="nav-logo">sp1e<span>.se</span></a>
+        <div class="nav-right">
+            <div class="lang-switcher">
+                <button class="lang-btn active" onclick="setLang('en')">EN</button>
+                <button class="lang-btn" onclick="setLang('sv')">SV</button>
+            </div>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#about" data-en="About" data-sv="Om mig">About</a></li>
+                <li><a href="#skills" data-en="Skills" data-sv="Kompetens">Skills</a></li>
+                <li><a href="#portfolio" data-en="Portfolio" data-sv="Portfolio">Portfolio</a></li>
+                <li><a href="#experience" data-en="Experience" data-sv="Erfarenhet">Experience</a></li>
+                <li><a href="#contact" class="nav-cta" data-en="Contact" data-sv="Kontakt">Contact</a></li>
+            </ul>
+            <button class="nav-toggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+        </div>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="hero-inner">
+        <div class="hero-label"><span class="dot"></span><span data-en="Open to new opportunities" data-sv="Öppen för nya möjligheter">Open to new opportunities</span></div>
+        <h1><span data-en="I make data" data-sv="Jag gör data">I make data</span><br><span class="gradient-text" data-en="understandable." data-sv="begriplig.">understandable.</span></h1>
+        <p class="hero-description" data-en="BI Analyst focused on transforming complex data into clear insights and dashboards that drive decisions. Power BI, SQL, and business acumen combined." data-sv="BI-analytiker med fokus på att omvandla komplex data till tydliga insikter och dashboards som driver beslut. Power BI, SQL och affärsförståelse i kombination.">BI Analyst focused on transforming complex data into clear insights and dashboards that drive decisions. Power BI, SQL, and business acumen combined.</p>
+        <div class="hero-actions">
+            <a href="#portfolio" class="btn-primary"><span data-en="See my projects" data-sv="Se mina projekt">See my projects</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l9.2-9.2M17 17V7H7"/></svg></a>
+            <a href="#contact" class="btn-secondary" data-en="Get in touch" data-sv="Kontakta mig">Get in touch</a>
+        </div>
+        <div class="hero-stats">
+            <div><div class="hero-stat-number">3+</div><div class="hero-stat-label" data-en="Years experience" data-sv="Års erfarenhet">Years experience</div></div>
+            <div><div class="hero-stat-number">Power BI</div><div class="hero-stat-label" data-en="Primary tool" data-sv="Huvudverktyg">Primary tool</div></div>
+            <div><div class="hero-stat-number">SQL</div><div class="hero-stat-label" data-en="Primary tool" data-sv="Huvudverktyg">Primary tool</div></div>
+            <div><div class="hero-stat-number">MS</div><div class="hero-stat-label" data-en="Certified" data-sv="Certifierad">Certified</div></div>
+        </div>
+    </div>
+</section>
+
+<section id="about">
+    <div class="section-inner reveal">
+        <div class="about-grid">
+            <div class="about-image-wrapper">
+                <div class="about-image">
+                    <!-- Replace: <img src="photo.jpg" alt="Simon" style="width:100%;height:100%;object-fit:cover"> -->
+                    <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div class="about-image-badge"><div class="badge-icon">📊</div><div><div class="badge-text">Microsoft Certified</div><div class="badge-sub">Data Analyst</div></div></div>
+            </div>
+            <div class="about-text">
+                <div class="section-label" data-en="About me" data-sv="Om mig">About me</div>
+                <h2 class="section-title">Simon Pettersson</h2>
+                <p data-en="I'm a BI Analyst with a passion for making data accessible and actionable. With three years of experience at Thorn Finans, I've worked across the full spectrum — from SQL validation and data modeling to building dashboards used across the entire organization." data-sv="Jag är en BI-analytiker med passion för att göra data tillgänglig och användbar. Med tre års erfarenhet på Thorn Finans har jag arbetat med allt från SQL-validering och datamodellering till att bygga dashboards som används av hela organisationen.">I'm a BI Analyst with a passion for making data accessible and actionable. With three years of experience at Thorn Finans, I've worked across the full spectrum — from SQL validation and data modeling to building dashboards used across the entire organization.</p>
+                <p data-en="What drives me is understanding the business question behind the data — not just building pretty charts, but creating insights that actually lead to better decisions." data-sv="Det som driver mig är att förstå affärsfrågan bakom datan — inte bara bygga snygga grafer, utan skapa insikter som faktiskt leder till bättre beslut.">What drives me is understanding the business question behind the data — not just building pretty charts, but creating insights that actually lead to better decisions.</p>
+                <div class="about-highlights">
+                    <div class="about-highlight"><div class="about-highlight-icon">🎯</div><div class="about-highlight-title" data-en="Business focus" data-sv="Affärsfokus">Business focus</div><div class="about-highlight-desc" data-en="Always starts with what decision the analysis should support" data-sv="Börjar alltid med vilket beslut analysen ska stödja">Always starts with what decision the analysis should support</div></div>
+                    <div class="about-highlight"><div class="about-highlight-icon">🔗</div><div class="about-highlight-title">End-to-end</div><div class="about-highlight-desc" data-en="From raw data to finished dashboard and insight" data-sv="Från rå data till färdig dashboard och insikt">From raw data to finished dashboard and insight</div></div>
+                    <div class="about-highlight"><div class="about-highlight-icon">📐</div><div class="about-highlight-title" data-en="Data modeling" data-sv="Datamodellering">Data modeling</div><div class="about-highlight-desc" data-en="Star schema, relationships, and clean DAX" data-sv="Star schema, relationer och ren DAX">Star schema, relationships, and clean DAX</div></div>
+                    <div class="about-highlight"><div class="about-highlight-icon">🧹</div><div class="about-highlight-title" data-en="Data quality" data-sv="Datakvalitet">Data quality</div><div class="about-highlight-desc" data-en="Standardization and single source of truth" data-sv="Standardisering och single source of truth">Standardization and single source of truth</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="skills" class="skills-section">
+    <div class="section-inner reveal">
+        <div class="section-label" data-en="Skills" data-sv="Kompetens">Skills</div>
+        <h2 class="section-title" data-en="Tools &amp; technologies" data-sv="Verktyg &amp; teknologier">Tools &amp; technologies</h2>
+        <p class="section-description" data-en="Focused on the Microsoft stack with deep expertise in Power BI and SQL. Building the entire chain from data source to interactive dashboard." data-sv="Fokus på Microsoft-stacken med djup kompetens i Power BI och SQL. Bygger hela kedjan från datakälla till interaktiv dashboard.">Focused on the Microsoft stack with deep expertise in Power BI and SQL. Building the entire chain from data source to interactive dashboard.</p>
+        <div class="skills-grid">
+            <div class="skill-card"><div class="skill-icon">📊</div><div class="skill-name">Power BI</div><div class="skill-desc" data-en="DAX, Power Query (M), data modeling, star schema, dashboards, Power BI Service" data-sv="DAX, Power Query (M), datamodellering, star schema, dashboards, Power BI Service">DAX, Power Query (M), data modeling, star schema, dashboards, Power BI Service</div><div class="skill-level"><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div></div></div>
+            <div class="skill-card"><div class="skill-icon">🗃️</div><div class="skill-name">SQL</div><div class="skill-desc" data-en="Joins, CTEs, subqueries, aggregations, data validation. 3+ years of daily use." data-sv="Joins, CTEs, subqueries, aggregeringar, datavalidering. 3+ års daglig användning.">Joins, CTEs, subqueries, aggregations, data validation. 3+ years of daily use.</div><div class="skill-level"><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div></div></div>
+            <div class="skill-card"><div class="skill-icon">📗</div><div class="skill-name">Excel</div><div class="skill-desc" data-en="Advanced dashboards, Power Pivot, database connections, complex formulas." data-sv="Avancerade dashboards, Power Pivot, databasanslutningar, komplexa formler.">Advanced dashboards, Power Pivot, database connections, complex formulas.</div><div class="skill-level"><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div></div></div>
+            <div class="skill-card"><div class="skill-icon">📐</div><div class="skill-name" data-en="Data Modeling" data-sv="Datamodellering">Data Modeling</div><div class="skill-desc" data-en="Star schema, dimension tables, relationships, normalization." data-sv="Star schema, dimensionstabeller, relationer, normalisering.">Star schema, dimension tables, relationships, normalization.</div><div class="skill-level"><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot"></div></div></div>
+            <div class="skill-card"><div class="skill-icon">📈</div><div class="skill-name" data-en="Data Visualization" data-sv="Datavisualisering">Data Visualization</div><div class="skill-desc" data-en="Storytelling with data, KPI design, interactive reports, analytics UX." data-sv="Storytelling med data, KPI-design, interaktiva rapporter, UX för analytics.">Storytelling with data, KPI design, interactive reports, analytics UX.</div><div class="skill-level"><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot"></div></div></div>
+            <div class="skill-card"><div class="skill-icon">🔄</div><div class="skill-name">ETL / Power Query</div><div class="skill-desc" data-en="Data cleansing, transformations, M language, dataflows, automation." data-sv="Datarensning, transformationer, M-språket, dataflöden, automatisering.">Data cleansing, transformations, M language, dataflows, automation.</div><div class="skill-level"><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot active"></div><div class="skill-level-dot"></div></div></div>
+        </div>
+    </div>
+</section>
+
+<section id="portfolio">
+    <div class="section-inner reveal">
+        <div class="section-label" data-en="Portfolio" data-sv="Portfolio">Portfolio</div>
+        <h2 class="section-title" data-en="Featured projects" data-sv="Utvalda projekt">Featured projects</h2>
+        <p class="section-description" data-en="Dashboards and analyses showcasing the full chain — from raw data to insights that drive decisions." data-sv="Dashboards och analyser som visar hela kedjan — från rå data till insikter som driver beslut.">Dashboards and analyses showcasing the full chain — from raw data to insights that drive decisions.</p>
+        <div class="portfolio-card">
+            <div class="portfolio-image">
+                <div class="mock-dashboard" style="grid-template-rows: auto 1fr 1fr;">
+                    <div class="mock-row"><div class="mock-kpi"></div><div class="mock-kpi"></div><div class="mock-kpi"></div><div class="mock-kpi"></div></div>
+                    <div class="mock-row"><div class="mock-chart"></div><div class="mock-chart-sm"></div></div>
+                    <div class="mock-row"><div class="mock-chart-sm"></div><div class="mock-chart"></div></div>
+                </div>
+            </div>
+            <div class="portfolio-info">
+                <div class="portfolio-tags"><span class="portfolio-tag">Power BI</span><span class="portfolio-tag">DAX</span><span class="portfolio-tag">Azure Maps</span><span class="portfolio-tag">Star Schema</span></div>
+                <h3 class="portfolio-title" data-en="Global CO₂ Emissions Dashboard" data-sv="Global CO₂-utsläpps Dashboard">Global CO₂ Emissions Dashboard</h3>
+                <p class="portfolio-desc" data-en="Interactive dashboard visualizing global carbon dioxide emissions from 1850 to 2024 using data from Our World in Data. Star schema model with time intelligence, Azure Maps integration, and dynamic KPI cards. Displays trends, regional comparisons, and per capita analysis." data-sv="Interaktiv dashboard som visualiserar globala koldioxidutsläpp 1850–2024 med data från Our World in Data. Star schema-modell med time intelligence, Azure Maps-integration och dynamiska KPI-kort. Visar trender, regionala jämförelser och per capita-analys.">Interactive dashboard visualizing global carbon dioxide emissions from 1850 to 2024 using data from Our World in Data. Star schema model with time intelligence, Azure Maps integration, and dynamic KPI cards. Displays trends, regional comparisons, and per capita analysis.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="experience" class="experience-section">
+    <div class="section-inner reveal">
+        <div class="section-label" data-en="Experience" data-sv="Erfarenhet">Experience</div>
+        <h2 class="section-title" data-en="Work history" data-sv="Arbetshistorik">Work history</h2>
+        <p class="section-description" data-en="Three years of experience as a BI Analyst with end-to-end responsibility from data extraction to finished dashboards." data-sv="Tre års erfarenhet som BI-analytiker med ansvar för hela kedjan från datauttag till färdiga dashboards.">Three years of experience as a BI Analyst with end-to-end responsibility from data extraction to finished dashboards.</p>
+        <div class="timeline">
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-date" data-en="2022 — Present" data-sv="2022 — Nuvarande">2022 — Present</div>
+                <div class="timeline-role">BI Analyst</div>
+                <div class="timeline-company">Thorn Finans</div>
+                <div class="timeline-desc" data-en="End-to-end responsibility for data analysis and reporting. Standardized KPI definitions, built dashboards in Power BI, validated data with SQL, and created automated report flows. Handling segmentation, cohort analysis, and ad hoc analyses for leadership." data-sv="End-to-end ansvar för dataanalys och rapportering. Standardiserade KPI-definitioner, byggde dashboards i Power BI, validerade data med SQL och skapade automatiserade rapportflöden. Hanterar segmentering, cohort-analys och ad hoc-analyser åt ledningen.">End-to-end responsibility for data analysis and reporting. Standardized KPI definitions, built dashboards in Power BI, validated data with SQL, and created automated report flows. Handling segmentation, cohort analysis, and ad hoc analyses for leadership.</div>
+                <div class="timeline-skills"><span class="timeline-skill">Power BI</span><span class="timeline-skill">SQL</span><span class="timeline-skill">DAX</span><span class="timeline-skill">Excel</span><span class="timeline-skill">Data Modeling</span></div>
+            </div>
+        </div>
+        <div style="margin-top: 4rem;">
+            <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;" data-en="Certifications" data-sv="Certifieringar">Certifications</h3>
+            <div class="cert-grid">
+                <div class="cert-card"><div class="cert-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div><div class="cert-name">Microsoft Certified: Data Analyst</div><div class="cert-issuer">Microsoft</div></div></div>
+                <div class="cert-card"><div class="cert-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div><div class="cert-name" data-en="PL-300 Training completed" data-sv="PL-300 Utbildning genomförd">PL-300 Training completed</div><div class="cert-issuer">Power BI Data Analyst</div></div></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="contact" class="contact-section">
+    <div class="section-inner reveal">
+        <div class="section-label" data-en="Contact" data-sv="Kontakt">Contact</div>
+        <h2 class="section-title" data-en="Let's talk data." data-sv="Låt oss prata data.">Let's talk data.</h2>
+        <p class="section-description" data-en="Open to new opportunities in BI and analytics. Feel free to reach out!" data-sv="Öppen för nya möjligheter inom BI och analytics. Hör gärna av dig!">Open to new opportunities in BI and analytics. Feel free to reach out!</p>
+        <div class="contact-links">
+            <a href="/cdn-cgi/l/email-protection#62110b0f0d0c4c120c2212100d160d0c0f030b0e4c010d0f" class="contact-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><span class="__cf_email__" data-cfemail="ed9e84808283c39d83ad9d9f82998283808c8481c38e8280">[email&#160;protected]</span></a>
+            <a href="https://www.linkedin.com/in/sipet" target="_blank" class="contact-link"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>LinkedIn</a>
+            <a href="https://github.com/simonpsson/" target="_blank" class="contact-link"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>GitHub</a>
+        </div>
+    </div>
+</section>
+
+<footer><p data-en="&copy; 2025 Simon Pettersson. Built with a passion for data." data-sv="&copy; 2025 Simon Pettersson. Byggd med passion för data.">&copy; 2025 Simon Pettersson. Built with a passion for data.</p></footer>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+    let currentLang = 'en';
+    function setLang(lang) {
+        currentLang = lang;
+        document.documentElement.lang = lang;
+        document.querySelectorAll('[data-en]').forEach(el => {
+            const text = el.getAttribute('data-' + lang);
+            if (text) el.innerHTML = text;
+        });
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.textContent.trim().toLowerCase() === lang);
+        });
+    }
+
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 20));
+
+    const navToggle = document.getElementById('navToggle');
+    const navLinks = document.getElementById('navLinks');
+    navToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
+    navLinks.querySelectorAll('a').forEach(link => link.addEventListener('click', () => navLinks.classList.remove('open')));
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    document.querySelectorAll('a[href^="#"]').forEach(
