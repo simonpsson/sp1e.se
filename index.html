@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simon Pettersson — BI Analyst</title>
     <meta name="description" content="BI Analyst specializing in Power BI, SQL, and data-driven insights. Portfolio and professional profile.">
+    <meta property="og:title" content="Simon Pettersson — BI Analyst">
+    <meta property="og:description" content="BI Analyst specializing in Power BI, SQL, and data-driven insights. Portfolio and professional profile.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sp1e.se">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Simon Pettersson — BI Analyst">
+    <meta name="twitter:description" content="BI Analyst specializing in Power BI, SQL, and data-driven insights. Portfolio and professional profile.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
@@ -171,9 +178,6 @@
     </style>
 </head>
 <body>
-<div style="background:#f59e0b; color:#000; text-align:center; padding:10px; font-weight:600; position:relative; z-index:99999;">
-  🚧 Website currently under construction 🚧
-</div>
 <nav id="nav">
     <div class="nav-inner">
         <a href="#" class="nav-logo">sp1e<span>.se</span></a>
@@ -314,21 +318,30 @@
     </div>
 </section>
 
-<footer><p data-en="&copy; 2025 Simon Pettersson. Built with a passion for data." data-sv="&copy; 2025 Simon Pettersson. Byggd med passion för data.">&copy; 2025 Simon Pettersson. Built with a passion for data.</p></footer>
+<footer><p data-en="&copy; 2026 Simon Pettersson. Built with a passion for data." data-sv="&copy; 2026 Simon Pettersson. Byggd med passion för data.">&copy; 2026 Simon Pettersson. Built with a passion for data.</p></footer>
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
-    let currentLang = 'en';
+    let currentLang = localStorage.getItem('lang') || 'en';
     function setLang(lang) {
         currentLang = lang;
+        localStorage.setItem('lang', lang);
         document.documentElement.lang = lang;
         document.querySelectorAll('[data-en]').forEach(el => {
             const text = el.getAttribute('data-' + lang);
-            if (text) el.innerHTML = text;
+            if (text) {
+                // Use textContent for plain text elements; fall back to innerHTML only for elements with known HTML entities
+                if (el.children.length === 0) {
+                    el.textContent = text;
+                } else {
+                    el.innerHTML = text;
+                }
+            }
         });
         document.querySelectorAll('.lang-btn').forEach(btn => {
             btn.classList.toggle('active', btn.textContent.trim().toLowerCase() === lang);
         });
     }
+    setLang(currentLang);
 
     const nav = document.getElementById('nav');
     window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 20));
@@ -343,4 +356,21 @@
     }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-    document.querySelectorAll('a[href^="#"]').forEach(
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', e => {
+            const target = document.querySelector(anchor.getAttribute('href'));
+            if (target) {
+                e.preventDefault();
+                target.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    });
+
+    document.addEventListener('click', e => {
+        if (!navToggle.contains(e.target) && !navLinks.contains(e.target)) {
+            navLinks.classList.remove('open');
+        }
+    });
+</script>
+</body>
+</html>
