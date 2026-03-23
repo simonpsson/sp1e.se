@@ -178,6 +178,15 @@
     </style>
 </head>
 <body>
+<div id="lockScreen" style="position:fixed;inset:0;z-index:999999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem;">
+    <p style="font-family:'Source Serif 4',Georgia,serif;font-size:clamp(1.4rem,3vw,2rem);color:#fff;font-style:italic;letter-spacing:0.02em;opacity:0.9;">Hey, you. So you're finally awake?</p>
+    <form id="lockForm" style="display:flex;gap:0.75rem;" onsubmit="return false;">
+        <input id="lockInput" type="password" placeholder="Enter password" autofocus style="padding:0.7rem 1.2rem;border:1px solid rgba(255,255,255,0.15);border-radius:8px;background:rgba(255,255,255,0.05);color:#fff;font-family:'Outfit',sans-serif;font-size:0.95rem;outline:none;width:220px;transition:border-color 0.3s;" onfocus="this.style.borderColor='rgba(255,255,255,0.4)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
+        <button type="submit" style="padding:0.7rem 1.5rem;border:none;border-radius:8px;background:#fff;color:#000;font-family:'Outfit',sans-serif;font-size:0.95rem;font-weight:600;cursor:pointer;transition:opacity 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Enter</button>
+    </form>
+    <p id="lockError" style="color:#ef4444;font-family:'Outfit',sans-serif;font-size:0.85rem;opacity:0;transition:opacity 0.3s;"></p>
+</div>
+<div id="siteContent" style="display:none;">
 <div style="background:#f59e0b; color:#000; text-align:center; padding:10px; font-weight:600; position:relative; z-index:99999;">
   🚧 Website currently under construction 🚧
 </div>
@@ -323,6 +332,34 @@
 
 <footer><p data-en="&copy; 2026 Simon Pettersson. Built with a passion for data." data-sv="&copy; 2026 Simon Pettersson. Byggd med passion för data.">&copy; 2026 Simon Pettersson. Built with a passion for data.</p></footer>
 
+</div><!-- end siteContent -->
+<script>
+    (function() {
+        async function sha256(str) {
+            var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        var HASH = 'a4350a92d61765ad440b1024423a5be81146e6aeb7f654789f605692bc3353b3';
+        if (sessionStorage.getItem('unlocked') === 'yes') {
+            document.getElementById('lockScreen').style.display = 'none';
+            document.getElementById('siteContent').style.display = 'block';
+        }
+        document.getElementById('lockForm').addEventListener('submit', async function() {
+            var val = document.getElementById('lockInput').value;
+            var digest = await sha256(val);
+            if (digest === HASH) {
+                sessionStorage.setItem('unlocked', 'yes');
+                document.getElementById('lockScreen').style.display = 'none';
+                document.getElementById('siteContent').style.display = 'block';
+            } else {
+                var err = document.getElementById('lockError');
+                err.textContent = 'Wrong password.';
+                err.style.opacity = '1';
+                document.getElementById('lockInput').value = '';
+            }
+        });
+    })();
+</script>
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
     let currentLang = localStorage.getItem('lang') || 'en';
     function setLang(lang) {
