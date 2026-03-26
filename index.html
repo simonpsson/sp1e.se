@@ -1,14 +1,282 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>sp1e.se</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300&family=Space+Grotesk:wght@300;400&display=swap" rel="stylesheet">
 <style>
-  html, body { margin: 0; height: 100%; background: #000; }
-  body { display: flex; align-items: center; justify-content: center; }
-  span { color: #fff; font-family: monospace; font-size: 1rem; letter-spacing: .2em; }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    background: #000;
+    color: #fff;
+    font-family: 'Space Grotesk', sans-serif;
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    animation: fade-in 1.5s ease forwards;
+  }
+
+  @keyframes fade-in {
+    to { opacity: 1; }
+  }
+
+  /* ── Centre stack ─────────────────────────────────── */
+  .stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .wordmark {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: 3rem;
+    letter-spacing: 0.3em;
+    color: #fff;
+    text-indent: 0.3em; /* compensate letter-spacing on last char */
+    user-select: none;
+  }
+
+  .rule {
+    width: 100px;
+    height: 1px;
+    background: rgba(255,255,255,0.10);
+    margin-top: -1rem; /* tighten the gap after wordmark */
+  }
+
+  /* ── Cards ────────────────────────────────────────── */
+  .cards {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 130px;
+    height: 60px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    background: transparent;
+    color: rgba(255,255,255,0.65);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  .card:hover, .card:focus-visible {
+    border-color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.95);
+    box-shadow: 0 0 20px rgba(255,255,255,0.04);
+    outline: none;
+  }
+
+  /* ── Modal overlay ────────────────────────────────── */
+  #modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  #modal.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: min(300px, 90vw);
+  }
+
+  .modal-label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+  }
+
+  .modal-input {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 6px;
+    padding: 0.65rem 1rem;
+    color: rgba(255,255,255,0.85);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.08em;
+    outline: none;
+    transition: border-color 0.2s ease;
+    caret-color: rgba(255,255,255,0.5);
+  }
+
+  .modal-input:focus {
+    border-color: rgba(255,255,255,0.25);
+  }
+
+  .modal-input::placeholder {
+    color: rgba(255,255,255,0.18);
+    letter-spacing: 0.05em;
+  }
+
+  .modal-btn {
+    align-self: flex-end;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    padding: 0.5rem 1.2rem;
+    color: rgba(255,255,255,0.6);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 300;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .modal-btn:hover {
+    border-color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.9);
+  }
+
+  .modal-error {
+    font-size: 0.72rem;
+    color: rgba(220,80,80,0.9);
+    letter-spacing: 0.05em;
+    height: 1em;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .modal-error.show { opacity: 1; }
+
+  /* ── Responsive ───────────────────────────────────── */
+  @media (max-width: 400px) {
+    .cards { flex-direction: column; }
+    .card  { width: 160px; }
+  }
 </style>
 </head>
-<body><span>sp1e.se</span></body>
+<body>
+
+<main class="stage">
+  <h1 class="wordmark">SP1E</h1>
+  <div class="rule"></div>
+  <nav class="cards">
+    <a class="card" href="/visitor">Visitor</a>
+    <button class="card" id="hub-btn">Σ.Π.</button>
+  </nav>
+</main>
+
+<!-- Password modal -->
+<div id="modal" role="dialog" aria-modal="true" aria-label="Ange lösenord">
+  <div class="modal-box">
+    <p class="modal-label">Ange lösenord</p>
+    <input
+      class="modal-input"
+      id="pw-input"
+      type="password"
+      placeholder="••••••••"
+      autocomplete="current-password"
+    >
+    <p class="modal-error" id="pw-error" aria-live="polite">Fel lösenord.</p>
+    <button class="modal-btn" id="pw-submit">Enter</button>
+  </div>
+</div>
+
+<script>
+  // SHA-256 of "Adderall123!"
+  const HASH = 'a4350a92d61765ad440b1024423a5be81146e6aeb7f654789f605692bc3353b3';
+
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(str)
+    );
+    return Array.from(new Uint8Array(buf))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  const modal   = document.getElementById('modal');
+  const input   = document.getElementById('pw-input');
+  const error   = document.getElementById('pw-error');
+  const submit  = document.getElementById('pw-submit');
+  const hubBtn  = document.getElementById('hub-btn');
+
+  let errorTimer = null;
+
+  function openModal() {
+    modal.classList.add('open');
+    input.value = '';
+    error.classList.remove('show');
+    // slight delay so the transition is visible
+    requestAnimationFrame(() => setTimeout(() => input.focus(), 50));
+  }
+
+  function closeModal() {
+    modal.classList.remove('open');
+  }
+
+  async function attemptLogin() {
+    const hash = await sha256(input.value);
+    if (hash === HASH) {
+      window.location.href = '/hub';
+    } else {
+      input.value = '';
+      error.classList.add('show');
+      clearTimeout(errorTimer);
+      errorTimer = setTimeout(() => error.classList.remove('show'), 2000);
+      input.focus();
+    }
+  }
+
+  hubBtn.addEventListener('click', openModal);
+
+  submit.addEventListener('click', attemptLogin);
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') attemptLogin();
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // Close on backdrop click
+  modal.addEventListener('click', e => {
+    if (e.target === modal) closeModal();
+  });
+</script>
+</body>
 </html>
