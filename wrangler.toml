@@ -1,0 +1,30 @@
+# Cloudflare Pages + Workers configuration for sp1e.se
+# Docs: https://developers.cloudflare.com/pages/functions/wrangler-configuration/
+#
+# One-time setup (run these locally before deploying):
+#   npx wrangler d1 create sp1e-db        → paste the database_id below
+#   npx wrangler r2 bucket create sp1e-files
+#   npx wrangler pages project create sp1e-se
+#
+# Deploy:
+#   npx wrangler pages deploy .
+
+name = "sp1e-se"
+pages_build_output_dir = "."
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sp1e-db"
+database_id = "REPLACE_WITH_YOUR_DATABASE_ID"   # ← fill in after `wrangler d1 create`
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "sp1e-files"
+
+# Environment variables (non-secret)
+# Secrets go in Cloudflare dashboard → Pages → Settings → Environment variables
+# Required secrets to set there:
+#   PASSWORD_HASH  — PBKDF2 hash of your login password
+#                    Generate with: node scripts/hash-password.js <your-password>
