@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hub — sp1e.se</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:           #0a0a0f;
+    --surface:      #12121a;
+    --border:       rgba(255,255,255,0.07);
+    --border-hi:    rgba(255,255,255,0.14);
+    --accent:       #4af2c8;
+    --accent-glow:  rgba(74,242,200,0.07);
+    --text:         rgba(255,255,255,0.85);
+    --muted:        rgba(255,255,255,0.40);
+    --dim:          rgba(255,255,255,0.20);
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100%;
+    opacity: 0;
+    animation: fade-in 0.4s ease 0.1s forwards;
+  }
+  @keyframes fade-in { to { opacity: 1; } }
+
+  /* ── Top bar ───────────────────────────────────────── */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem;
+    background: rgba(10,10,15,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 1.25rem; letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.75); text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  .logo:hover { color: #fff; }
+  .logout-btn {
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); letter-spacing: 0.05em;
+    transition: color 0.2s ease;
+  }
+  .logout-btn:hover { color: var(--text); }
+
+  /* ── Layout ────────────────────────────────────────── */
+  main { max-width: 900px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .page-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 2.8rem; color: #fff;
+    margin-bottom: 2.5rem; letter-spacing: 0.02em;
+  }
+
+  /* ── Category grid ─────────────────────────────────── */
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.875rem;
+    margin-bottom: 3.5rem;
+  }
+  .cat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem 1rem;
+    text-decoration: none; color: var(--text);
+    display: flex; flex-direction: column; gap: 0.45rem;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+  }
+  .cat-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 28px var(--accent-glow);
+  }
+  .cat-icon  { font-size: 1.4rem; }
+  .cat-name  { font-size: 0.8rem; color: var(--text); }
+  .cat-count { font-size: 0.65rem; color: var(--muted); }
+
+  /* ── Skeleton loader ───────────────────────────────── */
+  .skel {
+    background: linear-gradient(90deg, var(--surface) 25%, rgba(255,255,255,0.03) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: skel 1.4s ease infinite;
+    border-radius: 12px; height: 96px;
+  }
+  @keyframes skel { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  /* ── Section heading ───────────────────────────────── */
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 1.2rem; letter-spacing: 0.05em;
+    color: var(--muted); margin-bottom: 0.75rem;
+  }
+
+  /* ── Recent list ───────────────────────────────────── */
+  .recent-list { list-style: none; }
+  .recent-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.6rem 0; border-bottom: 1px solid var(--border);
+    transition: opacity 0.15s ease; cursor: default;
+  }
+  .recent-item:last-child { border-bottom: none; }
+  .type-badge {
+    font-size: 0.58rem; padding: 0.15rem 0.4rem;
+    border-radius: 3px; border: 1px solid var(--border-hi);
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;
+    flex-shrink: 0; min-width: 54px; text-align: center;
+  }
+  .recent-title {
+    flex: 1; font-size: 0.78rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .recent-time { font-size: 0.62rem; color: var(--dim); flex-shrink: 0; }
+
+  .empty { font-size: 0.75rem; color: var(--muted); padding: 1rem 0; }
+
+  @media (max-width: 640px) {
+    main { padding: 2rem 1rem 4rem; }
+    .topbar { padding: 0 1rem; }
+    .page-title { font-size: 2rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="logo" href="/">SP1E</a>
+  <button class="logout-btn" id="logout-btn">Logga ut</button>
+</header>
+
+<main>
+  <h1 class="page-title">Hub</h1>
+
+  <div class="cat-grid" id="cat-grid">
+    <div class="skel"></div><div class="skel"></div>
+    <div class="skel"></div><div class="skel"></div>
+    <div class="skel"></div><div class="skel"></div>
+    <div class="skel"></div>
+  </div>
+
+  <h2 class="section-title">Senaste</h2>
+  <ul class="recent-list" id="recent-list">
+    <li class="empty">Laddar...</li>
+  </ul>
+</main>
+
+<script>
+(async () => {
+  // ── Auth check ──────────────────────────────────────
+  try {
+    const r = await fetch('/api/auth/check', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (!d.authenticated) { location.href = '/'; return; }
+  } catch { location.href = '/'; return; }
+
+  // ── Logout ──────────────────────────────────────────
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    location.href = '/';
+  });
+
+  // ── Fetch + render ──────────────────────────────────
+  const [catsRes, recentRes] = await Promise.all([
+    fetch('/api/categories', { credentials: 'same-origin' }).then(r => r.json()).catch(() => ({})),
+    fetch('/api/recent',     { credentials: 'same-origin' }).then(r => r.json()).catch(() => ({})),
+  ]);
+
+  renderGrid(catsRes.categories ?? []);
+  renderRecent(recentRes.items ?? []);
+})();
+
+function renderGrid(cats) {
+  const el = document.getElementById('cat-grid');
+  if (!cats.length) {
+    el.innerHTML = '<p class="empty">Inga kategorier ännu.</p>';
+    return;
+  }
+  el.innerHTML = cats.map(c => `
+    <a class="cat-card" href="/hub/category/${esc(c.id)}">
+      <span class="cat-icon">${c.icon ?? ''}</span>
+      <span class="cat-name">${esc(c.name)}</span>
+      <span class="cat-count">${c.item_count ?? 0} objekt</span>
+    </a>
+  `).join('');
+}
+
+function renderRecent(items) {
+  const el = document.getElementById('recent-list');
+  if (!items.length) {
+    el.innerHTML = '<li class="empty">Inga objekt ännu.</li>';
+    return;
+  }
+  el.innerHTML = items.map(item => `
+    <li class="recent-item">
+      <span class="type-badge">${esc(item.type)}</span>
+      <span class="recent-title">${esc(item.title ?? '(namnlös)')}</span>
+      <span class="recent-time">${relTime(item.created_at)}</span>
+    </li>
+  `).join('');
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function relTime(iso) {
+  if (!iso) return '';
+  const m = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (m < 1)   return 'nu';
+  if (m < 60)  return m + 'm';
+  const h = Math.floor(m / 60);
+  if (h < 24)  return h + 'h';
+  const d = Math.floor(h / 24);
+  if (d < 30)  return d + 'd';
+  return new Date(iso).toLocaleDateString('sv-SE', { day:'numeric', month:'short' });
+}
+</script>
+</body>
+</html>
