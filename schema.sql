@@ -2,6 +2,16 @@
 -- Run once:  npx wrangler d1 execute sp1e-db --remote --file=schema.sql
 -- Local dev: npx wrangler d1 execute sp1e-db --local  --file=schema.sql
 
+-- ─── Sessions (auth) ─────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token      TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions (expires_at);
+
 -- ─── Categories ──────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS categories (

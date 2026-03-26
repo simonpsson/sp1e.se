@@ -1,0 +1,8 @@
+# Local dev secrets for Cloudflare Pages
+# Copy this file to .dev.vars and fill in your values.
+# .dev.vars is gitignored — never commit it.
+#
+# Generate AUTH_PASSWORD_HASH with:
+#   node scripts/hash-password.js "your-password"
+
+AUTH_PASSWORD_HASH=pbkdf2:100000:<saltHex>:<hashHex>

@@ -218,24 +218,11 @@
 </div>
 
 <script>
-  // SHA-256 of "Adderall123!"
-  const HASH = 'a4350a92d61765ad440b1024423a5be81146e6aeb7f654789f605692bc3353b3';
-
-  async function sha256(str) {
-    const buf = await crypto.subtle.digest(
-      'SHA-256',
-      new TextEncoder().encode(str)
-    );
-    return Array.from(new Uint8Array(buf))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-  }
-
-  const modal   = document.getElementById('modal');
-  const input   = document.getElementById('pw-input');
-  const error   = document.getElementById('pw-error');
-  const submit  = document.getElementById('pw-submit');
-  const hubBtn  = document.getElementById('hub-btn');
+  const modal  = document.getElementById('modal');
+  const input  = document.getElementById('pw-input');
+  const error  = document.getElementById('pw-error');
+  const submit = document.getElementById('pw-submit');
+  const hubBtn = document.getElementById('hub-btn');
 
   let errorTimer = null;
 
@@ -243,7 +230,6 @@
     modal.classList.add('open');
     input.value = '';
     error.classList.remove('show');
-    // slight delay so the transition is visible
     requestAnimationFrame(() => setTimeout(() => input.focus(), 50));
   }
 
@@ -251,29 +237,50 @@
     modal.classList.remove('open');
   }
 
+  function showError() {
+    input.value = '';
+    error.classList.add('show');
+    clearTimeout(errorTimer);
+    errorTimer = setTimeout(() => error.classList.remove('show'), 2000);
+    input.focus();
+  }
+
   async function attemptLogin() {
-    const hash = await sha256(input.value);
-    if (hash === HASH) {
-      window.location.href = '/hub';
-    } else {
-      input.value = '';
-      error.classList.add('show');
-      clearTimeout(errorTimer);
-      errorTimer = setTimeout(() => error.classList.remove('show'), 2000);
-      input.focus();
+    const password = input.value;
+    if (!password) return;
+
+    submit.disabled = true;
+    submit.textContent = '...';
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ password }),
+      });
+
+      if (res.ok) {
+        window.location.href = '/hub';
+      } else {
+        showError();
+      }
+    } catch {
+      showError();
+    } finally {
+      submit.disabled = false;
+      submit.textContent = 'Enter';
     }
   }
 
   hubBtn.addEventListener('click', openModal);
-
   submit.addEventListener('click', attemptLogin);
 
   input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') attemptLogin();
+    if (e.key === 'Enter')  attemptLogin();
     if (e.key === 'Escape') closeModal();
   });
 
-  // Close on backdrop click
   modal.addEventListener('click', e => {
     if (e.target === modal) closeModal();
   });
