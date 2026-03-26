@@ -1,66 +1,39 @@
-/**
- * sp1e.se API — Cloudflare Pages Function (catch-all)
- * Handles all requests matching /api/*
- *
- * Local dev: npx wrangler pages dev . --d1=DB --r2=FILES
- */
-
 export interface Env {
   DB: D1Database;
   FILES: R2Bucket;
-  PASSWORD_HASH?: string;
 }
-
-// ─── Routing ──────────────────────────────────────────────────────────────────
 
 export const onRequest: PagesFunction<Env> = async (ctx) => {
   const { request, params } = ctx;
+  const route  = ((params.route as string[]) ?? []).join('/');
+  const method = request.method.toUpperCase();
 
-  const segments = (params.route as string[] | undefined) ?? [];
-  const route    = segments.join('/');           // e.g. "health", "notes", "notes/abc"
-  const method   = request.method.toUpperCase();
-
-  // Preflight
-  if (method === 'OPTIONS') return preflight();
+  if (method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: cors() });
+  }
 
   try {
-    // ── Health ───────────────────────────────────────────────────────────────
     if (route === 'health' && method === 'GET') {
-      return ok({ status: 'ok' });
+      return json({ status: 'ok' });
     }
 
-    // ── 404 ──────────────────────────────────────────────────────────────────
-    return err(404, 'not found');
-
-  } catch (e) {
-    console.error(e);
-    return err(500, 'internal error');
+    return json({ error: 'not found' }, 404);
+  } catch (err) {
+    console.error(err);
+    return json({ error: 'internal error' }, 500);
   }
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function ok(data: unknown, status = 200): Response {
+function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...corsHeaders(),
-    },
+    headers: { 'Content-Type': 'application/json', ...cors() },
   });
 }
 
-function err(status: number, message: string): Response {
-  return ok({ error: message }, status);
-}
-
-function preflight(): Response {
-  return new Response(null, { status: 204, headers: corsHeaders() });
-}
-
-function corsHeaders(): Record<string, string> {
+function cors(): Record<string, string> {
   return {
-    'Access-Control-Allow-Origin':  '*',
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
