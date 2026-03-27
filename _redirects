@@ -1,8 +1,3 @@
-# Rewrite SPA entry points — JS reads the ID from window.location.pathname.
-/hub/category/*      /hub/category/index.html      200
-/hub/note/*          /hub/note/index.html           200
-/hub/snippet/*       /hub/snippet/index.html        200
-/hub/tags            /hub/tags/index.html           200
-/public/note/*       /public/note/index.html        200
-/public/snippet/*    /public/snippet/index.html     200
-/public/bookmark/*   /public/bookmark/index.html    200
+# All pages use ?id= query params so Cloudflare auto-serves index.html from the directory.
+# No SPA rewrites needed.
+/hub/tags    /hub/tags/index.html    200

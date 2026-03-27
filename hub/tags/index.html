@@ -377,8 +377,8 @@ async function loadItems() {
 }
 
 function itemHref(item) {
-  if (item.type === 'note')     return `/hub/note/${item.id}`;
-  if (item.type === 'snippet')  return `/hub/snippet/${item.id}`;
+  if (item.type === 'note')     return `/hub/note/?id=${item.id}`;
+  if (item.type === 'snippet')  return `/hub/snippet/?id=${item.id}`;
   if (item.type === 'bookmark') return item.url ?? '#';
   if (item.type === 'file')     return `/api/files/${item.id}/download`;
   return '#';
