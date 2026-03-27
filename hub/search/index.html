@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sök — sp1e.se</title>
+<meta name="robots" content="noindex">
+<script>(function(){var t=localStorage.getItem('sp1e-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');})();</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0a0f;
+    --surface:   #12121a;
+    --border:    rgba(255,255,255,0.07);
+    --border-hi: rgba(255,255,255,0.14);
+    --accent:    #4af2c8;
+    --accent-dim: rgba(74,242,200,0.10);
+    --text:      rgba(255,255,255,0.85);
+    --muted:     rgba(255,255,255,0.40);
+    --dim:       rgba(255,255,255,0.20);
+    --topbar-bg:   rgba(10,10,15,0.92);
+    --modal-bg:    #14141e;
+    --ctx-bg:      #1c1c28;
+    --heading:     #ffffff;
+    --logo-col:    rgba(255,255,255,0.75);
+    --logo-hover:  #ffffff;
+    --hover-bg:    rgba(255,255,255,0.04);
+  }
+  [data-theme="light"] {
+    --bg:          #f7f7f3;
+    --surface:     #eeeee8;
+    --surface2:    #e5e5de;
+    --border:      rgba(0,0,0,0.08);
+    --border-hi:   rgba(0,0,0,0.18);
+    --text:        rgba(0,0,0,0.82);
+    --muted:       rgba(0,0,0,0.45);
+    --dim:         rgba(0,0,0,0.28);
+    --topbar-bg:   rgba(247,247,243,0.92);
+    --modal-bg:    #f0f0ea;
+    --ctx-bg:      #e8e8e2;
+    --heading:     #0a0a0f;
+    --logo-col:    rgba(0,0,0,0.60);
+    --logo-hover:  #0a0a0f;
+    --hover-bg:    rgba(0,0,0,0.04);
+    --danger-dim:  rgba(255,85,85,0.12);
+  }
+  [data-theme="light"] pre[class*="language-"],
+  [data-theme="light"] .code-preview { background: #181822 !important; }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Mono', monospace; min-height: 100%;
+    opacity: 0; animation: fade-in 0.3s ease 0.05s forwards;
+  }
+  @keyframes fade-in { to { opacity: 1; } }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 50; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem;
+    background: var(--topbar-bg); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-size: 1.25rem; letter-spacing: 0.2em;
+    color: var(--logo-col); text-decoration: none; transition: color 0.2s;
+  }
+  .logo:hover { color: var(--logo-hover); }
+  .topbar-right { display: flex; align-items: center; gap: 0.5rem; }
+  .theme-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; padding: 0.15rem 0.4rem;
+    border-radius: 6px; line-height: 1; opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .theme-btn:hover { opacity: 1; }
+  .logout-btn {
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); transition: color 0.2s;
+  }
+  .logout-btn:hover { color: var(--text); }
+
+  main { max-width: 780px; margin: 0 auto; padding: 2.5rem 2rem 6rem; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.72rem; color: var(--muted); text-decoration: none;
+    margin-bottom: 1.5rem; transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--text); }
+
+  /* Search bar */
+  .search-wrap { position: relative; margin-bottom: 0.75rem; }
+  .search-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.85rem 1.1rem 0.85rem 2.75rem;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.82rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--border-hi); }
+  .search-icon {
+    position: absolute; left: 0.95rem; top: 50%; transform: translateY(-50%);
+    font-size: 1rem; color: var(--dim); pointer-events: none;
+  }
+
+  .result-count { font-size: 0.65rem; color: var(--dim); margin-bottom: 2rem; }
+
+  /* Groups */
+  .group { margin-bottom: 2rem; }
+  .group-title {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-size: 1.1rem; color: var(--muted); letter-spacing: 0.06em;
+    margin-bottom: 0.65rem; padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Result cards */
+  .result-card {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    padding: 0.85rem 0.9rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+    margin-bottom: 0.5rem; cursor: pointer;
+    text-decoration: none; color: var(--text);
+    transition: border-color 0.15s;
+  }
+  .result-card:hover { border-color: var(--border-hi); }
+  .result-icon { font-size: 0.95rem; flex-shrink: 0; padding-top: 0.1rem; }
+  .result-body { flex: 1; min-width: 0; }
+  .result-title { font-size: 0.82rem; color: var(--text); margin-bottom: 0.2rem; }
+  .result-meta { font-size: 0.62rem; color: var(--dim); margin-bottom: 0.2rem; }
+  .result-preview {
+    font-size: 0.68rem; color: var(--muted); line-height: 1.5;
+    overflow: hidden; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+
+  .empty { font-size: 0.8rem; color: var(--muted); padding: 2rem 0; text-align: center; }
+
+  @media (max-width: 640px) { main { padding: 1.75rem 1rem 4rem; } .topbar { padding: 0 1rem; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="logo" href="/">SP1E</a>
+  <div class="topbar-right">
+    <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
+    <button class="logout-btn" id="logout-btn">Logga ut</button>
+  </div>
+</header>
+
+<main>
+  <a class="back-link" href="/hub">← Hub</a>
+
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input type="text" class="search-input" id="search-input"
+           placeholder="Sök…" autocomplete="off" spellcheck="false">
+  </div>
+  <p class="result-count" id="result-count"></p>
+
+  <div id="results"></div>
+</main>
+
+<script>
+const TYPE_ICONS  = { note: '📝', snippet: '💻', file: '📁', bookmark: '🔗' };
+const TYPE_LABELS = { note: 'Anteckningar', snippet: 'Snippets', file: 'Filer', bookmark: 'Bokmärken' };
+
+let searchTimer = null;
+let currentQ = '';
+
+(async () => {
+  try {
+    const r = await fetch('/api/auth/check', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (!d.authenticated) { location.href = '/'; return; }
+  } catch { location.href = '/'; return; }
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    location.href = '/';
+  });
+
+  const input = document.getElementById('search-input');
+
+  // Populate from URL param
+  const params = new URLSearchParams(location.search);
+  const initial = params.get('q') ?? '';
+  if (initial) {
+    input.value = initial;
+    await search(initial);
+  }
+  input.focus();
+
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const q = input.value.trim();
+    // Update URL without reload
+    const url = new URL(location);
+    if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
+    history.replaceState(null, '', url);
+    if (!q) { renderResults([], ''); return; }
+    searchTimer = setTimeout(() => search(q), 300);
+  });
+})();
+
+async function search(q) {
+  currentQ = q;
+  document.getElementById('result-count').textContent = 'Söker…';
+  try {
+    const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
+    const data = await res.json();
+    if (q === currentQ) renderResults(data.results ?? [], q);
+  } catch {
+    document.getElementById('result-count').textContent = 'Något gick fel.';
+  }
+}
+
+function renderResults(results, q) {
+  const countEl   = document.getElementById('result-count');
+  const resultsEl = document.getElementById('results');
+
+  if (!q) { countEl.textContent = ''; resultsEl.innerHTML = ''; return; }
+  if (!results.length) {
+    countEl.textContent = '';
+    resultsEl.innerHTML = `<p class="empty">Inga träffar för "${esc(q)}".</p>`;
+    return;
+  }
+
+  countEl.textContent = `${results.length} träff${results.length !== 1 ? 'ar' : ''} för "${q}"`;
+
+  // Group by type
+  const groups = {};
+  for (const r of results) {
+    if (!groups[r.type]) groups[r.type] = [];
+    groups[r.type].push(r);
+  }
+
+  let html = '';
+  for (const type of ['note', 'snippet', 'file', 'bookmark']) {
+    const items = groups[type];
+    if (!items?.length) continue;
+    html += `<div class="group">
+      <h2 class="group-title">${TYPE_LABELS[type]}</h2>`;
+    for (const item of items) {
+      const breadcrumb = item.breadcrumb
+        ? `${esc(item.breadcrumb.cat_name)} › ${esc(item.breadcrumb.name)}`
+        : '';
+      const preview = (item.preview ?? '').replace(/[#*`_~]/g,'').slice(0, 160);
+      const href = itemHref(item);
+      const target = (type === 'bookmark') ? ' target="_blank" rel="noopener"' : '';
+      html += `
+        <a class="result-card" href="${esc(href)}"${target}>
+          <span class="result-icon">${TYPE_ICONS[type] ?? '📄'}</span>
+          <div class="result-body">
+            <div class="result-title">${esc(item.title ?? '(namnlös)')}</div>
+            ${breadcrumb ? `<div class="result-meta">${breadcrumb}</div>` : ''}
+            ${preview ? `<div class="result-preview">${esc(preview)}</div>` : ''}
+          </div>
+        </a>`;
+    }
+    html += '</div>';
+  }
+
+  resultsEl.innerHTML = html;
+}
+
+function itemHref(item) {
+  if (item.type === 'note')     return `/hub/note/${item.id}`;
+  if (item.type === 'snippet')  return `/hub/snippet/${item.id}`;
+  if (item.type === 'bookmark') return item.url ?? '#';
+  if (item.type === 'file')     return `/api/files/${item.id}/download`;
+  return '#';
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+  // Theme toggle
+  (function initTheme() {
+    const btn = document.getElementById('theme-btn');
+    function syncIcon() {
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      if (btn) btn.textContent = light ? '🌙' : '☀';
+      if (btn) btn.title = light ? 'Mörkt tema' : 'Ljust tema';
+    }
+    syncIcon();
+    btn?.addEventListener('click', () => {
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      document.documentElement.setAttribute('data-theme', light ? 'dark' : 'light');
+      localStorage.setItem('sp1e-theme', light ? 'dark' : 'light');
+      syncIcon();
+    });
+  })();
+</script>
+</body>
+</html>

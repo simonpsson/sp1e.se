@@ -1,0 +1,12 @@
+name                  = "sp1e-se"
+pages_build_output_dir = "."
+compatibility_date    = "2026-03-26"
+
+[[d1_databases]]
+binding       = "DB"
+database_name = "sp1e-db"
+database_id   = "REPLACE_WITH_YOUR_DATABASE_ID"
+
+[[r2_buckets]]
+binding     = "FILES"
+bucket_name = "sp1e-files"

@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hub — sp1e.se</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
+<script>(function(){var t=localStorage.getItem('sp1e-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');})();</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:           #0a0a0f;
+    --surface:      #12121a;
+    --surface2:     #181822;
+    --border:       rgba(255,255,255,0.07);
+    --border-hi:    rgba(255,255,255,0.14);
+    --accent:       #4af2c8;
+    --accent-dim:   rgba(74,242,200,0.10);
+    --accent-glow:  rgba(74,242,200,0.07);
+    --text:         rgba(255,255,255,0.85);
+    --muted:        rgba(255,255,255,0.40);
+    --dim:          rgba(255,255,255,0.20);
+    --danger:       #ff5555;
+    --danger-dim:   rgba(255,85,85,0.10);
+    --topbar-bg:    rgba(10,10,15,0.92);
+    --modal-bg:     #14141e;
+    --ctx-bg:       #1c1c28;
+    --heading:      #ffffff;
+    --logo-col:     rgba(255,255,255,0.75);
+    --logo-hover:   #ffffff;
+    --hover-bg:     rgba(255,255,255,0.04);
+  }
+  [data-theme="light"] {
+    --bg:           #f7f7f3;
+    --surface:      #ffffff;
+    --surface2:     #e8e8e2;
+    --border:       rgba(0,0,0,0.07);
+    --border-hi:    rgba(0,0,0,0.12);
+    --accent-dim:   rgba(74,242,200,0.20);
+    --accent-glow:  rgba(74,242,200,0.12);
+    --text:         rgba(0,0,0,0.82);
+    --muted:        rgba(0,0,0,0.45);
+    --dim:          rgba(0,0,0,0.28);
+    --danger:       #cc2424;
+    --danger-dim:   rgba(204,36,36,0.10);
+    --topbar-bg:    rgba(247,247,243,0.92);
+    --modal-bg:     #ffffff;
+    --ctx-bg:       #f0f0eb;
+    --heading:      #0d0d12;
+    --logo-col:     rgba(0,0,0,0.55);
+    --logo-hover:   #000000;
+    --hover-bg:     rgba(0,0,0,0.04);
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100%;
+    opacity: 0;
+    animation: fade-in 0.4s ease 0.1s forwards;
+  }
+  @keyframes fade-in { to { opacity: 1; } }
+
+  /* ── Top bar ───────────────────────────────────────── */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem;
+    background: var(--topbar-bg);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 1.25rem; letter-spacing: 0.2em;
+    color: var(--logo-col); text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  .logo:hover { color: var(--logo-hover); }
+  .logout-btn {
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); letter-spacing: 0.05em;
+    transition: color 0.2s ease;
+  }
+  .logout-btn:hover { color: var(--text); }
+
+  /* ── Layout ────────────────────────────────────────── */
+  main { max-width: 900px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .page-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 2.8rem; color: var(--heading);
+    margin-bottom: 2.5rem; letter-spacing: 0.02em;
+  }
+
+  /* ── Category grid ─────────────────────────────────── */
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.875rem;
+    margin-bottom: 3.5rem;
+  }
+  .cat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem 1rem;
+    text-decoration: none; color: var(--text);
+    display: flex; flex-direction: column; gap: 0.45rem;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+  }
+  .cat-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 28px var(--accent-glow);
+  }
+  .cat-icon  { font-size: 1.4rem; }
+  .cat-name  { font-size: 0.8rem; color: var(--text); }
+  .cat-count { font-size: 0.65rem; color: var(--muted); }
+
+  /* ── Skeleton loader ───────────────────────────────── */
+  .skel {
+    background: linear-gradient(90deg, var(--surface) 25%, rgba(255,255,255,0.03) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: skel 1.4s ease infinite;
+    border-radius: 12px; height: 96px;
+  }
+  @keyframes skel { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  /* ── Section heading ───────────────────────────────── */
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 1.2rem; letter-spacing: 0.05em;
+    color: var(--muted); margin-bottom: 0.75rem;
+  }
+
+  /* ── Recent list ───────────────────────────────────── */
+  .recent-list { list-style: none; }
+  .recent-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.6rem 0; border-bottom: 1px solid var(--border);
+    transition: opacity 0.15s ease; cursor: default;
+  }
+  .recent-item:last-child { border-bottom: none; }
+  .type-badge {
+    font-size: 0.58rem; padding: 0.15rem 0.4rem;
+    border-radius: 3px; border: 1px solid var(--border-hi);
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;
+    flex-shrink: 0; min-width: 54px; text-align: center;
+  }
+  .recent-title {
+    flex: 1; font-size: 0.78rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .recent-time { font-size: 0.62rem; color: var(--dim); flex-shrink: 0; }
+
+  .empty { font-size: 0.75rem; color: var(--muted); padding: 1rem 0; }
+
+  /* ── Search ──────────────────────────────────────── */
+  .search-wrap { position: relative; margin-bottom: 2.5rem; }
+  .search-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.85rem 1.1rem 0.85rem 2.75rem;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.82rem;
+    outline: none; transition: border-color 0.2s; letter-spacing: 0.02em;
+  }
+  .search-input:focus { border-color: var(--border-hi); }
+  .search-input::placeholder { color: var(--dim); }
+  .search-icon {
+    position: absolute; left: 0.95rem; top: 50%; transform: translateY(-50%);
+    font-size: 1rem; color: var(--dim); pointer-events: none; line-height: 1;
+  }
+  .search-dropdown {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 200;
+    background: var(--modal-bg); border: 1px solid var(--border-hi);
+    border-radius: 10px; overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+    display: none;
+  }
+  .search-dropdown.open { display: block; }
+  .search-group-head {
+    font-size: 0.58rem; letter-spacing: 0.12em; color: var(--dim);
+    padding: 0.6rem 0.9rem 0.25rem; text-transform: uppercase;
+    border-top: 1px solid var(--border);
+  }
+  .search-group-head:first-child { border-top: none; }
+  .search-result {
+    display: flex; align-items: flex-start; gap: 0.65rem;
+    padding: 0.55rem 0.9rem; cursor: pointer;
+    transition: background 0.1s;
+  }
+  .search-result:hover, .search-result.focused { background: var(--hover-bg); }
+  .search-result-icon { font-size: 0.82rem; flex-shrink: 0; padding-top: 0.1rem; }
+  .search-result-body { flex: 1; min-width: 0; }
+  .search-result-title {
+    font-size: 0.78rem; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .search-result-meta { font-size: 0.6rem; color: var(--dim); }
+  .search-result-preview {
+    font-size: 0.63rem; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-top: 0.1rem;
+  }
+  .search-footer {
+    padding: 0.5rem 0.9rem; border-top: 1px solid var(--border);
+    font-size: 0.65rem; color: var(--dim); text-align: center;
+    cursor: pointer; transition: color 0.15s;
+  }
+  .search-footer:hover { color: var(--accent); }
+  .search-empty { padding: 1.25rem 0.9rem; font-size: 0.75rem; color: var(--muted); text-align: center; }
+
+  /* ── Progress bar ──────────────────────────────────── */
+  #progress {
+    position: fixed; top: 0; left: 0; width: 100%; height: 2px;
+    z-index: 200; pointer-events: none;
+    background: linear-gradient(90deg, var(--accent) 40%, transparent 100%);
+    background-size: 200% 100%; background-position: 100% 0;
+    transition: opacity 0.3s;
+  }
+  #progress.running { animation: progress-slide 1.2s linear infinite; opacity: 1; }
+  #progress.idle    { opacity: 0; }
+  @keyframes progress-slide {
+    from { background-position: 100% 0; }
+    to   { background-position: -100% 0; }
+  }
+
+  /* ── Toast ─────────────────────────────────────────── */
+  #toast-area {
+    position: fixed; top: 1rem; right: 1rem; z-index: 300;
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .toast {
+    background: rgba(220,60,60,0.15); border: 1px solid rgba(220,60,60,0.35);
+    color: rgba(255,180,180,0.95); border-radius: 6px;
+    padding: 0.55rem 1rem; font-size: 0.72rem; letter-spacing: 0.04em;
+    opacity: 0; transform: translateY(-6px);
+    transition: opacity 0.2s, transform 0.2s;
+    max-width: 320px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── Recent items as links ─────────────────────────── */
+  .recent-item { text-decoration: none; }
+  a.recent-item:hover .recent-title { color: var(--accent); }
+
+  /* ── Theme toggle + export ─────────────────────────── */
+  .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+  .theme-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; padding: 0.15rem 0.4rem;
+    border-radius: 6px; line-height: 1; opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .theme-btn:hover { opacity: 1; }
+  .export-btn {
+    background: none; border: 1px solid var(--border-hi);
+    border-radius: 6px; padding: 0.35rem 0.75rem;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    color: var(--dim); cursor: pointer; letter-spacing: 0.04em;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Recent section header ─────────────────────────── */
+  .section-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+  .section-row .section-title { margin: 0; }
+
+  @media (max-width: 640px) {
+    main { padding: 2rem 1rem 4rem; }
+    .topbar { padding: 0 1rem; }
+    .page-title { font-size: 2rem; }
+    .cat-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress" class="idle"></div>
+<div id="toast-area"></div>
+
+<header class="topbar">
+  <a class="logo" href="/">SP1E</a>
+  <div class="topbar-right">
+    <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
+    <button class="logout-btn" id="logout-btn">Logga ut</button>
+  </div>
+</header>
+
+<main>
+  <h1 class="page-title">Hub</h1>
+
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input type="text" class="search-input" id="search-input"
+           placeholder="Sök anteckningar, snippets, filer, bokmärken…"
+           autocomplete="off" spellcheck="false">
+    <div class="search-dropdown" id="search-dropdown"></div>
+  </div>
+
+  <div class="cat-grid" id="cat-grid">
+    <div class="skel"></div><div class="skel"></div>
+    <div class="skel"></div><div class="skel"></div>
+    <div class="skel"></div><div class="skel"></div>
+    <div class="skel"></div>
+  </div>
+
+  <div class="section-row">
+    <h2 class="section-title">Senaste</h2>
+    <button class="export-btn" id="export-btn">↓ Exportera allt</button>
+  </div>
+  <ul class="recent-list" id="recent-list">
+    <li class="empty">Laddar...</li>
+  </ul>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+<script>
+// ── Progress + Toast ──────────────────────────────────
+const progressEl = document.getElementById('progress');
+function startProgress() { progressEl.className = 'running'; }
+function stopProgress()  { progressEl.className = 'idle'; }
+
+function showToast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.getElementById('toast-area').appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 3000);
+}
+
+(async () => {
+  // ── Auth check ──────────────────────────────────────
+  try {
+    const r = await fetch('/api/auth/check', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (!d.authenticated) { location.href = '/'; return; }
+  } catch { location.href = '/'; return; }
+
+  // ── Search ──────────────────────────────────────────
+  initSearch();
+
+  // ── Keyboard shortcut: / focuses search ─────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      document.getElementById('search-input').focus();
+    }
+  });
+
+  // ── Logout ──────────────────────────────────────────
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    location.href = '/';
+  });
+
+  // ── Fetch + render ──────────────────────────────────
+  startProgress();
+  let catsRes = {}, recentRes = {};
+  try {
+    [catsRes, recentRes] = await Promise.all([
+      fetch('/api/categories', { credentials: 'same-origin' }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch('/api/recent',     { credentials: 'same-origin' }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    ]);
+  } catch {
+    showToast('Kunde inte ladda hub-data.');
+  }
+  stopProgress();
+
+  renderGrid(catsRes.categories ?? []);
+  renderRecent(recentRes.items ?? []);
+})();
+
+// ─── Search ───────────────────────────────────────────
+
+let searchTimer = null;
+
+function initSearch() {
+  const input    = document.getElementById('search-input');
+  const dropdown = document.getElementById('search-dropdown');
+
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const q = input.value.trim();
+    if (!q) { closeDropdown(); return; }
+    searchTimer = setTimeout(() => runSearch(q), 300);
+  });
+
+  input.addEventListener('keydown', e => {
+    const items = dropdown.querySelectorAll('.search-result');
+    const focused = dropdown.querySelector('.search-result.focused');
+    const idx = focused ? [...items].indexOf(focused) : -1;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = items[idx + 1] ?? items[0];
+      focused?.classList.remove('focused');
+      next?.classList.add('focused');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = items[idx - 1] ?? items[items.length - 1];
+      focused?.classList.remove('focused');
+      prev?.classList.add('focused');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (focused) { focused.click(); return; }
+      const q = input.value.trim();
+      if (q) location.href = `/hub/search?q=${encodeURIComponent(q)}`;
+    } else if (e.key === 'Escape') {
+      closeDropdown();
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.search-wrap')) closeDropdown();
+  });
+}
+
+async function runSearch(q) {
+  const dropdown = document.getElementById('search-dropdown');
+  dropdown.innerHTML = '<div class="search-empty">Söker…</div>';
+  dropdown.classList.add('open');
+
+  try {
+    const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
+    const data = await res.json();
+    renderDropdown(data.results ?? [], q);
+  } catch {
+    dropdown.innerHTML = '<div class="search-empty">Kunde inte söka.</div>';
+  }
+}
+
+const TYPE_ICONS = { note: '📝', snippet: '💻', file: '📁', bookmark: '🔗' };
+const TYPE_LABELS = { note: 'Anteckningar', snippet: 'Snippets', file: 'Filer', bookmark: 'Bokmärken' };
+
+function renderDropdown(results, q) {
+  const dropdown = document.getElementById('search-dropdown');
+  if (!results.length) {
+    dropdown.innerHTML = '<div class="search-empty">Inga träffar.</div>';
+    return;
+  }
+
+  // Group by type, keep at most 3 per group in the dropdown
+  const groups = {};
+  for (const r of results) {
+    if (!groups[r.type]) groups[r.type] = [];
+    if (groups[r.type].length < 3) groups[r.type].push(r);
+  }
+
+  let html = '';
+  for (const type of ['note', 'snippet', 'file', 'bookmark']) {
+    const items = groups[type];
+    if (!items?.length) continue;
+    html += `<div class="search-group-head">${TYPE_LABELS[type]}</div>`;
+    for (const item of items) {
+      const breadcrumb = item.breadcrumb
+        ? `${esc(item.breadcrumb.cat_name)} › ${esc(item.breadcrumb.name)}`
+        : '';
+      const preview = (item.preview ?? '').replace(/[#*`_~]/g,'').slice(0, 80);
+      html += `
+        <div class="search-result" data-type="${esc(item.type)}" data-id="${esc(item.id)}"
+             data-url="${esc(item.url ?? '')}">
+          <span class="search-result-icon">${TYPE_ICONS[item.type] ?? '📄'}</span>
+          <div class="search-result-body">
+            <div class="search-result-title">${esc(item.title ?? '(namnlös)')}</div>
+            ${breadcrumb ? `<div class="search-result-meta">${breadcrumb}</div>` : ''}
+            ${preview ? `<div class="search-result-preview">${esc(preview)}</div>` : ''}
+          </div>
+        </div>`;
+    }
+  }
+
+  const total = results.length;
+  html += `<div class="search-footer">Tryck Enter för att se alla ${total > 20 ? '20+' : total} träffar</div>`;
+
+  dropdown.innerHTML = html;
+
+  dropdown.querySelectorAll('.search-result').forEach(el => {
+    el.addEventListener('click', () => navigateResult(el.dataset));
+  });
+  dropdown.querySelector('.search-footer')?.addEventListener('click', () => {
+    const q2 = document.getElementById('search-input').value.trim();
+    if (q2) location.href = `/hub/search?q=${encodeURIComponent(q2)}`;
+  });
+}
+
+function navigateResult({ type, id, url }) {
+  closeDropdown();
+  if (type === 'note')     location.href = `/hub/note/${id}`;
+  else if (type === 'snippet')  location.href = `/hub/snippet/${id}`;
+  else if (type === 'bookmark') window.open(url, '_blank', 'noopener');
+  else if (type === 'file')     window.open(`/api/files/${id}/download`, '_blank');
+}
+
+function closeDropdown() {
+  const d = document.getElementById('search-dropdown');
+  d.classList.remove('open');
+  d.innerHTML = '';
+}
+
+function renderGrid(cats) {
+  const el = document.getElementById('cat-grid');
+  if (!cats.length) {
+    el.innerHTML = '<p class="empty">Inga kategorier ännu.</p>';
+    return;
+  }
+  el.innerHTML = cats.map(c => `
+    <a class="cat-card" href="/hub/category/${esc(c.id)}">
+      <span class="cat-icon">${c.icon ?? ''}</span>
+      <span class="cat-name">${esc(c.name)}</span>
+      <span class="cat-count">${c.item_count ?? 0} objekt</span>
+    </a>
+  `).join('');
+}
+
+function recentHref(item) {
+  if (item.type === 'note')     return `/hub/note/${item.id}`;
+  if (item.type === 'snippet')  return `/hub/snippet/${item.id}`;
+  if (item.type === 'bookmark') return item.extra ?? '#';
+  if (item.type === 'file')     return `/api/files/${item.id}/download`;
+  return '#';
+}
+
+function renderRecent(items) {
+  const el = document.getElementById('recent-list');
+  if (!items.length) {
+    el.innerHTML = '<li class="empty">Inga objekt ännu.</li>';
+    return;
+  }
+  el.innerHTML = items.map(item => {
+    const href   = recentHref(item);
+    const isExt  = item.type === 'bookmark' || item.type === 'file';
+    const target = isExt ? ' target="_blank" rel="noopener"' : '';
+    return `
+      <a class="recent-item" href="${esc(href)}"${target} style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid var(--border);color:inherit;text-decoration:none;transition:opacity 0.15s ease;">
+        <span class="type-badge">${esc(item.type)}</span>
+        <span class="recent-title">${esc(item.title ?? '(namnlös)')}</span>
+        <span class="recent-time">${relTime(item.created_at)}</span>
+      </a>`;
+  }).join('');
+}
+
+// ── Theme ─────────────────────────────────────────────
+(function initTheme() {
+  const btn = document.getElementById('theme-btn');
+  function syncIcon() {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    if (btn) btn.textContent = light ? '🌙' : '☀';
+    if (btn) btn.title = light ? 'Mörkt tema' : 'Ljust tema';
+  }
+  syncIcon();
+  btn?.addEventListener('click', () => {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    document.documentElement.setAttribute('data-theme', light ? 'dark' : 'light');
+    localStorage.setItem('sp1e-theme', light ? 'dark' : 'light');
+    syncIcon();
+  });
+})();
+
+// ── Export ────────────────────────────────────────────
+document.getElementById('export-btn')?.addEventListener('click', doExport);
+
+async function doExport() {
+  const btn = document.getElementById('export-btn');
+  btn.disabled = true; btn.textContent = '↓ Hämtar…';
+  startProgress();
+
+  try {
+    const res = await fetch('/api/export', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+
+    const zip      = new JSZip();
+    const dateStr  = new Date().toISOString().slice(0, 10);
+    const root     = zip.folder(`sp1e-export-${dateStr}`);
+
+    // Notes → notes/{category}/{title}.md
+    const notesDir = root.folder('notes');
+    for (const n of data.notes ?? []) {
+      const cat  = sanitizeName(n.category_name ?? 'okategoriserat');
+      const name = sanitizeName(n.title ?? 'namnlos') + '.md';
+      const fm   = `---\ntitle: ${n.title ?? ''}\ncreated: ${(n.created_at ?? '').slice(0,10)}\ntags: [${parseTags(n.tags).join(', ')}]\n---\n\n`;
+      notesDir.folder(cat).file(name, fm + (n.content ?? ''));
+    }
+
+    // Snippets → snippets/{category}/{title}.ext
+    const LANG_EXT = {
+      sql:'sql', dax:'dax', python:'py', m:'m', pyspark:'py',
+      javascript:'js', typescript:'ts', bash:'sh', json:'json', yaml:'yaml', other:'txt',
+    };
+    const snipsDir = root.folder('snippets');
+    for (const s of data.snippets ?? []) {
+      const cat  = sanitizeName(s.category_name ?? 'okategoriserat');
+      const ext  = LANG_EXT[s.language] ?? 'txt';
+      const name = sanitizeName(s.title ?? 'namnlos') + '.' + ext;
+      snipsDir.folder(cat).file(name, s.code ?? '');
+    }
+
+    // Bookmarks
+    root.file('bookmarks.json', JSON.stringify(
+      (data.bookmarks ?? []).map(b => ({
+        title: b.title, url: b.url, description: b.description || undefined,
+        tags: parseTags(b.tags), created_at: b.created_at,
+      })), null, 2
+    ));
+
+    // File metadata
+    root.file('files.json', JSON.stringify(
+      (data.files ?? []).map(f => ({
+        filename: f.filename, mime_type: f.mime_type, size: f.size,
+        category: f.category_name || null, is_public: !!f.is_public,
+        created_at: f.created_at,
+      })), null, 2
+    ));
+
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: `sp1e-export-${dateStr}.zip` });
+    document.body.appendChild(a);
+    a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch {
+    showToast('Export misslyckades.');
+  } finally {
+    btn.disabled = false; btn.textContent = '↓ Exportera allt';
+    stopProgress();
+  }
+}
+
+function sanitizeName(s) {
+  return String(s ?? '').replace(/[/\\:*?"<>|]/g, '_').trim().slice(0, 80) || 'namnlos';
+}
+
+function parseTags(raw) {
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a : []; }
+  catch { return String(raw).split(',').map(t => t.trim()).filter(Boolean); }
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function relTime(iso) {
+  if (!iso) return '';
+  const m = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (m < 1)   return 'nu';
+  if (m < 60)  return m + 'm';
+  const h = Math.floor(m / 60);
+  if (h < 24)  return h + 'h';
+  const d = Math.floor(h / 24);
+  if (d < 30)  return d + 'd';
+  return new Date(iso).toLocaleDateString('sv-SE', { day:'numeric', month:'short' });
+}
+</script>
+</body>
+</html>

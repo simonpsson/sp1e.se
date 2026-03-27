@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem('sp1e-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anteckning — sp1e.se</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #0a0a0f;
+    --surface: #12121a;
+    --surface2:#181822;
+    --border:  rgba(255,255,255,0.07);
+    --accent:  #4af2c8;
+    --text:    rgba(255,255,255,0.85);
+    --muted:   rgba(255,255,255,0.40);
+    --dim:     rgba(255,255,255,0.20);
+    --topbar-bg:   rgba(10,10,15,0.92);
+    --modal-bg:    #14141e;
+    --ctx-bg:      #1c1c28;
+    --heading:     #ffffff;
+    --logo-col:    rgba(255,255,255,0.75);
+    --logo-hover:  #ffffff;
+    --hover-bg:    rgba(255,255,255,0.04);
+  }
+  [data-theme="light"] {
+    --bg:          #f7f7f3;
+    --surface:     #eeeee8;
+    --surface2:    #e5e5de;
+    --border:      rgba(0,0,0,0.08);
+    --border-hi:   rgba(0,0,0,0.18);
+    --text:        rgba(0,0,0,0.82);
+    --muted:       rgba(0,0,0,0.45);
+    --dim:         rgba(0,0,0,0.28);
+    --topbar-bg:   rgba(247,247,243,0.92);
+    --modal-bg:    #f0f0ea;
+    --ctx-bg:      #e8e8e2;
+    --heading:     #0a0a0f;
+    --logo-col:    rgba(0,0,0,0.60);
+    --logo-hover:  #0a0a0f;
+    --hover-bg:    rgba(0,0,0,0.04);
+    --danger-dim:  rgba(255,85,85,0.12);
+  }
+  [data-theme="light"] pre[class*="language-"],
+  [data-theme="light"] .code-preview { background: #181822 !important; }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Mono', monospace; min-height: 100%;
+    opacity: 0; animation: fade-in 0.4s ease 0.05s forwards;
+  }
+  @keyframes fade-in { to { opacity: 1; } }
+
+  .topbar {
+    height: 52px; display: flex; align-items: center;
+    padding: 0 2rem; border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-size: 1.2rem; letter-spacing: 0.2em;
+    color: var(--logo-col); text-decoration: none; transition: color 0.2s;
+  }
+  .logo:hover { color: var(--logo-hover); }
+
+  main { max-width: 780px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+
+  .note-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 2.6rem; color: var(--heading);
+    margin-bottom: 0.75rem; line-height: 1.2;
+  }
+  .note-meta {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.65rem; color: var(--dim); margin-bottom: 2.5rem; flex-wrap: wrap;
+  }
+  .public-badge {
+    font-size: 0.55rem; padding: 0.12rem 0.35rem; border-radius: 3px;
+    background: rgba(74,242,200,0.08); color: var(--accent);
+    border: 1px solid rgba(74,242,200,0.2);
+  }
+  .tag {
+    font-size: 0.58rem; padding: 0.1rem 0.35rem; border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.14); color: var(--muted);
+  }
+
+  /* Markdown prose */
+  .prose { line-height: 1.75; font-size: 0.88rem; color: var(--text); }
+  .prose h1, .prose h2, .prose h3, .prose h4 {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    color: var(--heading); margin: 1.75rem 0 0.6rem; line-height: 1.25;
+  }
+  .prose h1 { font-size: 1.8rem; } .prose h2 { font-size: 1.4rem; } .prose h3 { font-size: 1.15rem; }
+  .prose p  { margin-bottom: 1rem; }
+  .prose ul, .prose ol { margin: 0 0 1rem 1.5rem; }
+  .prose li  { margin-bottom: 0.3rem; }
+  .prose blockquote {
+    border-left: 3px solid rgba(255,255,255,0.14); padding-left: 1rem;
+    color: var(--muted); margin: 0 0 1rem;
+  }
+  .prose code {
+    background: var(--surface2); border-radius: 4px;
+    padding: 0.1em 0.35em; font-size: 0.82em; color: var(--accent);
+  }
+  .prose pre {
+    background: var(--surface2); border-radius: 8px;
+    padding: 1rem 1.1rem; margin-bottom: 1rem; overflow-x: auto;
+  }
+  .prose pre code { background: none; padding: 0; color: var(--muted); font-size: 0.8rem; }
+  .prose a { color: var(--accent); text-decoration: none; }
+  .prose a:hover { text-decoration: underline; }
+  .prose hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+  .prose table { border-collapse: collapse; width: 100%; margin-bottom: 1rem; font-size: 0.8rem; }
+  .prose th, .prose td { border: 1px solid rgba(255,255,255,0.14); padding: 0.4rem 0.7rem; }
+  .prose th { color: var(--muted); }
+
+  .not-found { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 4rem; }
+
+  footer {
+    text-align: center; padding: 1.5rem;
+    font-size: 0.62rem; color: var(--dim); border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--dim); text-decoration: none; }
+  footer a:hover { color: var(--muted); }
+
+  @media (max-width: 640px) { main { padding: 2rem 1rem 4rem; } .topbar { padding: 0 1rem; } .note-title { font-size: 1.9rem; } }
+  .topbar-right { display: flex; align-items: center; gap: 0.5rem; }
+  .theme-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; padding: 0.15rem 0.4rem;
+    border-radius: 6px; line-height: 1; opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .theme-btn:hover { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="logo" href="/">SP1E</a>
+  <div class="topbar-right">
+    <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
+  </div>
+</header>
+
+<main id="main">
+  <p class="not-found">Laddar…</p>
+</main>
+
+<footer><a href="/">sp1e.se</a></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(async () => {
+  const parts  = location.pathname.split('/').filter(Boolean);
+  const noteId = parts[parts.length - 1];
+  const main   = document.getElementById('main');
+
+  if (!noteId || noteId === 'note') {
+    main.innerHTML = '<p class="not-found">Ogiltigt ID.</p>'; return;
+  }
+
+  let note;
+  try {
+    const res = await fetch(`/api/notes/${noteId}`, { credentials: 'same-origin' });
+    if (!res.ok) throw new Error();
+    note = await res.json();
+  } catch {
+    main.innerHTML = '<p class="not-found">Anteckningen hittades inte eller är inte publik.</p>'; return;
+  }
+
+  document.title = `${note.title ?? 'Anteckning'} — sp1e.se`;
+
+  const tags = parseTags(note.tags);
+  const metaParts = [
+    note.updated_at ? `uppdaterad ${relTime(note.updated_at)}` : `${relTime(note.created_at)}`,
+    note.subcategory_name ? `<span>${esc(note.subcategory_name)}</span>` : '',
+    '<span class="public-badge">public</span>',
+    ...tags.map(t => `<span class="tag">${esc(t)}</span>`),
+  ].filter(Boolean).join('<span style="color:rgba(255,255,255,0.14)"> · </span>');
+
+  const content = (note.content ?? '').trim();
+  const prose = content
+    ? `<div class="prose">${marked.parse(content)}</div>`
+    : '<p style="color:var(--muted);font-size:0.8rem;font-style:italic">Ingen text.</p>';
+
+  main.innerHTML = `
+    <h1 class="note-title">${esc(note.title ?? '(namnlös)')}</h1>
+    <div class="note-meta">${metaParts}</div>
+    ${prose}`;
+})();
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function parseTags(raw) {
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a : []; }
+  catch { return raw.split(',').map(t => t.trim()).filter(Boolean); }
+}
+function relTime(iso) {
+  if (!iso) return '';
+  const d = Math.floor((Date.now() - new Date(iso)) / 86400000);
+  if (d < 1) return 'idag';
+  if (d < 30) return `${d}d sedan`;
+  return new Date(iso).toLocaleDateString('sv-SE', { day:'numeric', month:'long', year:'numeric' });
+}
+
+  // Theme toggle
+  (function initTheme() {
+    const btn = document.getElementById('theme-btn');
+    function syncIcon() {
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      if (btn) btn.textContent = light ? '🌙' : '☀';
+      if (btn) btn.title = light ? 'Mörkt tema' : 'Ljust tema';
+    }
+    syncIcon();
+    btn?.addEventListener('click', () => {
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      document.documentElement.setAttribute('data-theme', light ? 'dark' : 'light');
+      localStorage.setItem('sp1e-theme', light ? 'dark' : 'light');
+      syncIcon();
+    });
+  })();
+</script>
+</body>
+</html>

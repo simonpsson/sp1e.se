@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kategori — sp1e.se</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
+<script>(function(){var t=localStorage.getItem('sp1e-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');})();</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:          #0a0a0f;
+    --surface:     #12121a;
+    --surface2:    #181822;
+    --border:      rgba(255,255,255,0.07);
+    --border-hi:   rgba(255,255,255,0.14);
+    --accent:      #4af2c8;
+    --accent-dim:  rgba(74,242,200,0.10);
+    --accent-glow: rgba(74,242,200,0.06);
+    --text:        rgba(255,255,255,0.85);
+    --muted:       rgba(255,255,255,0.40);
+    --dim:         rgba(255,255,255,0.20);
+    --danger:      #ff5555;
+    --danger-dim:  rgba(255,85,85,0.10);
+    --topbar-bg:   rgba(10,10,15,0.92);
+    --modal-bg:    #14141e;
+    --ctx-bg:      #1c1c28;
+    --heading:     #ffffff;
+    --logo-col:    rgba(255,255,255,0.75);
+    --logo-hover:  #ffffff;
+    --hover-bg:    rgba(255,255,255,0.04);
+  }
+  [data-theme="light"] {
+    --bg:          #f7f7f3;
+    --surface:     #ffffff;
+    --surface2:    #e8e8e2;
+    --border:      rgba(0,0,0,0.07);
+    --border-hi:   rgba(0,0,0,0.12);
+    --accent-dim:  rgba(74,242,200,0.20);
+    --accent-glow: rgba(74,242,200,0.12);
+    --text:        rgba(0,0,0,0.82);
+    --muted:       rgba(0,0,0,0.45);
+    --dim:         rgba(0,0,0,0.28);
+    --danger:      #cc2424;
+    --danger-dim:  rgba(204,36,36,0.10);
+    --topbar-bg:   rgba(247,247,243,0.92);
+    --modal-bg:    #ffffff;
+    --ctx-bg:      #f0f0eb;
+    --heading:     #0d0d12;
+    --logo-col:    rgba(0,0,0,0.55);
+    --logo-hover:  #000000;
+    --hover-bg:    rgba(0,0,0,0.04);
+  }
+  /* Code blocks stay dark in light mode */
+  [data-theme="light"] pre[class*="language-"],
+  [data-theme="light"] .code-preview { background: #181822 !important; }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Mono', monospace; min-height: 100%;
+    opacity: 0; animation: fade-in 0.4s ease 0.05s forwards;
+  }
+  @keyframes fade-in { to { opacity: 1; } }
+
+  /* ── Top bar ───────────────────────────────────────── */
+  .topbar {
+    position: sticky; top: 0; z-index: 50; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem;
+    background: var(--topbar-bg); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-size: 1.25rem; letter-spacing: 0.2em;
+    color: var(--logo-col); text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  .logo:hover { color: var(--logo-hover); }
+  .topbar-right { display: flex; align-items: center; gap: 0.5rem; }
+  .theme-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; padding: 0.15rem 0.4rem;
+    border-radius: 6px; line-height: 1; opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .theme-btn:hover { opacity: 1; }
+  .logout-btn {
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); transition: color 0.2s ease;
+  }
+  .logout-btn:hover { color: var(--text); }
+
+  /* ── Layout ────────────────────────────────────────── */
+  main { max-width: 900px; margin: 0 auto; padding: 2.5rem 2rem 6rem; }
+
+  /* ── Category header ───────────────────────────────── */
+  .back-link {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.72rem; color: var(--muted); text-decoration: none;
+    margin-bottom: 1.25rem; transition: color 0.2s ease;
+  }
+  .back-link:hover { color: var(--text); }
+  .cat-heading {
+    display: flex; align-items: center; gap: 0.6rem;
+    margin-bottom: 1.75rem;
+  }
+  .cat-heading-icon { font-size: 1.6rem; }
+  .cat-heading h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 2.2rem; color: var(--heading);
+  }
+
+  /* ── Tabs ──────────────────────────────────────────── */
+  .tabs {
+    display: flex; gap: 0; flex-wrap: wrap;
+    border-bottom: 1px solid var(--border); margin-bottom: 1.75rem;
+  }
+  .tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; padding: 0.55rem 1rem;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0.04em;
+    color: var(--muted); cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Items toolbar ─────────────────────────────────── */
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+  .item-count { font-size: 0.68rem; color: var(--dim); }
+  .new-btn {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    background: var(--accent-dim); border: 1px solid rgba(74,242,200,0.2);
+    border-radius: 6px; padding: 0.45rem 0.9rem;
+    color: var(--accent); font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .new-btn:hover { background: rgba(74,242,200,0.15); border-color: rgba(74,242,200,0.35); }
+
+  /* ── Item cards ────────────────────────────────────── */
+  .items { display: flex; flex-direction: column; gap: 0.625rem; }
+
+  .item-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1rem 1.1rem;
+    position: relative; cursor: pointer;
+    transition: border-color 0.2s ease;
+    text-decoration: none; color: var(--text);
+    display: block;
+  }
+  .item-card:hover { border-color: var(--border-hi); }
+
+  .item-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 0.75rem; margin-bottom: 0.35rem;
+  }
+  .item-title {
+    font-size: 0.82rem; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1;
+  }
+  .item-menu-wrap { position: relative; flex-shrink: 0; }
+  .item-menu-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--dim); font-size: 1rem; padding: 0 0.25rem; line-height: 1;
+    transition: color 0.15s ease;
+  }
+  .item-menu-btn:hover { color: var(--text); }
+
+  .item-preview {
+    font-size: 0.72rem; color: var(--muted); line-height: 1.55;
+    margin-bottom: 0.5rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .item-url { font-size: 0.68rem; color: var(--dim); margin-bottom: 0.4rem; }
+
+  .code-preview {
+    background: var(--surface2); border-radius: 6px;
+    padding: 0.6rem 0.75rem; margin-bottom: 0.5rem;
+    font-size: 0.68rem; line-height: 1.6; overflow: hidden;
+    max-height: 72px; color: var(--muted);
+  }
+  .code-preview code { font-family: 'DM Mono', monospace; }
+
+  .item-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .tags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+  .tag {
+    font-size: 0.58rem; padding: 0.1rem 0.35rem; border-radius: 3px;
+    border: 1px solid var(--border-hi); color: var(--muted);
+  }
+  .lang-badge {
+    font-size: 0.58rem; padding: 0.12rem 0.4rem; border-radius: 3px;
+    background: var(--accent-dim); border: 1px solid rgba(74,242,200,0.2);
+    color: var(--accent); flex-shrink: 0;
+  }
+  .public-badge {
+    font-size: 0.55rem; padding: 0.1rem 0.3rem; border-radius: 3px;
+    background: rgba(74,242,200,0.08); color: var(--accent); flex-shrink: 0;
+  }
+  .item-time { font-size: 0.62rem; color: var(--dim); flex-shrink: 0; }
+
+  /* ── Context menu ──────────────────────────────────── */
+  .ctx-menu {
+    position: fixed; z-index: 200;
+    background: var(--ctx-bg); border: 1px solid var(--border-hi);
+    border-radius: 8px; padding: 0.3rem 0;
+    min-width: 130px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .ctx-item {
+    display: block; width: 100%;
+    background: none; border: none; text-align: left; cursor: pointer;
+    padding: 0.5rem 0.9rem; font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); transition: background 0.15s ease, color 0.15s ease;
+  }
+  .ctx-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .ctx-item.danger { color: rgba(255,85,85,0.7); }
+  .ctx-item.danger:hover { background: var(--danger-dim); color: var(--danger); }
+
+  /* ── Empty state ───────────────────────────────────── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 1rem; padding: 4rem 1rem; color: var(--muted);
+  }
+  .empty-state p { font-size: 0.8rem; }
+
+  /* ── Modal ─────────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--modal-bg); border: 1px solid var(--border-hi);
+    border-radius: 12px; padding: 1.75rem;
+    width: min(480px, 94vw); max-height: 90vh; overflow-y: auto;
+  }
+  .modal-title {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-size: 1.3rem; color: var(--heading); margin-bottom: 1.5rem;
+  }
+
+  /* Type selector */
+  .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .type-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.9rem; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.75rem;
+    color: var(--muted); transition: all 0.2s ease;
+    display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
+  }
+  .type-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .type-btn-icon { font-size: 1.2rem; }
+
+  /* Form */
+  .form-group { margin-bottom: 1rem; }
+  label { display: block; font-size: 0.65rem; color: var(--muted); margin-bottom: 0.35rem; letter-spacing: 0.05em; }
+  input[type=text], input[type=url], textarea, select {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.6rem 0.8rem;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    outline: none; transition: border-color 0.2s ease; resize: vertical;
+  }
+  input[type=text]:focus, input[type=url]:focus, textarea:focus, select:focus {
+    border-color: var(--border-hi);
+  }
+  textarea { min-height: 110px; }
+  .code-area { min-height: 150px; font-size: 0.72rem; }
+  select option { background: var(--ctx-bg); }
+
+  .check-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--muted); }
+  input[type=checkbox] { accent-color: var(--accent); }
+
+  .modal-actions {
+    display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.5rem;
+  }
+  .btn-ghost {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.5rem 1rem; font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); cursor: pointer; transition: all 0.2s ease;
+  }
+  .btn-ghost:hover { border-color: var(--border-hi); color: var(--text); }
+  .btn-primary {
+    background: var(--accent-dim); border: 1px solid rgba(74,242,200,0.25);
+    border-radius: 6px; padding: 0.5rem 1.1rem;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--accent); cursor: pointer; transition: all 0.2s ease;
+  }
+  .btn-primary:hover { background: rgba(74,242,200,0.18); border-color: rgba(74,242,200,0.4); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-back {
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    color: var(--muted); margin-bottom: 1rem; padding: 0;
+    transition: color 0.15s ease;
+  }
+  .btn-back:hover { color: var(--text); }
+
+  .form-error { font-size: 0.68rem; color: var(--danger); margin-top: 0.75rem; min-height: 1em; }
+
+  /* ── File thumbnail ─────────────────────────────────── */
+  .file-thumb-wrap {
+    width: 100%; height: 90px; overflow: hidden;
+    border-radius: 6px; margin-bottom: 0.6rem;
+    background: var(--surface2); display: flex; align-items: center; justify-content: center;
+  }
+  .file-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .file-thumb-err { font-size: 1.6rem; }
+
+  /* ── Drop zone ──────────────────────────────────────── */
+  .drop-zone {
+    border: 1px dashed var(--border-hi); border-radius: 8px;
+    padding: 1.5rem 1rem; text-align: center; cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .drop-zone.dragover {
+    border-color: var(--accent); background: var(--accent-dim);
+  }
+  .drop-zone-idle { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+  .drop-zone-idle p { font-size: 0.72rem; color: var(--muted); }
+  .file-selected {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.72rem; color: var(--text);
+  }
+  .file-selected-icon { font-size: 1.2rem; }
+
+  /* ── Image preview overlay ──────────────────────────── */
+  #img-preview-overlay {
+    position: fixed; inset: 0; z-index: 400;
+    background: rgba(0,0,0,0.92); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+    cursor: zoom-out;
+  }
+  #img-preview-overlay.open { display: flex; }
+  .img-preview-inner { position: relative; max-width: 92vw; max-height: 92vh; cursor: default; }
+  #img-preview-el { max-width: 100%; max-height: 90vh; border-radius: 8px; display: block; }
+  .img-preview-close {
+    position: absolute; top: -2.2rem; right: 0;
+    background: none; border: none; color: var(--dim);
+    font-size: 1.6rem; cursor: pointer; line-height: 1;
+    transition: color 0.15s;
+  }
+  .img-preview-close:hover { color: var(--heading); }
+
+  /* ── Progress bar ──────────────────────────────────── */
+  #progress {
+    position: fixed; top: 0; left: 0; width: 100%; height: 2px;
+    z-index: 200; pointer-events: none;
+    background: linear-gradient(90deg, var(--accent) 40%, transparent 100%);
+    background-size: 200% 100%; background-position: 100% 0;
+    transition: opacity 0.3s;
+  }
+  #progress.running { animation: progress-slide 1.2s linear infinite; opacity: 1; }
+  #progress.idle    { opacity: 0; }
+  @keyframes progress-slide {
+    from { background-position: 100% 0; }
+    to   { background-position: -100% 0; }
+  }
+
+  /* ── Toast ─────────────────────────────────────────── */
+  #toast-area {
+    position: fixed; top: 1rem; right: 1rem; z-index: 300;
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .toast {
+    background: rgba(220,60,60,0.15); border: 1px solid rgba(220,60,60,0.35);
+    color: rgba(255,180,180,0.95); border-radius: 6px;
+    padding: 0.55rem 1rem; font-size: 0.72rem; letter-spacing: 0.04em;
+    opacity: 0; transform: translateY(-6px);
+    transition: opacity 0.2s, transform 0.2s;
+    max-width: 320px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── Custom confirm dialog ─────────────────────────── */
+  #confirm-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  #confirm-overlay.open { opacity: 1; pointer-events: all; }
+  .confirm-box {
+    background: var(--modal-bg); border: 1px solid var(--border-hi);
+    border-radius: 12px; padding: 1.75rem;
+    width: min(320px, 90vw);
+    transform: translateY(12px);
+    transition: transform 0.2s;
+  }
+  #confirm-overlay.open .confirm-box { transform: translateY(0); }
+  .confirm-msg {
+    font-size: 0.82rem; color: var(--text); margin-bottom: 1.5rem; line-height: 1.5;
+  }
+  .confirm-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
+
+  /* ── Modal slide-up ────────────────────────────────── */
+  .modal {
+    transform: translateY(16px);
+    transition: transform 0.22s ease;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  /* ── Tag filter pills ──────────────────────────────── */
+  #tag-filter-row {
+    display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem;
+  }
+  .filter-pill {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    padding: 0.2rem 0.6rem; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.12);
+    font-size: 0.65rem; color: var(--muted);
+    cursor: pointer; user-select: none;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .filter-pill:hover { border-color: rgba(74,242,200,0.4); color: var(--accent); }
+  .filter-pill.active { background: var(--accent-dim); border-color: rgba(74,242,200,0.5); color: var(--accent); }
+
+  /* ── Markdown toolbar ──────────────────────────────── */
+  .md-toolbar {
+    display: flex; flex-wrap: wrap; gap: 2px;
+    padding: 0.35rem 0.5rem; background: var(--surface2);
+    border: 1px solid var(--border); border-bottom: none;
+    border-radius: 6px 6px 0 0;
+  }
+  .md-toolbar + textarea { border-radius: 0 0 6px 6px; }
+  .md-btn {
+    background: none; border: 1px solid transparent;
+    border-radius: 4px; padding: 0.2rem 0.45rem;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    color: var(--dim); cursor: pointer; line-height: 1.4;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .md-btn:hover { background: var(--surface); color: var(--text); border-color: var(--border); }
+
+  @media (max-width: 640px) {
+    main { padding: 1.75rem 1rem 4rem; }
+    .topbar { padding: 0 1rem; }
+    .tabs { overflow-x: auto; flex-wrap: nowrap; }
+    .modal-overlay { align-items: flex-end; }
+    .modal { width: 100%; border-radius: 16px 16px 0 0; max-height: 92vh; transform: translateY(100%); }
+    .modal-overlay.open .modal { transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress" class="idle"></div>
+<div id="toast-area"></div>
+
+<!-- Custom confirm dialog -->
+<div id="confirm-overlay">
+  <div class="confirm-box">
+    <p class="confirm-msg" id="confirm-msg">Radera?</p>
+    <div class="confirm-actions">
+      <button class="btn-ghost" id="confirm-cancel">Avbryt</button>
+      <button class="btn-primary" id="confirm-ok" style="background:var(--danger-dim);border-color:rgba(255,85,85,0.3);color:var(--danger)">Radera</button>
+    </div>
+  </div>
+</div>
+
+<header class="topbar">
+  <a class="logo" href="/">SP1E</a>
+  <div class="topbar-right">
+    <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
+    <button class="logout-btn" id="logout-btn">Logga ut</button>
+  </div>
+</header>
+
+<main>
+  <a class="back-link" href="/hub">← Hub</a>
+
+  <div class="cat-heading">
+    <span class="cat-heading-icon" id="cat-icon"></span>
+    <h1 id="cat-name">Laddar…</h1>
+  </div>
+
+  <nav class="tabs" id="tabs"></nav>
+
+  <div id="tag-filter-row"></div>
+
+  <div class="toolbar">
+    <span class="item-count" id="item-count"></span>
+    <button class="new-btn" id="new-btn">+ Ny</button>
+  </div>
+
+  <div class="items" id="items"></div>
+</main>
+
+<!-- New / Edit modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <p class="modal-title" id="modal-title">Nytt objekt</p>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Image preview overlay -->
+<div id="img-preview-overlay" onclick="closeImagePreview()">
+  <div class="img-preview-inner" onclick="event.stopPropagation()">
+    <button class="img-preview-close" onclick="closeImagePreview()">×</button>
+    <img id="img-preview-el" src="" alt="">
+  </div>
+</div>
+
+<script>
+// ── Progress + Toast ──────────────────────────────────
+const progressEl = document.getElementById('progress');
+function startProgress() { progressEl.className = 'running'; }
+function stopProgress()  { progressEl.className = 'idle'; }
+
+function showToast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.getElementById('toast-area').appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 3000);
+}
+
+// ── Custom confirm ────────────────────────────────────
+function showConfirm(msg, onConfirm) {
+  const overlay = document.getElementById('confirm-overlay');
+  document.getElementById('confirm-msg').textContent = msg;
+  overlay.classList.add('open');
+  const ok     = document.getElementById('confirm-ok');
+  const cancel = document.getElementById('confirm-cancel');
+  const close  = () => overlay.classList.remove('open');
+  ok.onclick     = () => { close(); onConfirm(); };
+  cancel.onclick = close;
+}
+
+// ─── App state ────────────────────────────────────────
+
+const APP = {
+  categoryId:    null,
+  category:      null,
+  subcategories: [],
+  items:         [],
+  activeSubcat:  null,   // null = all
+  activeTags:    new Set(),
+  editingId:     null,   // set when editing
+  editingType:   null,
+};
+
+// ─── Init ─────────────────────────────────────────────
+
+(async () => {
+  // Auth
+  try {
+    const r = await fetch('/api/auth/check', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (!d.authenticated) { location.href = '/'; return; }
+  } catch { location.href = '/'; return; }
+
+  // Parse category ID from URL:  /hub/category/power-bi
+  const parts = location.pathname.split('/').filter(Boolean);
+  APP.categoryId = parts[parts.length - 1];
+  if (!APP.categoryId || APP.categoryId === 'category') {
+    location.href = '/hub'; return;
+  }
+
+  // Theme toggle
+  (function initTheme() {
+    const btn = document.getElementById('theme-btn');
+    function syncIcon() {
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      if (btn) btn.textContent = light ? '🌙' : '☀';
+      if (btn) btn.title = light ? 'Mörkt tema' : 'Ljust tema';
+    }
+    syncIcon();
+    btn?.addEventListener('click', () => {
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      document.documentElement.setAttribute('data-theme', light ? 'dark' : 'light');
+      localStorage.setItem('sp1e-theme', light ? 'dark' : 'light');
+      syncIcon();
+    });
+  })();
+
+  // Logout
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    location.href = '/';
+  });
+
+  // New button
+  document.getElementById('new-btn').addEventListener('click', () => openNewModal());
+
+  // Close modal on backdrop
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.key === 'n') { e.preventDefault(); openNewModal(); }
+    if (e.key === 'Escape') closeModal();
+  });
+
+  await loadCategory();
+})();
+
+// ─── Data ─────────────────────────────────────────────
+
+async function loadCategory(subcatId = APP.activeSubcat) {
+  APP.activeSubcat = subcatId;
+  APP.activeTags.clear();
+  const url = new URL(`/api/categories/${APP.categoryId}`, location.origin);
+  if (subcatId) url.searchParams.set('subcategory', subcatId);
+
+  startProgress();
+  try {
+    const res  = await fetch(url, { credentials: 'same-origin' });
+    const data = await res.json();
+    if (!res.ok) { location.href = '/hub'; return; }
+
+    APP.category      = data.category;
+    APP.subcategories = data.subcategories ?? [];
+    APP.items         = data.items         ?? [];
+
+    document.title = `${APP.category.name} — sp1e.se`;
+    document.getElementById('cat-icon').textContent = APP.category.icon ?? '';
+    document.getElementById('cat-name').textContent = APP.category.name;
+
+    renderTabs();
+    renderItems();
+  } catch {
+    showToast('Kunde inte ladda kategorin.');
+  } finally {
+    stopProgress();
+  }
+}
+
+// ─── Tabs ─────────────────────────────────────────────
+
+function renderTabs() {
+  const nav = document.getElementById('tabs');
+  const all = [{ id: null, name: 'Alla' }, ...APP.subcategories];
+  nav.innerHTML = all.map(s => `
+    <button class="tab ${APP.activeSubcat === s.id ? 'active' : ''}"
+            data-id="${s.id ?? ''}">
+      ${esc(s.name)}
+    </button>
+  `).join('');
+  nav.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id || null;
+      loadCategory(id);
+    });
+  });
+}
+
+// ─── Items ────────────────────────────────────────────
+
+function renderTagPills() {
+  const row = document.getElementById('tag-filter-row');
+  // Collect all unique tags from loaded items
+  const allTags = new Set();
+  for (const item of APP.items) {
+    for (const t of parseTags(item.tags)) allTags.add(t);
+  }
+  if (!allTags.size) { row.innerHTML = ''; return; }
+  row.innerHTML = [...allTags].sort().map(t => `
+    <button class="filter-pill${APP.activeTags.has(t) ? ' active' : ''}" data-tag="${esc(t)}">#${esc(t)}</button>
+  `).join('');
+  row.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const t = pill.dataset.tag;
+      if (APP.activeTags.has(t)) APP.activeTags.delete(t);
+      else APP.activeTags.add(t);
+      renderTagPills();
+      renderFilteredItems();
+    });
+  });
+}
+
+function renderFilteredItems() {
+  const items = APP.activeTags.size
+    ? APP.items.filter(item => {
+        const tags = parseTags(item.tags);
+        return [...APP.activeTags].every(t => tags.includes(t));
+      })
+    : APP.items;
+  renderItemList(items);
+}
+
+function renderItems() {
+  renderTagPills();
+  renderFilteredItems();
+}
+
+function renderItemList(items) {
+  const el    = document.getElementById('items');
+  const count = document.getElementById('item-count');
+  count.textContent = items.length ? `${items.length} objekt` : '';
+
+  if (!items.length) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <p>${APP.activeTags.size ? 'Inga objekt med dessa taggar' : 'Inga objekt ännu'}</p>
+        ${!APP.activeTags.size ? '<button class="new-btn" onclick="openNewModal()">+ Ny</button>' : ''}
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = items.map(item => {
+    switch (item.type) {
+      case 'note':     return noteCard(item);
+      case 'snippet':  return snippetCard(item);
+      case 'file':     return fileCard(item);
+      case 'bookmark': return bookmarkCard(item);
+      default:         return '';
+    }
+  }).join('');
+
+  // Attach events
+  el.querySelectorAll('.item-card[data-type="note"], .item-card[data-type="snippet"]').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.closest('.item-menu-wrap')) return;
+      const { id, type } = card.dataset;
+      location.href = `/hub/${type}/${id}`;
+    });
+  });
+
+  el.querySelectorAll('.item-card[data-type="file"]').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.closest('.item-menu-wrap')) return;
+      const { id, mime } = card.dataset;
+      if (mime?.startsWith('image/')) openImagePreview(id);
+      else window.open(`/api/files/${id}/download`, '_blank');
+    });
+  });
+
+  el.querySelectorAll('.item-menu-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); e.preventDefault();
+      openMenu(e, btn.dataset.id, btn.dataset.type, parseInt(btn.dataset.public), btn.dataset.title ?? '');
+    });
+  });
+}
+
+function noteCard(n) {
+  const preview = (n.content ?? '').replace(/[#*`_~]/g, '').slice(0, 120);
+  return `
+    <div class="item-card" data-id="${esc(n.id)}" data-type="note">
+      <div class="item-head">
+        <span class="item-title">${esc(n.title)}</span>
+        <div class="item-menu-wrap">
+          <button class="item-menu-btn" data-id="${esc(n.id)}" data-type="note" data-public="${n.is_public}" data-title="${esc(n.title)}">⋯</button>
+        </div>
+      </div>
+      ${preview ? `<p class="item-preview">${esc(preview)}${(n.content?.length ?? 0) > 120 ? '…' : ''}</p>` : ''}
+      <div class="item-foot">
+        <div class="tags">${parseTags(n.tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          ${n.is_public ? '<span class="public-badge">public</span>' : ''}
+          <span class="item-time">${relTime(n.updated_at || n.created_at)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function snippetCard(s) {
+  const preview = (s.code ?? '').split('\n').slice(0, 3).join('\n');
+  return `
+    <div class="item-card" data-id="${esc(s.id)}" data-type="snippet">
+      <div class="item-head">
+        <span class="item-title">${esc(s.title)}</span>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <span class="lang-badge">${esc(s.language)}</span>
+          <div class="item-menu-wrap">
+            <button class="item-menu-btn" data-id="${esc(s.id)}" data-type="snippet" data-public="${s.is_public}" data-title="${esc(s.title)}">⋯</button>
+          </div>
+        </div>
+      </div>
+      ${preview ? `<pre class="code-preview"><code>${esc(preview)}</code></pre>` : ''}
+      <div class="item-foot">
+        <div class="tags">${parseTags(s.tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          ${s.is_public ? '<span class="public-badge">public</span>' : ''}
+          <span class="item-time">${relTime(s.updated_at || s.created_at)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function fileCard(f) {
+  const isImage = f.mime_type?.startsWith('image/');
+  const isPdf   = f.mime_type === 'application/pdf';
+  const icon    = isImage ? '🖼️' : isPdf ? '📄' : '📁';
+  const thumb   = isImage
+    ? `<div class="file-thumb-wrap">
+         <img class="file-thumb" src="/api/files/${esc(f.id)}/download"
+              alt="${esc(f.filename)}" loading="lazy"
+              onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+         <span class="file-thumb-err" style="display:none">🖼️</span>
+       </div>`
+    : '';
+  return `
+    <div class="item-card" data-id="${esc(f.id)}" data-type="file" data-mime="${esc(f.mime_type ?? '')}">
+      ${thumb}
+      <div class="item-head">
+        <span class="item-title">${icon} ${esc(f.filename)}</span>
+        <div style="display:flex;gap:0.75rem;align-items:center">
+          <span style="font-size:0.62rem;color:var(--dim)">${fmtSize(f.size)}</span>
+          <div class="item-menu-wrap">
+            <button class="item-menu-btn" data-id="${esc(f.id)}" data-type="file" data-public="${f.is_public}" data-title="${esc(f.filename)}">⋯</button>
+          </div>
+        </div>
+      </div>
+      <div class="item-foot">
+        <div class="tags">${parseTags(f.tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          ${f.is_public ? '<span class="public-badge">public</span>' : ''}
+          <span class="item-time">${relTime(f.created_at)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bookmarkCard(b) {
+  let host = b.url;
+  try { host = new URL(b.url).hostname; } catch {}
+  return `
+    <a class="item-card" href="${esc(b.url)}" target="_blank" rel="noopener"
+       data-id="${esc(b.id)}" data-type="bookmark">
+      <div class="item-head">
+        <span class="item-title">
+          ${b.favicon_url
+            ? `<img src="${esc(b.favicon_url)}" width="13" height="13" style="vertical-align:middle;margin-right:4px;border-radius:2px">`
+            : '🔗 '}${esc(b.title)}
+        </span>
+        <div class="item-menu-wrap">
+          <button class="item-menu-btn"
+            data-id="${esc(b.id)}" data-type="bookmark" data-public="${b.is_public}" data-title="${esc(b.title)}"
+            onclick="event.preventDefault();event.stopPropagation();">⋯</button>
+        </div>
+      </div>
+      <p class="item-url">${esc(host)}</p>
+      ${b.description ? `<p class="item-preview">${esc(b.description.slice(0,120))}</p>` : ''}
+      <div class="item-foot">
+        <div class="tags">${parseTags(b.tags).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          ${b.is_public ? '<span class="public-badge">public</span>' : ''}
+          <span class="item-time">${relTime(b.created_at)}</span>
+        </div>
+      </div>
+    </a>`;
+}
+
+// ─── Context menu ──────────────────────────────────────
+
+let activeCtx = null;
+
+function openMenu(e, id, type, isPublic, title = '') {
+  closeCtx();
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu';
+  menu.innerHTML = `
+    <button class="ctx-item" id="ctx-edit">Redigera</button>
+    <button class="ctx-item" id="ctx-toggle">${isPublic ? 'Gör privat' : 'Gör publik'}</button>
+    <button class="ctx-item danger" id="ctx-delete">Ta bort</button>
+  `;
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  menu.style.cssText = `top:${rect.bottom + 4}px;right:${window.innerWidth - rect.right}px`;
+
+  menu.querySelector('#ctx-edit').onclick   = () => {
+    closeCtx();
+    if (type === 'note' || type === 'snippet') location.href = `/hub/${type}/${id}`;
+    else openEditModal(type, id);
+  };
+  menu.querySelector('#ctx-toggle').onclick = () => { closeCtx(); doTogglePublic(type, id, isPublic); };
+  menu.querySelector('#ctx-delete').onclick = () => { closeCtx(); doDelete(type, id, title); };
+
+  document.body.appendChild(menu);
+  activeCtx = menu;
+  setTimeout(() => document.addEventListener('click', closeCtx, { once: true }), 0);
+}
+
+function closeCtx() {
+  if (activeCtx) { activeCtx.remove(); activeCtx = null; }
+}
+
+async function doDelete(type, id, title = '') {
+  showConfirm(
+    title ? `Radera "${title}"?` : 'Radera detta objekt?',
+    async () => {
+      startProgress();
+      try {
+        const res = await fetch(`/api/${type}s/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+        if (!res.ok) showToast('Kunde inte ta bort objektet.');
+        else await loadCategory();
+      } catch {
+        showToast('Nätverksfel.');
+      } finally {
+        stopProgress();
+      }
+    }
+  );
+}
+
+async function doTogglePublic(type, id, current) {
+  await fetch(`/api/${type}s/${id}`, {
+    method: 'PATCH', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_public: current ? 0 : 1 }),
+  });
+  await loadCategory();
+}
+
+// ─── Modal ─────────────────────────────────────────────
+
+function openModal() { document.getElementById('modal-overlay').classList.add('open'); }
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  APP.editingId = null; APP.editingType = null;
+}
+
+// New item: show type selector
+function openNewModal() {
+  APP.editingId = null; APP.editingType = null;
+  document.getElementById('modal-title').textContent = 'Nytt objekt';
+  document.getElementById('modal-body').innerHTML = typeSelector();
+  openModal();
+  document.querySelectorAll('.type-btn').forEach(btn => {
+    btn.addEventListener('click', () => showForm(btn.dataset.type));
+  });
+}
+
+function typeSelector() {
+  const types = [
+    { type: 'note',     icon: '📝', label: 'Anteckning' },
+    { type: 'snippet',  icon: '💻', label: 'Snippet'    },
+    { type: 'file',     icon: '📁', label: 'Fil'        },
+    { type: 'bookmark', icon: '🔖', label: 'Bokmärke'   },
+  ];
+  return `<div class="type-grid">
+    ${types.map(t => `
+      <button class="type-btn" data-type="${t.type}">
+        <span class="type-btn-icon">${t.icon}</span>
+        ${t.label}
+      </button>`).join('')}
+  </div>`;
+}
+
+// Show form for a type (new or edit)
+function showForm(type, prefill = {}) {
+  APP.editingType = type;
+  const isEdit = !!APP.editingId;
+  document.getElementById('modal-title').textContent = isEdit ? 'Redigera' : `Ny ${typeName(type)}`;
+  document.getElementById('modal-body').innerHTML = buildForm(type, prefill, isEdit);
+  if (!isEdit) {
+    document.getElementById('modal-body').insertAdjacentHTML(
+      'afterbegin',
+      `<button class="btn-back" id="back-btn">← Välj typ</button>`
+    );
+    document.getElementById('back-btn').onclick = openNewModal;
+  }
+  document.getElementById('modal-form').addEventListener('submit', e => {
+    e.preventDefault();
+    submitForm(type);
+  });
+  if (type === 'file' && !APP.editingId) setupFileDropZone();
+  if (type === 'bookmark')               setupBookmarkFetchMeta();
+  if (type === 'note')                   setupMdToolbar();
+}
+
+function buildForm(type, pre = {}, isEdit = false) {
+  const subOpts = APP.subcategories.map(s =>
+    `<option value="${esc(s.id)}" ${pre.subcategory_id === s.id ? 'selected' : ''}>${esc(s.name)}</option>`
+  ).join('');
+
+  const subcatField = `
+    <div class="form-group">
+      <label>UNDERKATEGORI</label>
+      <select name="subcategory_id">
+        <option value="">— Välj —</option>
+        ${subOpts}
+      </select>
+    </div>`;
+
+  const tagsField = `
+    <div class="form-group">
+      <label>TAGGAR (kommaseparerat)</label>
+      <input type="text" name="tags" value="${esc(parseTags(pre.tags).join(', '))}">
+    </div>`;
+
+  const publicField = `
+    <div class="form-group check-row">
+      <input type="checkbox" name="is_public" id="chk_public" ${pre.is_public ? 'checked' : ''}>
+      <label for="chk_public" style="margin:0">Publik</label>
+    </div>`;
+
+  let fields = '';
+  if (type === 'note') {
+    fields = `
+      <div class="form-group">
+        <label>TITEL *</label>
+        <input type="text" name="title" value="${esc(pre.title ?? '')}" required>
+      </div>
+      <div class="form-group">
+        <label>INNEHÅLL (Markdown)</label>
+        <div class="md-toolbar" id="md-toolbar">
+          <button type="button" class="md-btn" data-md-before="**" data-md-after="**">B</button>
+          <button type="button" class="md-btn" data-md-before="*" data-md-after="*"><em>I</em></button>
+          <button type="button" class="md-btn" data-md-before="\`" data-md-after="\`">&#96;</button>
+          <button type="button" class="md-btn" data-md-prefix="## ">H</button>
+          <button type="button" class="md-btn" data-md-before="[" data-md-after="]()">[L]</button>
+          <button type="button" class="md-btn" data-md-prefix="- ">—</button>
+          <button type="button" class="md-btn" data-md-replace="---">HR</button>
+        </div>
+        <textarea name="content" id="note-content-area">${esc(pre.content ?? '')}</textarea>
+      </div>
+      ${subcatField}${tagsField}${publicField}`;
+  } else if (type === 'snippet') {
+    const langs = ['sql','dax','python','m','pyspark','javascript','typescript','bash','json','yaml','other'];
+    fields = `
+      <div class="form-group">
+        <label>TITEL *</label>
+        <input type="text" name="title" value="${esc(pre.title ?? '')}" required>
+      </div>
+      <div class="form-group">
+        <label>SPRÅK *</label>
+        <select name="language" required>
+          ${langs.map(l => `<option ${pre.language===l?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>KOD</label>
+        <textarea class="code-area" name="code">${esc(pre.code ?? '')}</textarea>
+      </div>
+      <div class="form-group">
+        <label>BESKRIVNING</label>
+        <input type="text" name="description" value="${esc(pre.description ?? '')}">
+      </div>
+      ${subcatField}${tagsField}${publicField}`;
+  } else if (type === 'file') {
+    fields = `
+      ${isEdit ? '' : `
+        <div class="form-group">
+          <label>FIL * <span style="color:var(--dim);font-size:0.6rem">(max 25 MB)</span></label>
+          <div class="drop-zone" id="drop-zone" tabindex="0">
+            <input type="file" name="file" id="file-input" style="display:none" required>
+            <div class="drop-zone-idle" id="drop-zone-idle">
+              <span style="font-size:1.6rem">📁</span>
+              <p>Dra och släpp en fil hit</p>
+              <p style="font-size:0.62rem;color:var(--dim)">eller <button type="button" id="browse-btn" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:inherit;font-size:inherit;padding:0">bläddra</button></p>
+            </div>
+            <div class="file-selected" id="file-selected" style="display:none">
+              <span class="file-selected-icon">📄</span>
+              <span id="selected-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+              <span id="selected-size" style="color:var(--dim);flex-shrink:0"></span>
+            </div>
+          </div>
+        </div>`}
+      ${subcatField}${tagsField}${publicField}`;
+  } else if (type === 'bookmark') {
+    fields = `
+      <input type="hidden" name="favicon_url" id="favicon-url-input" value="${esc(pre.favicon_url ?? '')}">
+      <div class="form-group">
+        <label>URL *</label>
+        <div style="display:flex;gap:0.5rem">
+          <input type="url" name="url" value="${esc(pre.url ?? '')}" required style="flex:1;min-width:0">
+          <button type="button" id="fetch-meta-btn" class="btn-ghost" style="flex-shrink:0;white-space:nowrap">Hämta</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>TITEL *</label>
+        <input type="text" name="title" value="${esc(pre.title ?? '')}" required>
+      </div>
+      <div class="form-group">
+        <label>BESKRIVNING</label>
+        <input type="text" name="description" value="${esc(pre.description ?? '')}">
+      </div>
+      ${subcatField}${tagsField}${publicField}`;
+  }
+
+  return `
+    <form id="modal-form">
+      ${fields}
+      <p class="form-error" id="form-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal()">Avbryt</button>
+        <button type="submit" class="btn-primary" id="submit-btn">${isEdit ? 'Spara' : 'Skapa'}</button>
+      </div>
+    </form>`;
+}
+
+async function openEditModal(type, id) {
+  APP.editingId   = id;
+  APP.editingType = type;
+  // Fetch current data
+  const res  = await fetch(`/api/${type}s/${id}`, { credentials: 'same-origin' });
+  const data = await res.json();
+  showForm(type, data, true);
+  openModal();
+}
+
+async function submitForm(type) {
+  const form    = document.getElementById('modal-form');
+  const submitBtn = document.getElementById('submit-btn');
+  const errEl   = document.getElementById('form-error');
+  errEl.textContent = '';
+  submitBtn.disabled = true;
+
+  try {
+    let res;
+    if (type === 'file' && !APP.editingId) {
+      // Multipart file upload
+      const fd = new FormData(form);
+      const subcatId = form.querySelector('[name=subcategory_id]')?.value;
+      const tagsRaw  = form.querySelector('[name=tags]')?.value ?? '';
+      const isPublic = form.querySelector('[name=is_public]')?.checked ? '1' : '0';
+      if (subcatId) fd.set('subcategory_id', subcatId);
+      fd.set('tags', JSON.stringify(tagsRaw.split(',').map(t => t.trim()).filter(Boolean)));
+      fd.set('is_public', isPublic);
+      res = await fetch('/api/files/upload', { method: 'POST', credentials: 'same-origin', body: fd });
+    } else {
+      const body = formToPayload(form, type);
+      const url    = APP.editingId ? `/api/${type}s/${APP.editingId}` : `/api/${type}s`;
+      const method = APP.editingId ? 'PATCH' : 'POST';
+      res = await fetch(url, {
+        method, credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    }
+
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      errEl.textContent = d.error ?? 'Något gick fel.';
+      return;
+    }
+
+    const result = await res.json().catch(() => ({}));
+    closeModal();
+    if (!APP.editingId && (type === 'note' || type === 'snippet') && result.id) {
+      location.href = `/hub/${type}/${result.id}`;
+      return;
+    }
+    await loadCategory();
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+function formToPayload(form, type) {
+  const fd = new FormData(form);
+  const tagsRaw = (fd.get('tags') ?? '').toString();
+  const tags = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+  const base = {
+    subcategory_id: fd.get('subcategory_id') || null,
+    tags,
+    is_public: form.querySelector('[name=is_public]')?.checked ? 1 : 0,
+  };
+  if (type === 'note') return { ...base, title: fd.get('title'), content: fd.get('content') };
+  if (type === 'snippet') return { ...base, title: fd.get('title'), language: fd.get('language'), code: fd.get('code'), description: fd.get('description') };
+  if (type === 'bookmark') return { ...base, title: fd.get('title'), url: fd.get('url'), description: fd.get('description'), favicon_url: fd.get('favicon_url') || null };
+  return base;
+}
+
+// ─── File drop zone ───────────────────────────────────
+
+function setupFileDropZone() {
+  const zone   = document.getElementById('drop-zone');
+  const input  = document.getElementById('file-input');
+  if (!zone || !input) return;
+
+  document.getElementById('browse-btn')?.addEventListener('click', () => input.click());
+  zone.addEventListener('click', e => { if (e.target === zone) input.click(); });
+
+  input.addEventListener('change', () => { if (input.files[0]) showSelectedFile(input.files[0]); });
+
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const f = e.dataTransfer?.files[0];
+    if (!f) return;
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      input.files = dt.files;
+    } catch {}
+    showSelectedFile(f);
+  });
+}
+
+function showSelectedFile(file) {
+  document.getElementById('drop-zone-idle').style.display = 'none';
+  const fileIcon = document.getElementById('file-selected');
+  document.getElementById('selected-name').textContent = file.name;
+  document.getElementById('selected-size').textContent = fmtSize(file.size);
+  fileIcon.style.display = 'flex';
+  const iconEl = fileIcon.querySelector('.file-selected-icon');
+  if (iconEl) iconEl.textContent = file.type.startsWith('image/') ? '🖼️' : file.type === 'application/pdf' ? '📄' : '📁';
+}
+
+// ─── Bookmark fetch-meta ──────────────────────────────
+
+function setupBookmarkFetchMeta() {
+  const btn = document.getElementById('fetch-meta-btn');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const urlInput   = document.querySelector('[name=url]');
+    const titleInput = document.querySelector('[name=title]');
+    const faviconInput = document.getElementById('favicon-url-input');
+    const url = urlInput?.value.trim();
+    if (!url) return;
+
+    btn.disabled = true; btn.textContent = '...';
+    try {
+      const res  = await fetch('/api/bookmarks/fetch-meta', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (data.title && titleInput && !titleInput.value) titleInput.value = data.title;
+      if (data.favicon_url && faviconInput) faviconInput.value = data.favicon_url;
+    } finally {
+      btn.disabled = false; btn.textContent = 'Hämta';
+    }
+  });
+}
+
+// ─── Markdown toolbar ────────────────────────────────
+
+function setupMdToolbar() {
+  const toolbar = document.getElementById('md-toolbar');
+  const ta      = document.getElementById('note-content-area');
+  if (!toolbar || !ta) return;
+
+  toolbar.querySelectorAll('.md-btn').forEach(btn => {
+    btn.addEventListener('click', () => insertMd(ta, btn.dataset));
+  });
+}
+
+function insertMd(ta, { mdBefore = '', mdAfter = '', mdPrefix = '', mdReplace = '' }) {
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  const sel   = ta.value.slice(start, end);
+  ta.focus();
+
+  if (mdReplace) {
+    ta.setRangeText(mdReplace, start, end, 'end');
+  } else if (mdPrefix) {
+    // Insert at start of selection or cursor
+    ta.setRangeText(mdPrefix + sel, start, end, 'end');
+  } else if (mdBefore) {
+    if (sel) {
+      ta.setRangeText(mdBefore + sel + mdAfter, start, end, 'end');
+    } else {
+      ta.setRangeText(mdBefore + mdAfter, start, end, 'end');
+      ta.setSelectionRange(start + mdBefore.length, start + mdBefore.length);
+    }
+  }
+  ta.dispatchEvent(new Event('input'));
+}
+
+// ─── Image preview ────────────────────────────────────
+
+function openImagePreview(id) {
+  const overlay = document.getElementById('img-preview-overlay');
+  const img     = document.getElementById('img-preview-el');
+  img.src = `/api/files/${id}/download`;
+  overlay.classList.add('open');
+}
+
+function closeImagePreview() {
+  document.getElementById('img-preview-overlay').classList.remove('open');
+  document.getElementById('img-preview-el').src = '';
+}
+
+// ─── Utilities ────────────────────────────────────────
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function parseTags(raw) {
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a : []; }
+  catch { return raw.split(',').map(t => t.trim()).filter(Boolean); }
+}
+
+function relTime(iso) {
+  if (!iso) return '';
+  const m = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (m < 1)  return 'nu';
+  if (m < 60) return m + 'm';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h';
+  const d = Math.floor(h / 24);
+  if (d < 30) return d + 'd';
+  return new Date(iso).toLocaleDateString('sv-SE', { day:'numeric', month:'short' });
+}
+
+function fmtSize(bytes) {
+  if (!bytes) return '—';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+function typeName(type) {
+  return { note:'anteckning', snippet:'snippet', file:'fil', bookmark:'bokmärke' }[type] ?? type;
+}
+</script>
+</body>
+</html>
