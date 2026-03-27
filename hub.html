@@ -127,6 +127,60 @@
 
   .empty { font-size: 0.75rem; color: var(--muted); padding: 1rem 0; }
 
+  /* ── Search ──────────────────────────────────────── */
+  .search-wrap { position: relative; margin-bottom: 2.5rem; }
+  .search-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.85rem 1.1rem 0.85rem 2.75rem;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.82rem;
+    outline: none; transition: border-color 0.2s; letter-spacing: 0.02em;
+  }
+  .search-input:focus { border-color: var(--border-hi); }
+  .search-input::placeholder { color: var(--dim); }
+  .search-icon {
+    position: absolute; left: 0.95rem; top: 50%; transform: translateY(-50%);
+    font-size: 1rem; color: var(--dim); pointer-events: none; line-height: 1;
+  }
+  .search-dropdown {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 200;
+    background: #14141e; border: 1px solid var(--border-hi);
+    border-radius: 10px; overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+    display: none;
+  }
+  .search-dropdown.open { display: block; }
+  .search-group-head {
+    font-size: 0.58rem; letter-spacing: 0.12em; color: var(--dim);
+    padding: 0.6rem 0.9rem 0.25rem; text-transform: uppercase;
+    border-top: 1px solid var(--border);
+  }
+  .search-group-head:first-child { border-top: none; }
+  .search-result {
+    display: flex; align-items: flex-start; gap: 0.65rem;
+    padding: 0.55rem 0.9rem; cursor: pointer;
+    transition: background 0.1s;
+  }
+  .search-result:hover, .search-result.focused { background: rgba(255,255,255,0.04); }
+  .search-result-icon { font-size: 0.82rem; flex-shrink: 0; padding-top: 0.1rem; }
+  .search-result-body { flex: 1; min-width: 0; }
+  .search-result-title {
+    font-size: 0.78rem; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .search-result-meta { font-size: 0.6rem; color: var(--dim); }
+  .search-result-preview {
+    font-size: 0.63rem; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-top: 0.1rem;
+  }
+  .search-footer {
+    padding: 0.5rem 0.9rem; border-top: 1px solid var(--border);
+    font-size: 0.65rem; color: var(--dim); text-align: center;
+    cursor: pointer; transition: color 0.15s;
+  }
+  .search-footer:hover { color: var(--accent); }
+  .search-empty { padding: 1.25rem 0.9rem; font-size: 0.75rem; color: var(--muted); text-align: center; }
+
   @media (max-width: 640px) {
     main { padding: 2rem 1rem 4rem; }
     .topbar { padding: 0 1rem; }
@@ -143,6 +197,14 @@
 
 <main>
   <h1 class="page-title">Hub</h1>
+
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input type="text" class="search-input" id="search-input"
+           placeholder="Sök anteckningar, snippets, filer, bokmärken…"
+           autocomplete="off" spellcheck="false">
+    <div class="search-dropdown" id="search-dropdown"></div>
+  </div>
 
   <div class="cat-grid" id="cat-grid">
     <div class="skel"></div><div class="skel"></div>
@@ -166,6 +228,9 @@
     if (!d.authenticated) { location.href = '/'; return; }
   } catch { location.href = '/'; return; }
 
+  // ── Search ──────────────────────────────────────────
+  initSearch();
+
   // ── Logout ──────────────────────────────────────────
   document.getElementById('logout-btn').addEventListener('click', async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
@@ -181,6 +246,133 @@
   renderGrid(catsRes.categories ?? []);
   renderRecent(recentRes.items ?? []);
 })();
+
+// ─── Search ───────────────────────────────────────────
+
+let searchTimer = null;
+
+function initSearch() {
+  const input    = document.getElementById('search-input');
+  const dropdown = document.getElementById('search-dropdown');
+
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const q = input.value.trim();
+    if (!q) { closeDropdown(); return; }
+    searchTimer = setTimeout(() => runSearch(q), 300);
+  });
+
+  input.addEventListener('keydown', e => {
+    const items = dropdown.querySelectorAll('.search-result');
+    const focused = dropdown.querySelector('.search-result.focused');
+    const idx = focused ? [...items].indexOf(focused) : -1;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = items[idx + 1] ?? items[0];
+      focused?.classList.remove('focused');
+      next?.classList.add('focused');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = items[idx - 1] ?? items[items.length - 1];
+      focused?.classList.remove('focused');
+      prev?.classList.add('focused');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (focused) { focused.click(); return; }
+      const q = input.value.trim();
+      if (q) location.href = `/hub/search?q=${encodeURIComponent(q)}`;
+    } else if (e.key === 'Escape') {
+      closeDropdown();
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.search-wrap')) closeDropdown();
+  });
+}
+
+async function runSearch(q) {
+  const dropdown = document.getElementById('search-dropdown');
+  dropdown.innerHTML = '<div class="search-empty">Söker…</div>';
+  dropdown.classList.add('open');
+
+  try {
+    const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
+    const data = await res.json();
+    renderDropdown(data.results ?? [], q);
+  } catch {
+    dropdown.innerHTML = '<div class="search-empty">Kunde inte söka.</div>';
+  }
+}
+
+const TYPE_ICONS = { note: '📝', snippet: '💻', file: '📁', bookmark: '🔗' };
+const TYPE_LABELS = { note: 'Anteckningar', snippet: 'Snippets', file: 'Filer', bookmark: 'Bokmärken' };
+
+function renderDropdown(results, q) {
+  const dropdown = document.getElementById('search-dropdown');
+  if (!results.length) {
+    dropdown.innerHTML = '<div class="search-empty">Inga träffar.</div>';
+    return;
+  }
+
+  // Group by type, keep at most 3 per group in the dropdown
+  const groups = {};
+  for (const r of results) {
+    if (!groups[r.type]) groups[r.type] = [];
+    if (groups[r.type].length < 3) groups[r.type].push(r);
+  }
+
+  let html = '';
+  for (const type of ['note', 'snippet', 'file', 'bookmark']) {
+    const items = groups[type];
+    if (!items?.length) continue;
+    html += `<div class="search-group-head">${TYPE_LABELS[type]}</div>`;
+    for (const item of items) {
+      const breadcrumb = item.breadcrumb
+        ? `${esc(item.breadcrumb.cat_name)} › ${esc(item.breadcrumb.name)}`
+        : '';
+      const preview = (item.preview ?? '').replace(/[#*`_~]/g,'').slice(0, 80);
+      html += `
+        <div class="search-result" data-type="${esc(item.type)}" data-id="${esc(item.id)}"
+             data-url="${esc(item.url ?? '')}">
+          <span class="search-result-icon">${TYPE_ICONS[item.type] ?? '📄'}</span>
+          <div class="search-result-body">
+            <div class="search-result-title">${esc(item.title ?? '(namnlös)')}</div>
+            ${breadcrumb ? `<div class="search-result-meta">${breadcrumb}</div>` : ''}
+            ${preview ? `<div class="search-result-preview">${esc(preview)}</div>` : ''}
+          </div>
+        </div>`;
+    }
+  }
+
+  const total = results.length;
+  html += `<div class="search-footer">Tryck Enter för att se alla ${total > 20 ? '20+' : total} träffar</div>`;
+
+  dropdown.innerHTML = html;
+
+  dropdown.querySelectorAll('.search-result').forEach(el => {
+    el.addEventListener('click', () => navigateResult(el.dataset));
+  });
+  dropdown.querySelector('.search-footer')?.addEventListener('click', () => {
+    const q2 = document.getElementById('search-input').value.trim();
+    if (q2) location.href = `/hub/search?q=${encodeURIComponent(q2)}`;
+  });
+}
+
+function navigateResult({ type, id, url }) {
+  closeDropdown();
+  if (type === 'note')     location.href = `/hub/note/${id}`;
+  else if (type === 'snippet')  location.href = `/hub/snippet/${id}`;
+  else if (type === 'bookmark') window.open(url, '_blank', 'noopener');
+  else if (type === 'file')     window.open(`/api/files/${id}/download`, '_blank');
+}
+
+function closeDropdown() {
+  const d = document.getElementById('search-dropdown');
+  d.classList.remove('open');
+  d.innerHTML = '';
+}
 
 function renderGrid(cats) {
   const el = document.getElementById('cat-grid');

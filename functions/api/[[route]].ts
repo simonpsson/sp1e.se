@@ -39,6 +39,11 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       return json({ error: 'not found' }, 404);
     }
 
+    // ── Public: all public items (no auth) ──────────────────────────────────
+    if (resource === 'public' && id === 'items' && method === 'GET') {
+      return getPublicItems(env);
+    }
+
     // ── Public GET for notes / snippets (is_public check inside) ────────────
     if ((resource === 'notes' || resource === 'snippets') && id && method === 'GET') {
       return getNoteOrSnippet(resource, id, request, env);
@@ -57,6 +62,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
 
     // ── Protected (all routes below require a valid session) ─────────────────
     await requireAuth(request, env);
+
+    if (resource === 'search' && method === 'GET') return searchItems(url, env);
 
     if (resource === 'categories') {
       if (!id && method === 'GET') return getCategories(env);
@@ -204,6 +211,122 @@ async function getRecent(env: Env): Promise<Response> {
     LIMIT 10
   `).all<Row>();
   return json({ items: r.results });
+}
+
+async function searchItems(url: URL, env: Env): Promise<Response> {
+  const q = (url.searchParams.get('q') ?? '').trim();
+  if (!q) return json({ results: [] });
+  const like = `%${q}%`;
+
+  const [notes, snippets, files, bookmarks] = await Promise.all([
+    env.DB.prepare(`
+      SELECT 'note' AS type, id, title,
+        CASE WHEN title LIKE ? THEN 0 ELSE 1 END AS rel,
+        substr(content, 1, 200) AS preview, created_at, subcategory_id
+      FROM notes WHERE title LIKE ? OR content LIKE ?
+      ORDER BY rel, created_at DESC LIMIT 8
+    `).bind(like, like, like).all<Row>(),
+    env.DB.prepare(`
+      SELECT 'snippet' AS type, id, title,
+        CASE WHEN title LIKE ? THEN 0 ELSE 1 END AS rel,
+        substr(COALESCE(description, code), 1, 200) AS preview, created_at, subcategory_id
+      FROM snippets WHERE title LIKE ? OR code LIKE ? OR description LIKE ?
+      ORDER BY rel, created_at DESC LIMIT 8
+    `).bind(like, like, like, like).all<Row>(),
+    env.DB.prepare(`
+      SELECT 'file' AS type, id, filename AS title,
+        CASE WHEN filename LIKE ? THEN 0 ELSE 1 END AS rel,
+        mime_type AS preview, created_at, subcategory_id
+      FROM files WHERE filename LIKE ?
+      ORDER BY rel, created_at DESC LIMIT 8
+    `).bind(like, like).all<Row>(),
+    env.DB.prepare(`
+      SELECT 'bookmark' AS type, id, title,
+        CASE WHEN title LIKE ? THEN 0 ELSE 1 END AS rel,
+        COALESCE(description, url) AS preview, created_at, subcategory_id
+      FROM bookmarks WHERE title LIKE ? OR url LIKE ? OR description LIKE ?
+      ORDER BY rel, created_at DESC LIMIT 8
+    `).bind(like, like, like, like).all<Row>(),
+  ]);
+
+  const all: Row[] = [
+    ...notes.results, ...snippets.results, ...files.results, ...bookmarks.results,
+  ];
+
+  // Resolve subcategory breadcrumbs
+  const subcatIds = [...new Set(all.map(r => r.subcategory_id as string).filter(Boolean))];
+  let subcatMap = new Map<string, { name: string; category_id: string; cat_name: string }>();
+  if (subcatIds.length) {
+    const ph = subcatIds.map(() => '?').join(',');
+    const subs = await env.DB.prepare(
+      `SELECT sc.id, sc.name, sc.category_id, c.name AS cat_name
+       FROM subcategories sc JOIN categories c ON c.id = sc.category_id
+       WHERE sc.id IN (${ph})`
+    ).bind(...subcatIds).all<{ id: string; name: string; category_id: string; cat_name: string }>();
+    subcatMap = new Map(subs.results.map(s => [s.id, s]));
+  }
+
+  const results = all
+    .sort((a, b) =>
+      (a.rel as number) - (b.rel as number) ||
+      (b.created_at as string).localeCompare(a.created_at as string)
+    )
+    .slice(0, 20)
+    .map(r => ({
+      ...r,
+      breadcrumb: r.subcategory_id ? (subcatMap.get(r.subcategory_id as string) ?? null) : null,
+    }));
+
+  return json({ results });
+}
+
+async function getPublicItems(env: Env): Promise<Response> {
+  const [notes, snippets, files, bookmarks] = await Promise.all([
+    env.DB.prepare(`
+      SELECT 'note' AS type, n.id, n.title, n.created_at, n.tags, n.updated_at,
+             sc.name AS subcategory_name, c.id AS category_id,
+             c.name AS category_name, c.icon AS category_icon
+      FROM notes n
+      LEFT JOIN subcategories sc ON sc.id = n.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      WHERE n.is_public = 1 ORDER BY n.created_at DESC
+    `).all<Row>(),
+    env.DB.prepare(`
+      SELECT 'snippet' AS type, s.id, s.title, s.created_at, s.tags, s.language,
+             sc.name AS subcategory_name, c.id AS category_id,
+             c.name AS category_name, c.icon AS category_icon
+      FROM snippets s
+      LEFT JOIN subcategories sc ON sc.id = s.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      WHERE s.is_public = 1 ORDER BY s.created_at DESC
+    `).all<Row>(),
+    env.DB.prepare(`
+      SELECT 'file' AS type, f.id, f.filename AS title, f.created_at, f.tags,
+             f.mime_type, f.size, f.r2_key,
+             sc.name AS subcategory_name, c.id AS category_id,
+             c.name AS category_name, c.icon AS category_icon
+      FROM files f
+      LEFT JOIN subcategories sc ON sc.id = f.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      WHERE f.is_public = 1 ORDER BY f.created_at DESC
+    `).all<Row>(),
+    env.DB.prepare(`
+      SELECT 'bookmark' AS type, b.id, b.title, b.url, b.favicon_url,
+             b.description, b.created_at, b.tags,
+             sc.name AS subcategory_name, c.id AS category_id,
+             c.name AS category_name, c.icon AS category_icon
+      FROM bookmarks b
+      LEFT JOIN subcategories sc ON sc.id = b.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      WHERE b.is_public = 1 ORDER BY b.created_at DESC
+    `).all<Row>(),
+  ]);
+
+  const items = [
+    ...notes.results, ...snippets.results, ...files.results, ...bookmarks.results,
+  ].sort((a, b) => (b.created_at as string).localeCompare(a.created_at as string));
+
+  return json({ items });
 }
 
 async function getItem(table: string, id: string, env: Env): Promise<Response> {

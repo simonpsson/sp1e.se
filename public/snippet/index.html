@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snippet — sp1e.se</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+<style>
+  :root {
+    --bg:      #0a0a0f;
+    --surface: #12121a;
+    --surface2:#181822;
+    --border:  rgba(255,255,255,0.07);
+    --accent:  #4af2c8;
+    --accent-dim: rgba(74,242,200,0.10);
+    --text:    rgba(255,255,255,0.85);
+    --muted:   rgba(255,255,255,0.40);
+    --dim:     rgba(255,255,255,0.20);
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Mono', monospace; min-height: 100%;
+    opacity: 0; animation: fade-in 0.4s ease 0.05s forwards;
+  }
+  @keyframes fade-in { to { opacity: 1; } }
+
+  .topbar {
+    height: 52px; display: flex; align-items: center;
+    padding: 0 2rem; border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-size: 1.2rem; letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.6); text-decoration: none; transition: color 0.2s;
+  }
+  .logo:hover { color: #fff; }
+
+  main { max-width: 900px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+
+  .snippet-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 2.6rem; color: #fff;
+    margin-bottom: 0.75rem; line-height: 1.2;
+  }
+  .snippet-meta {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.65rem; color: var(--dim); margin-bottom: 1.5rem; flex-wrap: wrap;
+  }
+  .lang-badge {
+    font-size: 0.6rem; padding: 0.12rem 0.4rem; border-radius: 3px;
+    background: var(--accent-dim); border: 1px solid rgba(74,242,200,0.2);
+    color: var(--accent);
+  }
+  .public-badge {
+    font-size: 0.55rem; padding: 0.12rem 0.35rem; border-radius: 3px;
+    background: rgba(74,242,200,0.08); color: var(--accent);
+    border: 1px solid rgba(74,242,200,0.2);
+  }
+  .tag {
+    font-size: 0.58rem; padding: 0.1rem 0.35rem; border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.14); color: var(--muted);
+  }
+  .description { font-size: 0.78rem; color: var(--muted); margin-bottom: 1.25rem; line-height: 1.6; }
+
+  .code-wrap { position: relative; }
+  .copy-btn {
+    position: absolute; top: 0.6rem; right: 0.6rem; z-index: 5;
+    background: var(--surface2); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 5px; padding: 0.3rem 0.65rem;
+    font-family: 'DM Mono', monospace; font-size: 0.62rem;
+    color: var(--muted); cursor: pointer; transition: all 0.2s;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: rgba(74,242,200,0.3); }
+  .copy-btn.copied { color: var(--accent); }
+
+  pre[class*="language-"] {
+    background: var(--surface2) !important;
+    border-radius: 10px !important; padding: 1.1rem 1.25rem !important;
+    margin: 0 !important; font-size: 0.82rem !important;
+    line-height: 1.65 !important; overflow-x: auto !important;
+  }
+  code[class*="language-"] { font-family: 'DM Mono', monospace !important; }
+
+  .not-found { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 4rem; }
+
+  footer {
+    text-align: center; padding: 1.5rem; font-size: 0.62rem; color: var(--dim);
+    border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--dim); text-decoration: none; }
+  footer a:hover { color: var(--muted); }
+
+  @media (max-width: 640px) { main { padding: 2rem 1rem 4rem; } .topbar { padding: 0 1rem; } .snippet-title { font-size: 1.9rem; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="logo" href="/">SP1E</a>
+</header>
+
+<main id="main">
+  <p class="not-found">Laddar…</p>
+</main>
+
+<footer><a href="/">sp1e.se</a></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>
+if (typeof Prism !== 'undefined' && Prism.plugins?.autoloader) {
+  Prism.plugins.autoloader.languages_path = 'https://cdn.jsdelivr.net/npm/prismjs@1/components/';
+}
+
+const LANG_MAP = {
+  sql:'sql', dax:'dax', python:'python', m:'powerquery',
+  pyspark:'python', javascript:'javascript', typescript:'typescript',
+  bash:'bash', json:'json', yaml:'yaml', other:'none',
+};
+
+(async () => {
+  const parts     = location.pathname.split('/').filter(Boolean);
+  const snippetId = parts[parts.length - 1];
+  const main      = document.getElementById('main');
+
+  if (!snippetId || snippetId === 'snippet') {
+    main.innerHTML = '<p class="not-found">Ogiltigt ID.</p>'; return;
+  }
+
+  let snippet;
+  try {
+    const res = await fetch(`/api/snippets/${snippetId}`, { credentials: 'same-origin' });
+    if (!res.ok) throw new Error();
+    snippet = await res.json();
+  } catch {
+    main.innerHTML = '<p class="not-found">Snippeten hittades inte eller är inte publik.</p>'; return;
+  }
+
+  document.title = `${snippet.title ?? 'Snippet'} — sp1e.se`;
+
+  const tags = parseTags(snippet.tags);
+  const lang = snippet.language ?? '';
+  const prismLang = LANG_MAP[lang] ?? 'none';
+
+  const metaParts = [
+    lang ? `<span class="lang-badge">${esc(lang)}</span>` : '',
+    relTime(snippet.updated_at || snippet.created_at),
+    snippet.subcategory_name ? `<span>${esc(snippet.subcategory_name)}</span>` : '',
+    '<span class="public-badge">public</span>',
+    ...tags.map(t => `<span class="tag">${esc(t)}</span>`),
+  ].filter(Boolean).join('<span style="color:rgba(255,255,255,0.14)"> · </span>');
+
+  main.innerHTML = `
+    <h1 class="snippet-title">${esc(snippet.title ?? '(namnlös)')}</h1>
+    <div class="snippet-meta">${metaParts}</div>
+    ${snippet.description ? `<p class="description">${esc(snippet.description)}</p>` : ''}
+    <div class="code-wrap">
+      <button class="copy-btn" id="copy-btn">Kopiera</button>
+      <pre class="${prismLang !== 'none' ? `language-${prismLang}` : ''}"><code class="${prismLang !== 'none' ? `language-${prismLang}` : ''}" id="code-el">${esc(snippet.code ?? '')}</code></pre>
+    </div>`;
+
+  if (prismLang !== 'none') Prism.highlightElement(document.getElementById('code-el'));
+
+  document.getElementById('copy-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('copy-btn');
+    try {
+      await navigator.clipboard.writeText(snippet.code ?? '');
+      btn.textContent = 'Kopierat!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Kopiera'; btn.classList.remove('copied'); }, 1800);
+    } catch {
+      btn.textContent = 'Fel';
+      setTimeout(() => { btn.textContent = 'Kopiera'; }, 1500);
+    }
+  });
+})();
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function parseTags(raw) {
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a : []; }
+  catch { return raw.split(',').map(t => t.trim()).filter(Boolean); }
+}
+function relTime(iso) {
+  if (!iso) return '';
+  const d = Math.floor((Date.now() - new Date(iso)) / 86400000);
+  if (d < 1) return 'idag';
+  if (d < 30) return `${d}d sedan`;
+  return new Date(iso).toLocaleDateString('sv-SE', { day:'numeric', month:'long', year:'numeric' });
+}
+</script>
+</body>
+</html>
