@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anteckning — sp1e.se</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:          #0a0a0f;
+    --surface:     #12121a;
+    --surface2:    #181822;
+    --border:      rgba(255,255,255,0.07);
+    --border-hi:   rgba(255,255,255,0.14);
+    --accent:      #4af2c8;
+    --accent-dim:  rgba(74,242,200,0.10);
+    --text:        rgba(255,255,255,0.85);
+    --muted:       rgba(255,255,255,0.40);
+    --dim:         rgba(255,255,255,0.20);
+    --danger:      #ff5555;
+    --danger-dim:  rgba(255,85,85,0.10);
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Mono', monospace; min-height: 100%;
+    opacity: 0; animation: fade-in 0.3s ease 0.05s forwards;
+  }
+  @keyframes fade-in { to { opacity: 1; } }
+
+  /* ── Top bar ───────────────────────────────────────── */
+  .topbar {
+    position: sticky; top: 0; z-index: 50; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem;
+    background: rgba(10,10,15,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-size: 1.25rem; letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.75); text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  .logo:hover { color: #fff; }
+  .topbar-right { display: flex; align-items: center; gap: 1rem; }
+  .logout-btn {
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); transition: color 0.2s ease;
+  }
+  .logout-btn:hover { color: var(--text); }
+
+  /* ── Layout ────────────────────────────────────────── */
+  main { max-width: 780px; margin: 0 auto; padding: 2.5rem 2rem 6rem; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.72rem; color: var(--muted); text-decoration: none;
+    margin-bottom: 1.5rem; transition: color 0.2s ease;
+  }
+  .back-link:hover { color: var(--text); }
+
+  /* ── View mode ─────────────────────────────────────── */
+  .note-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 2.4rem; color: #fff;
+    margin-bottom: 0.75rem; line-height: 1.2;
+  }
+  .note-meta {
+    display: flex; align-items: center; gap: 0.75rem;
+    font-size: 0.65rem; color: var(--dim); margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .public-badge {
+    font-size: 0.55rem; padding: 0.12rem 0.35rem; border-radius: 3px;
+    background: rgba(74,242,200,0.08); color: var(--accent);
+    border: 1px solid rgba(74,242,200,0.2);
+  }
+  .tag {
+    font-size: 0.58rem; padding: 0.1rem 0.35rem; border-radius: 3px;
+    border: 1px solid var(--border-hi); color: var(--muted);
+  }
+
+  /* ── Toggle tabs ───────────────────────────────────── */
+  .view-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+  .view-tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; padding: 0.5rem 0.9rem;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0.04em;
+    color: var(--muted); cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  }
+  .view-tab:hover { color: var(--text); }
+  .view-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Markdown render ───────────────────────────────── */
+  .prose {
+    line-height: 1.75; font-size: 0.88rem; color: var(--text);
+    max-width: 100%;
+  }
+  .prose h1, .prose h2, .prose h3, .prose h4 {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    color: #fff; margin: 1.75rem 0 0.6rem; line-height: 1.25;
+  }
+  .prose h1 { font-size: 1.8rem; }
+  .prose h2 { font-size: 1.4rem; }
+  .prose h3 { font-size: 1.15rem; }
+  .prose p  { margin-bottom: 1rem; }
+  .prose ul, .prose ol { margin: 0 0 1rem 1.5rem; }
+  .prose li  { margin-bottom: 0.3rem; }
+  .prose blockquote {
+    border-left: 3px solid var(--border-hi); padding-left: 1rem;
+    color: var(--muted); margin: 0 0 1rem;
+  }
+  .prose code {
+    background: var(--surface2); border-radius: 4px;
+    padding: 0.1em 0.35em; font-size: 0.82em; color: var(--accent);
+  }
+  .prose pre {
+    background: var(--surface2); border-radius: 8px;
+    padding: 1rem 1.1rem; margin-bottom: 1rem; overflow-x: auto;
+  }
+  .prose pre code { background: none; padding: 0; color: var(--muted); font-size: 0.8rem; }
+  .prose a { color: var(--accent); text-decoration: none; }
+  .prose a:hover { text-decoration: underline; }
+  .prose hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+  .prose table { border-collapse: collapse; width: 100%; margin-bottom: 1rem; font-size: 0.8rem; }
+  .prose th, .prose td { border: 1px solid var(--border-hi); padding: 0.4rem 0.7rem; }
+  .prose th { color: var(--muted); }
+
+  .empty-content { font-size: 0.8rem; color: var(--muted); font-style: italic; }
+
+  /* ── Edit form ─────────────────────────────────────── */
+  .form-group { margin-bottom: 1rem; }
+  label { display: block; font-size: 0.65rem; color: var(--muted); margin-bottom: 0.35rem; letter-spacing: 0.05em; }
+  input[type=text], textarea, select {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.6rem 0.8rem;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    outline: none; transition: border-color 0.2s; resize: vertical;
+  }
+  input[type=text]:focus, textarea:focus, select:focus { border-color: var(--border-hi); }
+  .title-input { font-size: 0.92rem; }
+  .content-area { min-height: 320px; font-size: 0.8rem; line-height: 1.6; }
+  select option { background: #1c1c28; }
+  .check-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--muted); }
+  input[type=checkbox] { accent-color: var(--accent); }
+
+  /* ── Action bar ─────────────────────────────────────── */
+  .action-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem; margin-top: 1.75rem; padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+  .btn-ghost {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.5rem 1rem; font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); cursor: pointer; transition: all 0.2s;
+  }
+  .btn-ghost:hover { border-color: var(--border-hi); color: var(--text); }
+  .btn-primary {
+    background: var(--accent-dim); border: 1px solid rgba(74,242,200,0.25);
+    border-radius: 6px; padding: 0.5rem 1.1rem;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--accent); cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary:hover { background: rgba(74,242,200,0.18); border-color: rgba(74,242,200,0.4); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-danger {
+    background: none; border: 1px solid rgba(255,85,85,0.2); border-radius: 6px;
+    padding: 0.5rem 1rem; font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: rgba(255,85,85,0.7); cursor: pointer; transition: all 0.2s;
+  }
+  .btn-danger:hover { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
+
+  .save-status { font-size: 0.68rem; color: var(--muted); }
+
+  @media (max-width: 640px) {
+    main { padding: 1.75rem 1rem 4rem; }
+    .topbar { padding: 0 1rem; }
+    .note-title { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="logo" href="/">SP1E</a>
+  <div class="topbar-right">
+    <button class="logout-btn" id="logout-btn">Logga ut</button>
+  </div>
+</header>
+
+<main>
+  <a class="back-link" id="back-link" href="/hub">← Hub</a>
+
+  <div id="view-section">
+    <h1 class="note-title" id="view-title"></h1>
+    <div class="note-meta" id="view-meta"></div>
+
+    <div class="view-tabs">
+      <button class="view-tab active" id="tab-preview">Förhandsgranska</button>
+      <button class="view-tab" id="tab-edit">Redigera</button>
+    </div>
+
+    <div id="preview-pane" class="prose"></div>
+  </div>
+
+  <div id="edit-section" style="display:none">
+    <div class="form-group">
+      <label>TITEL *</label>
+      <input type="text" id="edit-title" class="title-input" required>
+    </div>
+    <div class="form-group">
+      <label>INNEHÅLL (Markdown)</label>
+      <textarea id="edit-content" class="content-area"></textarea>
+    </div>
+    <div class="form-group">
+      <label>UNDERKATEGORI</label>
+      <select id="edit-subcat">
+        <option value="">— Välj —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>TAGGAR (kommaseparerat)</label>
+      <input type="text" id="edit-tags">
+    </div>
+    <div class="form-group check-row">
+      <input type="checkbox" id="edit-public">
+      <label for="edit-public" style="margin:0">Publik</label>
+    </div>
+    <div class="form-group check-row">
+      <input type="checkbox" id="edit-pinned">
+      <label for="edit-pinned" style="margin:0">Fäst</label>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn-danger" id="delete-btn">Ta bort</button>
+      <div style="display:flex;align-items:center;gap:0.75rem">
+        <span class="save-status" id="save-status"></span>
+        <button class="btn-ghost" id="cancel-edit-btn">Avbryt</button>
+        <button class="btn-primary" id="save-btn">Spara</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────
+let NOTE = null;
+let subcategories = [];
+
+// ─── Init ─────────────────────────────────────────────
+(async () => {
+  // Extract ID from /hub/note/<id>
+  const parts = location.pathname.split('/').filter(Boolean);
+  const noteId = parts[parts.length - 1];
+  if (!noteId || noteId === 'note') { location.href = '/hub'; return; }
+
+  // Auth
+  try {
+    const r = await fetch('/api/auth/check', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (!d.authenticated) { location.href = '/'; return; }
+  } catch { location.href = '/'; return; }
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    location.href = '/';
+  });
+
+  // Fetch note
+  const res = await fetch(`/api/notes/${noteId}`, { credentials: 'same-origin' });
+  if (!res.ok) { location.href = '/hub'; return; }
+  NOTE = await res.json();
+
+  // Set back link
+  const backLink = document.getElementById('back-link');
+  if (NOTE.category_id) {
+    backLink.href = `/hub/category/${NOTE.category_id}`;
+    backLink.textContent = '← Kategori';
+  }
+
+  // Fetch subcategories for the category
+  if (NOTE.category_id) {
+    try {
+      const cr = await fetch(`/api/categories/${NOTE.category_id}`, { credentials: 'same-origin' });
+      const cd = await cr.json();
+      subcategories = cd.subcategories ?? [];
+    } catch {}
+  }
+
+  populateSubcatSelect();
+  renderView();
+
+  // Tabs
+  document.getElementById('tab-preview').addEventListener('click', showPreview);
+  document.getElementById('tab-edit').addEventListener('click', showEdit);
+  document.getElementById('cancel-edit-btn').addEventListener('click', showPreview);
+  document.getElementById('save-btn').addEventListener('click', saveNote);
+  document.getElementById('delete-btn').addEventListener('click', deleteNote);
+})();
+
+// ─── Render view ──────────────────────────────────────
+function renderView() {
+  document.title = `${NOTE.title} — sp1e.se`;
+  document.getElementById('view-title').textContent = NOTE.title ?? '';
+
+  const tags = parseTags(NOTE.tags);
+  const meta = [
+    NOTE.updated_at ? `uppdaterad ${relTime(NOTE.updated_at)}` : `skapad ${relTime(NOTE.created_at)}`,
+    NOTE.subcategory_name ? `<span>${esc(NOTE.subcategory_name)}</span>` : '',
+    NOTE.is_public ? '<span class="public-badge">public</span>' : '',
+    ...tags.map(t => `<span class="tag">${esc(t)}</span>`),
+  ].filter(Boolean).join('<span style="color:var(--border-hi)"> · </span>');
+  document.getElementById('view-meta').innerHTML = meta;
+
+  renderMarkdown();
+}
+
+function renderMarkdown() {
+  const pane = document.getElementById('preview-pane');
+  const content = NOTE.content ?? '';
+  if (!content.trim()) {
+    pane.innerHTML = '<p class="empty-content">Ingen text ännu — klicka "Redigera" för att lägga till.</p>';
+    return;
+  }
+  pane.innerHTML = marked.parse(content);
+}
+
+function showPreview() {
+  setActiveTab('tab-preview');
+  document.getElementById('view-title').style.display = '';
+  document.getElementById('view-meta').style.display = '';
+  document.getElementById('preview-pane').style.display = '';
+  document.getElementById('edit-section').style.display = 'none';
+}
+
+function showEdit() {
+  setActiveTab('tab-edit');
+  document.getElementById('view-title').style.display = 'none';
+  document.getElementById('view-meta').style.display = 'none';
+  document.getElementById('preview-pane').style.display = 'none';
+  document.getElementById('edit-section').style.display = '';
+
+  document.getElementById('edit-title').value   = NOTE.title ?? '';
+  document.getElementById('edit-content').value = NOTE.content ?? '';
+  document.getElementById('edit-tags').value    = parseTags(NOTE.tags).join(', ');
+  document.getElementById('edit-public').checked = !!NOTE.is_public;
+  document.getElementById('edit-pinned').checked = !!NOTE.is_pinned;
+
+  const sel = document.getElementById('edit-subcat');
+  sel.value = NOTE.subcategory_id ?? '';
+
+  document.getElementById('save-status').textContent = '';
+}
+
+function setActiveTab(id) {
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function populateSubcatSelect() {
+  const sel = document.getElementById('edit-subcat');
+  subcategories.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name;
+    sel.appendChild(opt);
+  });
+}
+
+// ─── Save ─────────────────────────────────────────────
+async function saveNote() {
+  const btn    = document.getElementById('save-btn');
+  const status = document.getElementById('save-status');
+  btn.disabled = true;
+  status.textContent = '';
+
+  const tagsRaw = document.getElementById('edit-tags').value;
+  const tags    = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+
+  try {
+    const res = await fetch(`/api/notes/${NOTE.id}`, {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title:          document.getElementById('edit-title').value,
+        content:        document.getElementById('edit-content').value,
+        subcategory_id: document.getElementById('edit-subcat').value || null,
+        tags,
+        is_public: document.getElementById('edit-public').checked ? 1 : 0,
+        is_pinned: document.getElementById('edit-pinned').checked ? 1 : 0,
+      }),
+    });
+
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      status.textContent = d.error ?? 'Något gick fel.';
+      status.style.color = 'var(--danger)';
+      return;
+    }
+
+    // Update local state
+    NOTE.title          = document.getElementById('edit-title').value;
+    NOTE.content        = document.getElementById('edit-content').value;
+    NOTE.subcategory_id = document.getElementById('edit-subcat').value || null;
+    NOTE.tags           = JSON.stringify(tags);
+    NOTE.is_public      = document.getElementById('edit-public').checked ? 1 : 0;
+    NOTE.is_pinned      = document.getElementById('edit-pinned').checked ? 1 : 0;
+    NOTE.updated_at     = new Date().toISOString();
+
+    const sub = subcategories.find(s => s.id === NOTE.subcategory_id);
+    NOTE.subcategory_name = sub?.name ?? NOTE.subcategory_name;
+
+    renderView();
+    showPreview();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ─── Delete ───────────────────────────────────────────
+async function deleteNote() {
+  if (!confirm('Ta bort anteckningen?')) return;
+  await fetch(`/api/notes/${NOTE.id}`, { method: 'DELETE', credentials: 'same-origin' });
+  location.href = NOTE.category_id ? `/hub/category/${NOTE.category_id}` : '/hub';
+}
+
+// ─── Utilities ────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function parseTags(raw) {
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a : []; }
+  catch { return raw.split(',').map(t => t.trim()).filter(Boolean); }
+}
+function relTime(iso) {
+  if (!iso) return '';
+  const m = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (m < 1)  return 'nu';
+  if (m < 60) return m + 'm';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h';
+  const d = Math.floor(h / 24);
+  if (d < 30) return d + 'd';
+  return new Date(iso).toLocaleDateString('sv-SE', { day:'numeric', month:'short' });
+}
+</script>
+</body>
+</html>

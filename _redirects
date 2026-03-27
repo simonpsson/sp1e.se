@@ -1,3 +1,4 @@
-# Rewrite /hub/category/<id> to the SPA entry point.
-# The JS reads the category ID from window.location.pathname.
+# Rewrite SPA entry points — JS reads the ID from window.location.pathname.
 /hub/category/* /hub/category/index.html 200
+/hub/note/*     /hub/note/index.html     200
+/hub/snippet/*  /hub/snippet/index.html  200

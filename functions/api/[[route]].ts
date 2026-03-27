@@ -39,6 +39,11 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       return json({ error: 'not found' }, 404);
     }
 
+    // ── Public GET for notes / snippets (is_public check inside) ────────────
+    if ((resource === 'notes' || resource === 'snippets') && id && method === 'GET') {
+      return getNoteOrSnippet(resource, id, request, env);
+    }
+
     // ── Protected (all routes below require a valid session) ─────────────────
     await requireAuth(request, env);
 
@@ -50,17 +55,15 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     if (resource === 'recent' && !id && method === 'GET') return getRecent(env);
 
     if (resource === 'notes') {
-      if (!id && method === 'POST')   return createItem('notes',     request, env, NOTE_FIELDS);
-      if (id  && method === 'DELETE') return deleteItem('notes',     id, env);
-      if (id  && method === 'PATCH')  return updateItem('notes',     id, request, env, NOTE_FIELDS);
-      if (id  && method === 'GET')    return getItem('notes',        id, env);
+      if (!id && method === 'POST')                          return createItem('notes',    request, env, NOTE_FIELDS);
+      if (id  && method === 'DELETE')                        return deleteItem('notes',    id, env);
+      if (id  && (method === 'PATCH' || method === 'PUT'))   return updateItem('notes',    id, request, env, NOTE_FIELDS);
     }
 
     if (resource === 'snippets') {
-      if (!id && method === 'POST')   return createItem('snippets',  request, env, SNIPPET_FIELDS);
-      if (id  && method === 'DELETE') return deleteItem('snippets',  id, env);
-      if (id  && method === 'PATCH')  return updateItem('snippets',  id, request, env, SNIPPET_FIELDS);
-      if (id  && method === 'GET')    return getItem('snippets',     id, env);
+      if (!id && method === 'POST')                          return createItem('snippets', request, env, SNIPPET_FIELDS);
+      if (id  && method === 'DELETE')                        return deleteItem('snippets', id, env);
+      if (id  && (method === 'PATCH' || method === 'PUT'))   return updateItem('snippets', id, request, env, SNIPPET_FIELDS);
     }
 
     if (resource === 'bookmarks') {
@@ -196,6 +199,23 @@ async function getItem(table: string, id: string, env: Env): Promise<Response> {
   if (!SAFE_TABLES.has(table)) return json({ error: 'not found' }, 404);
   const row = await env.DB.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(id).first<Row>();
   if (!row) return json({ error: 'not found' }, 404);
+  return json(row);
+}
+
+// Returns note or snippet with subcategory_name + category_id joined in.
+// Enforces auth only when is_public = 0.
+async function getNoteOrSnippet(
+  table: string, id: string, request: Request, env: Env
+): Promise<Response> {
+  if (!SAFE_TABLES.has(table)) return json({ error: 'not found' }, 404);
+  const row = await env.DB.prepare(`
+    SELECT t.*, sc.name AS subcategory_name, sc.category_id
+    FROM ${table} t
+    LEFT JOIN subcategories sc ON sc.id = t.subcategory_id
+    WHERE t.id = ?
+  `).bind(id).first<Row>();
+  if (!row) return json({ error: 'not found' }, 404);
+  if (!row.is_public) await requireAuth(request, env);
   return json(row);
 }
 

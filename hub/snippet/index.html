@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snippet — sp1e.se</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+<style>
+  :root {
+    --bg:          #0a0a0f;
+    --surface:     #12121a;
+    --surface2:    #181822;
+    --border:      rgba(255,255,255,0.07);
+    --border-hi:   rgba(255,255,255,0.14);
+    --accent:      #4af2c8;
+    --accent-dim:  rgba(74,242,200,0.10);
+    --text:        rgba(255,255,255,0.85);
+    --muted:       rgba(255,255,255,0.40);
+    --dim:         rgba(255,255,255,0.20);
+    --danger:      #ff5555;
+    --danger-dim:  rgba(255,85,85,0.10);
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Mono', monospace; min-height: 100%;
+    opacity: 0; animation: fade-in 0.3s ease 0.05s forwards;
+  }
+  @keyframes fade-in { to { opacity: 1; } }
+
+  /* ── Top bar ───────────────────────────────────────── */
+  .topbar {
+    position: sticky; top: 0; z-index: 50; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem;
+    background: rgba(10,10,15,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-size: 1.25rem; letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.75); text-decoration: none;
+    transition: color 0.2s;
+  }
+  .logo:hover { color: #fff; }
+  .logout-btn {
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); transition: color 0.2s;
+  }
+  .logout-btn:hover { color: var(--text); }
+
+  /* ── Layout ────────────────────────────────────────── */
+  main { max-width: 900px; margin: 0 auto; padding: 2.5rem 2rem 6rem; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.72rem; color: var(--muted); text-decoration: none;
+    margin-bottom: 1.5rem; transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--text); }
+
+  /* ── View ──────────────────────────────────────────── */
+  .snippet-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 2.4rem; color: #fff;
+    margin-bottom: 0.75rem; line-height: 1.2;
+  }
+  .snippet-meta {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.65rem; color: var(--dim); margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .lang-badge {
+    font-size: 0.6rem; padding: 0.12rem 0.4rem; border-radius: 3px;
+    background: var(--accent-dim); border: 1px solid rgba(74,242,200,0.2);
+    color: var(--accent);
+  }
+  .public-badge {
+    font-size: 0.55rem; padding: 0.12rem 0.35rem; border-radius: 3px;
+    background: rgba(74,242,200,0.08); color: var(--accent);
+    border: 1px solid rgba(74,242,200,0.2);
+  }
+  .tag {
+    font-size: 0.58rem; padding: 0.1rem 0.35rem; border-radius: 3px;
+    border: 1px solid var(--border-hi); color: var(--muted);
+  }
+  .description { font-size: 0.78rem; color: var(--muted); margin-bottom: 1.25rem; line-height: 1.6; }
+
+  /* ── Code block ────────────────────────────────────── */
+  .code-wrap { position: relative; margin-bottom: 1.5rem; }
+  .copy-btn {
+    position: absolute; top: 0.6rem; right: 0.6rem; z-index: 5;
+    background: var(--surface2); border: 1px solid var(--border-hi);
+    border-radius: 5px; padding: 0.3rem 0.65rem;
+    font-family: 'DM Mono', monospace; font-size: 0.62rem;
+    color: var(--muted); cursor: pointer; transition: all 0.2s;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: rgba(74,242,200,0.3); }
+  .copy-btn.copied { color: var(--accent); }
+
+  /* Override Prism dark theme to match our palette */
+  pre[class*="language-"] {
+    background: var(--surface2) !important;
+    border-radius: 10px !important;
+    padding: 1.1rem 1.25rem !important;
+    margin: 0 !important;
+    font-size: 0.82rem !important;
+    line-height: 1.65 !important;
+    overflow-x: auto !important;
+  }
+  code[class*="language-"] {
+    font-family: 'DM Mono', monospace !important;
+    font-size: inherit !important;
+  }
+
+  /* ── Toggle tabs ───────────────────────────────────── */
+  .view-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+  .view-tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; padding: 0.5rem 0.9rem;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0.04em;
+    color: var(--muted); cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  }
+  .view-tab:hover { color: var(--text); }
+  .view-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Edit form ─────────────────────────────────────── */
+  .form-group { margin-bottom: 1rem; }
+  label { display: block; font-size: 0.65rem; color: var(--muted); margin-bottom: 0.35rem; letter-spacing: 0.05em; }
+  input[type=text], textarea, select {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.6rem 0.8rem;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    outline: none; transition: border-color 0.2s; resize: vertical;
+  }
+  input[type=text]:focus, textarea:focus, select:focus { border-color: var(--border-hi); }
+  .code-area { min-height: 280px; font-size: 0.78rem; line-height: 1.6; tab-size: 2; }
+  select option { background: #1c1c28; }
+  .check-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--muted); }
+  input[type=checkbox] { accent-color: var(--accent); }
+
+  /* ── Action bar ─────────────────────────────────────── */
+  .action-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem; margin-top: 1.75rem; padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+  .btn-ghost {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.5rem 1rem; font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); cursor: pointer; transition: all 0.2s;
+  }
+  .btn-ghost:hover { border-color: var(--border-hi); color: var(--text); }
+  .btn-primary {
+    background: var(--accent-dim); border: 1px solid rgba(74,242,200,0.25);
+    border-radius: 6px; padding: 0.5rem 1.1rem;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--accent); cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary:hover { background: rgba(74,242,200,0.18); border-color: rgba(74,242,200,0.4); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-danger {
+    background: none; border: 1px solid rgba(255,85,85,0.2); border-radius: 6px;
+    padding: 0.5rem 1rem; font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: rgba(255,85,85,0.7); cursor: pointer; transition: all 0.2s;
+  }
+  .btn-danger:hover { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
+
+  .save-status { font-size: 0.68rem; color: var(--muted); }
+
+  @media (max-width: 640px) {
+    main { padding: 1.75rem 1rem 4rem; }
+    .topbar { padding: 0 1rem; }
+    .snippet-title { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="logo" href="/">SP1E</a>
+  <button class="logout-btn" id="logout-btn">Logga ut</button>
+</header>
+
+<main>
+  <a class="back-link" id="back-link" href="/hub">← Hub</a>
+
+  <!-- View mode -->
+  <div id="view-section">
+    <h1 class="snippet-title" id="view-title"></h1>
+    <div class="snippet-meta" id="view-meta"></div>
+    <p class="description" id="view-desc" style="display:none"></p>
+
+    <div class="view-tabs">
+      <button class="view-tab active" id="tab-view">Kod</button>
+      <button class="view-tab" id="tab-edit">Redigera</button>
+    </div>
+
+    <div class="code-wrap" id="code-wrap">
+      <button class="copy-btn" id="copy-btn">Kopiera</button>
+      <pre id="code-pre"><code id="code-el"></code></pre>
+    </div>
+  </div>
+
+  <!-- Edit mode -->
+  <div id="edit-section" style="display:none">
+    <div class="form-group">
+      <label>TITEL *</label>
+      <input type="text" id="edit-title" required>
+    </div>
+    <div class="form-group">
+      <label>SPRÅK *</label>
+      <select id="edit-lang">
+        <option value="sql">sql</option>
+        <option value="dax">dax</option>
+        <option value="python">python</option>
+        <option value="m">m</option>
+        <option value="pyspark">pyspark</option>
+        <option value="javascript">javascript</option>
+        <option value="typescript">typescript</option>
+        <option value="bash">bash</option>
+        <option value="json">json</option>
+        <option value="yaml">yaml</option>
+        <option value="other">other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>KOD</label>
+      <textarea id="edit-code" class="code-area"></textarea>
+    </div>
+    <div class="form-group">
+      <label>BESKRIVNING</label>
+      <input type="text" id="edit-desc">
+    </div>
+    <div class="form-group">
+      <label>UNDERKATEGORI</label>
+      <select id="edit-subcat">
+        <option value="">— Välj —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>TAGGAR (kommaseparerat)</label>
+      <input type="text" id="edit-tags">
+    </div>
+    <div class="form-group check-row">
+      <input type="checkbox" id="edit-public">
+      <label for="edit-public" style="margin:0">Publik</label>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn-danger" id="delete-btn">Ta bort</button>
+      <div style="display:flex;align-items:center;gap:0.75rem">
+        <span class="save-status" id="save-status"></span>
+        <button class="btn-ghost" id="cancel-edit-btn">Avbryt</button>
+        <button class="btn-primary" id="save-btn">Spara</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>
+// Autoloader path for additional language grammars
+if (typeof Prism !== 'undefined' && Prism.plugins?.autoloader) {
+  Prism.plugins.autoloader.languages_path = 'https://cdn.jsdelivr.net/npm/prismjs@1/components/';
+}
+
+// ─── State ────────────────────────────────────────────
+let SNIPPET = null;
+let subcategories = [];
+
+// ─── Prism language map ───────────────────────────────
+// Maps our language names to Prism grammar IDs
+const LANG_MAP = {
+  sql: 'sql', dax: 'dax', python: 'python', m: 'powerquery',
+  pyspark: 'python', javascript: 'javascript', typescript: 'typescript',
+  bash: 'bash', json: 'json', yaml: 'yaml', other: 'none',
+};
+
+// ─── Init ─────────────────────────────────────────────
+(async () => {
+  const parts = location.pathname.split('/').filter(Boolean);
+  const snippetId = parts[parts.length - 1];
+  if (!snippetId || snippetId === 'snippet') { location.href = '/hub'; return; }
+
+  try {
+    const r = await fetch('/api/auth/check', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (!d.authenticated) { location.href = '/'; return; }
+  } catch { location.href = '/'; return; }
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    location.href = '/';
+  });
+
+  const res = await fetch(`/api/snippets/${snippetId}`, { credentials: 'same-origin' });
+  if (!res.ok) { location.href = '/hub'; return; }
+  SNIPPET = await res.json();
+
+  const backLink = document.getElementById('back-link');
+  if (SNIPPET.category_id) {
+    backLink.href = `/hub/category/${SNIPPET.category_id}`;
+    backLink.textContent = '← Kategori';
+  }
+
+  if (SNIPPET.category_id) {
+    try {
+      const cr = await fetch(`/api/categories/${SNIPPET.category_id}`, { credentials: 'same-origin' });
+      const cd = await cr.json();
+      subcategories = cd.subcategories ?? [];
+    } catch {}
+  }
+
+  populateSubcatSelect();
+  renderView();
+
+  document.getElementById('tab-view').addEventListener('click', showView);
+  document.getElementById('tab-edit').addEventListener('click', showEdit);
+  document.getElementById('cancel-edit-btn').addEventListener('click', showView);
+  document.getElementById('save-btn').addEventListener('click', saveSnippet);
+  document.getElementById('delete-btn').addEventListener('click', deleteSnippet);
+  document.getElementById('copy-btn').addEventListener('click', copyCode);
+})();
+
+// ─── Render view ──────────────────────────────────────
+function renderView() {
+  document.title = `${SNIPPET.title} — sp1e.se`;
+  document.getElementById('view-title').textContent = SNIPPET.title ?? '';
+
+  const tags = parseTags(SNIPPET.tags);
+  const metaParts = [
+    `<span class="lang-badge">${esc(SNIPPET.language)}</span>`,
+    SNIPPET.updated_at ? `uppdaterad ${relTime(SNIPPET.updated_at)}` : `skapad ${relTime(SNIPPET.created_at)}`,
+    SNIPPET.subcategory_name ? `<span>${esc(SNIPPET.subcategory_name)}</span>` : '',
+    SNIPPET.is_public ? '<span class="public-badge">public</span>' : '',
+    ...tags.map(t => `<span class="tag">${esc(t)}</span>`),
+  ].filter(Boolean);
+  document.getElementById('view-meta').innerHTML = metaParts.join('<span style="color:var(--border-hi)"> · </span>');
+
+  const descEl = document.getElementById('view-desc');
+  if (SNIPPET.description) {
+    descEl.textContent = SNIPPET.description;
+    descEl.style.display = '';
+  } else {
+    descEl.style.display = 'none';
+  }
+
+  highlightCode();
+}
+
+function highlightCode() {
+  const code = SNIPPET.code ?? '';
+  const lang = SNIPPET.language ?? 'none';
+  const prismLang = LANG_MAP[lang] ?? 'none';
+  const el = document.getElementById('code-el');
+  const pre = document.getElementById('code-pre');
+
+  el.textContent = code;
+  if (prismLang !== 'none') {
+    el.className = `language-${prismLang}`;
+    pre.className = `language-${prismLang}`;
+    Prism.highlightElement(el);
+  } else {
+    el.className = '';
+    pre.className = '';
+  }
+}
+
+function showView() {
+  setActiveTab('tab-view');
+  document.getElementById('view-section').style.display = '';
+  document.getElementById('edit-section').style.display = 'none';
+}
+
+function showEdit() {
+  setActiveTab('tab-edit');
+  document.getElementById('view-section').style.display = 'none';
+  document.getElementById('edit-section').style.display = '';
+
+  document.getElementById('edit-title').value  = SNIPPET.title ?? '';
+  document.getElementById('edit-lang').value   = SNIPPET.language ?? 'sql';
+  document.getElementById('edit-code').value   = SNIPPET.code ?? '';
+  document.getElementById('edit-desc').value   = SNIPPET.description ?? '';
+  document.getElementById('edit-tags').value   = parseTags(SNIPPET.tags).join(', ');
+  document.getElementById('edit-public').checked = !!SNIPPET.is_public;
+
+  const sel = document.getElementById('edit-subcat');
+  sel.value = SNIPPET.subcategory_id ?? '';
+
+  document.getElementById('save-status').textContent = '';
+}
+
+function setActiveTab(id) {
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function populateSubcatSelect() {
+  const sel = document.getElementById('edit-subcat');
+  subcategories.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name;
+    sel.appendChild(opt);
+  });
+}
+
+// ─── Copy ─────────────────────────────────────────────
+async function copyCode() {
+  const btn = document.getElementById('copy-btn');
+  try {
+    await navigator.clipboard.writeText(SNIPPET.code ?? '');
+    btn.textContent = 'Kopierat!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Kopiera'; btn.classList.remove('copied'); }, 1800);
+  } catch {
+    btn.textContent = 'Fel';
+    setTimeout(() => { btn.textContent = 'Kopiera'; }, 1500);
+  }
+}
+
+// ─── Save ─────────────────────────────────────────────
+async function saveSnippet() {
+  const btn    = document.getElementById('save-btn');
+  const status = document.getElementById('save-status');
+  btn.disabled = true;
+  status.textContent = '';
+
+  const tagsRaw = document.getElementById('edit-tags').value;
+  const tags    = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+
+  try {
+    const res = await fetch(`/api/snippets/${SNIPPET.id}`, {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title:          document.getElementById('edit-title').value,
+        language:       document.getElementById('edit-lang').value,
+        code:           document.getElementById('edit-code').value,
+        description:    document.getElementById('edit-desc').value || null,
+        subcategory_id: document.getElementById('edit-subcat').value || null,
+        tags,
+        is_public: document.getElementById('edit-public').checked ? 1 : 0,
+      }),
+    });
+
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      status.textContent = d.error ?? 'Något gick fel.';
+      status.style.color = 'var(--danger)';
+      return;
+    }
+
+    SNIPPET.title          = document.getElementById('edit-title').value;
+    SNIPPET.language       = document.getElementById('edit-lang').value;
+    SNIPPET.code           = document.getElementById('edit-code').value;
+    SNIPPET.description    = document.getElementById('edit-desc').value || null;
+    SNIPPET.subcategory_id = document.getElementById('edit-subcat').value || null;
+    SNIPPET.tags           = JSON.stringify(tags);
+    SNIPPET.is_public      = document.getElementById('edit-public').checked ? 1 : 0;
+    SNIPPET.updated_at     = new Date().toISOString();
+
+    const sub = subcategories.find(s => s.id === SNIPPET.subcategory_id);
+    SNIPPET.subcategory_name = sub?.name ?? SNIPPET.subcategory_name;
+
+    renderView();
+    showView();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ─── Delete ───────────────────────────────────────────
+async function deleteSnippet() {
+  if (!confirm('Ta bort snippet?')) return;
+  await fetch(`/api/snippets/${SNIPPET.id}`, { method: 'DELETE', credentials: 'same-origin' });
+  location.href = SNIPPET.category_id ? `/hub/category/${SNIPPET.category_id}` : '/hub';
+}
+
+// ─── Utilities ────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function parseTags(raw) {
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a : []; }
+  catch { return raw.split(',').map(t => t.trim()).filter(Boolean); }
+}
+function relTime(iso) {
+  if (!iso) return '';
+  const m = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (m < 1)  return 'nu';
+  if (m < 60) return m + 'm';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h';
+  const d = Math.floor(h / 24);
+  if (d < 30) return d + 'd';
+  return new Date(iso).toLocaleDateString('sv-SE', { day:'numeric', month:'short' });
+}
+</script>
+</body>
+</html>

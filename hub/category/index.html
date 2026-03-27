@@ -435,7 +435,7 @@ function renderItems() {
     card.addEventListener('click', e => {
       if (e.target.closest('.item-menu-wrap')) return;
       const { id, type } = card.dataset;
-      openEditModal(type, id);
+      location.href = `/hub/${type}/${id}`;
     });
   });
 
@@ -564,7 +564,11 @@ function openMenu(e, id, type, isPublic) {
   const rect = e.currentTarget.getBoundingClientRect();
   menu.style.cssText = `top:${rect.bottom + 4}px;right:${window.innerWidth - rect.right}px`;
 
-  menu.querySelector('#ctx-edit').onclick   = () => { closeCtx(); openEditModal(type, id); };
+  menu.querySelector('#ctx-edit').onclick   = () => {
+    closeCtx();
+    if (type === 'note' || type === 'snippet') location.href = `/hub/${type}/${id}`;
+    else openEditModal(type, id);
+  };
   menu.querySelector('#ctx-toggle').onclick = () => { closeCtx(); doTogglePublic(type, id, isPublic); };
   menu.querySelector('#ctx-delete').onclick = () => { closeCtx(); doDelete(type, id); };
 
@@ -784,7 +788,12 @@ async function submitForm(type) {
       return;
     }
 
+    const result = await res.json().catch(() => ({}));
     closeModal();
+    if (!APP.editingId && (type === 'note' || type === 'snippet') && result.id) {
+      location.href = `/hub/${type}/${result.id}`;
+      return;
+    }
     await loadCategory();
   } finally {
     submitBtn.disabled = false;
