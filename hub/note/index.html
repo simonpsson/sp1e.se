@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Anteckning — sp1e.se</title>
 <meta name="robots" content="noindex">
+<script>(function(){var t=localStorage.getItem('sp1e-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');})();</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,7 +24,34 @@
     --dim:         rgba(255,255,255,0.20);
     --danger:      #ff5555;
     --danger-dim:  rgba(255,85,85,0.10);
+    --topbar-bg:   rgba(10,10,15,0.92);
+    --modal-bg:    #14141e;
+    --ctx-bg:      #1c1c28;
+    --heading:     #ffffff;
+    --logo-col:    rgba(255,255,255,0.75);
+    --logo-hover:  #ffffff;
+    --hover-bg:    rgba(255,255,255,0.04);
   }
+  [data-theme="light"] {
+    --bg:          #f7f7f3;
+    --surface:     #eeeee8;
+    --surface2:    #e5e5de;
+    --border:      rgba(0,0,0,0.08);
+    --border-hi:   rgba(0,0,0,0.18);
+    --text:        rgba(0,0,0,0.82);
+    --muted:       rgba(0,0,0,0.45);
+    --dim:         rgba(0,0,0,0.28);
+    --topbar-bg:   rgba(247,247,243,0.92);
+    --modal-bg:    #f0f0ea;
+    --ctx-bg:      #e8e8e2;
+    --heading:     #0a0a0f;
+    --logo-col:    rgba(0,0,0,0.60);
+    --logo-hover:  #0a0a0f;
+    --hover-bg:    rgba(0,0,0,0.04);
+    --danger-dim:  rgba(255,85,85,0.12);
+  }
+  [data-theme="light"] pre[class*="language-"],
+  [data-theme="light"] .code-preview { background: #181822 !important; }
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
@@ -38,17 +66,24 @@
     position: sticky; top: 0; z-index: 50; height: 56px;
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 2rem;
-    background: rgba(10,10,15,0.92); backdrop-filter: blur(12px);
+    background: var(--topbar-bg); backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
   }
   .logo {
     font-family: 'Cormorant Garamond', serif; font-weight: 300;
     font-size: 1.25rem; letter-spacing: 0.2em;
-    color: rgba(255,255,255,0.75); text-decoration: none;
+    color: var(--logo-col); text-decoration: none;
     transition: color 0.2s ease;
   }
-  .logo:hover { color: #fff; }
+  .logo:hover { color: var(--logo-hover); }
   .topbar-right { display: flex; align-items: center; gap: 1rem; }
+  .theme-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; padding: 0.15rem 0.4rem;
+    border-radius: 6px; line-height: 1; opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .theme-btn:hover { opacity: 1; }
   .logout-btn {
     background: none; border: none; cursor: pointer;
     font-family: 'DM Mono', monospace; font-size: 0.72rem;
@@ -69,7 +104,7 @@
   /* ── View mode ─────────────────────────────────────── */
   .note-title {
     font-family: 'Cormorant Garamond', serif;
-    font-weight: 300; font-size: 2.4rem; color: #fff;
+    font-weight: 300; font-size: 2.4rem; color: var(--heading);
     margin-bottom: 0.75rem; line-height: 1.2;
   }
   .note-meta {
@@ -150,7 +185,7 @@
   input[type=text]:focus, textarea:focus, select:focus { border-color: var(--border-hi); }
   .title-input { font-size: 0.92rem; }
   .content-area { min-height: 320px; font-size: 0.8rem; line-height: 1.6; }
-  select option { background: #1c1c28; }
+  select option { background: var(--ctx-bg); }
   .check-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--muted); }
   input[type=checkbox] { accent-color: var(--accent); }
 
@@ -222,7 +257,7 @@
   }
   #confirm-overlay.open { opacity: 1; pointer-events: all; }
   .confirm-box {
-    background: #14141e; border: 1px solid var(--border-hi);
+    background: var(--modal-bg); border: 1px solid var(--border-hi);
     border-radius: 12px; padding: 1.75rem; width: min(320px, 90vw);
     transform: translateY(12px); transition: transform 0.2s;
   }
@@ -272,6 +307,7 @@
 <header class="topbar">
   <a class="logo" href="/">SP1E</a>
   <div class="topbar-right">
+    <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
     <button class="logout-btn" id="logout-btn">Logga ut</button>
   </div>
 </header>
@@ -388,6 +424,23 @@ let subcategories = [];
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     location.href = '/';
   });
+
+  // Theme toggle
+  (function initTheme() {
+    const btn = document.getElementById('theme-btn');
+    function syncIcon() {
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      if (btn) btn.textContent = light ? '🌙' : '☀';
+      if (btn) btn.title = light ? 'Mörkt tema' : 'Ljust tema';
+    }
+    syncIcon();
+    btn?.addEventListener('click', () => {
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      document.documentElement.setAttribute('data-theme', light ? 'dark' : 'light');
+      localStorage.setItem('sp1e-theme', light ? 'dark' : 'light');
+      syncIcon();
+    });
+  })();
 
   // Fetch note
   const res = await fetch(`/api/notes/${noteId}`, { credentials: 'same-origin' });

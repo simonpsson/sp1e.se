@@ -66,6 +66,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     if (resource === 'search' && method === 'GET') return searchItems(url, env);
     if (resource === 'tags'   && !id && method === 'GET') return getTags(env);
     if (resource === 'items'  && !id && method === 'GET') return getItemsByTags(url, env);
+    if (resource === 'export' && !id && method === 'GET') return exportAll(env);
 
     if (resource === 'categories') {
       if (!id && method === 'GET') return getCategories(env);
@@ -404,6 +405,41 @@ async function getItemsByTags(url: URL, env: Env): Promise<Response> {
   ].sort((a, b) => (b.created_at as string).localeCompare(a.created_at as string));
 
   return json({ items });
+}
+
+async function exportAll(env: Env): Promise<Response> {
+  const [notes, snippets, bookmarks, files] = await Promise.all([
+    env.DB.prepare(`
+      SELECT n.*, c.name AS category_name, sc.name AS subcategory_name
+      FROM notes n
+      LEFT JOIN subcategories sc ON sc.id = n.subcategory_id
+      LEFT JOIN categories c    ON c.id  = sc.category_id
+      ORDER BY c.name NULLS LAST, n.title
+    `).all<Row>(),
+    env.DB.prepare(`
+      SELECT s.*, c.name AS category_name, sc.name AS subcategory_name
+      FROM snippets s
+      LEFT JOIN subcategories sc ON sc.id = s.subcategory_id
+      LEFT JOIN categories c    ON c.id  = sc.category_id
+      ORDER BY c.name NULLS LAST, s.title
+    `).all<Row>(),
+    env.DB.prepare(`SELECT * FROM bookmarks ORDER BY created_at DESC`).all<Row>(),
+    env.DB.prepare(`
+      SELECT f.id, f.filename, f.mime_type, f.size, f.r2_key, f.is_public, f.created_at,
+             c.name AS category_name, sc.name AS subcategory_name
+      FROM files f
+      LEFT JOIN subcategories sc ON sc.id = f.subcategory_id
+      LEFT JOIN categories c    ON c.id  = sc.category_id
+      ORDER BY c.name NULLS LAST, f.filename
+    `).all<Row>(),
+  ]);
+  return json({
+    exported_at: new Date().toISOString(),
+    notes:       notes.results,
+    snippets:    snippets.results,
+    bookmarks:   bookmarks.results,
+    files:       files.results,
+  });
 }
 
 async function getItem(table: string, id: string, env: Env): Promise<Response> {

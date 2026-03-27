@@ -6,6 +6,7 @@
 <title>Hub — sp1e.se</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
+<script>(function(){var t=localStorage.getItem('sp1e-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
@@ -13,13 +14,45 @@
   :root {
     --bg:           #0a0a0f;
     --surface:      #12121a;
+    --surface2:     #181822;
     --border:       rgba(255,255,255,0.07);
     --border-hi:    rgba(255,255,255,0.14);
     --accent:       #4af2c8;
+    --accent-dim:   rgba(74,242,200,0.10);
     --accent-glow:  rgba(74,242,200,0.07);
     --text:         rgba(255,255,255,0.85);
     --muted:        rgba(255,255,255,0.40);
     --dim:          rgba(255,255,255,0.20);
+    --danger:       #ff5555;
+    --danger-dim:   rgba(255,85,85,0.10);
+    --topbar-bg:    rgba(10,10,15,0.92);
+    --modal-bg:     #14141e;
+    --ctx-bg:       #1c1c28;
+    --heading:      #ffffff;
+    --logo-col:     rgba(255,255,255,0.75);
+    --logo-hover:   #ffffff;
+    --hover-bg:     rgba(255,255,255,0.04);
+  }
+  [data-theme="light"] {
+    --bg:           #f7f7f3;
+    --surface:      #ffffff;
+    --surface2:     #e8e8e2;
+    --border:       rgba(0,0,0,0.07);
+    --border-hi:    rgba(0,0,0,0.12);
+    --accent-dim:   rgba(74,242,200,0.20);
+    --accent-glow:  rgba(74,242,200,0.12);
+    --text:         rgba(0,0,0,0.82);
+    --muted:        rgba(0,0,0,0.45);
+    --dim:          rgba(0,0,0,0.28);
+    --danger:       #cc2424;
+    --danger-dim:   rgba(204,36,36,0.10);
+    --topbar-bg:    rgba(247,247,243,0.92);
+    --modal-bg:     #ffffff;
+    --ctx-bg:       #f0f0eb;
+    --heading:      #0d0d12;
+    --logo-col:     rgba(0,0,0,0.55);
+    --logo-hover:   #000000;
+    --hover-bg:     rgba(0,0,0,0.04);
   }
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
@@ -39,17 +72,17 @@
     height: 56px;
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 2rem;
-    background: rgba(10,10,15,0.92);
+    background: var(--topbar-bg);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
   }
   .logo {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 300; font-size: 1.25rem; letter-spacing: 0.2em;
-    color: rgba(255,255,255,0.75); text-decoration: none;
+    color: var(--logo-col); text-decoration: none;
     transition: color 0.2s ease;
   }
-  .logo:hover { color: #fff; }
+  .logo:hover { color: var(--logo-hover); }
   .logout-btn {
     background: none; border: none; cursor: pointer;
     font-family: 'DM Mono', monospace; font-size: 0.72rem;
@@ -62,7 +95,7 @@
   main { max-width: 900px; margin: 0 auto; padding: 3rem 2rem 6rem; }
   .page-title {
     font-family: 'Cormorant Garamond', serif;
-    font-weight: 300; font-size: 2.8rem; color: #fff;
+    font-weight: 300; font-size: 2.8rem; color: var(--heading);
     margin-bottom: 2.5rem; letter-spacing: 0.02em;
   }
 
@@ -144,7 +177,7 @@
   }
   .search-dropdown {
     position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 200;
-    background: #14141e; border: 1px solid var(--border-hi);
+    background: var(--modal-bg); border: 1px solid var(--border-hi);
     border-radius: 10px; overflow: hidden;
     box-shadow: 0 12px 40px rgba(0,0,0,0.7);
     display: none;
@@ -161,7 +194,7 @@
     padding: 0.55rem 0.9rem; cursor: pointer;
     transition: background 0.1s;
   }
-  .search-result:hover, .search-result.focused { background: rgba(255,255,255,0.04); }
+  .search-result:hover, .search-result.focused { background: var(--hover-bg); }
   .search-result-icon { font-size: 0.82rem; flex-shrink: 0; padding-top: 0.1rem; }
   .search-result-body { flex: 1; min-width: 0; }
   .search-result-title {
@@ -213,10 +246,31 @@
   .toast.show { opacity: 1; transform: translateY(0); }
 
   /* ── Recent items as links ─────────────────────────── */
-  .recent-item {
-    text-decoration: none;
-  }
+  .recent-item { text-decoration: none; }
   a.recent-item:hover .recent-title { color: var(--accent); }
+
+  /* ── Theme toggle + export ─────────────────────────── */
+  .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+  .theme-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; padding: 0.15rem 0.4rem;
+    border-radius: 6px; line-height: 1; opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .theme-btn:hover { opacity: 1; }
+  .export-btn {
+    background: none; border: 1px solid var(--border-hi);
+    border-radius: 6px; padding: 0.35rem 0.75rem;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    color: var(--dim); cursor: pointer; letter-spacing: 0.04em;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Recent section header ─────────────────────────── */
+  .section-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+  .section-row .section-title { margin: 0; }
 
   @media (max-width: 640px) {
     main { padding: 2rem 1rem 4rem; }
@@ -233,7 +287,10 @@
 
 <header class="topbar">
   <a class="logo" href="/">SP1E</a>
-  <button class="logout-btn" id="logout-btn">Logga ut</button>
+  <div class="topbar-right">
+    <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
+    <button class="logout-btn" id="logout-btn">Logga ut</button>
+  </div>
 </header>
 
 <main>
@@ -254,12 +311,16 @@
     <div class="skel"></div>
   </div>
 
-  <h2 class="section-title">Senaste</h2>
+  <div class="section-row">
+    <h2 class="section-title">Senaste</h2>
+    <button class="export-btn" id="export-btn">↓ Exportera allt</button>
+  </div>
   <ul class="recent-list" id="recent-list">
     <li class="empty">Laddar...</li>
   </ul>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <script>
 // ── Progress + Toast ──────────────────────────────────
 const progressEl = document.getElementById('progress');
@@ -484,6 +545,103 @@ function renderRecent(items) {
         <span class="recent-time">${relTime(item.created_at)}</span>
       </a>`;
   }).join('');
+}
+
+// ── Theme ─────────────────────────────────────────────
+(function initTheme() {
+  const btn = document.getElementById('theme-btn');
+  function syncIcon() {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    if (btn) btn.textContent = light ? '🌙' : '☀';
+    if (btn) btn.title = light ? 'Mörkt tema' : 'Ljust tema';
+  }
+  syncIcon();
+  btn?.addEventListener('click', () => {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    document.documentElement.setAttribute('data-theme', light ? 'dark' : 'light');
+    localStorage.setItem('sp1e-theme', light ? 'dark' : 'light');
+    syncIcon();
+  });
+})();
+
+// ── Export ────────────────────────────────────────────
+document.getElementById('export-btn')?.addEventListener('click', doExport);
+
+async function doExport() {
+  const btn = document.getElementById('export-btn');
+  btn.disabled = true; btn.textContent = '↓ Hämtar…';
+  startProgress();
+
+  try {
+    const res = await fetch('/api/export', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+
+    const zip      = new JSZip();
+    const dateStr  = new Date().toISOString().slice(0, 10);
+    const root     = zip.folder(`sp1e-export-${dateStr}`);
+
+    // Notes → notes/{category}/{title}.md
+    const notesDir = root.folder('notes');
+    for (const n of data.notes ?? []) {
+      const cat  = sanitizeName(n.category_name ?? 'okategoriserat');
+      const name = sanitizeName(n.title ?? 'namnlos') + '.md';
+      const fm   = `---\ntitle: ${n.title ?? ''}\ncreated: ${(n.created_at ?? '').slice(0,10)}\ntags: [${parseTags(n.tags).join(', ')}]\n---\n\n`;
+      notesDir.folder(cat).file(name, fm + (n.content ?? ''));
+    }
+
+    // Snippets → snippets/{category}/{title}.ext
+    const LANG_EXT = {
+      sql:'sql', dax:'dax', python:'py', m:'m', pyspark:'py',
+      javascript:'js', typescript:'ts', bash:'sh', json:'json', yaml:'yaml', other:'txt',
+    };
+    const snipsDir = root.folder('snippets');
+    for (const s of data.snippets ?? []) {
+      const cat  = sanitizeName(s.category_name ?? 'okategoriserat');
+      const ext  = LANG_EXT[s.language] ?? 'txt';
+      const name = sanitizeName(s.title ?? 'namnlos') + '.' + ext;
+      snipsDir.folder(cat).file(name, s.code ?? '');
+    }
+
+    // Bookmarks
+    root.file('bookmarks.json', JSON.stringify(
+      (data.bookmarks ?? []).map(b => ({
+        title: b.title, url: b.url, description: b.description || undefined,
+        tags: parseTags(b.tags), created_at: b.created_at,
+      })), null, 2
+    ));
+
+    // File metadata
+    root.file('files.json', JSON.stringify(
+      (data.files ?? []).map(f => ({
+        filename: f.filename, mime_type: f.mime_type, size: f.size,
+        category: f.category_name || null, is_public: !!f.is_public,
+        created_at: f.created_at,
+      })), null, 2
+    ));
+
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: `sp1e-export-${dateStr}.zip` });
+    document.body.appendChild(a);
+    a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch {
+    showToast('Export misslyckades.');
+  } finally {
+    btn.disabled = false; btn.textContent = '↓ Exportera allt';
+    stopProgress();
+  }
+}
+
+function sanitizeName(s) {
+  return String(s ?? '').replace(/[/\\:*?"<>|]/g, '_').trim().slice(0, 80) || 'namnlos';
+}
+
+function parseTags(raw) {
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a : []; }
+  catch { return String(raw).split(',').map(t => t.trim()).filter(Boolean); }
 }
 
 function esc(s) {

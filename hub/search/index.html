@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sök — sp1e.se</title>
 <meta name="robots" content="noindex">
+<script>(function(){var t=localStorage.getItem('sp1e-theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');})();</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +21,34 @@
     --text:      rgba(255,255,255,0.85);
     --muted:     rgba(255,255,255,0.40);
     --dim:       rgba(255,255,255,0.20);
+    --topbar-bg:   rgba(10,10,15,0.92);
+    --modal-bg:    #14141e;
+    --ctx-bg:      #1c1c28;
+    --heading:     #ffffff;
+    --logo-col:    rgba(255,255,255,0.75);
+    --logo-hover:  #ffffff;
+    --hover-bg:    rgba(255,255,255,0.04);
   }
+  [data-theme="light"] {
+    --bg:          #f7f7f3;
+    --surface:     #eeeee8;
+    --surface2:    #e5e5de;
+    --border:      rgba(0,0,0,0.08);
+    --border-hi:   rgba(0,0,0,0.18);
+    --text:        rgba(0,0,0,0.82);
+    --muted:       rgba(0,0,0,0.45);
+    --dim:         rgba(0,0,0,0.28);
+    --topbar-bg:   rgba(247,247,243,0.92);
+    --modal-bg:    #f0f0ea;
+    --ctx-bg:      #e8e8e2;
+    --heading:     #0a0a0f;
+    --logo-col:    rgba(0,0,0,0.60);
+    --logo-hover:  #0a0a0f;
+    --hover-bg:    rgba(0,0,0,0.04);
+    --danger-dim:  rgba(255,85,85,0.12);
+  }
+  [data-theme="light"] pre[class*="language-"],
+  [data-theme="light"] .code-preview { background: #181822 !important; }
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
@@ -34,15 +62,23 @@
     position: sticky; top: 0; z-index: 50; height: 56px;
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 2rem;
-    background: rgba(10,10,15,0.92); backdrop-filter: blur(12px);
+    background: var(--topbar-bg); backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
   }
   .logo {
     font-family: 'Cormorant Garamond', serif; font-weight: 300;
     font-size: 1.25rem; letter-spacing: 0.2em;
-    color: rgba(255,255,255,0.75); text-decoration: none; transition: color 0.2s;
+    color: var(--logo-col); text-decoration: none; transition: color 0.2s;
   }
-  .logo:hover { color: #fff; }
+  .logo:hover { color: var(--logo-hover); }
+  .topbar-right { display: flex; align-items: center; gap: 0.5rem; }
+  .theme-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; padding: 0.15rem 0.4rem;
+    border-radius: 6px; line-height: 1; opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .theme-btn:hover { opacity: 1; }
   .logout-btn {
     background: none; border: none; cursor: pointer;
     font-family: 'DM Mono', monospace; font-size: 0.72rem;
@@ -113,7 +149,10 @@
 
 <header class="topbar">
   <a class="logo" href="/">SP1E</a>
-  <button class="logout-btn" id="logout-btn">Logga ut</button>
+  <div class="topbar-right">
+    <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
+    <button class="logout-btn" id="logout-btn">Logga ut</button>
+  </div>
 </header>
 
 <main>
@@ -243,6 +282,23 @@ function itemHref(item) {
 function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+  // Theme toggle
+  (function initTheme() {
+    const btn = document.getElementById('theme-btn');
+    function syncIcon() {
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      if (btn) btn.textContent = light ? '🌙' : '☀';
+      if (btn) btn.title = light ? 'Mörkt tema' : 'Ljust tema';
+    }
+    syncIcon();
+    btn?.addEventListener('click', () => {
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      document.documentElement.setAttribute('data-theme', light ? 'dark' : 'light');
+      localStorage.setItem('sp1e-theme', light ? 'dark' : 'light');
+      syncIcon();
+    });
+  })();
 </script>
 </body>
 </html>
