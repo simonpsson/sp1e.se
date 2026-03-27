@@ -64,6 +64,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     await requireAuth(request, env);
 
     if (resource === 'search' && method === 'GET') return searchItems(url, env);
+    if (resource === 'tags'   && !id && method === 'GET') return getTags(env);
+    if (resource === 'items'  && !id && method === 'GET') return getItemsByTags(url, env);
 
     if (resource === 'categories') {
       if (!id && method === 'GET') return getCategories(env);
@@ -320,6 +322,81 @@ async function getPublicItems(env: Env): Promise<Response> {
       LEFT JOIN categories c ON c.id = sc.category_id
       WHERE b.is_public = 1 ORDER BY b.created_at DESC
     `).all<Row>(),
+  ]);
+
+  const items = [
+    ...notes.results, ...snippets.results, ...files.results, ...bookmarks.results,
+  ].sort((a, b) => (b.created_at as string).localeCompare(a.created_at as string));
+
+  return json({ items });
+}
+
+async function getTags(env: Env): Promise<Response> {
+  const result = await env.DB.prepare(`
+    SELECT value AS tag, COUNT(*) AS cnt
+    FROM (
+      SELECT je.value FROM notes     n, json_each(n.tags)     je WHERE n.tags     IS NOT NULL AND n.tags     != '[]'
+      UNION ALL
+      SELECT je.value FROM snippets  s, json_each(s.tags)     je WHERE s.tags     IS NOT NULL AND s.tags     != '[]'
+      UNION ALL
+      SELECT je.value FROM files     f, json_each(f.tags)     je WHERE f.tags     IS NOT NULL AND f.tags     != '[]'
+      UNION ALL
+      SELECT je.value FROM bookmarks b, json_each(b.tags)     je WHERE b.tags     IS NOT NULL AND b.tags     != '[]'
+    )
+    GROUP BY value ORDER BY cnt DESC, value ASC
+  `).all<{ tag: string; cnt: number }>();
+  return json({ tags: result.results });
+}
+
+async function getItemsByTags(url: URL, env: Env): Promise<Response> {
+  const tagsParam = url.searchParams.get('tags') ?? '';
+  const tags = tagsParam.split(',').map(t => t.trim()).filter(Boolean);
+  if (!tags.length) return json({ items: [] });
+
+  const ph = tags.map(() => '?').join(',');
+  const n  = tags.length;
+
+  // AND logic: item must contain ALL requested tags
+  const tagFilter = (col: string) =>
+    `(SELECT COUNT(DISTINCT je.value) FROM json_each(${col}) je WHERE je.value IN (${ph})) = ?`;
+
+  const [notes, snippets, files, bookmarks] = await Promise.all([
+    env.DB.prepare(`
+      SELECT 'note' AS type, n.id, n.title, n.created_at, n.tags, n.updated_at, n.is_public,
+             sc.name AS subcategory_name, c.id AS category_id, c.name AS category_name, c.icon AS category_icon
+      FROM notes n
+      LEFT JOIN subcategories sc ON sc.id = n.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      WHERE ${tagFilter('n.tags')}
+      ORDER BY n.created_at DESC
+    `).bind(...tags, n).all<Row>(),
+    env.DB.prepare(`
+      SELECT 'snippet' AS type, s.id, s.title, s.created_at, s.tags, s.language, s.is_public,
+             sc.name AS subcategory_name, c.id AS category_id, c.name AS category_name, c.icon AS category_icon
+      FROM snippets s
+      LEFT JOIN subcategories sc ON sc.id = s.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      WHERE ${tagFilter('s.tags')}
+      ORDER BY s.created_at DESC
+    `).bind(...tags, n).all<Row>(),
+    env.DB.prepare(`
+      SELECT 'file' AS type, f.id, f.filename AS title, f.created_at, f.tags, f.mime_type, f.is_public,
+             sc.name AS subcategory_name, c.id AS category_id, c.name AS category_name, c.icon AS category_icon
+      FROM files f
+      LEFT JOIN subcategories sc ON sc.id = f.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      WHERE ${tagFilter('f.tags')}
+      ORDER BY f.created_at DESC
+    `).bind(...tags, n).all<Row>(),
+    env.DB.prepare(`
+      SELECT 'bookmark' AS type, b.id, b.title, b.url, b.created_at, b.tags, b.is_public,
+             sc.name AS subcategory_name, c.id AS category_id, c.name AS category_name, c.icon AS category_icon
+      FROM bookmarks b
+      LEFT JOIN subcategories sc ON sc.id = b.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      WHERE ${tagFilter('b.tags')}
+      ORDER BY b.created_at DESC
+    `).bind(...tags, n).all<Row>(),
   ]);
 
   const items = [

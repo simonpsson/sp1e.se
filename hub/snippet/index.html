@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Snippet — sp1e.se</title>
 <meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
@@ -177,6 +178,52 @@
 
   .save-status { font-size: 0.68rem; color: var(--muted); }
 
+  /* ── Progress bar ──────────────────────────────────── */
+  #progress {
+    position: fixed; top: 0; left: 0; width: 100%; height: 2px;
+    z-index: 200; pointer-events: none;
+    background: linear-gradient(90deg, var(--accent) 40%, transparent 100%);
+    background-size: 200% 100%; background-position: 100% 0;
+    transition: opacity 0.3s;
+  }
+  #progress.running { animation: progress-slide 1.2s linear infinite; opacity: 1; }
+  #progress.idle    { opacity: 0; }
+  @keyframes progress-slide {
+    from { background-position: 100% 0; }
+    to   { background-position: -100% 0; }
+  }
+
+  /* ── Toast ─────────────────────────────────────────── */
+  #toast-area {
+    position: fixed; top: 1rem; right: 1rem; z-index: 300;
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .toast {
+    background: rgba(220,60,60,0.15); border: 1px solid rgba(220,60,60,0.35);
+    color: rgba(255,180,180,0.95); border-radius: 6px;
+    padding: 0.55rem 1rem; font-size: 0.72rem; letter-spacing: 0.04em;
+    opacity: 0; transform: translateY(-6px);
+    transition: opacity 0.2s, transform 0.2s; max-width: 320px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── Custom confirm ────────────────────────────────── */
+  #confirm-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  #confirm-overlay.open { opacity: 1; pointer-events: all; }
+  .confirm-box {
+    background: #14141e; border: 1px solid var(--border-hi);
+    border-radius: 12px; padding: 1.75rem; width: min(320px, 90vw);
+    transform: translateY(12px); transition: transform 0.2s;
+  }
+  #confirm-overlay.open .confirm-box { transform: translateY(0); }
+  .confirm-msg { font-size: 0.82rem; color: var(--text); margin-bottom: 1.5rem; line-height: 1.5; }
+  .confirm-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
+
   @media (max-width: 640px) {
     main { padding: 1.75rem 1rem 4rem; }
     .topbar { padding: 0 1rem; }
@@ -185,6 +232,19 @@
 </style>
 </head>
 <body>
+
+<div id="progress" class="idle"></div>
+<div id="toast-area"></div>
+
+<div id="confirm-overlay">
+  <div class="confirm-box">
+    <p class="confirm-msg" id="confirm-msg">Radera snippet?</p>
+    <div class="confirm-actions">
+      <button class="btn-ghost" id="confirm-cancel">Avbryt</button>
+      <button class="btn-primary" id="confirm-ok" style="background:var(--danger-dim);border-color:rgba(255,85,85,0.3);color:var(--danger)">Radera</button>
+    </div>
+  </div>
+</div>
 
 <header class="topbar">
   <a class="logo" href="/">SP1E</a>
@@ -273,6 +333,31 @@
 // Autoloader path for additional language grammars
 if (typeof Prism !== 'undefined' && Prism.plugins?.autoloader) {
   Prism.plugins.autoloader.languages_path = 'https://cdn.jsdelivr.net/npm/prismjs@1/components/';
+}
+
+// ── Progress + Toast + Confirm ────────────────────────
+const progressEl = document.getElementById('progress');
+function startProgress() { progressEl.className = 'running'; }
+function stopProgress()  { progressEl.className = 'idle'; }
+
+function showToast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.getElementById('toast-area').appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 3000);
+}
+
+function showConfirm(msg, onConfirm) {
+  const overlay = document.getElementById('confirm-overlay');
+  document.getElementById('confirm-msg').textContent = msg;
+  overlay.classList.add('open');
+  const ok     = document.getElementById('confirm-ok');
+  const cancel = document.getElementById('confirm-cancel');
+  const close  = () => overlay.classList.remove('open');
+  ok.onclick     = () => { close(); onConfirm(); };
+  cancel.onclick = close;
 }
 
 // ─── State ────────────────────────────────────────────
@@ -436,6 +521,7 @@ async function saveSnippet() {
   const status = document.getElementById('save-status');
   btn.disabled = true;
   status.textContent = '';
+  startProgress();
 
   const tagsRaw = document.getElementById('edit-tags').value;
   const tags    = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
@@ -458,8 +544,7 @@ async function saveSnippet() {
 
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      status.textContent = d.error ?? 'Något gick fel.';
-      status.style.color = 'var(--danger)';
+      showToast(d.error ?? 'Något gick fel.');
       return;
     }
 
@@ -479,14 +564,22 @@ async function saveSnippet() {
     showView();
   } finally {
     btn.disabled = false;
+    stopProgress();
   }
 }
 
 // ─── Delete ───────────────────────────────────────────
-async function deleteSnippet() {
-  if (!confirm('Ta bort snippet?')) return;
-  await fetch(`/api/snippets/${SNIPPET.id}`, { method: 'DELETE', credentials: 'same-origin' });
-  location.href = SNIPPET.category_id ? `/hub/category/${SNIPPET.category_id}` : '/hub';
+function deleteSnippet() {
+  showConfirm(`Radera "${SNIPPET.title ?? 'snippet'}"?`, async () => {
+    startProgress();
+    try {
+      await fetch(`/api/snippets/${SNIPPET.id}`, { method: 'DELETE', credentials: 'same-origin' });
+      location.href = SNIPPET.category_id ? `/hub/category/${SNIPPET.category_id}` : '/hub';
+    } catch {
+      showToast('Kunde inte ta bort snippet.');
+      stopProgress();
+    }
+  });
 }
 
 // ─── Utilities ────────────────────────────────────────

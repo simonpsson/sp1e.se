@@ -2,6 +2,7 @@
 /hub/category/*      /hub/category/index.html      200
 /hub/note/*          /hub/note/index.html           200
 /hub/snippet/*       /hub/snippet/index.html        200
+/hub/tags            /hub/tags/index.html           200
 /public/note/*       /public/note/index.html        200
 /public/snippet/*    /public/snippet/index.html     200
 /public/bookmark/*   /public/bookmark/index.html    200

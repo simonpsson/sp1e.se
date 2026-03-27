@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kategori — sp1e.se</title>
 <meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
@@ -313,14 +314,121 @@
   }
   .img-preview-close:hover { color: #fff; }
 
+  /* ── Progress bar ──────────────────────────────────── */
+  #progress {
+    position: fixed; top: 0; left: 0; width: 100%; height: 2px;
+    z-index: 200; pointer-events: none;
+    background: linear-gradient(90deg, var(--accent) 40%, transparent 100%);
+    background-size: 200% 100%; background-position: 100% 0;
+    transition: opacity 0.3s;
+  }
+  #progress.running { animation: progress-slide 1.2s linear infinite; opacity: 1; }
+  #progress.idle    { opacity: 0; }
+  @keyframes progress-slide {
+    from { background-position: 100% 0; }
+    to   { background-position: -100% 0; }
+  }
+
+  /* ── Toast ─────────────────────────────────────────── */
+  #toast-area {
+    position: fixed; top: 1rem; right: 1rem; z-index: 300;
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .toast {
+    background: rgba(220,60,60,0.15); border: 1px solid rgba(220,60,60,0.35);
+    color: rgba(255,180,180,0.95); border-radius: 6px;
+    padding: 0.55rem 1rem; font-size: 0.72rem; letter-spacing: 0.04em;
+    opacity: 0; transform: translateY(-6px);
+    transition: opacity 0.2s, transform 0.2s;
+    max-width: 320px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── Custom confirm dialog ─────────────────────────── */
+  #confirm-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  #confirm-overlay.open { opacity: 1; pointer-events: all; }
+  .confirm-box {
+    background: #14141e; border: 1px solid var(--border-hi);
+    border-radius: 12px; padding: 1.75rem;
+    width: min(320px, 90vw);
+    transform: translateY(12px);
+    transition: transform 0.2s;
+  }
+  #confirm-overlay.open .confirm-box { transform: translateY(0); }
+  .confirm-msg {
+    font-size: 0.82rem; color: var(--text); margin-bottom: 1.5rem; line-height: 1.5;
+  }
+  .confirm-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
+
+  /* ── Modal slide-up ────────────────────────────────── */
+  .modal {
+    transform: translateY(16px);
+    transition: transform 0.22s ease;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  /* ── Tag filter pills ──────────────────────────────── */
+  #tag-filter-row {
+    display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem;
+  }
+  .filter-pill {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    padding: 0.2rem 0.6rem; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.12);
+    font-size: 0.65rem; color: var(--muted);
+    cursor: pointer; user-select: none;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .filter-pill:hover { border-color: rgba(74,242,200,0.4); color: var(--accent); }
+  .filter-pill.active { background: var(--accent-dim); border-color: rgba(74,242,200,0.5); color: var(--accent); }
+
+  /* ── Markdown toolbar ──────────────────────────────── */
+  .md-toolbar {
+    display: flex; flex-wrap: wrap; gap: 2px;
+    padding: 0.35rem 0.5rem; background: var(--surface2);
+    border: 1px solid var(--border); border-bottom: none;
+    border-radius: 6px 6px 0 0;
+  }
+  .md-toolbar + textarea { border-radius: 0 0 6px 6px; }
+  .md-btn {
+    background: none; border: 1px solid transparent;
+    border-radius: 4px; padding: 0.2rem 0.45rem;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    color: var(--dim); cursor: pointer; line-height: 1.4;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .md-btn:hover { background: var(--surface); color: var(--text); border-color: var(--border); }
+
   @media (max-width: 640px) {
     main { padding: 1.75rem 1rem 4rem; }
     .topbar { padding: 0 1rem; }
     .tabs { overflow-x: auto; flex-wrap: nowrap; }
+    .modal-overlay { align-items: flex-end; }
+    .modal { width: 100%; border-radius: 16px 16px 0 0; max-height: 92vh; transform: translateY(100%); }
+    .modal-overlay.open .modal { transform: translateY(0); }
   }
 </style>
 </head>
 <body>
+
+<div id="progress" class="idle"></div>
+<div id="toast-area"></div>
+
+<!-- Custom confirm dialog -->
+<div id="confirm-overlay">
+  <div class="confirm-box">
+    <p class="confirm-msg" id="confirm-msg">Radera?</p>
+    <div class="confirm-actions">
+      <button class="btn-ghost" id="confirm-cancel">Avbryt</button>
+      <button class="btn-primary" id="confirm-ok" style="background:var(--danger-dim);border-color:rgba(255,85,85,0.3);color:var(--danger)">Radera</button>
+    </div>
+  </div>
+</div>
 
 <header class="topbar">
   <a class="logo" href="/">SP1E</a>
@@ -336,6 +444,8 @@
   </div>
 
   <nav class="tabs" id="tabs"></nav>
+
+  <div id="tag-filter-row"></div>
 
   <div class="toolbar">
     <span class="item-count" id="item-count"></span>
@@ -362,6 +472,32 @@
 </div>
 
 <script>
+// ── Progress + Toast ──────────────────────────────────
+const progressEl = document.getElementById('progress');
+function startProgress() { progressEl.className = 'running'; }
+function stopProgress()  { progressEl.className = 'idle'; }
+
+function showToast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.getElementById('toast-area').appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 3000);
+}
+
+// ── Custom confirm ────────────────────────────────────
+function showConfirm(msg, onConfirm) {
+  const overlay = document.getElementById('confirm-overlay');
+  document.getElementById('confirm-msg').textContent = msg;
+  overlay.classList.add('open');
+  const ok     = document.getElementById('confirm-ok');
+  const cancel = document.getElementById('confirm-cancel');
+  const close  = () => overlay.classList.remove('open');
+  ok.onclick     = () => { close(); onConfirm(); };
+  cancel.onclick = close;
+}
+
 // ─── App state ────────────────────────────────────────
 
 const APP = {
@@ -370,6 +506,7 @@ const APP = {
   subcategories: [],
   items:         [],
   activeSubcat:  null,   // null = all
+  activeTags:    new Set(),
   editingId:     null,   // set when editing
   editingType:   null,
 };
@@ -405,6 +542,14 @@ const APP = {
     if (e.target === document.getElementById('modal-overlay')) closeModal();
   });
 
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.key === 'n') { e.preventDefault(); openNewModal(); }
+    if (e.key === 'Escape') closeModal();
+  });
+
   await loadCategory();
 })();
 
@@ -412,9 +557,11 @@ const APP = {
 
 async function loadCategory(subcatId = APP.activeSubcat) {
   APP.activeSubcat = subcatId;
+  APP.activeTags.clear();
   const url = new URL(`/api/categories/${APP.categoryId}`, location.origin);
   if (subcatId) url.searchParams.set('subcategory', subcatId);
 
+  startProgress();
   try {
     const res  = await fetch(url, { credentials: 'same-origin' });
     const data = await res.json();
@@ -431,7 +578,9 @@ async function loadCategory(subcatId = APP.activeSubcat) {
     renderTabs();
     renderItems();
   } catch {
-    location.href = '/hub';
+    showToast('Kunde inte ladda kategorin.');
+  } finally {
+    stopProgress();
   }
 }
 
@@ -456,23 +605,58 @@ function renderTabs() {
 
 // ─── Items ────────────────────────────────────────────
 
+function renderTagPills() {
+  const row = document.getElementById('tag-filter-row');
+  // Collect all unique tags from loaded items
+  const allTags = new Set();
+  for (const item of APP.items) {
+    for (const t of parseTags(item.tags)) allTags.add(t);
+  }
+  if (!allTags.size) { row.innerHTML = ''; return; }
+  row.innerHTML = [...allTags].sort().map(t => `
+    <button class="filter-pill${APP.activeTags.has(t) ? ' active' : ''}" data-tag="${esc(t)}">#${esc(t)}</button>
+  `).join('');
+  row.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const t = pill.dataset.tag;
+      if (APP.activeTags.has(t)) APP.activeTags.delete(t);
+      else APP.activeTags.add(t);
+      renderTagPills();
+      renderFilteredItems();
+    });
+  });
+}
+
+function renderFilteredItems() {
+  const items = APP.activeTags.size
+    ? APP.items.filter(item => {
+        const tags = parseTags(item.tags);
+        return [...APP.activeTags].every(t => tags.includes(t));
+      })
+    : APP.items;
+  renderItemList(items);
+}
+
 function renderItems() {
+  renderTagPills();
+  renderFilteredItems();
+}
+
+function renderItemList(items) {
   const el    = document.getElementById('items');
   const count = document.getElementById('item-count');
-  count.textContent = APP.items.length
-    ? `${APP.items.length} objekt`
-    : '';
+  count.textContent = items.length ? `${items.length} objekt` : '';
 
-  if (!APP.items.length) {
+  if (!items.length) {
     el.innerHTML = `
       <div class="empty-state">
-        <p>Inga objekt ännu</p>
-        <button class="new-btn" onclick="openNewModal()">+ Ny</button>
+        <p>${APP.activeTags.size ? 'Inga objekt med dessa taggar' : 'Inga objekt ännu'}</p>
+        ${!APP.activeTags.size ? '<button class="new-btn" onclick="openNewModal()">+ Ny</button>' : ''}
       </div>`;
     return;
   }
 
-  el.innerHTML = APP.items.map(item => {
+  el.innerHTML = items.map(item => {
     switch (item.type) {
       case 'note':     return noteCard(item);
       case 'snippet':  return snippetCard(item);
@@ -503,7 +687,7 @@ function renderItems() {
   el.querySelectorAll('.item-menu-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation(); e.preventDefault();
-      openMenu(e, btn.dataset.id, btn.dataset.type, parseInt(btn.dataset.public));
+      openMenu(e, btn.dataset.id, btn.dataset.type, parseInt(btn.dataset.public), btn.dataset.title ?? '');
     });
   });
 }
@@ -515,7 +699,7 @@ function noteCard(n) {
       <div class="item-head">
         <span class="item-title">${esc(n.title)}</span>
         <div class="item-menu-wrap">
-          <button class="item-menu-btn" data-id="${esc(n.id)}" data-type="note" data-public="${n.is_public}">⋯</button>
+          <button class="item-menu-btn" data-id="${esc(n.id)}" data-type="note" data-public="${n.is_public}" data-title="${esc(n.title)}">⋯</button>
         </div>
       </div>
       ${preview ? `<p class="item-preview">${esc(preview)}${(n.content?.length ?? 0) > 120 ? '…' : ''}</p>` : ''}
@@ -538,7 +722,7 @@ function snippetCard(s) {
         <div style="display:flex;gap:0.5rem;align-items:center">
           <span class="lang-badge">${esc(s.language)}</span>
           <div class="item-menu-wrap">
-            <button class="item-menu-btn" data-id="${esc(s.id)}" data-type="snippet" data-public="${s.is_public}">⋯</button>
+            <button class="item-menu-btn" data-id="${esc(s.id)}" data-type="snippet" data-public="${s.is_public}" data-title="${esc(s.title)}">⋯</button>
           </div>
         </div>
       </div>
@@ -573,7 +757,7 @@ function fileCard(f) {
         <div style="display:flex;gap:0.75rem;align-items:center">
           <span style="font-size:0.62rem;color:var(--dim)">${fmtSize(f.size)}</span>
           <div class="item-menu-wrap">
-            <button class="item-menu-btn" data-id="${esc(f.id)}" data-type="file" data-public="${f.is_public}">⋯</button>
+            <button class="item-menu-btn" data-id="${esc(f.id)}" data-type="file" data-public="${f.is_public}" data-title="${esc(f.filename)}">⋯</button>
           </div>
         </div>
       </div>
@@ -601,7 +785,7 @@ function bookmarkCard(b) {
         </span>
         <div class="item-menu-wrap">
           <button class="item-menu-btn"
-            data-id="${esc(b.id)}" data-type="bookmark" data-public="${b.is_public}"
+            data-id="${esc(b.id)}" data-type="bookmark" data-public="${b.is_public}" data-title="${esc(b.title)}"
             onclick="event.preventDefault();event.stopPropagation();">⋯</button>
         </div>
       </div>
@@ -621,7 +805,7 @@ function bookmarkCard(b) {
 
 let activeCtx = null;
 
-function openMenu(e, id, type, isPublic) {
+function openMenu(e, id, type, isPublic, title = '') {
   closeCtx();
   const menu = document.createElement('div');
   menu.className = 'ctx-menu';
@@ -640,7 +824,7 @@ function openMenu(e, id, type, isPublic) {
     else openEditModal(type, id);
   };
   menu.querySelector('#ctx-toggle').onclick = () => { closeCtx(); doTogglePublic(type, id, isPublic); };
-  menu.querySelector('#ctx-delete').onclick = () => { closeCtx(); doDelete(type, id); };
+  menu.querySelector('#ctx-delete').onclick = () => { closeCtx(); doDelete(type, id, title); };
 
   document.body.appendChild(menu);
   activeCtx = menu;
@@ -651,10 +835,22 @@ function closeCtx() {
   if (activeCtx) { activeCtx.remove(); activeCtx = null; }
 }
 
-async function doDelete(type, id) {
-  if (!confirm('Ta bort detta objekt?')) return;
-  await fetch(`/api/${type}s/${id}`, { method: 'DELETE', credentials: 'same-origin' });
-  await loadCategory();
+async function doDelete(type, id, title = '') {
+  showConfirm(
+    title ? `Radera "${title}"?` : 'Radera detta objekt?',
+    async () => {
+      startProgress();
+      try {
+        const res = await fetch(`/api/${type}s/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+        if (!res.ok) showToast('Kunde inte ta bort objektet.');
+        else await loadCategory();
+      } catch {
+        showToast('Nätverksfel.');
+      } finally {
+        stopProgress();
+      }
+    }
+  );
 }
 
 async function doTogglePublic(type, id, current) {
@@ -720,6 +916,7 @@ function showForm(type, prefill = {}) {
   });
   if (type === 'file' && !APP.editingId) setupFileDropZone();
   if (type === 'bookmark')               setupBookmarkFetchMeta();
+  if (type === 'note')                   setupMdToolbar();
 }
 
 function buildForm(type, pre = {}, isEdit = false) {
@@ -757,7 +954,16 @@ function buildForm(type, pre = {}, isEdit = false) {
       </div>
       <div class="form-group">
         <label>INNEHÅLL (Markdown)</label>
-        <textarea name="content">${esc(pre.content ?? '')}</textarea>
+        <div class="md-toolbar" id="md-toolbar">
+          <button type="button" class="md-btn" data-md-before="**" data-md-after="**">B</button>
+          <button type="button" class="md-btn" data-md-before="*" data-md-after="*"><em>I</em></button>
+          <button type="button" class="md-btn" data-md-before="\`" data-md-after="\`">&#96;</button>
+          <button type="button" class="md-btn" data-md-prefix="## ">H</button>
+          <button type="button" class="md-btn" data-md-before="[" data-md-after="]()">[L]</button>
+          <button type="button" class="md-btn" data-md-prefix="- ">—</button>
+          <button type="button" class="md-btn" data-md-replace="---">HR</button>
+        </div>
+        <textarea name="content" id="note-content-area">${esc(pre.content ?? '')}</textarea>
       </div>
       ${subcatField}${tagsField}${publicField}`;
   } else if (type === 'snippet') {
@@ -971,6 +1177,40 @@ function setupBookmarkFetchMeta() {
       btn.disabled = false; btn.textContent = 'Hämta';
     }
   });
+}
+
+// ─── Markdown toolbar ────────────────────────────────
+
+function setupMdToolbar() {
+  const toolbar = document.getElementById('md-toolbar');
+  const ta      = document.getElementById('note-content-area');
+  if (!toolbar || !ta) return;
+
+  toolbar.querySelectorAll('.md-btn').forEach(btn => {
+    btn.addEventListener('click', () => insertMd(ta, btn.dataset));
+  });
+}
+
+function insertMd(ta, { mdBefore = '', mdAfter = '', mdPrefix = '', mdReplace = '' }) {
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  const sel   = ta.value.slice(start, end);
+  ta.focus();
+
+  if (mdReplace) {
+    ta.setRangeText(mdReplace, start, end, 'end');
+  } else if (mdPrefix) {
+    // Insert at start of selection or cursor
+    ta.setRangeText(mdPrefix + sel, start, end, 'end');
+  } else if (mdBefore) {
+    if (sel) {
+      ta.setRangeText(mdBefore + sel + mdAfter, start, end, 'end');
+    } else {
+      ta.setRangeText(mdBefore + mdAfter, start, end, 'end');
+      ta.setSelectionRange(start + mdBefore.length, start + mdBefore.length);
+    }
+  }
+  ta.dispatchEvent(new Event('input'));
 }
 
 // ─── Image preview ────────────────────────────────────
