@@ -252,8 +252,8 @@ function itemRow(item) {
 }
 
 function itemHref(item) {
-  if (item.type === 'note')     return `/public/note/${item.id}`;
-  if (item.type === 'snippet')  return `/public/snippet/${item.id}`;
+  if (item.type === 'note')     return `/public/note/?id=${item.id}`;
+  if (item.type === 'snippet')  return `/public/snippet/?id=${item.id}`;
   if (item.type === 'bookmark') return item.url ?? '#';
   if (item.type === 'file')     return `/api/files/${item.id}/download`;
   return '#';

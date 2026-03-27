@@ -156,11 +156,10 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 (async () => {
-  const parts  = location.pathname.split('/').filter(Boolean);
-  const noteId = parts[parts.length - 1];
+  const noteId = new URLSearchParams(location.search).get('id') ?? '';
   const main   = document.getElementById('main');
 
-  if (!noteId || noteId === 'note') {
+  if (!noteId) {
     main.innerHTML = '<p class="not-found">Ogiltigt ID.</p>'; return;
   }
 

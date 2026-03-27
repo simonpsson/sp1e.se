@@ -408,10 +408,9 @@ let subcategories = [];
 
 // ─── Init ─────────────────────────────────────────────
 (async () => {
-  // Extract ID from /hub/note/<id>
-  const parts = location.pathname.split('/').filter(Boolean);
-  const noteId = parts[parts.length - 1];
-  if (!noteId || noteId === 'note') { location.href = '/hub'; return; }
+  // Extract ID from query param: /hub/note/?id=<id>
+  const noteId = new URLSearchParams(location.search).get('id') ?? '';
+  if (!noteId) { location.href = '/hub'; return; }
 
   // Auth
   try {
@@ -450,7 +449,7 @@ let subcategories = [];
   // Set back link
   const backLink = document.getElementById('back-link');
   if (NOTE.category_id) {
-    backLink.href = `/hub/category/${NOTE.category_id}`;
+    backLink.href = `/hub/category/?id=${NOTE.category_id}`;
     backLink.textContent = '← Kategori';
   }
 
@@ -604,7 +603,7 @@ function deleteNote() {
     startProgress();
     try {
       await fetch(`/api/notes/${NOTE.id}`, { method: 'DELETE', credentials: 'same-origin' });
-      location.href = NOTE.category_id ? `/hub/category/${NOTE.category_id}` : '/hub';
+      location.href = NOTE.category_id ? `/hub/category/?id=${NOTE.category_id}` : '/hub';
     } catch {
       showToast('Kunde inte ta bort anteckningen.');
       stopProgress();

@@ -564,10 +564,9 @@ const APP = {
     if (!d.authenticated) { location.href = '/'; return; }
   } catch { location.href = '/'; return; }
 
-  // Parse category ID from URL:  /hub/category/power-bi
-  const parts = location.pathname.split('/').filter(Boolean);
-  APP.categoryId = parts[parts.length - 1];
-  if (!APP.categoryId || APP.categoryId === 'category') {
+  // Parse category ID from URL query param: /hub/category/?id=power-bi
+  APP.categoryId = new URLSearchParams(location.search).get('id') ?? '';
+  if (!APP.categoryId) {
     location.href = '/hub'; return;
   }
 
@@ -731,7 +730,7 @@ function renderItemList(items) {
     card.addEventListener('click', e => {
       if (e.target.closest('.item-menu-wrap')) return;
       const { id, type } = card.dataset;
-      location.href = `/hub/${type}/${id}`;
+      location.href = `/hub/${type}/?id=${id}`;
     });
   });
 
@@ -880,7 +879,7 @@ function openMenu(e, id, type, isPublic, title = '') {
 
   menu.querySelector('#ctx-edit').onclick   = () => {
     closeCtx();
-    if (type === 'note' || type === 'snippet') location.href = `/hub/${type}/${id}`;
+    if (type === 'note' || type === 'snippet') location.href = `/hub/${type}/?id=${id}`;
     else openEditModal(type, id);
   };
   menu.querySelector('#ctx-toggle').onclick = () => { closeCtx(); doTogglePublic(type, id, isPublic); };
@@ -1149,7 +1148,7 @@ async function submitForm(type) {
     const result = await res.json().catch(() => ({}));
     closeModal();
     if (!APP.editingId && (type === 'note' || type === 'snippet') && result.id) {
-      location.href = `/hub/${type}/${result.id}`;
+      location.href = `/hub/${type}/?id=${result.id}`;
       return;
     }
     await loadCategory();

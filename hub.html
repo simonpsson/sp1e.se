@@ -493,8 +493,8 @@ function renderDropdown(results, q) {
 
 function navigateResult({ type, id, url }) {
   closeDropdown();
-  if (type === 'note')     location.href = `/hub/note/${id}`;
-  else if (type === 'snippet')  location.href = `/hub/snippet/${id}`;
+  if (type === 'note')     location.href = `/hub/note/?id=${id}`;
+  else if (type === 'snippet')  location.href = `/hub/snippet/?id=${id}`;
   else if (type === 'bookmark') window.open(url, '_blank', 'noopener');
   else if (type === 'file')     window.open(`/api/files/${id}/download`, '_blank');
 }
@@ -512,7 +512,7 @@ function renderGrid(cats) {
     return;
   }
   el.innerHTML = cats.map(c => `
-    <a class="cat-card" href="/hub/category/${esc(c.id)}">
+    <a class="cat-card" href="/hub/category/?id=${esc(c.id)}">
       <span class="cat-icon">${c.icon ?? ''}</span>
       <span class="cat-name">${esc(c.name)}</span>
       <span class="cat-count">${c.item_count ?? 0} objekt</span>
@@ -521,8 +521,8 @@ function renderGrid(cats) {
 }
 
 function recentHref(item) {
-  if (item.type === 'note')     return `/hub/note/${item.id}`;
-  if (item.type === 'snippet')  return `/hub/snippet/${item.id}`;
+  if (item.type === 'note')     return `/hub/note/?id=${item.id}`;
+  if (item.type === 'snippet')  return `/hub/snippet/?id=${item.id}`;
   if (item.type === 'bookmark') return item.extra ?? '#';
   if (item.type === 'file')     return `/api/files/${item.id}/download`;
   return '#';

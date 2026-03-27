@@ -164,11 +164,10 @@ const LANG_MAP = {
 };
 
 (async () => {
-  const parts     = location.pathname.split('/').filter(Boolean);
-  const snippetId = parts[parts.length - 1];
+  const snippetId = new URLSearchParams(location.search).get('id') ?? '';
   const main      = document.getElementById('main');
 
-  if (!snippetId || snippetId === 'snippet') {
+  if (!snippetId) {
     main.innerHTML = '<p class="not-found">Ogiltigt ID.</p>'; return;
   }
 

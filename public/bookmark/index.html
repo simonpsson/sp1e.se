@@ -184,11 +184,10 @@
 })();
 
 (async () => {
-  const parts = location.pathname.split('/').filter(Boolean);
-  const bmId  = parts[parts.length - 1];
+  const bmId  = new URLSearchParams(location.search).get('id') ?? '';
   const el    = document.getElementById('content');
 
-  if (!bmId || bmId === 'bookmark') {
+  if (!bmId) {
     el.innerHTML = '<p class="not-found">Ogiltigt bokmärke.</p>';
     return;
   }

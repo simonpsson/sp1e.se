@@ -413,9 +413,9 @@ const LANG_MAP = {
 
 // ─── Init ─────────────────────────────────────────────
 (async () => {
-  const parts = location.pathname.split('/').filter(Boolean);
-  const snippetId = parts[parts.length - 1];
-  if (!snippetId || snippetId === 'snippet') { location.href = '/hub'; return; }
+  // Extract ID from query param: /hub/snippet/?id=<id>
+  const snippetId = new URLSearchParams(location.search).get('id') ?? '';
+  if (!snippetId) { location.href = '/hub'; return; }
 
   try {
     const r = await fetch('/api/auth/check', { credentials: 'same-origin' });
@@ -451,7 +451,7 @@ const LANG_MAP = {
 
   const backLink = document.getElementById('back-link');
   if (SNIPPET.category_id) {
-    backLink.href = `/hub/category/${SNIPPET.category_id}`;
+    backLink.href = `/hub/category/?id=${SNIPPET.category_id}`;
     backLink.textContent = '← Kategori';
   }
 
@@ -630,7 +630,7 @@ function deleteSnippet() {
     startProgress();
     try {
       await fetch(`/api/snippets/${SNIPPET.id}`, { method: 'DELETE', credentials: 'same-origin' });
-      location.href = SNIPPET.category_id ? `/hub/category/${SNIPPET.category_id}` : '/hub';
+      location.href = SNIPPET.category_id ? `/hub/category/?id=${SNIPPET.category_id}` : '/hub';
     } catch {
       showToast('Kunde inte ta bort snippet.');
       stopProgress();
