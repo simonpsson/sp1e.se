@@ -5,7 +5,7 @@ compatibility_date    = "2026-03-26"
 [[d1_databases]]
 binding       = "DB"
 database_name = "sp1e-db"
-database_id   = "REPLACE_WITH_YOUR_DATABASE_ID"
+database_id   = "6452c73c-7d9a-487e-bffc-15c8ebfe202e"
 
 [[r2_buckets]]
 binding     = "FILES"
