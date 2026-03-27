@@ -269,6 +269,50 @@
 
   .form-error { font-size: 0.68rem; color: var(--danger); margin-top: 0.75rem; min-height: 1em; }
 
+  /* ── File thumbnail ─────────────────────────────────── */
+  .file-thumb-wrap {
+    width: 100%; height: 90px; overflow: hidden;
+    border-radius: 6px; margin-bottom: 0.6rem;
+    background: var(--surface2); display: flex; align-items: center; justify-content: center;
+  }
+  .file-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .file-thumb-err { font-size: 1.6rem; }
+
+  /* ── Drop zone ──────────────────────────────────────── */
+  .drop-zone {
+    border: 1px dashed var(--border-hi); border-radius: 8px;
+    padding: 1.5rem 1rem; text-align: center; cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .drop-zone.dragover {
+    border-color: var(--accent); background: var(--accent-dim);
+  }
+  .drop-zone-idle { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+  .drop-zone-idle p { font-size: 0.72rem; color: var(--muted); }
+  .file-selected {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.72rem; color: var(--text);
+  }
+  .file-selected-icon { font-size: 1.2rem; }
+
+  /* ── Image preview overlay ──────────────────────────── */
+  #img-preview-overlay {
+    position: fixed; inset: 0; z-index: 400;
+    background: rgba(0,0,0,0.92); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+    cursor: zoom-out;
+  }
+  #img-preview-overlay.open { display: flex; }
+  .img-preview-inner { position: relative; max-width: 92vw; max-height: 92vh; cursor: default; }
+  #img-preview-el { max-width: 100%; max-height: 90vh; border-radius: 8px; display: block; }
+  .img-preview-close {
+    position: absolute; top: -2.2rem; right: 0;
+    background: none; border: none; color: rgba(255,255,255,0.6);
+    font-size: 1.6rem; cursor: pointer; line-height: 1;
+    transition: color 0.15s;
+  }
+  .img-preview-close:hover { color: #fff; }
+
   @media (max-width: 640px) {
     main { padding: 1.75rem 1rem 4rem; }
     .topbar { padding: 0 1rem; }
@@ -306,6 +350,14 @@
   <div class="modal" id="modal">
     <p class="modal-title" id="modal-title">Nytt objekt</p>
     <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Image preview overlay -->
+<div id="img-preview-overlay" onclick="closeImagePreview()">
+  <div class="img-preview-inner" onclick="event.stopPropagation()">
+    <button class="img-preview-close" onclick="closeImagePreview()">×</button>
+    <img id="img-preview-el" src="" alt="">
   </div>
 </div>
 
@@ -439,6 +491,15 @@ function renderItems() {
     });
   });
 
+  el.querySelectorAll('.item-card[data-type="file"]').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.closest('.item-menu-wrap')) return;
+      const { id, mime } = card.dataset;
+      if (mime?.startsWith('image/')) openImagePreview(id);
+      else window.open(`/api/files/${id}/download`, '_blank');
+    });
+  });
+
   el.querySelectorAll('.item-menu-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation(); e.preventDefault();
@@ -493,11 +554,20 @@ function snippetCard(s) {
 }
 
 function fileCard(f) {
-  const icon = f.mime_type?.startsWith('image/') ? '🖼️'
-             : f.mime_type === 'application/pdf' ? '📄'
-             : '📁';
+  const isImage = f.mime_type?.startsWith('image/');
+  const isPdf   = f.mime_type === 'application/pdf';
+  const icon    = isImage ? '🖼️' : isPdf ? '📄' : '📁';
+  const thumb   = isImage
+    ? `<div class="file-thumb-wrap">
+         <img class="file-thumb" src="/api/files/${esc(f.id)}/download"
+              alt="${esc(f.filename)}" loading="lazy"
+              onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+         <span class="file-thumb-err" style="display:none">🖼️</span>
+       </div>`
+    : '';
   return `
-    <div class="item-card" data-id="${esc(f.id)}" data-type="file">
+    <div class="item-card" data-id="${esc(f.id)}" data-type="file" data-mime="${esc(f.mime_type ?? '')}">
+      ${thumb}
       <div class="item-head">
         <span class="item-title">${icon} ${esc(f.filename)}</span>
         <div style="display:flex;gap:0.75rem;align-items:center">
@@ -648,6 +718,8 @@ function showForm(type, prefill = {}) {
     e.preventDefault();
     submitForm(type);
   });
+  if (type === 'file' && !APP.editingId) setupFileDropZone();
+  if (type === 'bookmark')               setupBookmarkFetchMeta();
 }
 
 function buildForm(type, pre = {}, isEdit = false) {
@@ -712,13 +784,33 @@ function buildForm(type, pre = {}, isEdit = false) {
       ${subcatField}${tagsField}${publicField}`;
   } else if (type === 'file') {
     fields = `
-      ${isEdit ? '' : `<div class="form-group"><label>FIL *</label><input type="file" name="file" required style="color:var(--muted);font-size:0.72rem"></div>`}
+      ${isEdit ? '' : `
+        <div class="form-group">
+          <label>FIL * <span style="color:var(--dim);font-size:0.6rem">(max 25 MB)</span></label>
+          <div class="drop-zone" id="drop-zone" tabindex="0">
+            <input type="file" name="file" id="file-input" style="display:none" required>
+            <div class="drop-zone-idle" id="drop-zone-idle">
+              <span style="font-size:1.6rem">📁</span>
+              <p>Dra och släpp en fil hit</p>
+              <p style="font-size:0.62rem;color:var(--dim)">eller <button type="button" id="browse-btn" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:inherit;font-size:inherit;padding:0">bläddra</button></p>
+            </div>
+            <div class="file-selected" id="file-selected" style="display:none">
+              <span class="file-selected-icon">📄</span>
+              <span id="selected-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+              <span id="selected-size" style="color:var(--dim);flex-shrink:0"></span>
+            </div>
+          </div>
+        </div>`}
       ${subcatField}${tagsField}${publicField}`;
   } else if (type === 'bookmark') {
     fields = `
+      <input type="hidden" name="favicon_url" id="favicon-url-input" value="${esc(pre.favicon_url ?? '')}">
       <div class="form-group">
         <label>URL *</label>
-        <input type="url" name="url" value="${esc(pre.url ?? '')}" required>
+        <div style="display:flex;gap:0.5rem">
+          <input type="url" name="url" value="${esc(pre.url ?? '')}" required style="flex:1;min-width:0">
+          <button type="button" id="fetch-meta-btn" class="btn-ghost" style="flex-shrink:0;white-space:nowrap">Hämta</button>
+        </div>
       </div>
       <div class="form-group">
         <label>TITEL *</label>
@@ -811,8 +903,88 @@ function formToPayload(form, type) {
   };
   if (type === 'note') return { ...base, title: fd.get('title'), content: fd.get('content') };
   if (type === 'snippet') return { ...base, title: fd.get('title'), language: fd.get('language'), code: fd.get('code'), description: fd.get('description') };
-  if (type === 'bookmark') return { ...base, title: fd.get('title'), url: fd.get('url'), description: fd.get('description') };
+  if (type === 'bookmark') return { ...base, title: fd.get('title'), url: fd.get('url'), description: fd.get('description'), favicon_url: fd.get('favicon_url') || null };
   return base;
+}
+
+// ─── File drop zone ───────────────────────────────────
+
+function setupFileDropZone() {
+  const zone   = document.getElementById('drop-zone');
+  const input  = document.getElementById('file-input');
+  if (!zone || !input) return;
+
+  document.getElementById('browse-btn')?.addEventListener('click', () => input.click());
+  zone.addEventListener('click', e => { if (e.target === zone) input.click(); });
+
+  input.addEventListener('change', () => { if (input.files[0]) showSelectedFile(input.files[0]); });
+
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const f = e.dataTransfer?.files[0];
+    if (!f) return;
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      input.files = dt.files;
+    } catch {}
+    showSelectedFile(f);
+  });
+}
+
+function showSelectedFile(file) {
+  document.getElementById('drop-zone-idle').style.display = 'none';
+  const fileIcon = document.getElementById('file-selected');
+  document.getElementById('selected-name').textContent = file.name;
+  document.getElementById('selected-size').textContent = fmtSize(file.size);
+  fileIcon.style.display = 'flex';
+  const iconEl = fileIcon.querySelector('.file-selected-icon');
+  if (iconEl) iconEl.textContent = file.type.startsWith('image/') ? '🖼️' : file.type === 'application/pdf' ? '📄' : '📁';
+}
+
+// ─── Bookmark fetch-meta ──────────────────────────────
+
+function setupBookmarkFetchMeta() {
+  const btn = document.getElementById('fetch-meta-btn');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const urlInput   = document.querySelector('[name=url]');
+    const titleInput = document.querySelector('[name=title]');
+    const faviconInput = document.getElementById('favicon-url-input');
+    const url = urlInput?.value.trim();
+    if (!url) return;
+
+    btn.disabled = true; btn.textContent = '...';
+    try {
+      const res  = await fetch('/api/bookmarks/fetch-meta', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (data.title && titleInput && !titleInput.value) titleInput.value = data.title;
+      if (data.favicon_url && faviconInput) faviconInput.value = data.favicon_url;
+    } finally {
+      btn.disabled = false; btn.textContent = 'Hämta';
+    }
+  });
+}
+
+// ─── Image preview ────────────────────────────────────
+
+function openImagePreview(id) {
+  const overlay = document.getElementById('img-preview-overlay');
+  const img     = document.getElementById('img-preview-el');
+  img.src = `/api/files/${id}/download`;
+  overlay.classList.add('open');
+}
+
+function closeImagePreview() {
+  document.getElementById('img-preview-overlay').classList.remove('open');
+  document.getElementById('img-preview-el').src = '';
 }
 
 // ─── Utilities ────────────────────────────────────────

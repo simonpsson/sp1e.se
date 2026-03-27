@@ -1,4 +1,5 @@
 # Rewrite SPA entry points — JS reads the ID from window.location.pathname.
-/hub/category/* /hub/category/index.html 200
-/hub/note/*     /hub/note/index.html     200
-/hub/snippet/*  /hub/snippet/index.html  200
+/hub/category/*      /hub/category/index.html      200
+/hub/note/*          /hub/note/index.html           200
+/hub/snippet/*       /hub/snippet/index.html        200
+/public/bookmark/*   /public/bookmark/index.html    200

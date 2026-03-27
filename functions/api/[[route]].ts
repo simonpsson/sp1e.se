@@ -44,6 +44,17 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       return getNoteOrSnippet(resource, id, request, env);
     }
 
+    // ── Public GET for files (metadata + download) ───────────────────────────
+    if (resource === 'files' && id && id !== 'upload') {
+      if (!sub && method === 'GET')              return getPublicItem('files',     id, request, env);
+      if (sub === 'download' && method === 'GET') return downloadFile(id, request, env);
+    }
+
+    // ── Public GET for bookmarks ─────────────────────────────────────────────
+    if (resource === 'bookmarks' && id && id !== 'fetch-meta' && method === 'GET') {
+      return getPublicItem('bookmarks', id, request, env);
+    }
+
     // ── Protected (all routes below require a valid session) ─────────────────
     await requireAuth(request, env);
 
@@ -67,15 +78,15 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     }
 
     if (resource === 'bookmarks') {
-      if (!id && method === 'POST')   return createItem('bookmarks', request, env, BOOKMARK_FIELDS);
-      if (id  && method === 'DELETE') return deleteItem('bookmarks', id, env);
-      if (id  && method === 'PATCH')  return updateItem('bookmarks', id, request, env, BOOKMARK_FIELDS);
-      if (id  && method === 'GET')    return getItem('bookmarks',    id, env);
+      if (id === 'fetch-meta'     && method === 'POST') return fetchBookmarkMeta(request);
+      if (!id                     && method === 'POST') return createItem('bookmarks', request, env, BOOKMARK_FIELDS);
+      if (id                      && method === 'DELETE') return deleteItem('bookmarks', id, env);
+      if (id && (method === 'PATCH' || method === 'PUT')) return updateItem('bookmarks', id, request, env, BOOKMARK_FIELDS);
     }
 
     if (resource === 'files') {
-      if (id === 'upload' && method === 'POST') return uploadFile(request, env);
-      if (id && method === 'DELETE') return deleteFile(id, env);
+      if (id === 'upload' && method === 'POST')   return uploadFile(request, env);
+      if (id && !sub && method === 'DELETE')      return deleteFile(id, env);
     }
 
     return json({ error: 'not found' }, 404);
@@ -219,6 +230,80 @@ async function getNoteOrSnippet(
   return json(row);
 }
 
+// Generic public-aware GET — enforces auth only when is_public = 0.
+async function getPublicItem(table: string, id: string, request: Request, env: Env): Promise<Response> {
+  if (!SAFE_TABLES.has(table)) return json({ error: 'not found' }, 404);
+  const row = await env.DB.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(id).first<Row>();
+  if (!row) return json({ error: 'not found' }, 404);
+  if (!row.is_public) await requireAuth(request, env);
+  return json(row);
+}
+
+// Stream a file from R2 to the client.
+async function downloadFile(id: string, request: Request, env: Env): Promise<Response> {
+  const row = await env.DB
+    .prepare('SELECT r2_key, filename, mime_type, is_public FROM files WHERE id = ?')
+    .bind(id)
+    .first<{ r2_key: string; filename: string; mime_type: string; is_public: number }>();
+  if (!row) return json({ error: 'not found' }, 404);
+  if (!row.is_public) await requireAuth(request, env);
+
+  const obj = await env.FILES.get(row.r2_key);
+  if (!obj) return json({ error: 'file not found in storage' }, 404);
+
+  const headers = new Headers();
+  headers.set('Content-Type', row.mime_type || 'application/octet-stream');
+  headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(row.filename)}`);
+  headers.set('Cache-Control', 'private, max-age=3600');
+  return new Response(obj.body, { headers });
+}
+
+// Fetch page title + favicon from an external URL (best-effort).
+async function fetchBookmarkMeta(request: Request): Promise<Response> {
+  let body: { url?: string };
+  try { body = await request.json(); }
+  catch { return json({ title: '', favicon_url: '' }); }
+  if (!body.url || typeof body.url !== 'string') return json({ title: '', favicon_url: '' });
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetch(body.url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; sp1e-meta/1.0)', 'Accept': 'text/html,*/*' },
+      signal: controller.signal,
+      redirect: 'follow',
+    });
+    clearTimeout(timer);
+
+    const ct = res.headers.get('Content-Type') ?? '';
+    if (!ct.includes('text/html')) return json({ title: '', favicon_url: '' });
+
+    const html = await res.text();
+
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const title = titleMatch
+      ? titleMatch[1].replace(/&amp;/g,'&').replace(/&#39;/g,"'").replace(/&quot;/g,'"')
+          .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/\s+/g,' ').trim()
+      : '';
+
+    let favicon_url = '';
+    const iconRe = /<link[^>]+rel=["'][^"']*icon[^"']*["'][^>]+href=["']([^"']+)["']|<link[^>]+href=["']([^"']+)["'][^>]+rel=["'][^"']*icon[^"']*["']/i;
+    const iconMatch = html.match(iconRe);
+    const rawIcon = iconMatch?.[1] ?? iconMatch?.[2] ?? '';
+    if (rawIcon) {
+      try { favicon_url = new URL(rawIcon, body.url).toString(); } catch {}
+    }
+    if (!favicon_url) {
+      try { const u = new URL(body.url); favicon_url = `${u.protocol}//${u.host}/favicon.ico`; } catch {}
+    }
+
+    return json({ title, favicon_url });
+  } catch {
+    clearTimeout(timer);
+    return json({ title: '', favicon_url: '' });
+  }
+}
+
 // ─── Generic CRUD ─────────────────────────────────────────────────────────────
 
 type FieldDef = [name: string, required: boolean, transform?: (v: unknown) => unknown];
@@ -337,6 +422,7 @@ async function uploadFile(request: Request, env: Env): Promise<Response> {
 
   const file = formData.get('file') as File | null;
   if (!file) return json({ error: 'file is required' }, 400);
+  if (file.size > 25 * 1024 * 1024) return json({ error: 'File exceeds 25 MB limit' }, 413);
 
   const id            = crypto.randomUUID();
   const ext           = file.name.includes('.') ? '.' + file.name.split('.').pop() : '';
