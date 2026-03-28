@@ -574,22 +574,30 @@ async function getPublicItem(table: string, id: string, request: Request, env: E
   return json(row);
 }
 
-// Stream a file from R2 to the client.
+// Stream a file from R2 (or D1 base64 fallback) to the client.
 async function downloadFile(id: string, request: Request, env: Env): Promise<Response> {
   const row = await env.DB
-    .prepare('SELECT r2_key, filename, mime_type, is_public FROM files WHERE id = ?')
+    .prepare('SELECT r2_key, filename, mime_type, is_public, data FROM files WHERE id = ?')
     .bind(id)
-    .first<{ r2_key: string; filename: string; mime_type: string; is_public: number }>();
+    .first<{ r2_key: string; filename: string; mime_type: string; is_public: number; data: string | null }>();
   if (!row) return json({ error: 'not found' }, 404);
   if (!row.is_public) await requireAuth(request, env);
-
-  const obj = await env.FILES.get(row.r2_key);
-  if (!obj) return json({ error: 'file not found in storage' }, 404);
 
   const headers = new Headers();
   headers.set('Content-Type', row.mime_type || 'application/octet-stream');
   headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(row.filename)}`);
   headers.set('Cache-Control', 'private, max-age=3600');
+
+  // Serve from D1 base64 fallback if R2 was unavailable at upload time.
+  if (row.data) {
+    const binary = atob(row.data);
+    const bytes  = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Response(bytes.buffer, { headers });
+  }
+
+  const obj = await env.FILES.get(row.r2_key);
+  if (!obj) return json({ error: 'file not found in storage' }, 404);
   return new Response(obj.body, { headers });
 }
 
@@ -767,15 +775,30 @@ async function uploadFile(request: Request, env: Env): Promise<Response> {
   const isPublic      = formData.get('is_public') === '1' ? 1 : 0;
   const now           = new Date().toISOString();
 
-  await env.FILES.put(r2Key, file.stream(), {
-    httpMetadata: { contentType: file.type || 'application/octet-stream' },
-  });
+  // Buffer the file so we can fall back to D1 base64 if R2 is unavailable.
+  const arrayBuffer = await file.arrayBuffer();
+  let base64Data: string | null = null;
+
+  try {
+    await env.FILES.put(r2Key, arrayBuffer, {
+      httpMetadata: { contentType: file.type || 'application/octet-stream' },
+    });
+  } catch {
+    // R2 unavailable — fall back to D1 base64 for small files (≤1 MB).
+    if (file.size > 1 * 1024 * 1024) {
+      return json({ error: 'R2 storage unavailable and file exceeds 1 MB D1 fallback limit' }, 503);
+    }
+    const bytes = new Uint8Array(arrayBuffer);
+    let bin = '';
+    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+    base64Data = btoa(bin);
+  }
 
   await env.DB.prepare(
-    `INSERT INTO files (id, filename, r2_key, size, mime_type, subcategory_id, tags, is_public, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO files (id, filename, r2_key, size, mime_type, subcategory_id, tags, is_public, data, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, file.name, r2Key, file.size, file.type || 'application/octet-stream',
-    subcategoryId, tagsRaw, isPublic, now).run();
+    subcategoryId, tagsRaw, isPublic, base64Data, now).run();
 
   return json({ id, success: true }, 201);
 }
