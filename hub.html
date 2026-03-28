@@ -94,25 +94,27 @@
     background: none; border: none; cursor: pointer;
     font-family: 'DM Mono', monospace; font-size: 0.72rem;
     color: var(--muted); letter-spacing: 0.05em;
-    transition: color 0.2s ease;
+    transition: color 0.2s ease; white-space: nowrap;
   }
   .logout-btn:hover { color: var(--text); }
+  .logout-icon { display: none; }
 
   /* ── Layout ────────────────────────────────────────── */
-  main { max-width: 900px; margin: 0 auto; padding: 1.75rem 2rem 6rem; }
+  main { max-width: 900px; margin: 0 auto; padding: 2rem 2rem 6rem; }
 
   /* ── Category grid ─────────────────────────────────── */
   .cat-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 0.875rem;
-    margin-bottom: 3.5rem;
+    margin-bottom: 3rem;
   }
   .cat-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 1.25rem 1rem;
     text-decoration: none; color: var(--text);
-    display: flex; flex-direction: column; gap: 0.45rem;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    gap: 0.45rem; height: 100%;
     transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
     cursor: pointer;
   }
@@ -121,9 +123,9 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 28px var(--accent-glow);
   }
-  .cat-icon  { font-size: 1.4rem; }
+  .cat-icon  { font-size: 1.5rem; }
   .cat-name  { font-size: 0.8rem; color: var(--text); }
-  .cat-count { font-size: 0.65rem; color: var(--muted); }
+  .cat-count { font-size: 0.65rem; color: var(--muted); margin-top: auto; }
 
   /* ── Skeleton loader ───────────────────────────────── */
   .skel {
@@ -276,14 +278,19 @@
   .section-row .section-title { margin: 0; }
 
   @media (max-width: 640px) {
-    main { padding: 1.25rem 1rem 4rem; }
-    .topbar { padding: 0 1rem; grid-template-columns: auto 1fr auto; gap: 0.75rem; }
+    main { padding: 1.5rem 1rem 4rem; }
+    .topbar { padding: 0 1rem; grid-template-columns: auto 1fr auto; gap: 0.6rem; }
+    .topbar-right { gap: 0.4rem; }
     .cat-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .logout-label { display: none; }
+    .logout-icon  { display: inline; font-size: 1rem; opacity: 0.6; }
+    .logout-btn:hover .logout-icon { opacity: 1; }
+    .export-btn { display: none; }
   }
 
   /* ── Art gallery ───────────────────────────────────── */
   .gallery-section {
-    margin-bottom: 3.5rem;
+    margin-bottom: 3rem;
   }
   .gallery-frame {
     position: relative;
@@ -398,7 +405,7 @@
   </div>
   <div class="topbar-right">
     <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
-    <button class="logout-btn" id="logout-btn">Logga ut</button>
+    <button class="logout-btn" id="logout-btn" title="Logga ut"><span class="logout-label">Logga ut</span><span class="logout-icon">⇥</span></button>
   </div>
 </header>
 
