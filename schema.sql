@@ -61,8 +61,11 @@ CREATE TABLE IF NOT EXISTS files (
   subcategory_id TEXT    REFERENCES subcategories(id) ON DELETE SET NULL,
   tags           TEXT    NOT NULL DEFAULT '[]', -- JSON array
   is_public      INTEGER NOT NULL DEFAULT 0,
+  data           TEXT,                          -- base64 fallback when R2 unavailable (files ≤1 MB)
   created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+-- Migration for existing deployments:
+-- ALTER TABLE files ADD COLUMN data TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_files_subcategory ON files (subcategory_id);
 CREATE INDEX IF NOT EXISTS idx_files_created     ON files (created_at DESC);

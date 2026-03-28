@@ -66,6 +66,7 @@
     color: var(--logo-col); text-decoration: none; transition: color 0.2s;
   }
   .logo:hover { color: var(--logo-hover); }
+  .logo-one { font-size: 110%; display: inline-block; vertical-align: -0.04em; }
 
   main { max-width: 780px; margin: 0 auto; padding: 3rem 2rem 6rem; }
 
@@ -141,7 +142,7 @@
 <body>
 
 <header class="topbar">
-  <a class="logo" href="/">SP1E</a>
+  <a class="logo" href="/"><span>S</span><span>P</span><span class="logo-one">1</span><span>E</span></a>
   <div class="topbar-right">
     <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
   </div>
@@ -203,10 +204,14 @@ function parseTags(raw) {
 }
 function relTime(iso) {
   if (!iso) return '';
-  const d = Math.floor((Date.now() - new Date(iso)) / 86400000);
-  if (d < 1) return 'idag';
-  if (d < 30) return `${d}d sedan`;
-  return new Date(iso).toLocaleDateString('sv-SE', { day:'numeric', month:'long', year:'numeric' });
+  const m = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (m < 1)   return 'just nu';
+  if (m < 60)  return m + ' min sedan';
+  const h = Math.floor(m / 60);
+  if (h < 24)  return h + (h === 1 ? ' timme sedan' : ' timmar sedan');
+  const d = Math.floor(h / 24);
+  if (d < 7)   return d + (d === 1 ? ' dag sedan' : ' dagar sedan');
+  return new Date(iso).toLocaleDateString('sv-SE', { day:'numeric', month:'short', year:'numeric' });
 }
 
   // Theme toggle

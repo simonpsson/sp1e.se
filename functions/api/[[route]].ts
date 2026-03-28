@@ -98,6 +98,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     if (resource === 'tags'   && !id && method === 'GET') return getTags(env);
     if (resource === 'items'  && !id && method === 'GET') return getItemsByTags(url, env);
     if (resource === 'export' && !id && method === 'GET') return exportAll(env);
+    if (resource === 'seed'   && !id && method === 'GET') return seedDefaults(env);
 
     if (resource === 'categories') {
       if (!id && method === 'GET') return getCategories(env);
@@ -179,6 +180,61 @@ async function getCategories(env: Env): Promise<Response> {
   });
 }
 
+async function seedDefaults(env: Env): Promise<Response> {
+  const cats = [
+    { id: 'power-bi',   name: 'Power BI',   icon: '⚡',  sort_order: 1 },
+    { id: 'sql',        name: 'SQL',        icon: '🗄️',  sort_order: 2 },
+    { id: 'python',     name: 'Python',     icon: '🐍',  sort_order: 3 },
+    { id: 'databricks', name: 'Databricks', icon: '🧱',  sort_order: 4 },
+    { id: 'dokument',   name: 'Dokument',   icon: '📄',  sort_order: 5 },
+    { id: 'bilder',     name: 'Bilder',     icon: '🖼️',  sort_order: 6 },
+    { id: 'bokmarken',  name: 'Bokmärken',  icon: '🔗',  sort_order: 7 },
+  ];
+  const subs = [
+    { id: 'power-bi-dax',          category_id: 'power-bi',   name: 'DAX',           sort_order: 1 },
+    { id: 'power-bi-power-query',  category_id: 'power-bi',   name: 'Power Query',   sort_order: 2 },
+    { id: 'power-bi-filer',        category_id: 'power-bi',   name: 'Filer',         sort_order: 3 },
+    { id: 'power-bi-ovrigt',       category_id: 'power-bi',   name: 'Övrigt',        sort_order: 4 },
+    { id: 'sql-queries',           category_id: 'sql',        name: 'Queries',       sort_order: 1 },
+    { id: 'sql-snippets',          category_id: 'sql',        name: 'Snippets',      sort_order: 2 },
+    { id: 'sql-ovrigt',            category_id: 'sql',        name: 'Övrigt',        sort_order: 3 },
+    { id: 'python-scripts',        category_id: 'python',     name: 'Scripts',       sort_order: 1 },
+    { id: 'python-notebooks',      category_id: 'python',     name: 'Notebooks',     sort_order: 2 },
+    { id: 'python-pyspark',        category_id: 'python',     name: 'PySpark',       sort_order: 3 },
+    { id: 'python-ovrigt',         category_id: 'python',     name: 'Övrigt',        sort_order: 4 },
+    { id: 'databricks-notebooks',  category_id: 'databricks', name: 'Notebooks',     sort_order: 1 },
+    { id: 'databricks-config',     category_id: 'databricks', name: 'Konfiguration', sort_order: 2 },
+    { id: 'databricks-ovrigt',     category_id: 'databricks', name: 'Övrigt',        sort_order: 3 },
+    { id: 'dokument-rapporter',    category_id: 'dokument',   name: 'Rapporter',     sort_order: 1 },
+    { id: 'dokument-anteckningar', category_id: 'dokument',   name: 'Anteckningar',  sort_order: 2 },
+    { id: 'dokument-mallar',       category_id: 'dokument',   name: 'Mallar',        sort_order: 3 },
+    { id: 'dokument-ovrigt',       category_id: 'dokument',   name: 'Övrigt',        sort_order: 4 },
+    { id: 'bilder-screenshots',    category_id: 'bilder',     name: 'Screenshots',   sort_order: 1 },
+    { id: 'bilder-diagram',        category_id: 'bilder',     name: 'Diagram',       sort_order: 2 },
+    { id: 'bilder-ovrigt',         category_id: 'bilder',     name: 'Övrigt',        sort_order: 3 },
+    { id: 'bokmarken-verktyg',     category_id: 'bokmarken',  name: 'Verktyg',       sort_order: 1 },
+    { id: 'bokmarken-artiklar',    category_id: 'bokmarken',  name: 'Artiklar',      sort_order: 2 },
+    { id: 'bokmarken-referens',    category_id: 'bokmarken',  name: 'Referens',      sort_order: 3 },
+    { id: 'bokmarken-ovrigt',      category_id: 'bokmarken',  name: 'Övrigt',        sort_order: 4 },
+  ];
+
+  const stmts = [
+    ...cats.map(c =>
+      env.DB.prepare(
+        'INSERT OR IGNORE INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)'
+      ).bind(c.id, c.name, c.icon, c.sort_order)
+    ),
+    ...subs.map(s =>
+      env.DB.prepare(
+        'INSERT OR IGNORE INTO subcategories (id, category_id, name, sort_order) VALUES (?, ?, ?, ?)'
+      ).bind(s.id, s.category_id, s.name, s.sort_order)
+    ),
+  ];
+
+  await env.DB.batch(stmts);
+  return json({ seeded: true, categories: cats.length, subcategories: subs.length });
+}
+
 async function getCategory(catId: string, url: URL, env: Env): Promise<Response> {
   const subcatFilter = url.searchParams.get('subcategory');
   const typeFilter   = url.searchParams.get('type');    // note|snippet|file|bookmark
@@ -234,13 +290,25 @@ async function getCategory(catId: string, url: URL, env: Env): Promise<Response>
 
 async function getRecent(env: Env): Promise<Response> {
   const r = await env.DB.prepare(`
-    SELECT 'note'     AS type, id, title,    created_at, NULL     AS extra FROM notes
+    SELECT 'note'     AS type, n.id, n.title,             n.created_at, NULL          AS extra, c.name AS category_name
+    FROM notes n
+    LEFT JOIN subcategories sc ON sc.id = n.subcategory_id
+    LEFT JOIN categories c ON c.id = sc.category_id
     UNION ALL
-    SELECT 'snippet'  AS type, id, title,    created_at, language AS extra FROM snippets
+    SELECT 'snippet'  AS type, s.id, s.title,             s.created_at, s.language    AS extra, c.name AS category_name
+    FROM snippets s
+    LEFT JOIN subcategories sc ON sc.id = s.subcategory_id
+    LEFT JOIN categories c ON c.id = sc.category_id
     UNION ALL
-    SELECT 'file'     AS type, id, filename  AS title, created_at, mime_type AS extra FROM files
+    SELECT 'file'     AS type, f.id, f.filename AS title, f.created_at, f.mime_type   AS extra, c.name AS category_name
+    FROM files f
+    LEFT JOIN subcategories sc ON sc.id = f.subcategory_id
+    LEFT JOIN categories c ON c.id = sc.category_id
     UNION ALL
-    SELECT 'bookmark' AS type, id, title,    created_at, url      AS extra FROM bookmarks
+    SELECT 'bookmark' AS type, b.id, b.title,             b.created_at, b.url         AS extra, c.name AS category_name
+    FROM bookmarks b
+    LEFT JOIN subcategories sc ON sc.id = b.subcategory_id
+    LEFT JOIN categories c ON c.id = sc.category_id
     ORDER BY created_at DESC
     LIMIT 10
   `).all<Row>();
@@ -506,22 +574,30 @@ async function getPublicItem(table: string, id: string, request: Request, env: E
   return json(row);
 }
 
-// Stream a file from R2 to the client.
+// Stream a file from R2 (or D1 base64 fallback) to the client.
 async function downloadFile(id: string, request: Request, env: Env): Promise<Response> {
   const row = await env.DB
-    .prepare('SELECT r2_key, filename, mime_type, is_public FROM files WHERE id = ?')
+    .prepare('SELECT r2_key, filename, mime_type, is_public, data FROM files WHERE id = ?')
     .bind(id)
-    .first<{ r2_key: string; filename: string; mime_type: string; is_public: number }>();
+    .first<{ r2_key: string; filename: string; mime_type: string; is_public: number; data: string | null }>();
   if (!row) return json({ error: 'not found' }, 404);
   if (!row.is_public) await requireAuth(request, env);
-
-  const obj = await env.FILES.get(row.r2_key);
-  if (!obj) return json({ error: 'file not found in storage' }, 404);
 
   const headers = new Headers();
   headers.set('Content-Type', row.mime_type || 'application/octet-stream');
   headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(row.filename)}`);
   headers.set('Cache-Control', 'private, max-age=3600');
+
+  // Serve from D1 base64 fallback if R2 was unavailable at upload time.
+  if (row.data) {
+    const binary = atob(row.data);
+    const bytes  = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Response(bytes.buffer, { headers });
+  }
+
+  const obj = await env.FILES.get(row.r2_key);
+  if (!obj) return json({ error: 'file not found in storage' }, 404);
   return new Response(obj.body, { headers });
 }
 
@@ -699,15 +775,30 @@ async function uploadFile(request: Request, env: Env): Promise<Response> {
   const isPublic      = formData.get('is_public') === '1' ? 1 : 0;
   const now           = new Date().toISOString();
 
-  await env.FILES.put(r2Key, file.stream(), {
-    httpMetadata: { contentType: file.type || 'application/octet-stream' },
-  });
+  // Buffer the file so we can fall back to D1 base64 if R2 is unavailable.
+  const arrayBuffer = await file.arrayBuffer();
+  let base64Data: string | null = null;
+
+  try {
+    await env.FILES.put(r2Key, arrayBuffer, {
+      httpMetadata: { contentType: file.type || 'application/octet-stream' },
+    });
+  } catch {
+    // R2 unavailable — fall back to D1 base64 for small files (≤1 MB).
+    if (file.size > 1 * 1024 * 1024) {
+      return json({ error: 'R2 storage unavailable and file exceeds 1 MB D1 fallback limit' }, 503);
+    }
+    const bytes = new Uint8Array(arrayBuffer);
+    let bin = '';
+    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+    base64Data = btoa(bin);
+  }
 
   await env.DB.prepare(
-    `INSERT INTO files (id, filename, r2_key, size, mime_type, subcategory_id, tags, is_public, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO files (id, filename, r2_key, size, mime_type, subcategory_id, tags, is_public, data, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, file.name, r2Key, file.size, file.type || 'application/octet-stream',
-    subcategoryId, tagsRaw, isPublic, now).run();
+    subcategoryId, tagsRaw, isPublic, base64Data, now).run();
 
   return json({ id, success: true }, 201);
 }

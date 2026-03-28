@@ -69,48 +69,52 @@
   /* ── Top bar ───────────────────────────────────────── */
   .topbar {
     position: sticky; top: 0; z-index: 50;
-    height: 56px;
-    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+    display: grid;
+    grid-template-columns: 1fr minmax(200px, 480px) 1fr;
+    align-items: center;
+    gap: 1rem;
     padding: 0 2rem;
     background: var(--topbar-bg);
     backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
   }
   .logo {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 300; font-size: 1.25rem; letter-spacing: 0.2em;
     color: var(--logo-col); text-decoration: none;
     transition: color 0.2s ease;
+    justify-self: start;
   }
   .logo:hover { color: var(--logo-hover); }
+  .logo-one { font-size: 110%; display: inline-block; vertical-align: -0.04em; }
+  .topbar-search { position: relative; }
   .logout-btn {
     background: none; border: none; cursor: pointer;
     font-family: 'DM Mono', monospace; font-size: 0.72rem;
     color: var(--muted); letter-spacing: 0.05em;
-    transition: color 0.2s ease;
+    transition: color 0.2s ease; white-space: nowrap;
   }
   .logout-btn:hover { color: var(--text); }
+  .logout-icon { display: none; }
 
   /* ── Layout ────────────────────────────────────────── */
-  main { max-width: 900px; margin: 0 auto; padding: 3rem 2rem 6rem; }
-  .page-title {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 300; font-size: 2.8rem; color: var(--heading);
-    margin-bottom: 2.5rem; letter-spacing: 0.02em;
-  }
+  main { max-width: 900px; margin: 0 auto; padding: 2rem 2rem 6rem; }
 
   /* ── Category grid ─────────────────────────────────── */
   .cat-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 0.875rem;
-    margin-bottom: 3.5rem;
+    margin-bottom: 3rem;
   }
   .cat-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 1.25rem 1rem;
     text-decoration: none; color: var(--text);
-    display: flex; flex-direction: column; gap: 0.45rem;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    gap: 0.45rem; height: 100%;
     transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
     cursor: pointer;
   }
@@ -119,9 +123,9 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 28px var(--accent-glow);
   }
-  .cat-icon  { font-size: 1.4rem; }
+  .cat-icon  { font-size: 1.5rem; }
   .cat-name  { font-size: 0.8rem; color: var(--text); }
-  .cat-count { font-size: 0.65rem; color: var(--muted); }
+  .cat-count { font-size: 0.65rem; color: var(--muted); margin-top: auto; }
 
   /* ── Skeleton loader ───────────────────────────────── */
   .skel {
@@ -142,27 +146,32 @@
   /* ── Recent list ───────────────────────────────────── */
   .recent-list { list-style: none; }
   .recent-item {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 0.6rem 0; border-bottom: 1px solid var(--border);
-    transition: opacity 0.15s ease; cursor: default;
+    display: flex; align-items: center; gap: 0.65rem;
+    padding: 0.55rem 0.4rem; border-radius: 6px;
+    border-bottom: 1px solid var(--border);
+    color: inherit; text-decoration: none;
+    transition: background 0.12s ease;
   }
   .recent-item:last-child { border-bottom: none; }
-  .type-badge {
-    font-size: 0.58rem; padding: 0.15rem 0.4rem;
-    border-radius: 3px; border: 1px solid var(--border-hi);
-    color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;
-    flex-shrink: 0; min-width: 54px; text-align: center;
-  }
+  .recent-item:hover { background: var(--hover-bg); }
+  .recent-icon { font-size: 0.88rem; flex-shrink: 0; line-height: 1; }
   .recent-title {
     flex: 1; font-size: 0.78rem;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .recent-time { font-size: 0.62rem; color: var(--dim); flex-shrink: 0; }
+  .recent-item:hover .recent-title { color: var(--accent); }
+  .recent-cat {
+    font-size: 0.58rem; color: var(--muted); flex-shrink: 0;
+    padding: 0.1rem 0.4rem; border-radius: 3px;
+    border: 1px solid var(--border); letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .recent-time { font-size: 0.60rem; color: var(--dim); flex-shrink: 0; }
 
   .empty { font-size: 0.75rem; color: var(--muted); padding: 1rem 0; }
 
   /* ── Search ──────────────────────────────────────── */
-  .search-wrap { position: relative; margin-bottom: 2.5rem; }
+  .search-wrap { position: relative; }
   .search-input {
     width: 100%; background: var(--surface); border: 1px solid var(--border);
     border-radius: 10px; padding: 0.85rem 1.1rem 0.85rem 2.75rem;
@@ -245,12 +254,8 @@
   }
   .toast.show { opacity: 1; transform: translateY(0); }
 
-  /* ── Recent items as links ─────────────────────────── */
-  .recent-item { text-decoration: none; }
-  a.recent-item:hover .recent-title { color: var(--accent); }
-
   /* ── Theme toggle + export ─────────────────────────── */
-  .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+  .topbar-right { display: flex; align-items: center; gap: 0.75rem; justify-self: end; }
   .theme-btn {
     background: none; border: none; cursor: pointer;
     font-size: 1rem; padding: 0.15rem 0.4rem;
@@ -259,24 +264,128 @@
   }
   .theme-btn:hover { opacity: 1; }
   .export-btn {
-    background: none; border: 1px solid var(--border-hi);
-    border-radius: 6px; padding: 0.35rem 0.75rem;
-    font-family: 'DM Mono', monospace; font-size: 0.68rem;
-    color: var(--dim); cursor: pointer; letter-spacing: 0.04em;
-    transition: border-color 0.2s, color 0.2s;
+    background: none; border: none;
+    font-family: 'DM Mono', monospace; font-size: 0.62rem;
+    color: var(--dim); cursor: pointer; letter-spacing: 0.03em;
+    padding: 0; opacity: 0.7;
+    transition: color 0.2s, opacity 0.2s;
   }
-  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .export-btn:hover { color: var(--muted); opacity: 1; }
+  .export-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
   /* ── Recent section header ─────────────────────────── */
   .section-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
   .section-row .section-title { margin: 0; }
 
   @media (max-width: 640px) {
-    main { padding: 2rem 1rem 4rem; }
-    .topbar { padding: 0 1rem; }
-    .page-title { font-size: 2rem; }
+    main { padding: 1.5rem 1rem 4rem; }
+    .topbar { padding: 0 1rem; grid-template-columns: auto 1fr auto; gap: 0.6rem; }
+    .topbar-right { gap: 0.4rem; }
     .cat-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .logout-label { display: none; }
+    .logout-icon  { display: inline; font-size: 1rem; opacity: 0.6; }
+    .logout-btn:hover .logout-icon { opacity: 1; }
+    .export-btn { display: none; }
+  }
+
+  /* ── Art gallery ───────────────────────────────────── */
+  .gallery-section {
+    margin-bottom: 3rem;
+  }
+  .gallery-frame {
+    position: relative;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #050508;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    /* aspect-ratio set by JS based on image */
+    aspect-ratio: 16/9;
+  }
+  .gallery-frame img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: opacity 1.5s ease;
+    opacity: 0;
+  }
+
+  /* overlay controls */
+  .gallery-overlay {
+    position: absolute; inset: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    opacity: 0; transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+  .gallery-frame:hover .gallery-overlay { opacity: 1; pointer-events: all; }
+
+  .g-arrow {
+    width: 44px; height: 80px;
+    background: rgba(0,0,0,0.45);
+    border: none; cursor: pointer; color: rgba(255,255,255,0.75);
+    font-size: 1.1rem; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+  .g-arrow:first-child { border-radius: 0 8px 8px 0; }
+  .g-arrow:last-child  { border-radius: 8px 0 0 8px; }
+  .g-arrow:hover { background: rgba(0,0,0,0.7); color: #fff; }
+
+  .g-pause-icon {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem; color: rgba(255,255,255,0.5);
+    pointer-events: none;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .gallery-frame:hover.paused .g-pause-icon { opacity: 1; }
+
+  /* progress bar */
+  .gallery-progress {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 2px; z-index: 5;
+    background: rgba(255,255,255,0.08);
+  }
+  .gallery-progress-bar {
+    height: 100%; width: 0;
+    background: rgba(255,255,255,0.35);
+    transition: none;
+  }
+  .gallery-progress-bar.running {
+    transition: width 20s linear;
+    width: 100%;
+  }
+
+  /* caption */
+  .gallery-caption {
+    display: flex; align-items: baseline; gap: 0.75rem;
+    padding: 0.65rem 0.25rem 0;
+    flex-wrap: wrap;
+  }
+  .g-artist {
+    font-size: 0.68rem; color: var(--muted);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .g-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-weight: 300;
+    font-size: 1rem; color: var(--text);
+    letter-spacing: 0.01em;
+  }
+  .g-year {
+    font-size: 0.65rem; color: var(--dim);
+    letter-spacing: 0.04em; margin-left: auto;
+  }
+
+  @media (max-width: 768px) {
+    .gallery-section {
+      margin-left: -1rem;
+      margin-right: -1rem;
+    }
+    .gallery-frame { border-radius: 0; border-left: none; border-right: none; }
+    .gallery-caption { padding-left: 1rem; padding-right: 1rem; }
   }
 </style>
 </head>
@@ -286,29 +395,48 @@
 <div id="toast-area"></div>
 
 <header class="topbar">
-  <a class="logo" href="/">SP1E</a>
-  <div class="topbar-right">
-    <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
-    <button class="logout-btn" id="logout-btn">Logga ut</button>
-  </div>
-</header>
-
-<main>
-  <h1 class="page-title">Hub</h1>
-
-  <div class="search-wrap">
+  <a class="logo" href="/"><span>S</span><span>P</span><span class="logo-one">1</span><span>E</span></a>
+  <div class="topbar-search search-wrap">
     <span class="search-icon">⌕</span>
     <input type="text" class="search-input" id="search-input"
            placeholder="Sök anteckningar, snippets, filer, bokmärken…"
            autocomplete="off" spellcheck="false">
     <div class="search-dropdown" id="search-dropdown"></div>
   </div>
+  <div class="topbar-right">
+    <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
+    <button class="logout-btn" id="logout-btn" title="Logga ut"><span class="logout-label">Logga ut</span><span class="logout-icon">⇥</span></button>
+  </div>
+</header>
 
+<main>
   <div class="cat-grid" id="cat-grid">
     <div class="skel"></div><div class="skel"></div>
     <div class="skel"></div><div class="skel"></div>
     <div class="skel"></div><div class="skel"></div>
     <div class="skel"></div>
+  </div>
+
+  <!-- Art gallery -->
+  <div class="gallery-section" id="gallery-section" style="display:none">
+    <div class="gallery-frame" id="gallery-frame">
+      <img class="g-img-a" id="g-img-a" src="" alt="" loading="lazy">
+      <img class="g-img-b" id="g-img-b" src="" alt="" loading="lazy">
+      <div class="gallery-overlay">
+        <button class="g-arrow" id="g-prev" aria-label="Föregående">‹</button>
+        <div style="flex:1"></div>
+        <button class="g-arrow" id="g-next" aria-label="Nästa">›</button>
+      </div>
+      <div class="g-pause-icon">❚❚</div>
+      <div class="gallery-progress">
+        <div class="gallery-progress-bar" id="g-progress-bar"></div>
+      </div>
+    </div>
+    <div class="gallery-caption" id="gallery-caption">
+      <span class="g-artist" id="g-artist"></span>
+      <span class="g-title" id="g-title"></span>
+      <span class="g-year" id="g-year"></span>
+    </div>
   </div>
 
   <div class="section-row">
@@ -528,6 +656,8 @@ function recentHref(item) {
   return '#';
 }
 
+const RECENT_ICONS = { note: '📝', snippet: '💻', file: '📎', bookmark: '🔗' };
+
 function renderRecent(items) {
   const el = document.getElementById('recent-list');
   if (!items.length) {
@@ -538,10 +668,12 @@ function renderRecent(items) {
     const href   = recentHref(item);
     const isExt  = item.type === 'bookmark' || item.type === 'file';
     const target = isExt ? ' target="_blank" rel="noopener"' : '';
-    return `
-      <a class="recent-item" href="${esc(href)}"${target} style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid var(--border);color:inherit;text-decoration:none;transition:opacity 0.15s ease;">
-        <span class="type-badge">${esc(item.type)}</span>
+    const icon   = RECENT_ICONS[item.type] ?? '📄';
+    const cat    = item.category_name ? `<span class="recent-cat">${esc(item.category_name)}</span>` : '';
+    return `<a class="recent-item" href="${esc(href)}"${target}>
+        <span class="recent-icon">${icon}</span>
         <span class="recent-title">${esc(item.title ?? '(namnlös)')}</span>
+        ${cat}
         <span class="recent-time">${relTime(item.created_at)}</span>
       </a>`;
   }).join('');
@@ -651,14 +783,190 @@ function esc(s) {
 function relTime(iso) {
   if (!iso) return '';
   const m = Math.floor((Date.now() - new Date(iso)) / 60000);
-  if (m < 1)   return 'nu';
-  if (m < 60)  return m + 'm';
+  if (m < 1)   return 'just nu';
+  if (m < 60)  return m + ' min sedan';
   const h = Math.floor(m / 60);
-  if (h < 24)  return h + 'h';
+  if (h < 24)  return h + (h === 1 ? ' timme sedan' : ' timmar sedan');
   const d = Math.floor(h / 24);
-  if (d < 30)  return d + 'd';
-  return new Date(iso).toLocaleDateString('sv-SE', { day:'numeric', month:'short' });
+  if (d < 7)   return d + (d === 1 ? ' dag sedan' : ' dagar sedan');
+  return new Date(iso).toLocaleDateString('sv-SE', { day:'numeric', month:'short', year:'numeric' });
 }
+
+// ── Art Gallery ───────────────────────────────────────
+(function initGallery() {
+  const CACHE_KEY   = 'sp1e-gallery-v1';
+  const INTERVAL_MS = 20_000;
+  const FADE_MS     = 1500;
+  const IMG_BASE    = 'https://www.artic.edu/iiif/2';
+  const AIC_URL     = 'https://api.artic.edu/api/v1/artworks/search';
+
+  let artworks = [];
+  let current  = 0;
+  let paused   = false;
+  let timer    = null;
+  // front = currently visible img element; back = staging slot
+  let front, back;
+
+  const section  = document.getElementById('gallery-section');
+  const frame    = document.getElementById('gallery-frame');
+  const imgA     = document.getElementById('g-img-a');
+  const imgB     = document.getElementById('g-img-b');
+  const bar      = document.getElementById('g-progress-bar');
+  const artistEl = document.getElementById('g-artist');
+  const titleEl  = document.getElementById('g-title');
+  const yearEl   = document.getElementById('g-year');
+
+  const imgUrl = id => `${IMG_BASE}/${id}/full/1200,/0/default.jpg`;
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function resetBar() {
+    bar.classList.remove('running');
+    void bar.offsetWidth;
+    bar.style.width = '0';
+  }
+
+  function startBar() {
+    if (paused) return;
+    void bar.offsetWidth;
+    bar.classList.add('running');
+  }
+
+  function setCaption(art) {
+    artistEl.textContent = art.artist_title || '';
+    titleEl.textContent  = art.title        || '';
+    yearEl.textContent   = art.date_display || '';
+  }
+
+  // Show the very first painting (no crossfade, just appear)
+  function showFirst(art) {
+    front = imgA; back = imgB;
+    front.style.cssText = 'z-index:2;opacity:0;transition:opacity 1.5s ease';
+    back.style.cssText  = 'z-index:1;opacity:0;transition:opacity 1.5s ease';
+    front.src = imgUrl(art.image_id);
+    front.alt = art.title || '';
+    setCaption(art);
+    front.onload = () => {
+      front.onload = null;
+      front.style.opacity = '1';
+      startBar();
+    };
+    front.onerror = () => { front.onerror = null; };
+  }
+
+  // Crossfade to a new artwork
+  function crossfade(art) {
+    back.onload = back.onerror = null;
+    back.src = imgUrl(art.image_id);
+    back.alt = art.title || '';
+
+    function doSwap() {
+      // back is fully loaded; place it below front and make it visible
+      back.style.opacity = '1';
+      // fade out front — back shows through
+      front.style.opacity = '0';
+      setCaption(art);
+
+      // after fade completes, swap roles
+      setTimeout(() => {
+        const oldFront = front;
+        front = back;
+        back  = oldFront;
+        front.style.zIndex = '2';
+        back.style.zIndex  = '1';
+        back.style.opacity = '0'; // reset for next use
+        resetBar();
+        startBar();
+      }, FADE_MS + 100);
+    }
+
+    if (back.complete && back.naturalWidth > 0) {
+      doSwap();
+    } else {
+      back.onload  = () => { back.onload = back.onerror = null; doSwap(); };
+      back.onerror = () => { back.onload = back.onerror = null; advance(1); };
+    }
+
+    // Preload next image
+    const next = artworks[(current + 1) % artworks.length];
+    if (next) new Image().src = imgUrl(next.image_id);
+  }
+
+  function advance(delta) {
+    current = (current + (delta ?? 1) + artworks.length) % artworks.length;
+    crossfade(artworks[current]);
+    clearInterval(timer);
+    if (!paused) timer = setInterval(() => advance(1), INTERVAL_MS);
+  }
+
+  async function fetchArtworks() {
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) { try { return JSON.parse(cached); } catch {} }
+    const res = await fetch(AIC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        q: 'impressionism',
+        query: { bool: { must: [
+          { term:   { is_public_domain: true } },
+          { exists: { field: 'image_id' } },
+          { term:   { classification_title: 'painting' } },
+        ]}},
+        fields: ['id', 'title', 'artist_title', 'date_display', 'image_id'],
+        limit: 50,
+      }),
+    });
+    if (!res.ok) throw new Error('gallery API error');
+    const data = await res.json();
+    const items = (data.data ?? []).filter(d => d.image_id);
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify(items));
+    return items;
+  }
+
+  async function init() {
+    try {
+      const raw = await fetchArtworks();
+      if (!raw.length) return;
+      artworks = shuffle(raw);
+      section.style.display = '';
+      showFirst(artworks[0]);
+      timer = setInterval(() => advance(1), INTERVAL_MS);
+    } catch { /* silently hide gallery */ }
+  }
+
+  // Pause on hover
+  frame.addEventListener('mouseenter', () => {
+    paused = true;
+    frame.classList.add('paused');
+    clearInterval(timer);
+    bar.classList.remove('running');
+  });
+  frame.addEventListener('mouseleave', () => {
+    paused = false;
+    frame.classList.remove('paused');
+    resetBar();
+    startBar();
+    timer = setInterval(() => advance(1), INTERVAL_MS);
+  });
+
+  // Arrow buttons
+  document.getElementById('g-prev').addEventListener('click', e => { e.stopPropagation(); advance(-1); });
+  document.getElementById('g-next').addEventListener('click', e => { e.stopPropagation(); advance(1);  });
+
+  // Click to open artwork page on AIC website
+  frame.addEventListener('click', () => {
+    const art = artworks[current];
+    if (art?.id) window.open(`https://www.artic.edu/artworks/${art.id}`, '_blank', 'noopener');
+  });
+
+  init();
+})();
 </script>
 </body>
 </html>
