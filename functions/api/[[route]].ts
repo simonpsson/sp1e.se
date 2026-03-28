@@ -16,8 +16,8 @@ type Row = Record<string, unknown>;
 
 const SAFE_TABLES = new Set(['notes', 'snippets', 'bookmarks', 'files']);
 
-// TEMPORARY FALLBACK — remove once AUTH_PASSWORD_HASH env var works in Cloudflare Pages
-const FALLBACK_HASH = 'pbkdf2:100000:26e4335528b9f68528debae265f5e48f:cf80806a2013a029e1b07a79ce51be94be9fec26a5e1506a08320f950ce86476';
+// Reject the checked-in emergency hash so misconfigured deployments fail loudly.
+const KNOWN_FALLBACK_HASH = 'pbkdf2:100000:26e4335528b9f68528debae265f5e48f:cf80806a2013a029e1b07a79ce51be94be9fec26a5e1506a08320f950ce86476';
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
@@ -37,15 +37,16 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
 
     if (resource === 'auth' && id === 'debug' && method === 'GET') {
       const raw     = env.AUTH_PASSWORD_HASH ?? '';
-      const trimmed = raw.trim();
+      const config  = inspectPasswordHash(raw);
       return json({
         hashExists:     raw.length > 0,
         hashLength:     raw.length,
-        hashTrimmedLen: trimmed.length,
-        hashPrefix:     trimmed.slice(0, 20),
-        hashSuffix:     trimmed.slice(-20),
-        hasWhitespace:  raw !== trimmed || /[\n\r\t ]/.test(raw),
-        usingFallback:  !trimmed,
+        normalizedLen:  config.value.length,
+        hasWhitespace:  raw !== raw.trim() || /[\n\r\t ]/.test(raw),
+        hasVarPrefix:   config.hasVarPrefix,
+        hasWrappingQuotes: config.hasWrappingQuotes,
+        formatValid:    config.isValid,
+        isKnownFallback: config.isKnownFallback,
         envKeys:        Object.keys(env),
       });
     }
@@ -722,8 +723,13 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   if (!body.password || typeof body.password !== 'string') {
     return json({ error: 'password required' }, 400);
   }
-  const storedHash = env.AUTH_PASSWORD_HASH?.trim() || FALLBACK_HASH;
-  const valid = await verifyPassword(body.password, storedHash);
+  const hashConfig = inspectPasswordHash(env.AUTH_PASSWORD_HASH);
+  if (!hashConfig.isUsable) {
+    console.error('AUTH_PASSWORD_HASH is missing or invalid');
+    return json({ error: 'auth not configured' }, 500);
+  }
+
+  const valid = await verifyPassword(body.password, hashConfig.value);
   if (!valid) {
     await sleep(200 + Math.random() * 200);
     return json({ error: 'Wrong password' }, 401);
@@ -780,18 +786,15 @@ class AuthError extends Error {
 
 async function verifyPassword(password: string, stored: string): Promise<boolean> {
   try {
-    const parts = stored.trim().split(':');
-    if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false;
-    const [, iterStr, saltHex, storedHash] = parts.map(p => p.trim());
-    const iterations = parseInt(iterStr, 10);
-    if (!iterations) return false;
+    const parsed = parsePasswordHash(stored);
+    if (!parsed) return false;
     const km = await crypto.subtle.importKey(
       'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
     );
     const bits = await crypto.subtle.deriveBits(
-      { name: 'PBKDF2', salt: fromHex(saltHex), iterations, hash: 'SHA-256' }, km, 256
+      { name: 'PBKDF2', salt: fromHex(parsed.saltHex), iterations: parsed.iterations, hash: 'SHA-256' }, km, 256
     );
-    return constantTimeEqual(toHex(new Uint8Array(bits)), storedHash);
+    return constantTimeEqual(toHex(new Uint8Array(bits)), parsed.hashHex);
   } catch { return false; }
 }
 
@@ -837,6 +840,88 @@ function toHex(b: Uint8Array): string {
 
 function fromHex(hex: string): Uint8Array {
   return new Uint8Array((hex.match(/.{2}/g) ?? []).map(b => parseInt(b, 16)));
+}
+
+function inspectPasswordHash(raw: string | undefined): {
+  value: string;
+  hasVarPrefix: boolean;
+  hasWrappingQuotes: boolean;
+  isValid: boolean;
+  isKnownFallback: boolean;
+  isUsable: boolean;
+} {
+  const { value, hasVarPrefix, hasWrappingQuotes } = normalizePasswordHash(raw);
+  const parsed = parsePasswordHash(value);
+  const canonical = parsed
+    ? `pbkdf2:${parsed.iterations}:${parsed.saltHex}:${parsed.hashHex}`
+    : value;
+
+  return {
+    value: canonical,
+    hasVarPrefix,
+    hasWrappingQuotes,
+    isValid: !!parsed,
+    isKnownFallback: canonical === KNOWN_FALLBACK_HASH,
+    isUsable: !!parsed && canonical !== KNOWN_FALLBACK_HASH,
+  };
+}
+
+function normalizePasswordHash(raw: string | undefined): {
+  value: string;
+  hasVarPrefix: boolean;
+  hasWrappingQuotes: boolean;
+} {
+  let value = raw?.trim() ?? '';
+  let hasVarPrefix = false;
+  let hasWrappingQuotes = false;
+
+  for (;;) {
+    let changed = false;
+    const strippedPrefix = value.replace(/^AUTH_PASSWORD_HASH\s*=\s*/, '');
+    if (strippedPrefix !== value) {
+      hasVarPrefix = true;
+      value = strippedPrefix.trim();
+      changed = true;
+    }
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      hasWrappingQuotes = true;
+      value = value.slice(1, -1).trim();
+      changed = true;
+    }
+
+    if (!changed) break;
+  }
+
+  return { value, hasVarPrefix, hasWrappingQuotes };
+}
+
+function parsePasswordHash(stored: string): {
+  iterations: number;
+  saltHex: string;
+  hashHex: string;
+} | null {
+  const parts = stored.split(':').map(p => p.trim());
+  if (parts.length !== 4) return null;
+
+  const [algo, iterStr, saltHexRaw, hashHexRaw] = parts;
+  if (algo.toLowerCase() !== 'pbkdf2') return null;
+
+  const iterations = parseInt(iterStr, 10);
+  if (!Number.isInteger(iterations) || iterations < 1) return null;
+
+  const saltHex = saltHexRaw.toLowerCase();
+  const hashHex = hashHexRaw.toLowerCase();
+  if (!isHexString(saltHex) || !isHexString(hashHex)) return null;
+
+  return { iterations, saltHex, hashHex };
+}
+
+function isHexString(value: string): boolean {
+  return value.length > 0 && value.length % 2 === 0 && /^[0-9a-f]+$/i.test(value);
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
