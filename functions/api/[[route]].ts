@@ -290,13 +290,25 @@ async function getCategory(catId: string, url: URL, env: Env): Promise<Response>
 
 async function getRecent(env: Env): Promise<Response> {
   const r = await env.DB.prepare(`
-    SELECT 'note'     AS type, id, title,    created_at, NULL     AS extra FROM notes
+    SELECT 'note'     AS type, n.id, n.title,             n.created_at, NULL          AS extra, c.name AS category_name
+    FROM notes n
+    LEFT JOIN subcategories sc ON sc.id = n.subcategory_id
+    LEFT JOIN categories c ON c.id = sc.category_id
     UNION ALL
-    SELECT 'snippet'  AS type, id, title,    created_at, language AS extra FROM snippets
+    SELECT 'snippet'  AS type, s.id, s.title,             s.created_at, s.language    AS extra, c.name AS category_name
+    FROM snippets s
+    LEFT JOIN subcategories sc ON sc.id = s.subcategory_id
+    LEFT JOIN categories c ON c.id = sc.category_id
     UNION ALL
-    SELECT 'file'     AS type, id, filename  AS title, created_at, mime_type AS extra FROM files
+    SELECT 'file'     AS type, f.id, f.filename AS title, f.created_at, f.mime_type   AS extra, c.name AS category_name
+    FROM files f
+    LEFT JOIN subcategories sc ON sc.id = f.subcategory_id
+    LEFT JOIN categories c ON c.id = sc.category_id
     UNION ALL
-    SELECT 'bookmark' AS type, id, title,    created_at, url      AS extra FROM bookmarks
+    SELECT 'bookmark' AS type, b.id, b.title,             b.created_at, b.url         AS extra, c.name AS category_name
+    FROM bookmarks b
+    LEFT JOIN subcategories sc ON sc.id = b.subcategory_id
+    LEFT JOIN categories c ON c.id = sc.category_id
     ORDER BY created_at DESC
     LIMIT 10
   `).all<Row>();
