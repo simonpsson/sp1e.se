@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/brand.css">
 <style>
   :root {
     --bg:           #0a0a0f;
@@ -286,7 +287,7 @@
 <div id="toast-area"></div>
 
 <header class="topbar">
-  <a class="logo" href="/">SP1E</a>
+  <a class="logo brand-mark" href="/">SP<span class="brand-one">1</span>E</a>
   <div class="topbar-right">
     <button class="theme-btn" id="theme-btn" title="Byt tema">☀</button>
     <button class="logout-btn" id="logout-btn">Logga ut</button>
@@ -336,6 +337,17 @@ function showToast(msg) {
   setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 3000);
 }
 
+async function fetchJsonOrThrow(url) {
+  const res = await fetch(url, { credentials: 'same-origin' });
+  let body = null;
+  try { body = await res.json(); } catch {}
+  if (!res.ok) {
+    const message = body?.details || body?.error || `${res.status} ${res.statusText || 'Request failed'}`;
+    throw new Error(message);
+  }
+  return body ?? {};
+}
+
 (async () => {
   // ── Auth check ──────────────────────────────────────
   try {
@@ -363,19 +375,24 @@ function showToast(msg) {
 
   // ── Fetch + render ──────────────────────────────────
   startProgress();
-  let catsRes = {}, recentRes = {};
-  try {
-    [catsRes, recentRes] = await Promise.all([
-      fetch('/api/categories', { credentials: 'same-origin' }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-      fetch('/api/recent',     { credentials: 'same-origin' }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-    ]);
-  } catch {
-    showToast('Kunde inte ladda hub-data.');
-  }
+  const [catsResult, recentResult] = await Promise.allSettled([
+    fetchJsonOrThrow('/api/categories'),
+    fetchJsonOrThrow('/api/recent'),
+  ]);
   stopProgress();
 
-  renderGrid(catsRes.categories ?? []);
-  renderRecent(recentRes.items ?? []);
+  const categoryError = catsResult.status === 'rejected'
+    ? (catsResult.reason?.message || 'Kunde inte ladda kategorier.')
+    : '';
+  const recentError = recentResult.status === 'rejected'
+    ? (recentResult.reason?.message || 'Kunde inte ladda senaste.')
+    : '';
+
+  if (categoryError) showToast(categoryError);
+  if (recentError) showToast(recentError);
+
+  renderGrid(catsResult.status === 'fulfilled' ? (catsResult.value.categories ?? []) : [], categoryError);
+  renderRecent(recentResult.status === 'fulfilled' ? (recentResult.value.items ?? []) : [], recentError);
 })();
 
 // ─── Search ───────────────────────────────────────────
@@ -505,8 +522,12 @@ function closeDropdown() {
   d.innerHTML = '';
 }
 
-function renderGrid(cats) {
+function renderGrid(cats, error) {
   const el = document.getElementById('cat-grid');
+  if (error) {
+    el.innerHTML = `<p class="empty">${esc(error)}</p>`;
+    return;
+  }
   if (!cats.length) {
     el.innerHTML = '<p class="empty">Inga kategorier ännu.</p>';
     return;
@@ -528,8 +549,12 @@ function recentHref(item) {
   return '#';
 }
 
-function renderRecent(items) {
+function renderRecent(items, error) {
   const el = document.getElementById('recent-list');
+  if (error) {
+    el.innerHTML = `<li class="empty">${esc(error)}</li>`;
+    return;
+  }
   if (!items.length) {
     el.innerHTML = '<li class="empty">Inga objekt ännu.</li>';
     return;

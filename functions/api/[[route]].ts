@@ -19,6 +19,44 @@ const SAFE_TABLES = new Set(['notes', 'snippets', 'bookmarks', 'files']);
 // TEMPORARY FALLBACK — remove once AUTH_PASSWORD_HASH env var works in Cloudflare Pages
 const FALLBACK_HASH = 'pbkdf2:100000:26e4335528b9f68528debae265f5e48f:cf80806a2013a029e1b07a79ce51be94be9fec26a5e1506a08320f950ce86476';
 
+const DEFAULT_CATEGORIES = [
+  { id: 'power-bi',   name: 'Power BI',   icon: '⚡', sortOrder: 1 },
+  { id: 'sql',        name: 'SQL',        icon: '🗄️', sortOrder: 2 },
+  { id: 'python',     name: 'Python',     icon: '🐍', sortOrder: 3 },
+  { id: 'databricks', name: 'Databricks', icon: '🧱', sortOrder: 4 },
+  { id: 'dokument',   name: 'Dokument',   icon: '📄', sortOrder: 5 },
+  { id: 'bilder',     name: 'Bilder',     icon: '🖼️', sortOrder: 6 },
+  { id: 'bokmarken',  name: 'Bokmärken',  icon: '🔗', sortOrder: 7 },
+] as const;
+
+const DEFAULT_SUBCATEGORIES = [
+  { id: 'power-bi-dax',         categoryId: 'power-bi',   name: 'DAX',           sortOrder: 1 },
+  { id: 'power-bi-power-query', categoryId: 'power-bi',   name: 'Power Query',   sortOrder: 2 },
+  { id: 'power-bi-filer',       categoryId: 'power-bi',   name: 'Filer',         sortOrder: 3 },
+  { id: 'power-bi-ovrigt',      categoryId: 'power-bi',   name: 'Övrigt',        sortOrder: 4 },
+  { id: 'sql-queries',          categoryId: 'sql',        name: 'Queries',       sortOrder: 1 },
+  { id: 'sql-snippets',         categoryId: 'sql',        name: 'Snippets',      sortOrder: 2 },
+  { id: 'sql-ovrigt',           categoryId: 'sql',        name: 'Övrigt',        sortOrder: 3 },
+  { id: 'python-scripts',       categoryId: 'python',     name: 'Scripts',       sortOrder: 1 },
+  { id: 'python-notebooks',     categoryId: 'python',     name: 'Notebooks',     sortOrder: 2 },
+  { id: 'python-pyspark',       categoryId: 'python',     name: 'PySpark',       sortOrder: 3 },
+  { id: 'python-ovrigt',        categoryId: 'python',     name: 'Övrigt',        sortOrder: 4 },
+  { id: 'databricks-notebooks', categoryId: 'databricks', name: 'Notebooks',     sortOrder: 1 },
+  { id: 'databricks-config',    categoryId: 'databricks', name: 'Konfiguration', sortOrder: 2 },
+  { id: 'databricks-ovrigt',    categoryId: 'databricks', name: 'Övrigt',        sortOrder: 3 },
+  { id: 'dokument-rapporter',   categoryId: 'dokument',   name: 'Rapporter',     sortOrder: 1 },
+  { id: 'dokument-anteckningar', categoryId: 'dokument',  name: 'Anteckningar',  sortOrder: 2 },
+  { id: 'dokument-mallar',      categoryId: 'dokument',   name: 'Mallar',        sortOrder: 3 },
+  { id: 'dokument-ovrigt',      categoryId: 'dokument',   name: 'Övrigt',        sortOrder: 4 },
+  { id: 'bilder-screenshots',   categoryId: 'bilder',     name: 'Screenshots',   sortOrder: 1 },
+  { id: 'bilder-diagram',       categoryId: 'bilder',     name: 'Diagram',       sortOrder: 2 },
+  { id: 'bilder-ovrigt',        categoryId: 'bilder',     name: 'Övrigt',        sortOrder: 3 },
+  { id: 'bokmarken-verktyg',    categoryId: 'bokmarken',  name: 'Verktyg',       sortOrder: 1 },
+  { id: 'bokmarken-artiklar',   categoryId: 'bokmarken',  name: 'Artiklar',      sortOrder: 2 },
+  { id: 'bokmarken-referens',   categoryId: 'bokmarken',  name: 'Referens',      sortOrder: 3 },
+  { id: 'bokmarken-ovrigt',     categoryId: 'bokmarken',  name: 'Övrigt',        sortOrder: 4 },
+] as const;
+
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 export const onRequest: PagesFunction<Env> = async (ctx) => {
@@ -82,6 +120,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     await requireAuth(request, env);
 
     if (resource === 'search' && method === 'GET') return searchItems(url, env);
+    if (resource === 'seed'   && !id && method === 'GET') return seedDefaults(env);
     if (resource === 'tags'   && !id && method === 'GET') return getTags(env);
     if (resource === 'items'  && !id && method === 'GET') return getItemsByTags(url, env);
     if (resource === 'export' && !id && method === 'GET') return exportAll(env);
@@ -129,109 +168,147 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
 // ─── Category handlers ────────────────────────────────────────────────────────
 
 async function getCategories(env: Env): Promise<Response> {
-  const [cats, subs, counts] = await Promise.all([
-    env.DB.prepare('SELECT * FROM categories ORDER BY sort_order').all<Row>(),
-    env.DB.prepare('SELECT * FROM subcategories ORDER BY category_id, sort_order').all<Row>(),
-    env.DB.prepare(`
-      SELECT sc.category_id, COUNT(*) AS cnt
-      FROM (
-        SELECT subcategory_id FROM notes     WHERE subcategory_id IS NOT NULL
-        UNION ALL
-        SELECT subcategory_id FROM files     WHERE subcategory_id IS NOT NULL
-        UNION ALL
-        SELECT subcategory_id FROM snippets  WHERE subcategory_id IS NOT NULL
-        UNION ALL
-        SELECT subcategory_id FROM bookmarks WHERE subcategory_id IS NOT NULL
-      ) AS all_items
-      JOIN subcategories sc ON sc.id = all_items.subcategory_id
-      GROUP BY sc.category_id
-    `).all<{ category_id: string; cnt: number }>(),
-  ]);
+  try {
+    const [cats, subs, counts] = await Promise.all([
+      env.DB.prepare('SELECT * FROM categories ORDER BY sort_order').all<Row>(),
+      env.DB.prepare('SELECT * FROM subcategories ORDER BY category_id, sort_order').all<Row>(),
+      env.DB.prepare(`
+        SELECT sc.category_id, COUNT(*) AS cnt
+        FROM (
+          SELECT subcategory_id FROM notes     WHERE subcategory_id IS NOT NULL
+          UNION ALL
+          SELECT subcategory_id FROM files     WHERE subcategory_id IS NOT NULL
+          UNION ALL
+          SELECT subcategory_id FROM snippets  WHERE subcategory_id IS NOT NULL
+          UNION ALL
+          SELECT subcategory_id FROM bookmarks WHERE subcategory_id IS NOT NULL
+        ) AS all_items
+        JOIN subcategories sc ON sc.id = all_items.subcategory_id
+        GROUP BY sc.category_id
+      `).all<{ category_id: string; cnt: number }>(),
+    ]);
 
-  const cntMap = new Map(counts.results.map(r => [r.category_id, r.cnt]));
+    const cntMap = new Map(counts.results.map(r => [r.category_id, r.cnt]));
 
-  const subMap = new Map<string, Row[]>();
-  for (const s of subs.results) {
-    const cid = s.category_id as string;
-    if (!subMap.has(cid)) subMap.set(cid, []);
-    subMap.get(cid)!.push(s);
+    const subMap = new Map<string, Row[]>();
+    for (const s of subs.results) {
+      const cid = s.category_id as string;
+      if (!subMap.has(cid)) subMap.set(cid, []);
+      subMap.get(cid)!.push(s);
+    }
+
+    return json({
+      categories: cats.results.map(c => ({
+        ...c,
+        subcategories: subMap.get(c.id as string) ?? [],
+        item_count:    cntMap.get(c.id as string)  ?? 0,
+      })),
+    });
+  } catch (err) {
+    return dbError('Failed to load categories', err);
   }
-
-  return json({
-    categories: cats.results.map(c => ({
-      ...c,
-      subcategories: subMap.get(c.id as string) ?? [],
-      item_count:    cntMap.get(c.id as string)  ?? 0,
-    })),
-  });
 }
 
 async function getCategory(catId: string, url: URL, env: Env): Promise<Response> {
-  const subcatFilter = url.searchParams.get('subcategory');
-  const typeFilter   = url.searchParams.get('type');    // note|snippet|file|bookmark
+  try {
+    const subcatFilter = url.searchParams.get('subcategory');
+    const typeFilter   = url.searchParams.get('type');    // note|snippet|file|bookmark
 
-  const [cat, subs] = await Promise.all([
-    env.DB.prepare('SELECT * FROM categories WHERE id = ?').bind(catId).first<Row>(),
-    env.DB.prepare('SELECT * FROM subcategories WHERE category_id = ? ORDER BY sort_order')
-          .bind(catId).all<Row>(),
-  ]);
+    const [cat, subs] = await Promise.all([
+      env.DB.prepare('SELECT * FROM categories WHERE id = ?').bind(catId).first<Row>(),
+      env.DB.prepare('SELECT * FROM subcategories WHERE category_id = ? ORDER BY sort_order')
+            .bind(catId).all<Row>(),
+    ]);
 
-  if (!cat) return json({ error: 'not found' }, 404);
+    if (!cat) return json({ error: 'not found' }, 404);
 
-  const allSubcatIds = subs.results.map(s => s.id as string);
-  const activeIds    = subcatFilter ? [subcatFilter] : allSubcatIds;
+    const allSubcatIds = subs.results.map(s => s.id as string);
+    const activeIds    = subcatFilter ? [subcatFilter] : allSubcatIds;
 
-  if (activeIds.length === 0) {
-    return json({ category: cat, subcategories: subs.results, items: [] });
+    if (activeIds.length === 0) {
+      return json({ category: cat, subcategories: subs.results, items: [] });
+    }
+
+    const ph   = activeIds.map(() => '?').join(',');
+    const want = typeFilter ? [typeFilter] : ['note', 'snippet', 'file', 'bookmark'];
+
+    const [notes, snippets, files, bookmarks] = await Promise.all([
+      want.includes('note')
+        ? env.DB.prepare(`SELECT *, 'note' AS type FROM notes WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
+                .bind(...activeIds).all<Row>()
+        : { results: [] as Row[] },
+      want.includes('snippet')
+        ? env.DB.prepare(`SELECT *, 'snippet' AS type FROM snippets WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
+                .bind(...activeIds).all<Row>()
+        : { results: [] as Row[] },
+      want.includes('file')
+        ? env.DB.prepare(`SELECT *, 'file' AS type FROM files WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
+                .bind(...activeIds).all<Row>()
+        : { results: [] as Row[] },
+      want.includes('bookmark')
+        ? env.DB.prepare(`SELECT *, 'bookmark' AS type FROM bookmarks WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
+                .bind(...activeIds).all<Row>()
+        : { results: [] as Row[] },
+    ]);
+
+    const items = [
+      ...notes.results,
+      ...snippets.results,
+      ...files.results,
+      ...bookmarks.results,
+    ].sort((a, b) =>
+      (b.created_at as string).localeCompare(a.created_at as string)
+    );
+
+    return json({ category: cat, subcategories: subs.results, items });
+  } catch (err) {
+    return dbError('Failed to load category', err);
   }
-
-  const ph   = activeIds.map(() => '?').join(',');
-  const want = typeFilter ? [typeFilter] : ['note', 'snippet', 'file', 'bookmark'];
-
-  const [notes, snippets, files, bookmarks] = await Promise.all([
-    want.includes('note')
-      ? env.DB.prepare(`SELECT *, 'note' AS type FROM notes WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-              .bind(...activeIds).all<Row>()
-      : { results: [] as Row[] },
-    want.includes('snippet')
-      ? env.DB.prepare(`SELECT *, 'snippet' AS type FROM snippets WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-              .bind(...activeIds).all<Row>()
-      : { results: [] as Row[] },
-    want.includes('file')
-      ? env.DB.prepare(`SELECT *, 'file' AS type FROM files WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-              .bind(...activeIds).all<Row>()
-      : { results: [] as Row[] },
-    want.includes('bookmark')
-      ? env.DB.prepare(`SELECT *, 'bookmark' AS type FROM bookmarks WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-              .bind(...activeIds).all<Row>()
-      : { results: [] as Row[] },
-  ]);
-
-  const items = [
-    ...notes.results,
-    ...snippets.results,
-    ...files.results,
-    ...bookmarks.results,
-  ].sort((a, b) =>
-    (b.created_at as string).localeCompare(a.created_at as string)
-  );
-
-  return json({ category: cat, subcategories: subs.results, items });
 }
 
 async function getRecent(env: Env): Promise<Response> {
-  const r = await env.DB.prepare(`
-    SELECT 'note'     AS type, id, title,    created_at, NULL     AS extra FROM notes
-    UNION ALL
-    SELECT 'snippet'  AS type, id, title,    created_at, language AS extra FROM snippets
-    UNION ALL
-    SELECT 'file'     AS type, id, filename  AS title, created_at, mime_type AS extra FROM files
-    UNION ALL
-    SELECT 'bookmark' AS type, id, title,    created_at, url      AS extra FROM bookmarks
-    ORDER BY created_at DESC
-    LIMIT 10
-  `).all<Row>();
-  return json({ items: r.results });
+  try {
+    const r = await env.DB.prepare(`
+      SELECT 'note'     AS type, id, title,    created_at, NULL     AS extra FROM notes
+      UNION ALL
+      SELECT 'snippet'  AS type, id, title,    created_at, language AS extra FROM snippets
+      UNION ALL
+      SELECT 'file'     AS type, id, filename  AS title, created_at, mime_type AS extra FROM files
+      UNION ALL
+      SELECT 'bookmark' AS type, id, title,    created_at, url      AS extra FROM bookmarks
+      ORDER BY created_at DESC
+      LIMIT 10
+    `).all<Row>();
+    return json({ items: r.results });
+  } catch (err) {
+    return dbError('Failed to load recent items', err);
+  }
+}
+
+async function seedDefaults(env: Env): Promise<Response> {
+  try {
+    const categoryValues = DEFAULT_CATEGORIES.flatMap(({ id, name, icon, sortOrder }) => [id, name, icon, sortOrder]);
+    const subcategoryValues = DEFAULT_SUBCATEGORIES.flatMap(({ id, categoryId, name, sortOrder }) => [id, categoryId, name, sortOrder]);
+
+    await env.DB.batch([
+      env.DB.prepare(`
+        INSERT OR IGNORE INTO categories (id, name, icon, sort_order)
+        VALUES ${DEFAULT_CATEGORIES.map(() => '(?, ?, ?, ?)').join(', ')}
+      `).bind(...categoryValues),
+      env.DB.prepare(`
+        INSERT OR IGNORE INTO subcategories (id, category_id, name, sort_order)
+        VALUES ${DEFAULT_SUBCATEGORIES.map(() => '(?, ?, ?, ?)').join(', ')}
+      `).bind(...subcategoryValues),
+    ]);
+
+    return json({
+      seeded: true,
+      categories: DEFAULT_CATEGORIES.length,
+      subcategories: DEFAULT_SUBCATEGORIES.length,
+    });
+  } catch (err) {
+    return dbError('Failed to seed default categories', err);
+  }
 }
 
 async function searchItems(url: URL, env: Env): Promise<Response> {
@@ -823,6 +900,10 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+function dbError(error: string, err: unknown, status = 500): Response {
+  return json({ error, details: errorMessage(err) }, status);
+}
+
 function cors(): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': '*',
@@ -837,6 +918,13 @@ function toHex(b: Uint8Array): string {
 
 function fromHex(hex: string): Uint8Array {
   return new Uint8Array((hex.match(/.{2}/g) ?? []).map(b => parseInt(b, 16)));
+}
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  try { return JSON.stringify(err); }
+  catch { return String(err); }
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
