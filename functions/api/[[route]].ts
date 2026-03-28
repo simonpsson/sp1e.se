@@ -16,8 +16,8 @@ type Row = Record<string, unknown>;
 
 const SAFE_TABLES = new Set(['notes', 'snippets', 'bookmarks', 'files']);
 
-// TEMPORARY FALLBACK — remove once AUTH_PASSWORD_HASH env var works in Cloudflare Pages
-const FALLBACK_HASH = 'pbkdf2:100000:26e4335528b9f68528debae265f5e48f:cf80806a2013a029e1b07a79ce51be94be9fec26a5e1506a08320f950ce86476';
+// Reject the checked-in emergency hash so misconfigured deployments fail loudly.
+const KNOWN_FALLBACK_HASH = 'pbkdf2:100000:26e4335528b9f68528debae265f5e48f:cf80806a2013a029e1b07a79ce51be94be9fec26a5e1506a08320f950ce86476';
 
 const DEFAULT_CATEGORIES = [
   { id: 'power-bi',   name: 'Power BI',   icon: '⚡', sortOrder: 1 },
@@ -74,17 +74,30 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     if (resource === 'health' && !id && method === 'GET') return json({ status: 'ok' });
 
     if (resource === 'auth' && id === 'debug' && method === 'GET') {
-      const raw     = env.AUTH_PASSWORD_HASH ?? '';
-      const trimmed = raw.trim();
+      const raw    = env.AUTH_PASSWORD_HASH ?? '';
+      const config = inspectPasswordHash(raw);
+
+      // D1 health: verify sessions table exists
+      let d1Status = 'unknown';
+      try {
+        await env.DB.prepare('SELECT 1 FROM sessions LIMIT 1').first();
+        d1Status = 'sessions table ok';
+      } catch (e: unknown) {
+        d1Status = `error: ${e instanceof Error ? e.message : String(e)}`;
+      }
+
       return json({
-        hashExists:     raw.length > 0,
-        hashLength:     raw.length,
-        hashTrimmedLen: trimmed.length,
-        hashPrefix:     trimmed.slice(0, 20),
-        hashSuffix:     trimmed.slice(-20),
-        hasWhitespace:  raw !== trimmed || /[\n\r\t ]/.test(raw),
-        usingFallback:  !trimmed,
-        envKeys:        Object.keys(env),
+        hashExists:        raw.length > 0,
+        hashLength:        raw.length,
+        normalizedLen:     config.value.length,
+        hasWhitespace:     raw !== raw.trim() || /[\n\r\t ]/.test(raw),
+        hasVarPrefix:      config.hasVarPrefix,
+        hasWrappingQuotes: config.hasWrappingQuotes,
+        formatValid:       config.isValid,
+        isKnownFallback:   config.isKnownFallback,
+        hashUsable:        config.isUsable,
+        d1:                d1Status,
+        envKeys:           Object.keys(env),
       });
     }
 
@@ -269,13 +282,25 @@ async function getCategory(catId: string, url: URL, env: Env): Promise<Response>
 async function getRecent(env: Env): Promise<Response> {
   try {
     const r = await env.DB.prepare(`
-      SELECT 'note'     AS type, id, title,    created_at, NULL     AS extra FROM notes
+      SELECT 'note'     AS type, n.id, n.title,             n.created_at, NULL        AS extra, c.name AS category_name
+      FROM notes n
+      LEFT JOIN subcategories sc ON sc.id = n.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
       UNION ALL
-      SELECT 'snippet'  AS type, id, title,    created_at, language AS extra FROM snippets
+      SELECT 'snippet'  AS type, s.id, s.title,             s.created_at, s.language  AS extra, c.name AS category_name
+      FROM snippets s
+      LEFT JOIN subcategories sc ON sc.id = s.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
       UNION ALL
-      SELECT 'file'     AS type, id, filename  AS title, created_at, mime_type AS extra FROM files
+      SELECT 'file'     AS type, f.id, f.filename AS title, f.created_at, f.mime_type AS extra, c.name AS category_name
+      FROM files f
+      LEFT JOIN subcategories sc ON sc.id = f.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
       UNION ALL
-      SELECT 'bookmark' AS type, id, title,    created_at, url      AS extra FROM bookmarks
+      SELECT 'bookmark' AS type, b.id, b.title,             b.created_at, b.url       AS extra, c.name AS category_name
+      FROM bookmarks b
+      LEFT JOIN subcategories sc ON sc.id = b.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
       ORDER BY created_at DESC
       LIMIT 10
     `).all<Row>();
@@ -570,22 +595,30 @@ async function getPublicItem(table: string, id: string, request: Request, env: E
   return json(row);
 }
 
-// Stream a file from R2 to the client.
+// Stream a file from R2 (or D1 base64 fallback) to the client.
 async function downloadFile(id: string, request: Request, env: Env): Promise<Response> {
   const row = await env.DB
-    .prepare('SELECT r2_key, filename, mime_type, is_public FROM files WHERE id = ?')
+    .prepare('SELECT r2_key, filename, mime_type, is_public, data FROM files WHERE id = ?')
     .bind(id)
-    .first<{ r2_key: string; filename: string; mime_type: string; is_public: number }>();
+    .first<{ r2_key: string; filename: string; mime_type: string; is_public: number; data: string | null }>();
   if (!row) return json({ error: 'not found' }, 404);
   if (!row.is_public) await requireAuth(request, env);
-
-  const obj = await env.FILES.get(row.r2_key);
-  if (!obj) return json({ error: 'file not found in storage' }, 404);
 
   const headers = new Headers();
   headers.set('Content-Type', row.mime_type || 'application/octet-stream');
   headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(row.filename)}`);
   headers.set('Cache-Control', 'private, max-age=3600');
+
+  // Serve from D1 base64 fallback if R2 was unavailable at upload time.
+  if (row.data) {
+    const binary = atob(row.data);
+    const bytes  = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Response(bytes.buffer, { headers });
+  }
+
+  const obj = await env.FILES.get(row.r2_key);
+  if (!obj) return json({ error: 'file not found in storage' }, 404);
   return new Response(obj.body, { headers });
 }
 
@@ -763,15 +796,30 @@ async function uploadFile(request: Request, env: Env): Promise<Response> {
   const isPublic      = formData.get('is_public') === '1' ? 1 : 0;
   const now           = new Date().toISOString();
 
-  await env.FILES.put(r2Key, file.stream(), {
-    httpMetadata: { contentType: file.type || 'application/octet-stream' },
-  });
+  // Buffer the file so we can fall back to D1 base64 if R2 is unavailable.
+  const arrayBuffer = await file.arrayBuffer();
+  let base64Data: string | null = null;
+
+  try {
+    await env.FILES.put(r2Key, arrayBuffer, {
+      httpMetadata: { contentType: file.type || 'application/octet-stream' },
+    });
+  } catch {
+    // R2 unavailable — fall back to D1 base64 for small files (≤1 MB).
+    if (file.size > 1 * 1024 * 1024) {
+      return json({ error: 'R2 storage unavailable and file exceeds 1 MB D1 fallback limit' }, 503);
+    }
+    const bytes = new Uint8Array(arrayBuffer);
+    let bin = '';
+    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+    base64Data = btoa(bin);
+  }
 
   await env.DB.prepare(
-    `INSERT INTO files (id, filename, r2_key, size, mime_type, subcategory_id, tags, is_public, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO files (id, filename, r2_key, size, mime_type, subcategory_id, tags, is_public, data, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, file.name, r2Key, file.size, file.type || 'application/octet-stream',
-    subcategoryId, tagsRaw, isPublic, now).run();
+    subcategoryId, tagsRaw, isPublic, base64Data, now).run();
 
   return json({ id, success: true }, 201);
 }
@@ -799,8 +847,13 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   if (!body.password || typeof body.password !== 'string') {
     return json({ error: 'password required' }, 400);
   }
-  const storedHash = env.AUTH_PASSWORD_HASH?.trim() || FALLBACK_HASH;
-  const valid = await verifyPassword(body.password, storedHash);
+  const hashConfig = inspectPasswordHash(env.AUTH_PASSWORD_HASH);
+  if (!hashConfig.isUsable) {
+    console.error('AUTH_PASSWORD_HASH is missing or invalid');
+    return json({ error: 'auth not configured' }, 500);
+  }
+
+  const valid = await verifyPassword(body.password, hashConfig.value);
   if (!valid) {
     await sleep(200 + Math.random() * 200);
     return json({ error: 'Wrong password' }, 401);
@@ -857,18 +910,15 @@ class AuthError extends Error {
 
 async function verifyPassword(password: string, stored: string): Promise<boolean> {
   try {
-    const parts = stored.trim().split(':');
-    if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false;
-    const [, iterStr, saltHex, storedHash] = parts.map(p => p.trim());
-    const iterations = parseInt(iterStr, 10);
-    if (!iterations) return false;
+    const parsed = parsePasswordHash(stored);
+    if (!parsed) return false;
     const km = await crypto.subtle.importKey(
       'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
     );
     const bits = await crypto.subtle.deriveBits(
-      { name: 'PBKDF2', salt: fromHex(saltHex), iterations, hash: 'SHA-256' }, km, 256
+      { name: 'PBKDF2', salt: fromHex(parsed.saltHex), iterations: parsed.iterations, hash: 'SHA-256' }, km, 256
     );
-    return constantTimeEqual(toHex(new Uint8Array(bits)), storedHash);
+    return constantTimeEqual(toHex(new Uint8Array(bits)), parsed.hashHex);
   } catch { return false; }
 }
 
@@ -925,6 +975,88 @@ function errorMessage(err: unknown): string {
   if (typeof err === 'string') return err;
   try { return JSON.stringify(err); }
   catch { return String(err); }
+}
+
+function inspectPasswordHash(raw: string | undefined): {
+  value: string;
+  hasVarPrefix: boolean;
+  hasWrappingQuotes: boolean;
+  isValid: boolean;
+  isKnownFallback: boolean;
+  isUsable: boolean;
+} {
+  const { value, hasVarPrefix, hasWrappingQuotes } = normalizePasswordHash(raw);
+  const parsed = parsePasswordHash(value);
+  const canonical = parsed
+    ? `pbkdf2:${parsed.iterations}:${parsed.saltHex}:${parsed.hashHex}`
+    : value;
+
+  return {
+    value: canonical,
+    hasVarPrefix,
+    hasWrappingQuotes,
+    isValid: !!parsed,
+    isKnownFallback: canonical === KNOWN_FALLBACK_HASH,
+    isUsable: !!parsed && canonical !== KNOWN_FALLBACK_HASH,
+  };
+}
+
+function normalizePasswordHash(raw: string | undefined): {
+  value: string;
+  hasVarPrefix: boolean;
+  hasWrappingQuotes: boolean;
+} {
+  let value = raw?.trim() ?? '';
+  let hasVarPrefix = false;
+  let hasWrappingQuotes = false;
+
+  for (;;) {
+    let changed = false;
+    const strippedPrefix = value.replace(/^AUTH_PASSWORD_HASH\s*=\s*/, '');
+    if (strippedPrefix !== value) {
+      hasVarPrefix = true;
+      value = strippedPrefix.trim();
+      changed = true;
+    }
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      hasWrappingQuotes = true;
+      value = value.slice(1, -1).trim();
+      changed = true;
+    }
+
+    if (!changed) break;
+  }
+
+  return { value, hasVarPrefix, hasWrappingQuotes };
+}
+
+function parsePasswordHash(stored: string): {
+  iterations: number;
+  saltHex: string;
+  hashHex: string;
+} | null {
+  const parts = stored.split(':').map(p => p.trim());
+  if (parts.length !== 4) return null;
+
+  const [algo, iterStr, saltHexRaw, hashHexRaw] = parts;
+  if (algo.toLowerCase() !== 'pbkdf2') return null;
+
+  const iterations = parseInt(iterStr, 10);
+  if (!Number.isInteger(iterations) || iterations < 1) return null;
+
+  const saltHex = saltHexRaw.toLowerCase();
+  const hashHex = hashHexRaw.toLowerCase();
+  if (!isHexString(saltHex) || !isHexString(hashHex)) return null;
+
+  return { iterations, saltHex, hashHex };
+}
+
+function isHexString(value: string): boolean {
+  return value.length > 0 && value.length % 2 === 0 && /^[0-9a-f]+$/i.test(value);
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
