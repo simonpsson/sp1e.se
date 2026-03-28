@@ -98,6 +98,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     if (resource === 'tags'   && !id && method === 'GET') return getTags(env);
     if (resource === 'items'  && !id && method === 'GET') return getItemsByTags(url, env);
     if (resource === 'export' && !id && method === 'GET') return exportAll(env);
+    if (resource === 'seed'   && !id && method === 'GET') return seedDefaults(env);
 
     if (resource === 'categories') {
       if (!id && method === 'GET') return getCategories(env);
@@ -177,6 +178,61 @@ async function getCategories(env: Env): Promise<Response> {
       item_count:    cntMap.get(c.id as string)  ?? 0,
     })),
   });
+}
+
+async function seedDefaults(env: Env): Promise<Response> {
+  const cats = [
+    { id: 'power-bi',   name: 'Power BI',   icon: '⚡',  sort_order: 1 },
+    { id: 'sql',        name: 'SQL',        icon: '🗄️',  sort_order: 2 },
+    { id: 'python',     name: 'Python',     icon: '🐍',  sort_order: 3 },
+    { id: 'databricks', name: 'Databricks', icon: '🧱',  sort_order: 4 },
+    { id: 'dokument',   name: 'Dokument',   icon: '📄',  sort_order: 5 },
+    { id: 'bilder',     name: 'Bilder',     icon: '🖼️',  sort_order: 6 },
+    { id: 'bokmarken',  name: 'Bokmärken',  icon: '🔗',  sort_order: 7 },
+  ];
+  const subs = [
+    { id: 'power-bi-dax',          category_id: 'power-bi',   name: 'DAX',           sort_order: 1 },
+    { id: 'power-bi-power-query',  category_id: 'power-bi',   name: 'Power Query',   sort_order: 2 },
+    { id: 'power-bi-filer',        category_id: 'power-bi',   name: 'Filer',         sort_order: 3 },
+    { id: 'power-bi-ovrigt',       category_id: 'power-bi',   name: 'Övrigt',        sort_order: 4 },
+    { id: 'sql-queries',           category_id: 'sql',        name: 'Queries',       sort_order: 1 },
+    { id: 'sql-snippets',          category_id: 'sql',        name: 'Snippets',      sort_order: 2 },
+    { id: 'sql-ovrigt',            category_id: 'sql',        name: 'Övrigt',        sort_order: 3 },
+    { id: 'python-scripts',        category_id: 'python',     name: 'Scripts',       sort_order: 1 },
+    { id: 'python-notebooks',      category_id: 'python',     name: 'Notebooks',     sort_order: 2 },
+    { id: 'python-pyspark',        category_id: 'python',     name: 'PySpark',       sort_order: 3 },
+    { id: 'python-ovrigt',         category_id: 'python',     name: 'Övrigt',        sort_order: 4 },
+    { id: 'databricks-notebooks',  category_id: 'databricks', name: 'Notebooks',     sort_order: 1 },
+    { id: 'databricks-config',     category_id: 'databricks', name: 'Konfiguration', sort_order: 2 },
+    { id: 'databricks-ovrigt',     category_id: 'databricks', name: 'Övrigt',        sort_order: 3 },
+    { id: 'dokument-rapporter',    category_id: 'dokument',   name: 'Rapporter',     sort_order: 1 },
+    { id: 'dokument-anteckningar', category_id: 'dokument',   name: 'Anteckningar',  sort_order: 2 },
+    { id: 'dokument-mallar',       category_id: 'dokument',   name: 'Mallar',        sort_order: 3 },
+    { id: 'dokument-ovrigt',       category_id: 'dokument',   name: 'Övrigt',        sort_order: 4 },
+    { id: 'bilder-screenshots',    category_id: 'bilder',     name: 'Screenshots',   sort_order: 1 },
+    { id: 'bilder-diagram',        category_id: 'bilder',     name: 'Diagram',       sort_order: 2 },
+    { id: 'bilder-ovrigt',         category_id: 'bilder',     name: 'Övrigt',        sort_order: 3 },
+    { id: 'bokmarken-verktyg',     category_id: 'bokmarken',  name: 'Verktyg',       sort_order: 1 },
+    { id: 'bokmarken-artiklar',    category_id: 'bokmarken',  name: 'Artiklar',      sort_order: 2 },
+    { id: 'bokmarken-referens',    category_id: 'bokmarken',  name: 'Referens',      sort_order: 3 },
+    { id: 'bokmarken-ovrigt',      category_id: 'bokmarken',  name: 'Övrigt',        sort_order: 4 },
+  ];
+
+  const stmts = [
+    ...cats.map(c =>
+      env.DB.prepare(
+        'INSERT OR IGNORE INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)'
+      ).bind(c.id, c.name, c.icon, c.sort_order)
+    ),
+    ...subs.map(s =>
+      env.DB.prepare(
+        'INSERT OR IGNORE INTO subcategories (id, category_id, name, sort_order) VALUES (?, ?, ?, ?)'
+      ).bind(s.id, s.category_id, s.name, s.sort_order)
+    ),
+  ];
+
+  await env.DB.batch(stmts);
+  return json({ seeded: true, categories: cats.length, subcategories: subs.length });
 }
 
 async function getCategory(catId: string, url: URL, env: Env): Promise<Response> {
