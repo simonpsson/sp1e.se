@@ -238,11 +238,12 @@
     modal.classList.remove('open');
   }
 
-  function showError() {
+  function showError(msg) {
     input.value = '';
+    error.textContent = msg || 'Fel lösenord.';
     error.classList.add('show');
     clearTimeout(errorTimer);
-    errorTimer = setTimeout(() => error.classList.remove('show'), 2000);
+    errorTimer = setTimeout(() => error.classList.remove('show'), 4000);
     input.focus();
   }
 
@@ -264,10 +265,15 @@
       if (res.ok) {
         window.location.href = '/hub';
       } else {
-        showError();
+        let msg = 'Fel lösenord.';
+        try {
+          const data = await res.json();
+          if (data.error && data.error !== 'Wrong password') msg = data.error;
+        } catch {}
+        showError(msg);
       }
     } catch {
-      showError();
+      showError('Nätverksfel.');
     } finally {
       submit.disabled = false;
       submit.textContent = 'Enter';
