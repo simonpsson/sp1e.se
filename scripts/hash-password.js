@@ -8,7 +8,8 @@
  * Then set the output as AUTH_PASSWORD_HASH:
  *   - Local dev:  paste into .dev.vars
  *   - Production: Cloudflare dashboard → Pages → Settings → Environment variables
- *                 (add as a Secret, not a plain variable)
+ *                 (add as a Secret, not a plain variable, and paste only the
+ *                 hash value itself — not `AUTH_PASSWORD_HASH=` or quotes)
  */
 
 const crypto = require('crypto');
