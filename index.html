@@ -184,6 +184,15 @@
 
   .modal-error.show { opacity: 1; }
 
+  .pw-wrap { position: relative; width: 100%; }
+  .pw-wrap .modal-input { padding-right: 2.5rem; }
+  .pw-toggle {
+    position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; opacity: 0.4; transition: opacity 0.15s;
+  }
+  .pw-toggle:hover { opacity: 0.8; }
+
   /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 400px) {
     .cards { flex-direction: column; }
@@ -206,13 +215,16 @@
 <div id="modal" role="dialog" aria-modal="true" aria-label="Ange lösenord">
   <div class="modal-box">
     <p class="modal-label">Ange lösenord</p>
-    <input
-      class="modal-input"
-      id="pw-input"
-      type="password"
-      placeholder="••••••••"
-      autocomplete="current-password"
-    >
+    <div class="pw-wrap">
+      <input
+        class="modal-input"
+        id="pw-input"
+        type="password"
+        placeholder="••••••••"
+        autocomplete="current-password"
+      >
+      <button class="pw-toggle" id="pw-toggle" type="button" tabindex="-1">👁</button>
+    </div>
     <p class="modal-error" id="pw-error" aria-live="polite">Fel lösenord.</p>
     <button class="modal-btn" id="pw-submit">Enter</button>
   </div>
@@ -279,6 +291,13 @@
       submit.textContent = 'Enter';
     }
   }
+
+  const toggle = document.getElementById('pw-toggle');
+  toggle.addEventListener('click', () => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    toggle.textContent = show ? '🙈' : '👁';
+  });
 
   hubBtn.addEventListener('click', openModal);
   submit.addEventListener('click', attemptLogin);
