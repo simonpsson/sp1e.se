@@ -766,9 +766,9 @@ class AuthError extends Error {
 
 async function verifyPassword(password: string, stored: string): Promise<boolean> {
   try {
-    const parts = stored.split(':');
+    const parts = stored.trim().split(':');
     if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false;
-    const [, iterStr, saltHex, storedHash] = parts;
+    const [, iterStr, saltHex, storedHash] = parts.map(p => p.trim());
     const iterations = parseInt(iterStr, 10);
     if (!iterations) return false;
     const km = await crypto.subtle.importKey(
