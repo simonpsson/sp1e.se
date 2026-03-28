@@ -16,6 +16,9 @@ type Row = Record<string, unknown>;
 
 const SAFE_TABLES = new Set(['notes', 'snippets', 'bookmarks', 'files']);
 
+// TEMPORARY FALLBACK — remove once AUTH_PASSWORD_HASH env var works in Cloudflare Pages
+const FALLBACK_HASH = 'pbkdf2:100000:26e4335528b9f68528debae265f5e48f:cf80806a2013a029e1b07a79ce51be94be9fec26a5e1506a08320f950ce86476';
+
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 export const onRequest: PagesFunction<Env> = async (ctx) => {
@@ -31,6 +34,21 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   try {
     // ── Unprotected ──────────────────────────────────────────────────────────
     if (resource === 'health' && !id && method === 'GET') return json({ status: 'ok' });
+
+    if (resource === 'auth' && id === 'debug' && method === 'GET') {
+      const raw     = env.AUTH_PASSWORD_HASH ?? '';
+      const trimmed = raw.trim();
+      return json({
+        hashExists:     raw.length > 0,
+        hashLength:     raw.length,
+        hashTrimmedLen: trimmed.length,
+        hashPrefix:     trimmed.slice(0, 20),
+        hashSuffix:     trimmed.slice(-20),
+        hasWhitespace:  raw !== trimmed || /[\n\r\t ]/.test(raw),
+        usingFallback:  !trimmed,
+        envKeys:        Object.keys(env),
+      });
+    }
 
     if (resource === 'auth') {
       if (id === 'login'  && method === 'POST') return handleLogin(request, env);
@@ -704,12 +722,8 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   if (!body.password || typeof body.password !== 'string') {
     return json({ error: 'password required' }, 400);
   }
-  if (!env.AUTH_PASSWORD_HASH) {
-    console.error('AUTH_PASSWORD_HASH not set');
-    return json({ error: 'auth not configured' }, 500);
-  }
-
-  const valid = await verifyPassword(body.password, env.AUTH_PASSWORD_HASH);
+  const storedHash = env.AUTH_PASSWORD_HASH?.trim() || FALLBACK_HASH;
+  const valid = await verifyPassword(body.password, storedHash);
   if (!valid) {
     await sleep(200 + Math.random() * 200);
     return json({ error: 'Wrong password' }, 401);
