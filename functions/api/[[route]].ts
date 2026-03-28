@@ -36,18 +36,30 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     if (resource === 'health' && !id && method === 'GET') return json({ status: 'ok' });
 
     if (resource === 'auth' && id === 'debug' && method === 'GET') {
-      const raw     = env.AUTH_PASSWORD_HASH ?? '';
-      const config  = inspectPasswordHash(raw);
+      const raw    = env.AUTH_PASSWORD_HASH ?? '';
+      const config = inspectPasswordHash(raw);
+
+      // D1 health: verify sessions table exists
+      let d1Status = 'unknown';
+      try {
+        await env.DB.prepare('SELECT 1 FROM sessions LIMIT 1').first();
+        d1Status = 'sessions table ok';
+      } catch (e: unknown) {
+        d1Status = `error: ${e instanceof Error ? e.message : String(e)}`;
+      }
+
       return json({
-        hashExists:     raw.length > 0,
-        hashLength:     raw.length,
-        normalizedLen:  config.value.length,
-        hasWhitespace:  raw !== raw.trim() || /[\n\r\t ]/.test(raw),
-        hasVarPrefix:   config.hasVarPrefix,
+        hashExists:        raw.length > 0,
+        hashLength:        raw.length,
+        normalizedLen:     config.value.length,
+        hasWhitespace:     raw !== raw.trim() || /[\n\r\t ]/.test(raw),
+        hasVarPrefix:      config.hasVarPrefix,
         hasWrappingQuotes: config.hasWrappingQuotes,
-        formatValid:    config.isValid,
-        isKnownFallback: config.isKnownFallback,
-        envKeys:        Object.keys(env),
+        formatValid:       config.isValid,
+        isKnownFallback:   config.isKnownFallback,
+        hashUsable:        config.isUsable,
+        d1:                d1Status,
+        envKeys:           Object.keys(env),
       });
     }
 
