@@ -123,9 +123,12 @@
   }
 
   .modal-input {
+    -webkit-appearance: none;
+    appearance: none;
     background: transparent;
     border: none;
     border-bottom: 1px solid rgba(255,255,255,0.18);
+    border-radius: 0;
     padding: 0.5rem 0.25rem;
     width: 220px;
     color: rgba(255,255,255,0.85);
@@ -134,11 +137,14 @@
     letter-spacing: 0.15em;
     text-align: center;
     outline: none;
+    box-shadow: none;
     transition: border-color 0.2s ease;
     caret-color: #4af2c8;
   }
 
   .modal-input:focus {
+    outline: none;
+    box-shadow: none;
     border-bottom-color: #4af2c8;
   }
 
@@ -161,6 +167,18 @@
     font-size: 1rem; opacity: 0.4; transition: opacity 0.15s;
   }
   .pw-toggle:hover { opacity: 0.8; }
+
+  /* Kill Chromium/WebKit autofill overlay (injects inset box-shadow + blue bg) */
+  .modal-input:-webkit-autofill,
+  .modal-input:-webkit-autofill:hover,
+  .modal-input:-webkit-autofill:focus,
+  .modal-input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 9999px #000 inset !important;
+    box-shadow:         0 0 0 9999px #000 inset !important;
+    -webkit-text-fill-color: rgba(255,255,255,0.85) !important;
+    border-bottom-color: rgba(255,255,255,0.18) !important;
+    caret-color: #4af2c8;
+  }
 
   /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 400px) {

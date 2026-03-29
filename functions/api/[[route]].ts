@@ -108,6 +108,11 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       return json({ error: 'not found' }, 404);
     }
 
+    // ── Public: art gallery proxy (no auth, 1-hour cache) ───────────────────
+    if (resource === 'art' && !id && method === 'GET') {
+      return getArtworks();
+    }
+
     // ── Public: all public items (no auth) ──────────────────────────────────
     if (resource === 'gallery' && id === 'impressionism' && method === 'GET') {
       return getImpressionistGallery();
@@ -879,6 +884,38 @@ async function deleteFile(id: string, env: Env): Promise<Response> {
   }
   await env.DB.prepare('DELETE FROM files WHERE id = ?').bind(id).run();
   return json({ success: true });
+}
+
+// ─── Art gallery proxy ────────────────────────────────────────────────────────
+
+// In-memory cache: reused across requests within the same Worker instance.
+let artCache: { data: unknown; expires: number } | null = null;
+
+async function getArtworks(): Promise<Response> {
+  const now = Date.now();
+  if (artCache && now < artCache.expires) {
+    return json(artCache.data);
+  }
+
+  const res = await fetch('https://api.artic.edu/api/v1/artworks/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      q: 'impressionism',
+      query: { bool: { must: [
+        { term:   { is_public_domain: true } },
+        { exists: { field: 'image_id'       } },
+      ]}},
+      fields: ['id', 'title', 'artist_title', 'date_display', 'image_id'],
+      limit: 50,
+    }),
+  });
+
+  if (!res.ok) return json({ error: 'upstream error', status: res.status }, 502);
+
+  const data = await res.json();
+  artCache = { data, expires: now + 60 * 60 * 1000 }; // cache 1 hour
+  return json(data);
 }
 
 // ─── Auth handlers ────────────────────────────────────────────────────────────
