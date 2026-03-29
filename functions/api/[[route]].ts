@@ -19,6 +19,44 @@ const SAFE_TABLES = new Set(['notes', 'snippets', 'bookmarks', 'files']);
 // Reject the checked-in emergency hash so misconfigured deployments fail loudly.
 const KNOWN_FALLBACK_HASH = 'pbkdf2:100000:26e4335528b9f68528debae265f5e48f:cf80806a2013a029e1b07a79ce51be94be9fec26a5e1506a08320f950ce86476';
 
+const DEFAULT_CATEGORIES = [
+  { id: 'power-bi',   name: 'Power BI',   icon: '⚡', sortOrder: 1 },
+  { id: 'sql',        name: 'SQL',        icon: '🗄️', sortOrder: 2 },
+  { id: 'python',     name: 'Python',     icon: '🐍', sortOrder: 3 },
+  { id: 'databricks', name: 'Databricks', icon: '🧱', sortOrder: 4 },
+  { id: 'dokument',   name: 'Dokument',   icon: '📄', sortOrder: 5 },
+  { id: 'bilder',     name: 'Bilder',     icon: '🖼️', sortOrder: 6 },
+  { id: 'bokmarken',  name: 'Bokmärken',  icon: '🔗', sortOrder: 7 },
+] as const;
+
+const DEFAULT_SUBCATEGORIES = [
+  { id: 'power-bi-dax',         categoryId: 'power-bi',   name: 'DAX',           sortOrder: 1 },
+  { id: 'power-bi-power-query', categoryId: 'power-bi',   name: 'Power Query',   sortOrder: 2 },
+  { id: 'power-bi-filer',       categoryId: 'power-bi',   name: 'Filer',         sortOrder: 3 },
+  { id: 'power-bi-ovrigt',      categoryId: 'power-bi',   name: 'Övrigt',        sortOrder: 4 },
+  { id: 'sql-queries',          categoryId: 'sql',        name: 'Queries',       sortOrder: 1 },
+  { id: 'sql-snippets',         categoryId: 'sql',        name: 'Snippets',      sortOrder: 2 },
+  { id: 'sql-ovrigt',           categoryId: 'sql',        name: 'Övrigt',        sortOrder: 3 },
+  { id: 'python-scripts',       categoryId: 'python',     name: 'Scripts',       sortOrder: 1 },
+  { id: 'python-notebooks',     categoryId: 'python',     name: 'Notebooks',     sortOrder: 2 },
+  { id: 'python-pyspark',       categoryId: 'python',     name: 'PySpark',       sortOrder: 3 },
+  { id: 'python-ovrigt',        categoryId: 'python',     name: 'Övrigt',        sortOrder: 4 },
+  { id: 'databricks-notebooks', categoryId: 'databricks', name: 'Notebooks',     sortOrder: 1 },
+  { id: 'databricks-config',    categoryId: 'databricks', name: 'Konfiguration', sortOrder: 2 },
+  { id: 'databricks-ovrigt',    categoryId: 'databricks', name: 'Övrigt',        sortOrder: 3 },
+  { id: 'dokument-rapporter',   categoryId: 'dokument',   name: 'Rapporter',     sortOrder: 1 },
+  { id: 'dokument-anteckningar', categoryId: 'dokument',  name: 'Anteckningar',  sortOrder: 2 },
+  { id: 'dokument-mallar',      categoryId: 'dokument',   name: 'Mallar',        sortOrder: 3 },
+  { id: 'dokument-ovrigt',      categoryId: 'dokument',   name: 'Övrigt',        sortOrder: 4 },
+  { id: 'bilder-screenshots',   categoryId: 'bilder',     name: 'Screenshots',   sortOrder: 1 },
+  { id: 'bilder-diagram',       categoryId: 'bilder',     name: 'Diagram',       sortOrder: 2 },
+  { id: 'bilder-ovrigt',        categoryId: 'bilder',     name: 'Övrigt',        sortOrder: 3 },
+  { id: 'bokmarken-verktyg',    categoryId: 'bokmarken',  name: 'Verktyg',       sortOrder: 1 },
+  { id: 'bokmarken-artiklar',   categoryId: 'bokmarken',  name: 'Artiklar',      sortOrder: 2 },
+  { id: 'bokmarken-referens',   categoryId: 'bokmarken',  name: 'Referens',      sortOrder: 3 },
+  { id: 'bokmarken-ovrigt',     categoryId: 'bokmarken',  name: 'Övrigt',        sortOrder: 4 },
+] as const;
+
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 export const onRequest: PagesFunction<Env> = async (ctx) => {
@@ -71,6 +109,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     }
 
     // ── Public: all public items (no auth) ──────────────────────────────────
+    if (resource === 'gallery' && id === 'impressionism' && method === 'GET') {
+      return getImpressionistGallery();
+    }
+
     if (resource === 'public' && id === 'items' && method === 'GET') {
       return getPublicItems(env);
     }
@@ -95,10 +137,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     await requireAuth(request, env);
 
     if (resource === 'search' && method === 'GET') return searchItems(url, env);
+    if (resource === 'seed'   && !id && method === 'GET') return seedDefaults(env);
     if (resource === 'tags'   && !id && method === 'GET') return getTags(env);
     if (resource === 'items'  && !id && method === 'GET') return getItemsByTags(url, env);
     if (resource === 'export' && !id && method === 'GET') return exportAll(env);
-    if (resource === 'seed'   && !id && method === 'GET') return seedDefaults(env);
 
     if (resource === 'categories') {
       if (!id && method === 'GET') return getCategories(env);
@@ -143,176 +185,159 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
 // ─── Category handlers ────────────────────────────────────────────────────────
 
 async function getCategories(env: Env): Promise<Response> {
-  const [cats, subs, counts] = await Promise.all([
-    env.DB.prepare('SELECT * FROM categories ORDER BY sort_order').all<Row>(),
-    env.DB.prepare('SELECT * FROM subcategories ORDER BY category_id, sort_order').all<Row>(),
-    env.DB.prepare(`
-      SELECT sc.category_id, COUNT(*) AS cnt
-      FROM (
-        SELECT subcategory_id FROM notes     WHERE subcategory_id IS NOT NULL
-        UNION ALL
-        SELECT subcategory_id FROM files     WHERE subcategory_id IS NOT NULL
-        UNION ALL
-        SELECT subcategory_id FROM snippets  WHERE subcategory_id IS NOT NULL
-        UNION ALL
-        SELECT subcategory_id FROM bookmarks WHERE subcategory_id IS NOT NULL
-      ) AS all_items
-      JOIN subcategories sc ON sc.id = all_items.subcategory_id
-      GROUP BY sc.category_id
-    `).all<{ category_id: string; cnt: number }>(),
-  ]);
+  try {
+    const [cats, subs, counts] = await Promise.all([
+      env.DB.prepare('SELECT * FROM categories ORDER BY sort_order').all<Row>(),
+      env.DB.prepare('SELECT * FROM subcategories ORDER BY category_id, sort_order').all<Row>(),
+      env.DB.prepare(`
+        SELECT sc.category_id, COUNT(*) AS cnt
+        FROM (
+          SELECT subcategory_id FROM notes     WHERE subcategory_id IS NOT NULL
+          UNION ALL
+          SELECT subcategory_id FROM files     WHERE subcategory_id IS NOT NULL
+          UNION ALL
+          SELECT subcategory_id FROM snippets  WHERE subcategory_id IS NOT NULL
+          UNION ALL
+          SELECT subcategory_id FROM bookmarks WHERE subcategory_id IS NOT NULL
+        ) AS all_items
+        JOIN subcategories sc ON sc.id = all_items.subcategory_id
+        GROUP BY sc.category_id
+      `).all<{ category_id: string; cnt: number }>(),
+    ]);
 
-  const cntMap = new Map(counts.results.map(r => [r.category_id, r.cnt]));
+    const cntMap = new Map(counts.results.map(r => [r.category_id, r.cnt]));
 
-  const subMap = new Map<string, Row[]>();
-  for (const s of subs.results) {
-    const cid = s.category_id as string;
-    if (!subMap.has(cid)) subMap.set(cid, []);
-    subMap.get(cid)!.push(s);
+    const subMap = new Map<string, Row[]>();
+    for (const s of subs.results) {
+      const cid = s.category_id as string;
+      if (!subMap.has(cid)) subMap.set(cid, []);
+      subMap.get(cid)!.push(s);
+    }
+
+    return json({
+      categories: cats.results.map(c => ({
+        ...c,
+        subcategories: subMap.get(c.id as string) ?? [],
+        item_count:    cntMap.get(c.id as string)  ?? 0,
+      })),
+    });
+  } catch (err) {
+    return dbError('Failed to load categories', err);
   }
-
-  return json({
-    categories: cats.results.map(c => ({
-      ...c,
-      subcategories: subMap.get(c.id as string) ?? [],
-      item_count:    cntMap.get(c.id as string)  ?? 0,
-    })),
-  });
-}
-
-async function seedDefaults(env: Env): Promise<Response> {
-  const cats = [
-    { id: 'power-bi',   name: 'Power BI',   icon: '⚡',  sort_order: 1 },
-    { id: 'sql',        name: 'SQL',        icon: '🗄️',  sort_order: 2 },
-    { id: 'python',     name: 'Python',     icon: '🐍',  sort_order: 3 },
-    { id: 'databricks', name: 'Databricks', icon: '🧱',  sort_order: 4 },
-    { id: 'dokument',   name: 'Dokument',   icon: '📄',  sort_order: 5 },
-    { id: 'bilder',     name: 'Bilder',     icon: '🖼️',  sort_order: 6 },
-    { id: 'bokmarken',  name: 'Bokmärken',  icon: '🔗',  sort_order: 7 },
-  ];
-  const subs = [
-    { id: 'power-bi-dax',          category_id: 'power-bi',   name: 'DAX',           sort_order: 1 },
-    { id: 'power-bi-power-query',  category_id: 'power-bi',   name: 'Power Query',   sort_order: 2 },
-    { id: 'power-bi-filer',        category_id: 'power-bi',   name: 'Filer',         sort_order: 3 },
-    { id: 'power-bi-ovrigt',       category_id: 'power-bi',   name: 'Övrigt',        sort_order: 4 },
-    { id: 'sql-queries',           category_id: 'sql',        name: 'Queries',       sort_order: 1 },
-    { id: 'sql-snippets',          category_id: 'sql',        name: 'Snippets',      sort_order: 2 },
-    { id: 'sql-ovrigt',            category_id: 'sql',        name: 'Övrigt',        sort_order: 3 },
-    { id: 'python-scripts',        category_id: 'python',     name: 'Scripts',       sort_order: 1 },
-    { id: 'python-notebooks',      category_id: 'python',     name: 'Notebooks',     sort_order: 2 },
-    { id: 'python-pyspark',        category_id: 'python',     name: 'PySpark',       sort_order: 3 },
-    { id: 'python-ovrigt',         category_id: 'python',     name: 'Övrigt',        sort_order: 4 },
-    { id: 'databricks-notebooks',  category_id: 'databricks', name: 'Notebooks',     sort_order: 1 },
-    { id: 'databricks-config',     category_id: 'databricks', name: 'Konfiguration', sort_order: 2 },
-    { id: 'databricks-ovrigt',     category_id: 'databricks', name: 'Övrigt',        sort_order: 3 },
-    { id: 'dokument-rapporter',    category_id: 'dokument',   name: 'Rapporter',     sort_order: 1 },
-    { id: 'dokument-anteckningar', category_id: 'dokument',   name: 'Anteckningar',  sort_order: 2 },
-    { id: 'dokument-mallar',       category_id: 'dokument',   name: 'Mallar',        sort_order: 3 },
-    { id: 'dokument-ovrigt',       category_id: 'dokument',   name: 'Övrigt',        sort_order: 4 },
-    { id: 'bilder-screenshots',    category_id: 'bilder',     name: 'Screenshots',   sort_order: 1 },
-    { id: 'bilder-diagram',        category_id: 'bilder',     name: 'Diagram',       sort_order: 2 },
-    { id: 'bilder-ovrigt',         category_id: 'bilder',     name: 'Övrigt',        sort_order: 3 },
-    { id: 'bokmarken-verktyg',     category_id: 'bokmarken',  name: 'Verktyg',       sort_order: 1 },
-    { id: 'bokmarken-artiklar',    category_id: 'bokmarken',  name: 'Artiklar',      sort_order: 2 },
-    { id: 'bokmarken-referens',    category_id: 'bokmarken',  name: 'Referens',      sort_order: 3 },
-    { id: 'bokmarken-ovrigt',      category_id: 'bokmarken',  name: 'Övrigt',        sort_order: 4 },
-  ];
-
-  const stmts = [
-    ...cats.map(c =>
-      env.DB.prepare(
-        'INSERT OR IGNORE INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)'
-      ).bind(c.id, c.name, c.icon, c.sort_order)
-    ),
-    ...subs.map(s =>
-      env.DB.prepare(
-        'INSERT OR IGNORE INTO subcategories (id, category_id, name, sort_order) VALUES (?, ?, ?, ?)'
-      ).bind(s.id, s.category_id, s.name, s.sort_order)
-    ),
-  ];
-
-  await env.DB.batch(stmts);
-  return json({ seeded: true, categories: cats.length, subcategories: subs.length });
 }
 
 async function getCategory(catId: string, url: URL, env: Env): Promise<Response> {
-  const subcatFilter = url.searchParams.get('subcategory');
-  const typeFilter   = url.searchParams.get('type');    // note|snippet|file|bookmark
+  try {
+    const subcatFilter = url.searchParams.get('subcategory');
+    const typeFilter   = url.searchParams.get('type');    // note|snippet|file|bookmark
 
-  const [cat, subs] = await Promise.all([
-    env.DB.prepare('SELECT * FROM categories WHERE id = ?').bind(catId).first<Row>(),
-    env.DB.prepare('SELECT * FROM subcategories WHERE category_id = ? ORDER BY sort_order')
-          .bind(catId).all<Row>(),
-  ]);
+    const [cat, subs] = await Promise.all([
+      env.DB.prepare('SELECT * FROM categories WHERE id = ?').bind(catId).first<Row>(),
+      env.DB.prepare('SELECT * FROM subcategories WHERE category_id = ? ORDER BY sort_order')
+            .bind(catId).all<Row>(),
+    ]);
 
-  if (!cat) return json({ error: 'not found' }, 404);
+    if (!cat) return json({ error: 'not found' }, 404);
 
-  const allSubcatIds = subs.results.map(s => s.id as string);
-  const activeIds    = subcatFilter ? [subcatFilter] : allSubcatIds;
+    const allSubcatIds = subs.results.map(s => s.id as string);
+    const activeIds    = subcatFilter ? [subcatFilter] : allSubcatIds;
 
-  if (activeIds.length === 0) {
-    return json({ category: cat, subcategories: subs.results, items: [] });
+    if (activeIds.length === 0) {
+      return json({ category: cat, subcategories: subs.results, items: [] });
+    }
+
+    const ph   = activeIds.map(() => '?').join(',');
+    const want = typeFilter ? [typeFilter] : ['note', 'snippet', 'file', 'bookmark'];
+
+    const [notes, snippets, files, bookmarks] = await Promise.all([
+      want.includes('note')
+        ? env.DB.prepare(`SELECT *, 'note' AS type FROM notes WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
+                .bind(...activeIds).all<Row>()
+        : { results: [] as Row[] },
+      want.includes('snippet')
+        ? env.DB.prepare(`SELECT *, 'snippet' AS type FROM snippets WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
+                .bind(...activeIds).all<Row>()
+        : { results: [] as Row[] },
+      want.includes('file')
+        ? env.DB.prepare(`SELECT *, 'file' AS type FROM files WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
+                .bind(...activeIds).all<Row>()
+        : { results: [] as Row[] },
+      want.includes('bookmark')
+        ? env.DB.prepare(`SELECT *, 'bookmark' AS type FROM bookmarks WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
+                .bind(...activeIds).all<Row>()
+        : { results: [] as Row[] },
+    ]);
+
+    const items = [
+      ...notes.results,
+      ...snippets.results,
+      ...files.results,
+      ...bookmarks.results,
+    ].sort((a, b) =>
+      (b.created_at as string).localeCompare(a.created_at as string)
+    );
+
+    return json({ category: cat, subcategories: subs.results, items });
+  } catch (err) {
+    return dbError('Failed to load category', err);
   }
-
-  const ph   = activeIds.map(() => '?').join(',');
-  const want = typeFilter ? [typeFilter] : ['note', 'snippet', 'file', 'bookmark'];
-
-  const [notes, snippets, files, bookmarks] = await Promise.all([
-    want.includes('note')
-      ? env.DB.prepare(`SELECT *, 'note' AS type FROM notes WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-              .bind(...activeIds).all<Row>()
-      : { results: [] as Row[] },
-    want.includes('snippet')
-      ? env.DB.prepare(`SELECT *, 'snippet' AS type FROM snippets WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-              .bind(...activeIds).all<Row>()
-      : { results: [] as Row[] },
-    want.includes('file')
-      ? env.DB.prepare(`SELECT *, 'file' AS type FROM files WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-              .bind(...activeIds).all<Row>()
-      : { results: [] as Row[] },
-    want.includes('bookmark')
-      ? env.DB.prepare(`SELECT *, 'bookmark' AS type FROM bookmarks WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-              .bind(...activeIds).all<Row>()
-      : { results: [] as Row[] },
-  ]);
-
-  const items = [
-    ...notes.results,
-    ...snippets.results,
-    ...files.results,
-    ...bookmarks.results,
-  ].sort((a, b) =>
-    (b.created_at as string).localeCompare(a.created_at as string)
-  );
-
-  return json({ category: cat, subcategories: subs.results, items });
 }
 
 async function getRecent(env: Env): Promise<Response> {
-  const r = await env.DB.prepare(`
-    SELECT 'note'     AS type, n.id, n.title,             n.created_at, NULL          AS extra, c.name AS category_name
-    FROM notes n
-    LEFT JOIN subcategories sc ON sc.id = n.subcategory_id
-    LEFT JOIN categories c ON c.id = sc.category_id
-    UNION ALL
-    SELECT 'snippet'  AS type, s.id, s.title,             s.created_at, s.language    AS extra, c.name AS category_name
-    FROM snippets s
-    LEFT JOIN subcategories sc ON sc.id = s.subcategory_id
-    LEFT JOIN categories c ON c.id = sc.category_id
-    UNION ALL
-    SELECT 'file'     AS type, f.id, f.filename AS title, f.created_at, f.mime_type   AS extra, c.name AS category_name
-    FROM files f
-    LEFT JOIN subcategories sc ON sc.id = f.subcategory_id
-    LEFT JOIN categories c ON c.id = sc.category_id
-    UNION ALL
-    SELECT 'bookmark' AS type, b.id, b.title,             b.created_at, b.url         AS extra, c.name AS category_name
-    FROM bookmarks b
-    LEFT JOIN subcategories sc ON sc.id = b.subcategory_id
-    LEFT JOIN categories c ON c.id = sc.category_id
-    ORDER BY created_at DESC
-    LIMIT 10
-  `).all<Row>();
-  return json({ items: r.results });
+  try {
+    const r = await env.DB.prepare(`
+      SELECT 'note'     AS type, n.id, n.title,             n.created_at, NULL        AS extra, c.name AS category_name
+      FROM notes n
+      LEFT JOIN subcategories sc ON sc.id = n.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      UNION ALL
+      SELECT 'snippet'  AS type, s.id, s.title,             s.created_at, s.language  AS extra, c.name AS category_name
+      FROM snippets s
+      LEFT JOIN subcategories sc ON sc.id = s.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      UNION ALL
+      SELECT 'file'     AS type, f.id, f.filename AS title, f.created_at, f.mime_type AS extra, c.name AS category_name
+      FROM files f
+      LEFT JOIN subcategories sc ON sc.id = f.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      UNION ALL
+      SELECT 'bookmark' AS type, b.id, b.title,             b.created_at, b.url       AS extra, c.name AS category_name
+      FROM bookmarks b
+      LEFT JOIN subcategories sc ON sc.id = b.subcategory_id
+      LEFT JOIN categories c ON c.id = sc.category_id
+      ORDER BY created_at DESC
+      LIMIT 10
+    `).all<Row>();
+    return json({ items: r.results });
+  } catch (err) {
+    return dbError('Failed to load recent items', err);
+  }
+}
+
+async function seedDefaults(env: Env): Promise<Response> {
+  try {
+    const categoryValues = DEFAULT_CATEGORIES.flatMap(({ id, name, icon, sortOrder }) => [id, name, icon, sortOrder]);
+    const subcategoryValues = DEFAULT_SUBCATEGORIES.flatMap(({ id, categoryId, name, sortOrder }) => [id, categoryId, name, sortOrder]);
+
+    await env.DB.batch([
+      env.DB.prepare(`
+        INSERT OR IGNORE INTO categories (id, name, icon, sort_order)
+        VALUES ${DEFAULT_CATEGORIES.map(() => '(?, ?, ?, ?)').join(', ')}
+      `).bind(...categoryValues),
+      env.DB.prepare(`
+        INSERT OR IGNORE INTO subcategories (id, category_id, name, sort_order)
+        VALUES ${DEFAULT_SUBCATEGORIES.map(() => '(?, ?, ?, ?)').join(', ')}
+      `).bind(...subcategoryValues),
+    ]);
+
+    return json({
+      seeded: true,
+      categories: DEFAULT_CATEGORIES.length,
+      subcategories: DEFAULT_SUBCATEGORIES.length,
+    });
+  } catch (err) {
+    return dbError('Failed to seed default categories', err);
+  }
 }
 
 async function searchItems(url: URL, env: Env): Promise<Response> {
@@ -649,6 +674,46 @@ async function fetchBookmarkMeta(request: Request): Promise<Response> {
 
 // ─── Generic CRUD ─────────────────────────────────────────────────────────────
 
+async function getImpressionistGallery(): Promise<Response> {
+  const res = await fetch('https://api.artic.edu/api/v1/artworks/search', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      q: 'impressionism',
+      query: {
+        bool: {
+          must: [
+            { term: { is_public_domain: true } },
+            { exists: { field: 'image_id' } },
+            { term: { classification_title: 'painting' } },
+          ],
+        },
+      },
+      fields: ['id', 'title', 'artist_title', 'date_display', 'image_id', 'thumbnail'],
+      limit: 50,
+    }),
+  });
+
+  if (!res.ok) {
+    return json({ error: 'gallery upstream failed' }, 502);
+  }
+
+  const data = await res.json() as { data?: Row[] };
+  const items = (data.data ?? []).filter((item) => item.image_id);
+
+  return new Response(JSON.stringify({ items }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=3600',
+      ...cors(),
+    },
+  });
+}
+
 type FieldDef = [name: string, required: boolean, transform?: (v: unknown) => unknown];
 
 const NOTE_FIELDS: FieldDef[] = [
@@ -929,6 +994,10 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+function dbError(error: string, err: unknown, status = 500): Response {
+  return json({ error, details: errorMessage(err) }, status);
+}
+
 function cors(): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': '*',
@@ -943,6 +1012,13 @@ function toHex(b: Uint8Array): string {
 
 function fromHex(hex: string): Uint8Array {
   return new Uint8Array((hex.match(/.{2}/g) ?? []).map(b => parseInt(b, 16)));
+}
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  try { return JSON.stringify(err); }
+  catch { return String(err); }
 }
 
 function inspectPasswordHash(raw: string | undefined): {

@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300&family=Space+Grotesk:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/brand.css">
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -113,6 +114,14 @@
     pointer-events: all;
   }
 
+  .modal-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: min(300px, 90vw);
+  }
+
   .modal-input {
     background: transparent;
     border: none;
@@ -133,10 +142,25 @@
     border-bottom-color: #4af2c8;
   }
 
-  .modal-input.error {
-    border-bottom-color: rgba(220,80,80,0.9);
-    transition: border-color 0s;
+  .modal-error {
+    font-size: 0.72rem;
+    color: rgba(220,80,80,0.9);
+    letter-spacing: 0.05em;
+    height: 1em;
+    opacity: 0;
+    transition: opacity 0.15s ease;
   }
+
+  .modal-error.show { opacity: 1; }
+
+  .pw-wrap { position: relative; width: 100%; }
+  .pw-wrap .modal-input { padding-right: 2.5rem; }
+  .pw-toggle {
+    position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; opacity: 0.4; transition: opacity 0.15s;
+  }
+  .pw-toggle:hover { opacity: 0.8; }
 
   /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 400px) {
@@ -148,7 +172,7 @@
 <body>
 
 <main class="stage">
-  <h1 class="wordmark"><span>S</span><span>P</span><span class="logo-one">1</span><span>E</span></h1>
+  <h1 class="wordmark brand-mark">SP<span class="brand-one">1</span>E</h1>
   <div class="rule"></div>
   <nav class="cards">
     <a class="card" href="/visitor">Visitor</a>
@@ -158,22 +182,31 @@
 
 <!-- Password modal -->
 <div id="modal" role="dialog" aria-modal="true" aria-label="Ange lösenord">
-  <input
-    class="modal-input"
-    id="pw-input"
-    type="password"
-    autocomplete="current-password"
-    spellcheck="false"
-  >
+  <div class="modal-box">
+    <div class="pw-wrap">
+      <input
+        class="modal-input"
+        id="pw-input"
+        type="password"
+        placeholder="••••••••"
+        autocomplete="current-password"
+      >
+      <button class="pw-toggle" id="pw-toggle" type="button" tabindex="-1">👁</button>
+    </div>
+    <p class="modal-error" id="pw-error" aria-live="polite">Fel lösenord.</p>
+  </div>
 </div>
 
 <script>
   const modal  = document.getElementById('modal');
   const input  = document.getElementById('pw-input');
+  const error  = document.getElementById('pw-error');
+  const toggle = document.getElementById('pw-toggle');
   const hubBtn = document.getElementById('hub-btn');
 
   let submitting = false;
   let errorTimer = null;
+  let isSubmitting = false;
 
   function openModal() {
     modal.classList.add('open');
@@ -200,9 +233,13 @@
   }
 
   async function attemptLogin() {
+    if (isSubmitting) return;
     const password = input.value;
-    if (!password || submitting) return;
-    submitting = true;
+    if (!password) return;
+
+    isSubmitting = true;
+    input.disabled = true;
+    toggle.disabled = true;
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -220,9 +257,17 @@
     } catch {
       flashError();
     } finally {
-      submitting = false;
+      isSubmitting = false;
+      input.disabled = false;
+      toggle.disabled = false;
     }
   }
+
+  toggle.addEventListener('click', () => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    toggle.textContent = show ? '🙈' : '👁';
+  });
 
   hubBtn.addEventListener('click', openModal);
 

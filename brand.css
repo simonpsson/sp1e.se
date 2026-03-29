@@ -1,0 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400&display=swap');
+
+.brand-mark {
+  white-space: nowrap;
+  text-transform: lowercase;
+}
+
+.brand-mark .brand-one {
+  display: inline-block;
+  font-family: 'Playfair Display', serif;
+  font-weight: 400;
+  font-style: normal;
+  font-kerning: normal;
+  font-variant-numeric: lining-nums;
+}
