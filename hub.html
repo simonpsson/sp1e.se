@@ -942,9 +942,13 @@ function relTime(iso) {
     const cached = sessionStorage.getItem(CACHE_KEY);
     if (cached) { try { return JSON.parse(cached); } catch {} }
     const res = await fetch('/api/art');
-    if (!res.ok) throw new Error(`gallery proxy error ${res.status}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.error('Gallery proxy error', res.status, body);
+      throw new Error(`gallery proxy ${res.status}`);
+    }
     const data = await res.json();
-    console.log('Gallery data:', data);
+    console.log('Gallery data: items =', (data.data ?? []).length);
     const items = (data.data ?? []).filter(d => d.image_id);
     if (items.length) sessionStorage.setItem(CACHE_KEY, JSON.stringify(items));
     return items;
