@@ -49,7 +49,7 @@
     text-indent: 0.3em; /* compensate letter-spacing on last char */
     user-select: none;
   }
-  .logo-one { font-size: 110%; display: inline-block; vertical-align: -0.04em; }
+  .logo-one { font-size: 1.05em; display: inline-block; vertical-align: baseline; }
 
   .rule {
     width: 100px;
@@ -100,12 +100,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,0,0.85);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: rgba(0,0,0,0.80);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.25s ease;
+    transition: opacity 0.2s ease;
   }
 
   #modal.open {
@@ -113,86 +113,30 @@
     pointer-events: all;
   }
 
-  .modal-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    width: min(300px, 90vw);
-  }
-
-  .modal-label {
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 0.7rem;
-    font-weight: 300;
-    letter-spacing: 0.15em;
-    color: rgba(255,255,255,0.3);
-    text-transform: uppercase;
-  }
-
   .modal-input {
-    width: 100%;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 6px;
-    padding: 0.65rem 1rem;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+    padding: 0.5rem 0.25rem;
+    width: 220px;
     color: rgba(255,255,255,0.85);
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 0.9rem;
-    letter-spacing: 0.08em;
+    font-size: 1rem;
+    letter-spacing: 0.15em;
+    text-align: center;
     outline: none;
     transition: border-color 0.2s ease;
-    caret-color: rgba(255,255,255,0.5);
+    caret-color: #4af2c8;
   }
 
   .modal-input:focus {
-    border-color: rgba(255,255,255,0.25);
+    border-bottom-color: #4af2c8;
   }
 
-  .modal-input::placeholder {
-    color: rgba(255,255,255,0.18);
-    letter-spacing: 0.05em;
+  .modal-input.error {
+    border-bottom-color: rgba(220,80,80,0.9);
+    transition: border-color 0s;
   }
-
-  .modal-btn {
-    align-self: flex-end;
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 6px;
-    padding: 0.5rem 1.2rem;
-    color: rgba(255,255,255,0.6);
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 0.8rem;
-    font-weight: 300;
-    letter-spacing: 0.12em;
-    cursor: pointer;
-    transition: border-color 0.2s ease, color 0.2s ease;
-  }
-
-  .modal-btn:hover {
-    border-color: rgba(255,255,255,0.3);
-    color: rgba(255,255,255,0.9);
-  }
-
-  .modal-error {
-    font-size: 0.72rem;
-    color: rgba(220,80,80,0.9);
-    letter-spacing: 0.05em;
-    height: 1em;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-  }
-
-  .modal-error.show { opacity: 1; }
-
-  .pw-wrap { position: relative; width: 100%; }
-  .pw-wrap .modal-input { padding-right: 2.5rem; }
-  .pw-toggle {
-    position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%);
-    background: none; border: none; cursor: pointer;
-    font-size: 1rem; opacity: 0.4; transition: opacity 0.15s;
-  }
-  .pw-toggle:hover { opacity: 0.8; }
 
   /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 400px) {
@@ -214,58 +158,51 @@
 
 <!-- Password modal -->
 <div id="modal" role="dialog" aria-modal="true" aria-label="Ange lösenord">
-  <div class="modal-box">
-    <p class="modal-label">Ange lösenord</p>
-    <div class="pw-wrap">
-      <input
-        class="modal-input"
-        id="pw-input"
-        type="password"
-        placeholder="••••••••"
-        autocomplete="current-password"
-      >
-      <button class="pw-toggle" id="pw-toggle" type="button" tabindex="-1">👁</button>
-    </div>
-    <p class="modal-error" id="pw-error" aria-live="polite">Fel lösenord.</p>
-    <button class="modal-btn" id="pw-submit">Enter</button>
-  </div>
+  <input
+    class="modal-input"
+    id="pw-input"
+    type="password"
+    autocomplete="current-password"
+    spellcheck="false"
+  >
 </div>
 
 <script>
   const modal  = document.getElementById('modal');
   const input  = document.getElementById('pw-input');
-  const error  = document.getElementById('pw-error');
-  const submit = document.getElementById('pw-submit');
   const hubBtn = document.getElementById('hub-btn');
 
+  let submitting = false;
   let errorTimer = null;
 
   function openModal() {
     modal.classList.add('open');
     input.value = '';
-    error.classList.remove('show');
-    requestAnimationFrame(() => setTimeout(() => input.focus(), 50));
+    input.classList.remove('error');
+    requestAnimationFrame(() => setTimeout(() => input.focus(), 40));
   }
 
   function closeModal() {
     modal.classList.remove('open');
   }
 
-  function showError(msg) {
+  function flashError() {
     input.value = '';
-    error.textContent = msg || 'Fel lösenord.';
-    error.classList.add('show');
+    input.classList.remove('error');
+    void input.offsetWidth; // reflow to restart transition
+    input.classList.add('error');
     clearTimeout(errorTimer);
-    errorTimer = setTimeout(() => error.classList.remove('show'), 4000);
+    errorTimer = setTimeout(() => {
+      input.classList.remove('error');
+      input.style.transition = 'border-color 0.2s ease';
+    }, 500);
     input.focus();
   }
 
   async function attemptLogin() {
     const password = input.value;
-    if (!password) return;
-
-    submit.disabled = true;
-    submit.textContent = '...';
+    if (!password || submitting) return;
+    submitting = true;
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -278,30 +215,16 @@
       if (res.ok) {
         window.location.href = '/hub';
       } else {
-        let msg = 'Fel lösenord.';
-        try {
-          const data = await res.json();
-          if (data.error && data.error !== 'Wrong password') msg = data.error;
-        } catch {}
-        showError(msg);
+        flashError();
       }
     } catch {
-      showError('Nätverksfel.');
+      flashError();
     } finally {
-      submit.disabled = false;
-      submit.textContent = 'Enter';
+      submitting = false;
     }
   }
 
-  const toggle = document.getElementById('pw-toggle');
-  toggle.addEventListener('click', () => {
-    const show = input.type === 'password';
-    input.type = show ? 'text' : 'password';
-    toggle.textContent = show ? '🙈' : '👁';
-  });
-
   hubBtn.addEventListener('click', openModal);
-  submit.addEventListener('click', attemptLogin);
 
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter')  attemptLogin();
