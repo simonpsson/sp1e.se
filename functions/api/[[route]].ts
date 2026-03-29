@@ -109,6 +109,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     }
 
     // ── Public: all public items (no auth) ──────────────────────────────────
+    if (resource === 'gallery' && id === 'impressionism' && method === 'GET') {
+      return getImpressionistGallery();
+    }
+
     if (resource === 'public' && id === 'items' && method === 'GET') {
       return getPublicItems(env);
     }
@@ -669,6 +673,46 @@ async function fetchBookmarkMeta(request: Request): Promise<Response> {
 }
 
 // ─── Generic CRUD ─────────────────────────────────────────────────────────────
+
+async function getImpressionistGallery(): Promise<Response> {
+  const res = await fetch('https://api.artic.edu/api/v1/artworks/search', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      q: 'impressionism',
+      query: {
+        bool: {
+          must: [
+            { term: { is_public_domain: true } },
+            { exists: { field: 'image_id' } },
+            { term: { classification_title: 'painting' } },
+          ],
+        },
+      },
+      fields: ['id', 'title', 'artist_title', 'date_display', 'image_id', 'thumbnail'],
+      limit: 50,
+    }),
+  });
+
+  if (!res.ok) {
+    return json({ error: 'gallery upstream failed' }, 502);
+  }
+
+  const data = await res.json() as { data?: Row[] };
+  const items = (data.data ?? []).filter((item) => item.image_id);
+
+  return new Response(JSON.stringify({ items }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=3600',
+      ...cors(),
+    },
+  });
+}
 
 type FieldDef = [name: string, required: boolean, transform?: (v: unknown) => unknown];
 
