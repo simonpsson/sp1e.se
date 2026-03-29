@@ -89,7 +89,7 @@
     justify-self: start;
   }
   .logo:hover { color: var(--logo-hover); }
-  .logo-one { font-size: 110%; display: inline-block; vertical-align: -0.04em; }
+  .logo-one { font-size: 1.05em; display: inline-block; vertical-align: baseline; }
   .topbar-search { position: relative; }
   .logout-btn {
     background: none; border: none; cursor: pointer;
@@ -419,7 +419,7 @@
   </div>
 
   <!-- Art gallery -->
-  <div class="gallery-section" id="gallery-section" style="display:none">
+  <div class="gallery-section" id="gallery-section">
     <div class="gallery-frame" id="gallery-frame">
       <img class="g-img-a" id="g-img-a" src="" alt="" loading="lazy">
       <img class="g-img-b" id="g-img-b" src="" alt="" loading="lazy">
@@ -819,6 +819,7 @@ function relTime(iso) {
 
 // ── Art Gallery ───────────────────────────────────────
 (function initGallery() {
+  console.log('Gallery init starting…');
   const CACHE_KEY   = 'sp1e-gallery-v1';
   const INTERVAL_MS = 20_000;
   const FADE_MS     = 1500;
@@ -944,12 +945,14 @@ function relTime(iso) {
   async function init() {
     try {
       const raw = await fetchArtworks();
-      if (!raw.length) return;
+      if (!raw.length) { section.style.display = 'none'; return; }
       artworks = shuffle(raw);
-      section.style.display = '';
       showFirst(artworks[0]);
       timer = setInterval(() => advance(1), INTERVAL_MS);
-    } catch { /* silently hide gallery */ }
+    } catch (e) {
+      console.warn('Gallery failed:', e);
+      section.style.display = 'none';
+    }
   }
 
   // Pause on hover

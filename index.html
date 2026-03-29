@@ -50,7 +50,7 @@
     text-indent: 0.3em; /* compensate letter-spacing on last char */
     user-select: none;
   }
-  .logo-one { font-size: 110%; display: inline-block; vertical-align: -0.04em; }
+  .logo-one { font-size: 1.05em; display: inline-block; vertical-align: baseline; }
 
   .rule {
     width: 100px;
@@ -101,12 +101,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,0,0.85);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: rgba(0,0,0,0.80);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.25s ease;
+    transition: opacity 0.2s ease;
   }
 
   #modal.open {
@@ -123,27 +123,23 @@
   }
 
   .modal-input {
-    width: 100%;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 6px;
-    padding: 0.65rem 1rem;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+    padding: 0.5rem 0.25rem;
+    width: 220px;
     color: rgba(255,255,255,0.85);
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 0.9rem;
-    letter-spacing: 0.08em;
+    font-size: 1rem;
+    letter-spacing: 0.15em;
+    text-align: center;
     outline: none;
     transition: border-color 0.2s ease;
-    caret-color: rgba(255,255,255,0.5);
+    caret-color: #4af2c8;
   }
 
   .modal-input:focus {
-    border-color: rgba(255,255,255,0.25);
-  }
-
-  .modal-input::placeholder {
-    color: rgba(255,255,255,0.18);
-    letter-spacing: 0.05em;
+    border-bottom-color: #4af2c8;
   }
 
   .modal-error {
@@ -208,26 +204,31 @@
   const toggle = document.getElementById('pw-toggle');
   const hubBtn = document.getElementById('hub-btn');
 
+  let submitting = false;
   let errorTimer = null;
   let isSubmitting = false;
 
   function openModal() {
     modal.classList.add('open');
     input.value = '';
-    error.classList.remove('show');
-    requestAnimationFrame(() => setTimeout(() => input.focus(), 50));
+    input.classList.remove('error');
+    requestAnimationFrame(() => setTimeout(() => input.focus(), 40));
   }
 
   function closeModal() {
     modal.classList.remove('open');
   }
 
-  function showError(msg) {
+  function flashError() {
     input.value = '';
-    error.textContent = msg || 'Fel lösenord.';
-    error.classList.add('show');
+    input.classList.remove('error');
+    void input.offsetWidth; // reflow to restart transition
+    input.classList.add('error');
     clearTimeout(errorTimer);
-    errorTimer = setTimeout(() => error.classList.remove('show'), 4000);
+    errorTimer = setTimeout(() => {
+      input.classList.remove('error');
+      input.style.transition = 'border-color 0.2s ease';
+    }, 500);
     input.focus();
   }
 
@@ -251,15 +252,10 @@
       if (res.ok) {
         window.location.href = '/hub';
       } else {
-        let msg = 'Fel lösenord.';
-        try {
-          const data = await res.json();
-          if (data.error && data.error !== 'Wrong password') msg = data.error;
-        } catch {}
-        showError(msg);
+        flashError();
       }
     } catch {
-      showError('Nätverksfel.');
+      flashError();
     } finally {
       isSubmitting = false;
       input.disabled = false;
