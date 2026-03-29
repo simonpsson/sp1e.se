@@ -899,7 +899,12 @@ async function getArtworks(): Promise<Response> {
 
   const res = await fetch('https://api.artic.edu/api/v1/artworks/search', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'User-Agent': 'sp1e.se/1.0 (gallery)',
+      'AIC-User-Agent': 'sp1e.se/1.0 (gallery)',
+    },
     body: JSON.stringify({
       q: 'impressionism',
       query: { bool: { must: [
@@ -911,7 +916,11 @@ async function getArtworks(): Promise<Response> {
     }),
   });
 
-  if (!res.ok) return json({ error: 'upstream error', status: res.status }, 502);
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    console.error(`[gallery] AIC ${res.status}:`, errText.slice(0, 300));
+    return json({ error: 'upstream error', status: res.status }, 502);
+  }
 
   const data = await res.json();
   artCache = { data, expires: now + 60 * 60 * 1000 }; // cache 1 hour
