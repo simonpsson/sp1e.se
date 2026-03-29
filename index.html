@@ -170,9 +170,44 @@
     .cards { flex-direction: column; }
     .card  { width: 160px; }
   }
+
+  /* ── Background gallery ───────────────────────────── */
+  #bg-gallery {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .bg-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    opacity: 0;
+    transition: opacity 3s ease;
+  }
+  #bg-img-a { z-index: 1; }
+  #bg-img-b { z-index: 0; }
+  #bg-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    background: rgba(0,0,0,0.62);
+    pointer-events: none;
+  }
+  .stage { position: relative; z-index: 2; }
 </style>
 </head>
 <body>
+
+<!-- Background painting gallery -->
+<div id="bg-gallery" aria-hidden="true">
+  <img class="bg-img" id="bg-img-a" src="" alt="">
+  <img class="bg-img" id="bg-img-b" src="" alt="">
+</div>
+<div id="bg-overlay" aria-hidden="true"></div>
 
 <main class="stage">
   <h1 class="wordmark brand-mark">SP<span class="brand-one">1</span>E</h1>
@@ -263,6 +298,81 @@
   modal.addEventListener('click', e => {
     if (e.target === modal) closeModal();
   });
+
+  // ── Background painting gallery ─────────────────────
+  (function bgGallery() {
+    const CACHE_KEY   = 'sp1e-gallery-v3'; // shared with hub
+    const INTERVAL_MS = 28_000;
+    const FADE_MS     = 3000;
+    const IMG_BASE    = 'https://www.artic.edu/iiif/2';
+
+    let artworks = [], current = 0;
+    let front, back;
+    const imgA = document.getElementById('bg-img-a');
+    const imgB = document.getElementById('bg-img-b');
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function imgUrl(id) {
+      return `${IMG_BASE}/${id}/full/1600,/0/default.jpg`;
+    }
+
+    function showFirst(art) {
+      front = imgA; back = imgB;
+      front.style.zIndex = '1'; back.style.zIndex = '0';
+      front.src = imgUrl(art.image_id);
+      front.onload = () => { front.onload = null; front.style.opacity = '1'; };
+    }
+
+    function crossfade(art) {
+      back.src = imgUrl(art.image_id);
+      back.onload = () => {
+        back.onload = null;
+        back.style.zIndex = '2';
+        back.style.opacity = '1';
+        setTimeout(() => {
+          front.style.opacity = '0';
+          setTimeout(() => {
+            front.style.zIndex = '0';
+            const tmp = front; front = back; back = tmp;
+            front.style.zIndex = '1';
+          }, FADE_MS + 100);
+        }, 50);
+      };
+    }
+
+    async function fetchArtworks() {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) { try { return JSON.parse(cached); } catch {} }
+      const res = await fetch('/api/art');
+      if (!res.ok) return [];
+      const data = await res.json();
+      const items = (data.data ?? []).filter(d => d.image_id);
+      if (items.length) sessionStorage.setItem(CACHE_KEY, JSON.stringify(items));
+      return items;
+    }
+
+    async function init() {
+      try {
+        const raw = await fetchArtworks();
+        if (!raw.length) return;
+        artworks = shuffle(raw);
+        showFirst(artworks[0]);
+        setInterval(() => {
+          current = (current + 1) % artworks.length;
+          crossfade(artworks[current]);
+        }, INTERVAL_MS);
+      } catch {}
+    }
+
+    init();
+  })();
 </script>
 </body>
 </html>
