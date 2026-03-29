@@ -123,9 +123,12 @@
   }
 
   .modal-input {
+    -webkit-appearance: none;
+    appearance: none;
     background: transparent;
     border: none;
     border-bottom: 1px solid rgba(255,255,255,0.18);
+    border-radius: 0;
     padding: 0.5rem 0.25rem;
     width: 220px;
     color: rgba(255,255,255,0.85);
@@ -134,33 +137,33 @@
     letter-spacing: 0.15em;
     text-align: center;
     outline: none;
+    box-shadow: none;
     transition: border-color 0.2s ease;
     caret-color: #4af2c8;
   }
 
   .modal-input:focus {
+    outline: none;
+    box-shadow: none;
     border-bottom-color: #4af2c8;
   }
 
-  .modal-error {
-    font-size: 0.72rem;
-    color: rgba(220,80,80,0.9);
-    letter-spacing: 0.05em;
-    height: 1em;
-    opacity: 0;
-    transition: opacity 0.15s ease;
+  .modal-input.error {
+    border-bottom-color: rgba(220,80,80,0.85);
+    transition: border-color 0s;
   }
 
-  .modal-error.show { opacity: 1; }
-
-  .pw-wrap { position: relative; width: 100%; }
-  .pw-wrap .modal-input { padding-right: 2.5rem; }
-  .pw-toggle {
-    position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%);
-    background: none; border: none; cursor: pointer;
-    font-size: 1rem; opacity: 0.4; transition: opacity 0.15s;
+  /* Kill Chromium/WebKit autofill overlay (injects inset box-shadow + blue bg) */
+  .modal-input:-webkit-autofill,
+  .modal-input:-webkit-autofill:hover,
+  .modal-input:-webkit-autofill:focus,
+  .modal-input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 9999px #000 inset !important;
+    box-shadow:         0 0 0 9999px #000 inset !important;
+    -webkit-text-fill-color: rgba(255,255,255,0.85) !important;
+    border-bottom-color: rgba(255,255,255,0.18) !important;
+    caret-color: #4af2c8;
   }
-  .pw-toggle:hover { opacity: 0.8; }
 
   /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 400px) {
@@ -180,33 +183,24 @@
   </nav>
 </main>
 
-<!-- Password modal -->
+<!-- Password modal — bare input only -->
 <div id="modal" role="dialog" aria-modal="true" aria-label="Ange lösenord">
-  <div class="modal-box">
-    <div class="pw-wrap">
-      <input
-        class="modal-input"
-        id="pw-input"
-        type="password"
-        placeholder="••••••••"
-        autocomplete="current-password"
-      >
-      <button class="pw-toggle" id="pw-toggle" type="button" tabindex="-1">👁</button>
-    </div>
-    <p class="modal-error" id="pw-error" aria-live="polite">Fel lösenord.</p>
-  </div>
+  <input
+    class="modal-input"
+    id="pw-input"
+    type="password"
+    autocomplete="current-password"
+    spellcheck="false"
+  >
 </div>
 
 <script>
   const modal  = document.getElementById('modal');
   const input  = document.getElementById('pw-input');
-  const error  = document.getElementById('pw-error');
-  const toggle = document.getElementById('pw-toggle');
   const hubBtn = document.getElementById('hub-btn');
 
   let submitting = false;
   let errorTimer = null;
-  let isSubmitting = false;
 
   function openModal() {
     modal.classList.add('open');
@@ -222,24 +216,22 @@
   function flashError() {
     input.value = '';
     input.classList.remove('error');
-    void input.offsetWidth; // reflow to restart transition
+    void input.offsetWidth; // reflow — restarts the transition
     input.classList.add('error');
     clearTimeout(errorTimer);
     errorTimer = setTimeout(() => {
       input.classList.remove('error');
-      input.style.transition = 'border-color 0.2s ease';
     }, 500);
     input.focus();
   }
 
   async function attemptLogin() {
-    if (isSubmitting) return;
+    if (submitting) return;
     const password = input.value;
     if (!password) return;
 
-    isSubmitting = true;
+    submitting = true;
     input.disabled = true;
-    toggle.disabled = true;
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -248,7 +240,6 @@
         credentials: 'same-origin',
         body: JSON.stringify({ password }),
       });
-
       if (res.ok) {
         window.location.href = '/hub';
       } else {
@@ -257,17 +248,10 @@
     } catch {
       flashError();
     } finally {
-      isSubmitting = false;
+      submitting = false;
       input.disabled = false;
-      toggle.disabled = false;
     }
   }
-
-  toggle.addEventListener('click', () => {
-    const show = input.type === 'password';
-    input.type = show ? 'text' : 'password';
-    toggle.textContent = show ? '🙈' : '👁';
-  });
 
   hubBtn.addEventListener('click', openModal);
 
