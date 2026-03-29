@@ -298,11 +298,17 @@
     width: 100%;
     border-radius: 12px;
     overflow: hidden;
-    background: #050508;
+    background: #080810;
     border: 1px solid var(--border);
     cursor: pointer;
-    /* aspect-ratio set by JS based on image */
     aspect-ratio: 16/9;
+    /* subtle pulse while images are loading */
+    animation: gallery-pulse 3s ease-in-out infinite;
+  }
+  .gallery-frame.loaded { animation: none; }
+  @keyframes gallery-pulse {
+    0%, 100% { background: #080810; }
+    50%       { background: #0d0d18; }
   }
   .gallery-frame img {
     position: absolute;
@@ -881,6 +887,7 @@ function relTime(iso) {
     front.onload = () => {
       front.onload = null;
       front.style.opacity = '1';
+      frame.classList.add('loaded');
       startBar();
     };
     front.onerror = () => { front.onerror = null; };
@@ -952,7 +959,7 @@ function relTime(iso) {
       timer = setInterval(() => advance(1), INTERVAL_MS);
     } catch (e) {
       console.warn('Gallery failed:', e);
-      section.style.display = 'none';
+      // leave section visible — dark frame is a design element even without images
     }
   }
 
