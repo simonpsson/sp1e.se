@@ -577,6 +577,26 @@
 </div>
 
 <script>
+// ── Spotify OAuth callback ────────────────────────────────────────────────────
+// Spotify redirects to https://sp1e.se/?code=...&state=...
+// Detect those params, strip them immediately, then exchange via AJAX POST.
+// fetch() is same-origin so SameSite=Strict session cookie is sent correctly.
+(function () {
+  const p = new URLSearchParams(location.search);
+  const code = p.get('code'), state = p.get('state');
+  if (!code || !state) return;
+  history.replaceState({}, '', '/');
+  fetch('/api/spotify/exchange', {
+    method:      'POST',
+    headers:     { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body:        JSON.stringify({ code, state }),
+  })
+  .then(r => r.json())
+  .then(d => { if (d.success) location.reload(); })
+  .catch(() => {});
+})();
+
 // ── Modal ─────────────────────────────────────────────────────────────────────
 const modal  = document.getElementById('modal');
 const input  = document.getElementById('pw-input');
@@ -917,10 +937,16 @@ if (spLinked) {
   if (spHintEl) spHintEl.classList.remove('hidden');
 }
 
-// ♫ hint: open setup page in new tab
+// ♫ hint: fetch auth URL then navigate to Spotify (same tab → returns to sp1e.se/)
 if (spHintEl) {
-  spHintEl.addEventListener('click', () => {
-    window.open('/spotify-setup.html', '_blank', 'noopener,noreferrer');
+  spHintEl.addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/spotify/auth-url', { credentials: 'same-origin' });
+      if (res.status === 401) { openModal(); return; } // need to log in first
+      if (!res.ok) return;
+      const { url } = await res.json();
+      location.href = url; // navigate to accounts.spotify.com, returns here after auth
+    } catch {}
   });
 }
 
