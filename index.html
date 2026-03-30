@@ -567,7 +567,7 @@
 </div>
 
 <!-- ♫ hint — visible when Spotify not linked -->
-<a id="sp-hint" href="/api/spotify/login" aria-label="Link Spotify">♫</a>
+<a id="sp-hint" href="#" aria-label="Link Spotify">♫</a>
 
 <!-- Immersion controls -->
 <button id="immersion-close" aria-label="Exit immersion">×</button>
@@ -580,6 +580,22 @@
 </div>
 
 <script>
+// ── Spotify OAuth callback (runs before anything else) ────────────────────────
+// Spotify redirects to https://sp1e.se/?code=...&state=...
+// We pick up those params, strip them from the URL, then exchange via AJAX.
+(function() {
+  const p = new URLSearchParams(location.search);
+  const code = p.get('code'), state = p.get('state');
+  if (!code || !state) return;
+  history.replaceState({}, '', '/');   // remove auth code from URL + browser history
+  fetch('/api/spotify/exchange?code=' + encodeURIComponent(code) +
+                               '&state=' + encodeURIComponent(state),
+    { credentials: 'same-origin' })
+  .then(r => r.json())
+  .then(d => { if (d.success) location.reload(); })
+  .catch(() => {});
+})();
+
 // ── Modal ─────────────────────────────────────────────────────────────────────
 const modal  = document.getElementById('modal');
 const input  = document.getElementById('pw-input');
@@ -735,7 +751,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Background gallery ────────────────────────────────────────────────────────
-const GCACHE = 'sp1e-gallery-v3';
+const GCACHE = 'sp1e-gallery-v4';
 const GFADE  = 3000;
 const GBASE  = 'https://www.artic.edu/iiif/2';
 
@@ -1057,6 +1073,21 @@ if (!spLinked) startVisitorPolling();
 spBtnPrev.addEventListener('click', () => { if (sdkPlayer) sdkPlayer.previousTrack(); });
 spBtnPlay.addEventListener('click', () => { if (sdkPlayer) sdkPlayer.togglePlay(); });
 spBtnNext.addEventListener('click', () => { if (sdkPlayer) sdkPlayer.nextTrack(); });
+
+// ♫ hint click — AJAX to get the Spotify auth URL, then navigate.
+// Avoids top-level navigation to /api/* (which hits the Java backend, not the Worker).
+if (spHintEl) {
+  spHintEl.addEventListener('click', async e => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/spotify/login-url', { credentials: 'same-origin' });
+      if (res.status === 401) { openModal(); return; } // need to log in first
+      if (!res.ok) return;
+      const { url } = await res.json();
+      location.href = url; // navigate to accounts.spotify.com (external, fine)
+    } catch {}
+  });
+}
 </script>
 </body>
 </html>

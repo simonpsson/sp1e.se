@@ -143,6 +143,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
 
     // ── Spotify OAuth ─────────────────────────────────────────────────────────
     if (resource === 'spotify') {
+      if (id === 'login-url'    && method === 'GET')  return handleSpotifyLoginUrl(request, env);
       if (id === 'login'        && method === 'GET')  return handleSpotifyLogin(request, env);
       if (id === 'callback'     && method === 'GET')  return handleSpotifyCallback(request, env, url);
       if (id === 'exchange'     && method === 'GET')  return handleSpotifyExchange(request, env, url);
@@ -910,39 +911,70 @@ async function deleteFile(id: string, env: Env): Promise<Response> {
 // In-memory cache: reused across requests within the same Worker instance.
 let artCache: { data: unknown; expires: number } | null = null;
 
-async function getArtworks(): Promise<Response> {
-  const now = Date.now();
-  if (artCache && now < artCache.expires) {
-    return json(artCache.data);
-  }
+const ART_SEARCHES: Array<{ q: string; limit: number }> = [
+  { q: 'impressionism',         limit: 20 },
+  { q: 'Hilma af Klint',        limit: 20 },
+  { q: 'Gustav Klimt',          limit: 20 },
+  { q: 'Odilon Redon',          limit: 20 },
+  { q: 'Claude Monet',          limit: 20 },
+  { q: 'symbolism painting',    limit: 10 },
+  { q: 'art nouveau painting',  limit: 10 },
+  { q: 'post-impressionism',    limit: 10 },
+];
 
+async function fetchArtSearch(q: string, limit: number): Promise<Row[]> {
   const res = await fetch('https://api.artic.edu/api/v1/artworks/search', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'User-Agent': 'sp1e.se/1.0 (gallery)',
-      'AIC-User-Agent': 'sp1e.se/1.0 (gallery)',
+      'Content-Type':    'application/json',
+      'Accept':          'application/json',
+      'User-Agent':      'sp1e.se/1.0 (gallery)',
+      'AIC-User-Agent':  'sp1e.se/1.0 (gallery)',
     },
     body: JSON.stringify({
-      q: 'impressionism',
+      q,
       query: { bool: { must: [
         { term:   { is_public_domain: true } },
-        { exists: { field: 'image_id'       } },
+        { exists: { field: 'image_id'      } },
       ]}},
-      fields: ['id', 'title', 'artist_title', 'date_display', 'image_id'],
-      limit: 50,
+      fields: ['id', 'title', 'artist_title', 'date_display', 'image_id', 'style_titles'],
+      limit,
     }),
   });
-
   if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    console.error(`[gallery] AIC ${res.status}:`, errText.slice(0, 300));
-    return json({ error: 'upstream error', status: res.status }, 502);
+    console.error(`[gallery] AIC "${q}" ${res.status}`);
+    return [];
+  }
+  const body = await res.json() as { data?: Row[] };
+  return (body.data ?? []).filter(r => r.image_id);
+}
+
+async function getArtworks(): Promise<Response> {
+  const now = Date.now();
+  if (artCache && now < artCache.expires) return json(artCache.data);
+
+  // Fetch all searches in parallel; ignore individual failures (empty array fallback).
+  const results = await Promise.all(
+    ART_SEARCHES.map(({ q, limit }) => fetchArtSearch(q, limit).catch(() => [] as Row[]))
+  );
+
+  // Deduplicate by id.
+  const seen = new Set<unknown>();
+  const items: Row[] = [];
+  for (const batch of results) {
+    for (const row of batch) {
+      if (!seen.has(row.id)) { seen.add(row.id); items.push(row); }
+    }
   }
 
-  const data = await res.json();
-  artCache = { data, expires: now + 60 * 60 * 1000 }; // cache 1 hour
+  // Fisher-Yates shuffle so every cache window has a different order.
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+
+  const data = { data: items };
+  artCache = { data, expires: now + 2 * 60 * 60 * 1000 }; // cache 2 hours
   return json(data);
 }
 
@@ -967,11 +999,10 @@ function checkNowPlayingRateLimit(request: Request): boolean {
 
 // Hardcoded so a misconfigured SPOTIFY_REDIRECT_URI env var can never break the flow.
 // Must match exactly what is registered in the Spotify Developer Dashboard.
-// Uses a static HTML page (/spotify-callback) so that Spotify's browser redirect
-// lands on a normal page — AJAX from that page calls /api/spotify/exchange.
-// This bypasses the reverse-proxy issue where top-level /api/* navigations never
-// reach the Cloudflare Worker.
-const SPOTIFY_REDIRECT = 'https://sp1e.se/spotify-callback';
+// Uses the root page so Spotify's redirect lands on an existing nginx-served file.
+// Spotify adds ?code=...&state=... to this URL; index.html JS reads them and calls
+// /api/spotify/exchange via fetch() — AJAX calls reach the Worker, top-level don't.
+const SPOTIFY_REDIRECT = 'https://sp1e.se/';
 
 // Temporary debug: requires site auth, returns env var values for verification.
 async function handleSpotifyDebug(request: Request, env: Env): Promise<Response> {
@@ -992,7 +1023,27 @@ async function handleSpotifyDebug(request: Request, env: Env): Promise<Response>
   });
 }
 
-// Requires site auth; redirects to Spotify authorization page.
+// Returns the Spotify authorize URL as JSON so the browser never navigates to /api/*.
+// The JS in index.html fetches this endpoint then sets location.href to the returned URL.
+async function handleSpotifyLoginUrl(request: Request, env: Env): Promise<Response> {
+  await requireAuth(request, env);
+  const state = crypto.randomUUID();
+  const params = new URLSearchParams({
+    client_id:     env.SPOTIFY_CLIENT_ID,
+    response_type: 'code',
+    redirect_uri:  SPOTIFY_REDIRECT,
+    state,
+    scope: 'user-read-currently-playing user-read-playback-state',
+  });
+  const h = new Headers({ 'Content-Type': 'application/json', ...cors() });
+  h.set('Set-Cookie', `spotify_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`);
+  return new Response(
+    JSON.stringify({ url: `https://accounts.spotify.com/authorize?${params}` }),
+    { status: 200, headers: h }
+  );
+}
+
+// Legacy: redirects directly (still works if the routing issue is ever fixed).
 async function handleSpotifyLogin(request: Request, env: Env): Promise<Response> {
   await requireAuth(request, env);
 
