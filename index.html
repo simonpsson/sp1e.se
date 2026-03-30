@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300&family=Space+Grotesk:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300&family=DM+Mono&family=Space+Grotesk:wght@300;400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/brand.css">
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -29,16 +29,59 @@
     animation: fade-in 1.5s ease forwards;
   }
 
-  @keyframes fade-in {
-    to { opacity: 1; }
+  @keyframes fade-in { to { opacity: 1; } }
+
+  /* ── Background gallery ───────────────────────────── */
+  #bg-gallery {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .bg-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    opacity: 0;
+    transition: opacity 3s ease;
+  }
+  #bg-img-a { z-index: 1; }
+  #bg-img-b { z-index: 0; }
+
+  #bg-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    background: rgba(0,0,0,0.62);
+    pointer-events: none;
+    transition: background 1.5s ease;
+  }
+  body.immersive #bg-overlay {
+    background: linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.18) 0%,
+      rgba(0,0,0,0.08) 45%,
+      rgba(0,0,0,0.30) 78%,
+      rgba(0,0,0,0.72) 100%
+    );
   }
 
   /* ── Centre stack ─────────────────────────────────── */
   .stage {
+    position: relative;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 2rem;
+    transition: opacity 0.7s ease;
+  }
+  body.immersive .stage {
+    opacity: 0;
+    pointer-events: none;
   }
 
   .wordmark {
@@ -47,23 +90,19 @@
     font-size: 3rem;
     letter-spacing: 0.3em;
     color: #fff;
-    text-indent: 0.3em; /* compensate letter-spacing on last char */
+    text-indent: 0.3em;
     user-select: none;
   }
-  .logo-one { font-size: 1.05em; display: inline-block; vertical-align: baseline; }
 
   .rule {
     width: 100px;
     height: 1px;
     background: rgba(255,255,255,0.10);
-    margin-top: -1rem; /* tighten the gap after wordmark */
+    margin-top: -1rem;
   }
 
   /* ── Cards ────────────────────────────────────────── */
-  .cards {
-    display: flex;
-    gap: 1rem;
-  }
+  .cards { display: flex; gap: 1rem; }
 
   .card {
     display: flex;
@@ -85,7 +124,6 @@
     -webkit-tap-highlight-color: transparent;
     user-select: none;
   }
-
   .card:hover, .card:focus-visible {
     border-color: rgba(255,255,255,0.25);
     color: rgba(255,255,255,0.95);
@@ -108,19 +146,7 @@
     pointer-events: none;
     transition: opacity 0.2s ease;
   }
-
-  #modal.open {
-    opacity: 1;
-    pointer-events: all;
-  }
-
-  .modal-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    width: min(300px, 90vw);
-  }
+  #modal.open { opacity: 1; pointer-events: all; }
 
   .modal-input {
     -webkit-appearance: none;
@@ -141,19 +167,15 @@
     transition: border-color 0.2s ease;
     caret-color: #4af2c8;
   }
-
   .modal-input:focus {
     outline: none;
     box-shadow: none;
     border-bottom-color: #4af2c8;
   }
-
   .modal-input.error {
     border-bottom-color: rgba(220,80,80,0.85);
     transition: border-color 0s;
   }
-
-  /* Kill Chromium/WebKit autofill overlay (injects inset box-shadow + blue bg) */
   .modal-input:-webkit-autofill,
   .modal-input:-webkit-autofill:hover,
   .modal-input:-webkit-autofill:focus,
@@ -165,39 +187,101 @@
     caret-color: #4af2c8;
   }
 
+  /* ── Immersion button ─────────────────────────────── */
+  #immersion-btn {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    padding: 0.42rem 1.15rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    color: #4af2c8;
+    background: transparent;
+    border: 1px solid rgba(74,242,200,0.28);
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    opacity: 0;           /* revealed after first painting loads */
+    pointer-events: none;
+    transition: opacity 0.8s ease, border-color 0.25s, box-shadow 0.25s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  #immersion-btn.ready { opacity: 1; pointer-events: all; }
+  #immersion-btn:hover {
+    border-color: rgba(74,242,200,0.65);
+    box-shadow: 0 0 16px rgba(74,242,200,0.18);
+  }
+  body.immersive #immersion-btn {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* ── Immersion close ──────────────────────────────── */
+  #immersion-close {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.75rem;
+    z-index: 10;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.45);
+    font-size: 1.5rem;
+    line-height: 1;
+    padding: 0.3rem 0.4rem;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease, color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #immersion-close:hover { color: rgba(255,255,255,0.90); }
+  body.immersive #immersion-close { opacity: 1; pointer-events: all; }
+
+  /* ── Immersion caption ────────────────────────────── */
+  #immersion-caption {
+    position: fixed;
+    bottom: 2rem;
+    left: 2rem;
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+  .ic-artist {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.70);
+    text-shadow: 0 1px 10px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9);
+    margin-bottom: 0.3rem;
+  }
+  .ic-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: 1.15rem;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 1px 10px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9);
+    margin-bottom: 0.2rem;
+  }
+  .ic-year {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.40);
+    text-shadow: 0 1px 10px rgba(0,0,0,1);
+  }
+
   /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 400px) {
     .cards { flex-direction: column; }
     .card  { width: 160px; }
   }
-
-  /* ── Background gallery ───────────────────────────── */
-  #bg-gallery {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-  }
-  .bg-img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    opacity: 0;
-    transition: opacity 3s ease;
-  }
-  #bg-img-a { z-index: 1; }
-  #bg-img-b { z-index: 0; }
-  #bg-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1;
-    background: rgba(0,0,0,0.62);
-    pointer-events: none;
-  }
-  .stage { position: relative; z-index: 2; }
 </style>
 </head>
 <body>
@@ -229,150 +313,222 @@
   >
 </div>
 
+<button id="immersion-btn" aria-label="Immersion mode">Immersion</button>
+<button id="immersion-close" aria-label="Exit immersion">×</button>
+<div id="immersion-caption" aria-live="polite">
+  <div class="ic-artist" id="ic-artist"></div>
+  <div class="ic-title"  id="ic-title"></div>
+  <div class="ic-year"   id="ic-year"></div>
+</div>
+
 <script>
-  const modal  = document.getElementById('modal');
-  const input  = document.getElementById('pw-input');
-  const hubBtn = document.getElementById('hub-btn');
+// ── Modal ─────────────────────────────────────────────────────────────────────
+const modal  = document.getElementById('modal');
+const input  = document.getElementById('pw-input');
+const hubBtn = document.getElementById('hub-btn');
+const stage  = document.querySelector('.stage');
 
-  let submitting = false;
-  let errorTimer = null;
+let submitting = false;
+let errorTimer = null;
 
-  function openModal() {
-    modal.classList.add('open');
-    input.value = '';
-    input.classList.remove('error');
-    requestAnimationFrame(() => setTimeout(() => input.focus(), 40));
-  }
+function openModal() {
+  modal.classList.add('open');
+  input.value = '';
+  input.classList.remove('error');
+  requestAnimationFrame(() => setTimeout(() => input.focus(), 40));
+}
+function closeModal() { modal.classList.remove('open'); }
 
-  function closeModal() {
-    modal.classList.remove('open');
-  }
+function flashError() {
+  input.value = '';
+  input.classList.remove('error');
+  void input.offsetWidth;
+  input.classList.add('error');
+  clearTimeout(errorTimer);
+  errorTimer = setTimeout(() => input.classList.remove('error'), 500);
+  input.focus();
+}
 
-  function flashError() {
-    input.value = '';
-    input.classList.remove('error');
-    void input.offsetWidth; // reflow — restarts the transition
-    input.classList.add('error');
-    clearTimeout(errorTimer);
-    errorTimer = setTimeout(() => {
-      input.classList.remove('error');
-    }, 500);
-    input.focus();
-  }
+async function attemptLogin() {
+  if (submitting) return;
+  const password = input.value;
+  if (!password) return;
+  submitting = true;
+  input.disabled = true;
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ password }),
+    });
+    if (res.ok) window.location.href = '/hub';
+    else flashError();
+  } catch { flashError(); }
+  finally { submitting = false; input.disabled = false; }
+}
 
-  async function attemptLogin() {
-    if (submitting) return;
-    const password = input.value;
-    if (!password) return;
+hubBtn.addEventListener('click', openModal);
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter')  attemptLogin();
+  if (e.key === 'Escape') closeModal();
+});
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 
-    submitting = true;
-    input.disabled = true;
+// ── Immersion ─────────────────────────────────────────────────────────────────
+const immBtn     = document.getElementById('immersion-btn');
+const immClose   = document.getElementById('immersion-close');
+const immCaption = document.getElementById('immersion-caption');
+const icArtist   = document.getElementById('ic-artist');
+const icTitle    = document.getElementById('ic-title');
+const icYear     = document.getElementById('ic-year');
 
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ password }),
-      });
-      if (res.ok) {
-        window.location.href = '/hub';
-      } else {
-        flashError();
-      }
-    } catch {
-      flashError();
-    } finally {
-      submitting = false;
-      input.disabled = false;
-    }
-  }
+let immersive      = false;
+let stageHideTimer = null;
 
-  hubBtn.addEventListener('click', openModal);
+function setCaption(art) {
+  icArtist.textContent = (art.artist_title || '').toUpperCase();
+  icTitle.textContent  =  art.title        || '';
+  icYear.textContent   =  art.date_display || '';
+}
 
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter')  attemptLogin();
-    if (e.key === 'Escape') closeModal();
+function swapCaption(art) {
+  // fade out → update → fade in
+  immCaption.style.opacity = '0';
+  setTimeout(() => { setCaption(art); immCaption.style.opacity = '1'; }, 650);
+}
+
+function enterImmersion() {
+  if (immersive) return;
+  immersive = true;
+  document.body.classList.add('immersive');
+
+  // After CSS opacity transition, pull from layout
+  clearTimeout(stageHideTimer);
+  stageHideTimer = setTimeout(() => { stage.style.display = 'none'; }, 750);
+
+  // Show caption after overlay has opened up and stage is gone
+  setTimeout(() => {
+    if (!immersive) return;
+    const art = bgArtworks[bgCurrent];
+    if (art) { setCaption(art); immCaption.style.opacity = '1'; }
+  }, 1100);
+
+  bgIntervalMs = 20_000;
+}
+
+function exitImmersion() {
+  if (!immersive) return;
+  immersive = false;
+
+  immCaption.style.opacity = '0';
+  clearTimeout(stageHideTimer);
+
+  // Restore stage into layout while still opacity-0 (immersive class still on body),
+  // then next frame remove the class so the CSS transition plays opacity 0 → 1.
+  stage.style.display = '';
+  requestAnimationFrame(() => {
+    document.body.classList.remove('immersive');
+    bgIntervalMs = 28_000;
   });
+}
 
-  modal.addEventListener('click', e => {
-    if (e.target === modal) closeModal();
-  });
+immBtn.addEventListener('click', enterImmersion);
+immClose.addEventListener('click', exitImmersion);
 
-  // ── Background painting gallery ─────────────────────
-  (function bgGallery() {
-    const CACHE_KEY   = 'sp1e-gallery-v3'; // shared with hub
-    const INTERVAL_MS = 28_000;
-    const FADE_MS     = 3000;
-    const IMG_BASE    = 'https://www.artic.edu/iiif/2';
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (modal.classList.contains('open')) closeModal();
+  else if (immersive) exitImmersion();
+});
 
-    let artworks = [], current = 0;
-    let front, back;
-    const imgA = document.getElementById('bg-img-a');
-    const imgB = document.getElementById('bg-img-b');
+// ── Background gallery ────────────────────────────────────────────────────────
+const GCACHE = 'sp1e-gallery-v3'; // shared with hub page
+const GFADE  = 3000;
+const GBASE  = 'https://www.artic.edu/iiif/2';
 
-    function shuffle(arr) {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
-    }
+let bgArtworks   = [];
+let bgCurrent    = 0;
+let bgFront, bgBack, bgTimer;
+let bgIntervalMs = 28_000;
 
-    function imgUrl(id) {
-      return `${IMG_BASE}/${id}/full/1600,/0/default.jpg`;
-    }
+const bgImgA = document.getElementById('bg-img-a');
+const bgImgB = document.getElementById('bg-img-b');
 
-    function showFirst(art) {
-      front = imgA; back = imgB;
-      front.style.zIndex = '1'; back.style.zIndex = '0';
-      front.src = imgUrl(art.image_id);
-      front.onload = () => { front.onload = null; front.style.opacity = '1'; };
-    }
+function gUrl(id) { return `${GBASE}/${id}/full/1600,/0/default.jpg`; }
 
-    function crossfade(art) {
-      back.src = imgUrl(art.image_id);
-      back.onload = () => {
-        back.onload = null;
-        back.style.zIndex = '2';
-        back.style.opacity = '1';
-        setTimeout(() => {
-          front.style.opacity = '0';
-          setTimeout(() => {
-            front.style.zIndex = '0';
-            const tmp = front; front = back; back = tmp;
-            front.style.zIndex = '1';
-          }, FADE_MS + 100);
-        }, 50);
-      };
-    }
+function gShuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
-    async function fetchArtworks() {
-      const cached = sessionStorage.getItem(CACHE_KEY);
-      if (cached) { try { return JSON.parse(cached); } catch {} }
-      const res = await fetch('/api/art');
-      if (!res.ok) return [];
-      const data = await res.json();
-      const items = (data.data ?? []).filter(d => d.image_id);
-      if (items.length) sessionStorage.setItem(CACHE_KEY, JSON.stringify(items));
-      return items;
-    }
+function gOnChange(art) {
+  if (immersive && parseFloat(immCaption.style.opacity) > 0) swapCaption(art);
+}
 
-    async function init() {
-      try {
-        const raw = await fetchArtworks();
-        if (!raw.length) return;
-        artworks = shuffle(raw);
-        showFirst(artworks[0]);
-        setInterval(() => {
-          current = (current + 1) % artworks.length;
-          crossfade(artworks[current]);
-        }, INTERVAL_MS);
-      } catch {}
-    }
+function gShowFirst(art) {
+  bgFront = bgImgA; bgBack = bgImgB;
+  bgFront.style.zIndex = '1'; bgBack.style.zIndex = '0';
+  bgFront.src = gUrl(art.image_id);
+  bgFront.onload = () => {
+    bgFront.onload = null;
+    bgFront.style.opacity = '1';
+    immBtn.classList.add('ready'); // reveal Immersion button once a painting is loaded
+  };
+}
 
-    init();
-  })();
+function gCrossfade(art) {
+  gOnChange(art);
+  bgBack.src = gUrl(art.image_id);
+  bgBack.onload = () => {
+    bgBack.onload = null;
+    bgBack.style.zIndex = '2';
+    bgBack.style.opacity = '1';
+    setTimeout(() => {
+      bgFront.style.opacity = '0';
+      setTimeout(() => {
+        bgFront.style.zIndex = '0';
+        const tmp = bgFront; bgFront = bgBack; bgBack = tmp;
+        bgFront.style.zIndex = '1';
+      }, GFADE + 100);
+    }, 50);
+  };
+}
+
+function gSchedule() {
+  clearTimeout(bgTimer);
+  bgTimer = setTimeout(() => {
+    bgCurrent = (bgCurrent + 1) % bgArtworks.length;
+    gCrossfade(bgArtworks[bgCurrent]);
+    gSchedule();
+  }, bgIntervalMs);
+}
+
+async function gFetch() {
+  const c = sessionStorage.getItem(GCACHE);
+  if (c) { try { return JSON.parse(c); } catch {} }
+  const res = await fetch('/api/art');
+  if (!res.ok) return [];
+  const data = await res.json();
+  const items = (data.data ?? []).filter(d => d.image_id);
+  if (items.length) sessionStorage.setItem(GCACHE, JSON.stringify(items));
+  return items;
+}
+
+async function gInit() {
+  try {
+    const raw = await gFetch();
+    if (!raw.length) return;
+    bgArtworks = gShuffle(raw);
+    gShowFirst(bgArtworks[0]);
+    gSchedule();
+  } catch {}
+}
+
+gInit();
 </script>
 </body>
 </html>
