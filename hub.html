@@ -89,7 +89,7 @@
     justify-self: start;
   }
   .logo:hover { color: var(--logo-hover); }
-  .logo-one { font-size: 1.05em; display: inline-block; vertical-align: baseline; }
+  .sp1e-logo { display: block; height: 1.1rem; width: auto; overflow: visible; user-select: none; }
   .topbar-search { position: relative; }
   .logout-btn {
     background: none; border: none; cursor: pointer;
@@ -402,7 +402,17 @@
 <div id="toast-area"></div>
 
 <header class="topbar">
-  <a class="logo brand-mark" href="/">SP<span class="brand-one">1</span>E</a>
+  <a class="logo" href="/" aria-label="SP1E">
+    <svg class="sp1e-logo" viewBox="0 0 150 52"
+         role="img" xmlns="http://www.w3.org/2000/svg">
+      <text x="2" y="40"
+        font-family="'Cormorant Garamond', serif"
+        font-weight="300"
+        font-size="42"
+        fill="currentColor"
+        letter-spacing="10">SP1E</text>
+    </svg>
+  </a>
   <div class="topbar-search search-wrap">
     <span class="search-icon">⌕</span>
     <input type="text" class="search-input" id="search-input"

@@ -9,7 +9,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300&family=DM+Mono&family=Space+Grotesk:wght@300;400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/brand.css">
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -84,13 +83,12 @@
     pointer-events: none;
   }
 
-  .wordmark {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 300;
-    font-size: 3rem;
-    letter-spacing: 0.3em;
-    color: #fff;
-    text-indent: 0.3em;
+  /* ── SP1E logo (SVG, uniform rendering) ──────────── */
+  .sp1e-logo {
+    display: block;
+    height: 3rem;
+    width: auto;
+    overflow: visible;
     user-select: none;
   }
 
@@ -139,7 +137,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,0,0.80);
+    background: rgba(0,0,0,0.82);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     opacity: 0;
@@ -151,31 +149,38 @@
   .modal-input {
     -webkit-appearance: none;
     appearance: none;
-    background: transparent;
+    background: rgba(255,255,255,0.03);
     border: none;
-    border-bottom: 1px solid rgba(255,255,255,0.18);
+    border-bottom: 1px solid rgba(255,255,255,0.15);
     border-radius: 0;
     padding: 0.5rem 0.25rem;
     width: 220px;
     color: rgba(255,255,255,0.85);
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'DM Mono', monospace;
     font-size: 1rem;
     letter-spacing: 0.15em;
     text-align: center;
     outline: none;
     box-shadow: none;
     transition: border-color 0.2s ease;
-    caret-color: #4af2c8;
+    caret-color: #fff;
   }
   .modal-input:focus {
     outline: none;
     box-shadow: none;
-    border-bottom-color: #4af2c8;
+    border-bottom-color: rgba(255,255,255,0.4);
   }
   .modal-input.error {
-    border-bottom-color: rgba(220,80,80,0.85);
+    border-bottom-color: #f24a4a;
     transition: border-color 0s;
   }
+  /* Hide browser-injected password buttons (eye icon, credential autofill, etc.) */
+  .modal-input::-ms-reveal,
+  .modal-input::-ms-clear { display: none; }
+  .modal-input::-webkit-credentials-auto-fill-button,
+  .modal-input::-webkit-strong-password-auto-fill-button,
+  .modal-input::-webkit-contacts-auto-fill-button { display: none !important; }
+  /* Kill Chromium/WebKit autofill overlay */
   .modal-input:-webkit-autofill,
   .modal-input:-webkit-autofill:hover,
   .modal-input:-webkit-autofill:focus,
@@ -183,8 +188,8 @@
     -webkit-box-shadow: 0 0 0 9999px #000 inset !important;
     box-shadow:         0 0 0 9999px #000 inset !important;
     -webkit-text-fill-color: rgba(255,255,255,0.85) !important;
-    border-bottom-color: rgba(255,255,255,0.18) !important;
-    caret-color: #4af2c8;
+    border-bottom-color: rgba(255,255,255,0.15) !important;
+    caret-color: #fff;
   }
 
   /* ── Immersion button ─────────────────────────────── */
@@ -194,26 +199,27 @@
     left: 50%;
     transform: translateX(-50%);
     z-index: 10;
-    padding: 0.42rem 1.15rem;
+    padding: 0.5rem 1.5rem;
     font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.12em;
-    color: #4af2c8;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.50);
     background: transparent;
-    border: 1px solid rgba(74,242,200,0.28);
-    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
     cursor: pointer;
     white-space: nowrap;
-    opacity: 0;           /* revealed after first painting loads */
+    opacity: 0;
     pointer-events: none;
-    transition: opacity 0.8s ease, border-color 0.25s, box-shadow 0.25s;
+    transition: opacity 0.8s ease, border-color 0.25s, color 0.25s;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
   }
   #immersion-btn.ready { opacity: 1; pointer-events: all; }
   #immersion-btn:hover {
-    border-color: rgba(74,242,200,0.65);
-    box-shadow: 0 0 16px rgba(74,242,200,0.18);
+    border-color: rgba(255,255,255,0.30);
+    color: rgba(255,255,255,0.80);
   }
   body.immersive #immersion-btn {
     opacity: 0;
@@ -294,7 +300,17 @@
 <div id="bg-overlay" aria-hidden="true"></div>
 
 <main class="stage">
-  <h1 class="wordmark brand-mark">SP<span class="brand-one">1</span>E</h1>
+  <!-- Single SVG logo: all 4 characters same font, same size, same weight -->
+  <svg class="sp1e-logo" viewBox="0 0 150 52"
+       aria-label="SP1E" role="img"
+       xmlns="http://www.w3.org/2000/svg">
+    <text x="2" y="40"
+      font-family="'Cormorant Garamond', serif"
+      font-weight="300"
+      font-size="42"
+      fill="white"
+      letter-spacing="10">SP1E</text>
+  </svg>
   <div class="rule"></div>
   <nav class="cards">
     <a class="card" href="/visitor">Visitor</a>
@@ -302,7 +318,7 @@
   </nav>
 </main>
 
-<!-- Password modal — bare input only -->
+<!-- Password modal — bare input only, no buttons -->
 <div id="modal" role="dialog" aria-modal="true" aria-label="Ange lösenord">
   <input
     class="modal-input"
@@ -393,7 +409,6 @@ function setCaption(art) {
 }
 
 function swapCaption(art) {
-  // fade out → update → fade in
   immCaption.style.opacity = '0';
   setTimeout(() => { setCaption(art); immCaption.style.opacity = '1'; }, 650);
 }
@@ -402,30 +417,21 @@ function enterImmersion() {
   if (immersive) return;
   immersive = true;
   document.body.classList.add('immersive');
-
-  // After CSS opacity transition, pull from layout
   clearTimeout(stageHideTimer);
   stageHideTimer = setTimeout(() => { stage.style.display = 'none'; }, 750);
-
-  // Show caption after overlay has opened up and stage is gone
   setTimeout(() => {
     if (!immersive) return;
     const art = bgArtworks[bgCurrent];
     if (art) { setCaption(art); immCaption.style.opacity = '1'; }
   }, 1100);
-
   bgIntervalMs = 20_000;
 }
 
 function exitImmersion() {
   if (!immersive) return;
   immersive = false;
-
   immCaption.style.opacity = '0';
   clearTimeout(stageHideTimer);
-
-  // Restore stage into layout while still opacity-0 (immersive class still on body),
-  // then next frame remove the class so the CSS transition plays opacity 0 → 1.
   stage.style.display = '';
   requestAnimationFrame(() => {
     document.body.classList.remove('immersive');
@@ -435,7 +441,6 @@ function exitImmersion() {
 
 immBtn.addEventListener('click', enterImmersion);
 immClose.addEventListener('click', exitImmersion);
-
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (modal.classList.contains('open')) closeModal();
@@ -443,7 +448,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Background gallery ────────────────────────────────────────────────────────
-const GCACHE = 'sp1e-gallery-v3'; // shared with hub page
+const GCACHE = 'sp1e-gallery-v3';
 const GFADE  = 3000;
 const GBASE  = 'https://www.artic.edu/iiif/2';
 
@@ -476,7 +481,7 @@ function gShowFirst(art) {
   bgFront.onload = () => {
     bgFront.onload = null;
     bgFront.style.opacity = '1';
-    immBtn.classList.add('ready'); // reveal Immersion button once a painting is loaded
+    immBtn.classList.add('ready');
   };
 }
 
