@@ -151,6 +151,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
         return handleSpotifyNowPlaying(env);
       }
       if (id === 'disconnect'   && method === 'POST') return handleSpotifyDisconnect(request, env);
+      // Temporary debug route — remove after confirming env vars in production
+      if (id === 'debug'        && method === 'GET')  return handleSpotifyDebug(request, env);
       return json({ error: 'not found' }, 404);
     }
 
@@ -962,6 +964,29 @@ function checkNowPlayingRateLimit(request: Request): boolean {
 
 // ─── Spotify OAuth ────────────────────────────────────────────────────────────
 
+// Hardcoded so a misconfigured SPOTIFY_REDIRECT_URI env var can never break the flow.
+// Must match exactly what is registered in the Spotify Developer Dashboard.
+const SPOTIFY_REDIRECT = 'https://sp1e.se/api/spotify/callback';
+
+// Temporary debug: requires site auth, returns env var values for verification.
+async function handleSpotifyDebug(request: Request, env: Env): Promise<Response> {
+  await requireAuth(request, env);
+  const params = new URLSearchParams({
+    client_id:     env.SPOTIFY_CLIENT_ID ?? '(missing)',
+    response_type: 'code',
+    redirect_uri:  SPOTIFY_REDIRECT,
+    state:         'debug',
+    scope:         'user-read-currently-playing user-read-playback-state',
+  });
+  return json({
+    redirect_uri_env:      env.SPOTIFY_REDIRECT_URI ?? '(not set)',
+    redirect_uri_hardcode: SPOTIFY_REDIRECT,
+    client_id_length:      env.SPOTIFY_CLIENT_ID?.length ?? 0,
+    client_secret_exists:  !!env.SPOTIFY_CLIENT_SECRET,
+    login_url_would_be:    `https://accounts.spotify.com/authorize?${params}`,
+  });
+}
+
 // Requires site auth; redirects to Spotify authorization page.
 async function handleSpotifyLogin(request: Request, env: Env): Promise<Response> {
   await requireAuth(request, env);
@@ -970,7 +995,7 @@ async function handleSpotifyLogin(request: Request, env: Env): Promise<Response>
   const params = new URLSearchParams({
     client_id:     env.SPOTIFY_CLIENT_ID,
     response_type: 'code',
-    redirect_uri:  env.SPOTIFY_REDIRECT_URI,
+    redirect_uri:  SPOTIFY_REDIRECT,
     state,
     scope: 'user-read-currently-playing user-read-playback-state',
   });
@@ -1009,7 +1034,7 @@ async function handleSpotifyCallback(request: Request, env: Env, url: URL): Prom
     body: new URLSearchParams({
       grant_type:   'authorization_code',
       code,
-      redirect_uri: env.SPOTIFY_REDIRECT_URI,
+      redirect_uri: SPOTIFY_REDIRECT,
     }),
   });
 
