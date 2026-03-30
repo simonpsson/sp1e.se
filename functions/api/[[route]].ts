@@ -143,6 +143,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
 
     // ── Spotify OAuth ─────────────────────────────────────────────────────────
     if (resource === 'spotify') {
+      if (id === 'login-url'    && method === 'GET')  return handleSpotifyLoginUrl(request, env);
       if (id === 'login'        && method === 'GET')  return handleSpotifyLogin(request, env);
       if (id === 'callback'     && method === 'GET')  return handleSpotifyCallback(request, env, url);
       if (id === 'exchange'     && method === 'GET')  return handleSpotifyExchange(request, env, url);
@@ -967,11 +968,10 @@ function checkNowPlayingRateLimit(request: Request): boolean {
 
 // Hardcoded so a misconfigured SPOTIFY_REDIRECT_URI env var can never break the flow.
 // Must match exactly what is registered in the Spotify Developer Dashboard.
-// Uses a static HTML page (/spotify-callback) so that Spotify's browser redirect
-// lands on a normal page — AJAX from that page calls /api/spotify/exchange.
-// This bypasses the reverse-proxy issue where top-level /api/* navigations never
-// reach the Cloudflare Worker.
-const SPOTIFY_REDIRECT = 'https://sp1e.se/spotify-callback';
+// Uses the root page so Spotify's redirect lands on an existing nginx-served file.
+// Spotify adds ?code=...&state=... to this URL; index.html JS reads them and calls
+// /api/spotify/exchange via fetch() — AJAX calls reach the Worker, top-level don't.
+const SPOTIFY_REDIRECT = 'https://sp1e.se/';
 
 // Temporary debug: requires site auth, returns env var values for verification.
 async function handleSpotifyDebug(request: Request, env: Env): Promise<Response> {
@@ -992,7 +992,27 @@ async function handleSpotifyDebug(request: Request, env: Env): Promise<Response>
   });
 }
 
-// Requires site auth; redirects to Spotify authorization page.
+// Returns the Spotify authorize URL as JSON so the browser never navigates to /api/*.
+// The JS in index.html fetches this endpoint then sets location.href to the returned URL.
+async function handleSpotifyLoginUrl(request: Request, env: Env): Promise<Response> {
+  await requireAuth(request, env);
+  const state = crypto.randomUUID();
+  const params = new URLSearchParams({
+    client_id:     env.SPOTIFY_CLIENT_ID,
+    response_type: 'code',
+    redirect_uri:  SPOTIFY_REDIRECT,
+    state,
+    scope: 'user-read-currently-playing user-read-playback-state',
+  });
+  const h = new Headers({ 'Content-Type': 'application/json', ...cors() });
+  h.set('Set-Cookie', `spotify_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`);
+  return new Response(
+    JSON.stringify({ url: `https://accounts.spotify.com/authorize?${params}` }),
+    { status: 200, headers: h }
+  );
+}
+
+// Legacy: redirects directly (still works if the routing issue is ever fixed).
 async function handleSpotifyLogin(request: Request, env: Env): Promise<Response> {
   await requireAuth(request, env);
 
