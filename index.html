@@ -199,6 +199,7 @@
 
   /* ── Spotify player ───────────────────────────────── */
   #spotify-player {
+    position: relative;
     max-width: 420px;
     width: 100%;
     background: rgba(0,0,0,0.60);
@@ -210,10 +211,12 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    transition: opacity 0.4s ease;
+    opacity: 0;
+    transition: opacity 0.5s ease, max-width 0.3s ease, padding 0.3s ease, border-radius 0.3s ease;
   }
-  #spotify-player.hidden { display: none; }
-  body.immersive #spotify-player { opacity: 0.45; }
+  #spotify-player.sp-shown { opacity: 1; }
+  #spotify-player.hidden    { display: none; opacity: 0; }
+  body.immersive #spotify-player.sp-shown { opacity: 0.45; }
 
   #sp-art {
     width: 48px;
@@ -223,6 +226,7 @@
     object-fit: cover;
     box-shadow: 0 2px 8px rgba(0,0,0,0.5);
     background: rgba(255,255,255,0.06);
+    transition: opacity 0.3s ease, width 0.3s ease, height 0.3s ease, min-width 0.3s ease;
   }
 
   #sp-info {
@@ -231,6 +235,8 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
+    overflow: hidden;
+    transition: opacity 0.25s ease;
   }
   #sp-track-line {
     font-family: 'DM Mono', monospace;
@@ -270,6 +276,7 @@
     align-items: center;
     gap: 2px;
     flex-shrink: 0;
+    transition: opacity 0.25s ease;
   }
   .sp-btn {
     background: none;
@@ -294,6 +301,44 @@
     transition: color 0.2s;
   }
   #sp-link:hover { color: rgba(255,255,255,0.65); }
+
+  /* ── Disconnect × (top-right of player, show on hover) */
+  #sp-disconnect {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    width: 18px;
+    height: 18px;
+    background: rgba(14,14,20,0.95);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 50%;
+    color: rgba(255,255,255,0.25);
+    font-size: 0.6rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s, border-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #spotify-player:hover #sp-disconnect { opacity: 1; }
+  #sp-disconnect:hover { color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.25); }
+
+  /* ── Mini state (collapses after 5 min idle) ──────── */
+  #bottom-bar.sp-mini {
+    left: auto;
+    right: 2rem;
+    transform: none;
+  }
+  #bottom-bar.sp-mini #immersion-btn  { display: none; }
+  #bottom-bar.sp-mini #sp-disconnect  { display: none; }
+  #bottom-bar.sp-mini #spotify-player { max-width: 44px; padding: 5px; border-radius: 8px; gap: 0; cursor: pointer; }
+  #bottom-bar.sp-mini #sp-art         { width: 32px; height: 32px; min-width: 32px; }
+  #bottom-bar.sp-mini #sp-info        { display: none; }
+  #bottom-bar.sp-mini #sp-controls    { display: none; }
+  #bottom-bar.sp-mini #sp-link        { display: none; }
 
   /* ── ♫ hint (unlinked, bottom-right) ─────────────── */
   #sp-hint {
@@ -432,6 +477,33 @@
   }
 
   /* ── Responsive ───────────────────────────────────── */
+  @media (max-width: 768px) {
+    #bottom-bar {
+      bottom: 0;
+      left: 0;
+      right: 0;
+      transform: none;
+      max-width: 100%;
+      flex-direction: column-reverse;
+      gap: 0;
+    }
+    #bottom-bar.sp-mini { left: 0; right: 0; transform: none; }
+    #spotify-player {
+      max-width: 100%;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      border-bottom: none;
+      padding: 8px 14px;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    }
+    #sp-art     { width: 36px !important; height: 36px !important; min-width: 36px !important; }
+    #sp-track-line { font-size: 0.72rem; }
+    #sp-artist  { font-size: 0.64rem; }
+    #sp-link    { display: none !important; }
+    #sp-disconnect { display: none !important; }
+    #immersion-btn { margin: 0.4rem 0; }
+  }
   @media (max-width: 400px) {
     .cards { flex-direction: column; }
     .card  { width: 160px; }
@@ -489,6 +561,7 @@
         <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
       </svg>
     </a>
+    <button id="sp-disconnect" aria-label="Disconnect Spotify">×</button>
   </div>
   <button id="immersion-btn" aria-label="Immersion mode">Immersion</button>
 </div>
@@ -758,43 +831,72 @@ async function gInit() {
 gInit();
 
 // ── Spotify player ─────────────────────────────────────────────────────────────
-const spPlayerEl = document.getElementById('spotify-player');
-const spArtEl    = document.getElementById('sp-art');
-const spTitleEl  = document.getElementById('sp-title');
-const spArtistEl = document.getElementById('sp-artist');
-const spFillEl   = document.getElementById('sp-progress-fill');
-const spBtnPrev  = document.getElementById('sp-prev');
-const spBtnPlay  = document.getElementById('sp-play');
-const spBtnNext  = document.getElementById('sp-next');
-const spLinkEl   = document.getElementById('sp-link');
-const spHintEl   = document.getElementById('sp-hint');
+const spPlayerEl    = document.getElementById('spotify-player');
+const spArtEl       = document.getElementById('sp-art');
+const spTitleEl     = document.getElementById('sp-title');
+const spArtistEl    = document.getElementById('sp-artist');
+const spFillEl      = document.getElementById('sp-progress-fill');
+const spBtnPrev     = document.getElementById('sp-prev');
+const spBtnPlay     = document.getElementById('sp-play');
+const spBtnNext     = document.getElementById('sp-next');
+const spLinkEl      = document.getElementById('sp-link');
+const spHintEl      = document.getElementById('sp-hint');
+const spDisconnect  = document.getElementById('sp-disconnect');
+const bottomBarEl   = document.getElementById('bottom-bar');
 
 let sdkPlayer  = null;
 let progressIv = null;
 let visitorIv  = null;
+let miniTimer  = null;
+let lastArtUrl = '';
+let spShown    = false;
 
 function hasCookie(name) {
   return document.cookie.split(';').some(c => c.trim().startsWith(name + '='));
 }
 const spLinked = hasCookie('spotify_linked');
 
+// ── Visibility ────────────────────────────────────────────────────────────────
 function showSpotifyPlayer(visitorMode) {
   spPlayerEl.classList.remove('hidden', 'visitor-mode');
   if (visitorMode) spPlayerEl.classList.add('visitor-mode');
+  if (!spShown) {
+    spShown = true;
+    // Two-frame trick: remove hidden first, then add sp-shown for opacity transition
+    requestAnimationFrame(() => requestAnimationFrame(() => spPlayerEl.classList.add('sp-shown')));
+  }
   if (spHintEl) spHintEl.classList.add('hidden');
 }
 
 function hideSpotifyPlayer() {
+  spPlayerEl.classList.remove('sp-shown');
   spPlayerEl.classList.add('hidden');
+  spShown = false;
   stopProgress();
+  clearMiniTimer();
+  bottomBarEl.classList.remove('sp-mini');
 }
 
-function stopProgress() {
-  if (progressIv) { clearInterval(progressIv); progressIv = null; }
+// ── Album art crossfade ───────────────────────────────────────────────────────
+function setAlbumArt(url) {
+  if (!url || url === lastArtUrl) return;
+  lastArtUrl = url;
+  spArtEl.style.opacity = '0';
+  setTimeout(() => {
+    spArtEl.src = url;
+    const done = () => {
+      spArtEl.style.opacity = '1';
+      spArtEl.removeEventListener('load',  done);
+      spArtEl.removeEventListener('error', done);
+    };
+    spArtEl.addEventListener('load',  done);
+    spArtEl.addEventListener('error', done);
+  }, 300);
 }
 
+// ── Track/progress update ─────────────────────────────────────────────────────
 function setPlayerTrack(artUrl, title, artist, progress, duration, trackUrl, isPlaying) {
-  if (artUrl) spArtEl.src = artUrl;
+  setAlbumArt(artUrl);
   spTitleEl.textContent  = title  || '';
   spArtistEl.textContent = artist || '';
   const pct = duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
@@ -802,20 +904,65 @@ function setPlayerTrack(artUrl, title, artist, progress, duration, trackUrl, isP
   spFillEl.style.width = pct + '%';
   if (spBtnPlay) spBtnPlay.textContent = isPlaying ? '⏸' : '▶';
   if (trackUrl && spLinkEl) {
-    // Convert spotify:track:id URI to open.spotify.com URL
-    const url = trackUrl.startsWith('spotify:')
+    spLinkEl.href = trackUrl.startsWith('spotify:')
       ? `https://open.spotify.com/track/${trackUrl.split(':').pop()}`
       : trackUrl;
-    spLinkEl.href = url;
   }
 }
+
+function stopProgress() {
+  if (progressIv) { clearInterval(progressIv); progressIv = null; }
+}
+
+// ── Mini / idle state ─────────────────────────────────────────────────────────
+const MINI_DELAY = 5 * 60 * 1000;
+
+function scheduleMini() {
+  clearMiniTimer();
+  if (window.matchMedia('(max-width: 768px)').matches) return; // no mini on mobile
+  miniTimer = setTimeout(() => {
+    if (!spPlayerEl.classList.contains('hidden')) bottomBarEl.classList.add('sp-mini');
+  }, MINI_DELAY);
+}
+
+function clearMiniTimer() {
+  clearTimeout(miniTimer);
+  miniTimer = null;
+}
+
+function expandMini() {
+  bottomBarEl.classList.remove('sp-mini');
+  scheduleMini(); // restart 5-min countdown
+}
+
+// Hover on the mini player expands it
+spPlayerEl.addEventListener('mouseenter', () => {
+  if (bottomBarEl.classList.contains('sp-mini')) expandMini();
+});
+
+// ── Disconnect ────────────────────────────────────────────────────────────────
+async function doDisconnect() {
+  try { await fetch('/api/spotify/disconnect', { method: 'POST', credentials: 'same-origin' }); }
+  catch {}
+  document.cookie = 'spotify_linked=; Max-Age=0; Path=/; Secure; SameSite=Strict';
+  if (sdkPlayer) { sdkPlayer.disconnect(); sdkPlayer = null; }
+  stopProgress();
+  hideSpotifyPlayer();
+  if (spHintEl) spHintEl.classList.remove('hidden');
+}
+
+if (spDisconnect) spDisconnect.addEventListener('click', e => { e.stopPropagation(); doDisconnect(); });
+
+// ── Space bar: prevent accidental control via keyboard focus ──────────────────
+[spBtnPrev, spBtnPlay, spBtnNext].forEach(btn => {
+  if (btn) btn.addEventListener('keydown', e => { if (e.key === ' ') e.preventDefault(); });
+});
 
 // ── Owner mode: Web Playback SDK ───────────────────────────────────────────────
 if (spLinked) {
   if (spHintEl) spHintEl.classList.add('hidden');
 
   window.onSpotifyWebPlaybackSDKReady = () => {
-    // Verify we have a valid session before handing to SDK
     fetch('/api/spotify/token', { credentials: 'same-origin' })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(() => {
@@ -837,23 +984,20 @@ if (spLinked) {
 
         player.addListener('player_state_changed', state => {
           if (!state) return;
-          const t = state.track_window.current_track;
-          // Prefer smallest album image (~64 px) to save bandwidth
-          const imgs   = t.album?.images ?? [];
-          const artUrl = (imgs[imgs.length - 1] ?? imgs[0])?.url;
+          const t    = state.track_window.current_track;
+          const imgs = t.album?.images ?? [];
           setPlayerTrack(
-            artUrl,
+            (imgs[imgs.length - 1] ?? imgs[0])?.url,
             t.name,
             (t.artists ?? []).map(a => a.name).join(', '),
-            state.position,
-            state.duration,
-            t.uri,
-            !state.paused,
+            state.position, state.duration, t.uri, !state.paused,
           );
           showSpotifyPlayer(false);
 
           stopProgress();
           if (!state.paused) {
+            clearMiniTimer();
+            bottomBarEl.classList.remove('sp-mini');
             progressIv = setInterval(async () => {
               const s = await player.getCurrentState().catch(() => null);
               if (!s || s.paused) { stopProgress(); return; }
@@ -861,24 +1005,28 @@ if (spLinked) {
               spFillEl.style.transition = 'width 1s linear';
               spFillEl.style.width = p + '%';
             }, 1000);
+          } else {
+            scheduleMini(); // start idle countdown when paused
           }
         });
 
         player.addListener('initialization_error', () => hideSpotifyPlayer());
-        player.addListener('authentication_error', () => hideSpotifyPlayer());
         player.addListener('account_error',        () => hideSpotifyPlayer()); // not Premium
+
+        // Revoked access → clean up gracefully
+        player.addListener('authentication_error', () => {
+          console.warn('[sp1e] Spotify auth error — disconnecting');
+          doDisconnect();
+        });
 
         player.connect();
         sdkPlayer = player;
         window.spotifyPlayer = player;
       })
-      .catch(() => {
-        // Session expired — fall back to visitor (read-only) polling
-        startVisitorPolling();
-      });
+      .catch(() => startVisitorPolling()); // session expired
   };
 
-  const sdkScript = document.createElement('script');
+  const sdkScript  = document.createElement('script');
   sdkScript.src    = 'https://sdk.scdn.co/spotify-player.js';
   sdkScript.onerror = () => startVisitorPolling();
   document.head.appendChild(sdkScript);
@@ -905,7 +1053,7 @@ async function pollNowPlaying() {
 
 if (!spLinked) startVisitorPolling();
 
-// Controls (only active in owner/SDK mode)
+// Controls (only active in owner/SDK mode — space bar blocked above)
 spBtnPrev.addEventListener('click', () => { if (sdkPlayer) sdkPlayer.previousTrack(); });
 spBtnPlay.addEventListener('click', () => { if (sdkPlayer) sdkPlayer.togglePlay(); });
 spBtnNext.addEventListener('click', () => { if (sdkPlayer) sdkPlayer.nextTrack(); });

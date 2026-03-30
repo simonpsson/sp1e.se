@@ -146,7 +146,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'login'        && method === 'GET')  return handleSpotifyLogin(request, env);
       if (id === 'callback'     && method === 'GET')  return handleSpotifyCallback(request, env, url);
       if (id === 'token'        && method === 'GET')  return handleSpotifyToken(request, env);
-      if (id === 'now-playing'  && method === 'GET')  return handleSpotifyNowPlaying(env);
+      if (id === 'now-playing'  && method === 'GET') {
+        if (!checkNowPlayingRateLimit(request)) return json({ error: 'rate limit exceeded' }, 429);
+        return handleSpotifyNowPlaying(env);
+      }
       if (id === 'disconnect'   && method === 'POST') return handleSpotifyDisconnect(request, env);
       return json({ error: 'not found' }, 404);
     }
@@ -938,6 +941,23 @@ async function getArtworks(): Promise<Response> {
   const data = await res.json();
   artCache = { data, expires: now + 60 * 60 * 1000 }; // cache 1 hour
   return json(data);
+}
+
+// ─── Spotify rate limiter (in-memory, resets on redeploy) ────────────────────
+// Limits /api/spotify/now-playing to 60 req/min per IP.
+const _rlMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkNowPlayingRateLimit(request: Request): boolean {
+  const ip  = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+  const now = Date.now();
+  const rl  = _rlMap.get(ip);
+  if (!rl || now > rl.resetAt) {
+    _rlMap.set(ip, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (rl.count >= 60) return false;
+  rl.count++;
+  return true;
 }
 
 // ─── Spotify OAuth ────────────────────────────────────────────────────────────
