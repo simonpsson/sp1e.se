@@ -997,7 +997,9 @@ function checkNowPlayingRateLimit(request: Request): boolean {
 // ─── Spotify ──────────────────────────────────────────────────────────────────
 
 // Hardcoded redirect URI — must match the Spotify Developer Dashboard exactly.
-const SPOTIFY_REDIRECT = 'https://sp1e.se/spotify-setup.html';
+// Uses the root page (always served by nginx) so Spotify's redirect lands safely.
+// index.html detects ?code=&state= on load and exchanges via AJAX POST.
+const SPOTIFY_REDIRECT = 'https://sp1e.se/';
 
 // In-memory cache for now-playing (10s).
 let nowPlayingCache: { data: unknown; expires: number } | null = null;
