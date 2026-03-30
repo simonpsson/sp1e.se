@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify — sp1e.se</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #000;
+    color: #fff;
+    font-family: 'DM Mono', 'Courier New', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #msg {
+    font-size: 0.82rem;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+    line-height: 2;
+    padding: 2rem;
+  }
+  #msg a {
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255,255,255,0.20);
+  }
+  #msg a:hover { color: #fff; }
+</style>
+</head>
+<body>
+<div id="msg">Ansluter till Spotify…</div>
+<script>
+(async function () {
+  const msg   = document.getElementById('msg');
+  const p     = new URLSearchParams(location.search);
+  const code  = p.get('code');
+  const state = p.get('state');
+  const error = p.get('error');
+
+  if (error) {
+    msg.textContent = 'Spotify: åtkomst nekad.';
+    return;
+  }
+
+  if (code && state) {
+    // Came back from Spotify — strip auth params from URL immediately.
+    history.replaceState({}, '', '/spotify-setup.html');
+    msg.textContent = 'Bekräftar…';
+
+    try {
+      const res = await fetch('/api/spotify/exchange', {
+        method:      'POST',
+        headers:     { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body:        JSON.stringify({ code, state }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        msg.innerHTML = '✓ Spotify länkat!<br><small style="opacity:.5">Du kan stänga den här fliken.</small>';
+        setTimeout(() => window.close(), 2000);
+      } else if (res.status === 401) {
+        msg.innerHTML = 'Du måste logga in på sp1e.se först.<br><a href="/">Gå till sp1e.se</a>';
+      } else {
+        msg.textContent = 'Fel: ' + (data.error || 'okänt');
+      }
+    } catch {
+      msg.textContent = 'Nätverksfel.';
+    }
+    return;
+  }
+
+  // No code — fetch auth URL and redirect to Spotify.
+  try {
+    const res = await fetch('/api/spotify/auth-url', { credentials: 'same-origin' });
+
+    if (res.status === 401) {
+      msg.innerHTML = 'Du måste logga in på sp1e.se först.<br><a href="/">Gå till sp1e.se</a>';
+      return;
+    }
+    if (!res.ok) {
+      msg.textContent = 'Kunde inte hämta auth-URL (' + res.status + ').';
+      return;
+    }
+
+    const { url } = await res.json();
+    location.href = url;
+  } catch {
+    msg.textContent = 'Nätverksfel.';
+  }
+})();
+</script>
+</body>
+</html>
