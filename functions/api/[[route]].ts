@@ -10,6 +10,9 @@ export interface Env {
   DB: D1Database;
   FILES: R2Bucket;
   AUTH_PASSWORD_HASH: string;
+  SPOTIFY_CLIENT_ID: string;
+  SPOTIFY_CLIENT_SECRET: string;
+  SPOTIFY_REDIRECT_URI: string;
 }
 
 type Row = Record<string, unknown>;
@@ -136,6 +139,16 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     // ── Public GET for bookmarks ─────────────────────────────────────────────
     if (resource === 'bookmarks' && id && id !== 'fetch-meta' && method === 'GET') {
       return getPublicItem('bookmarks', id, request, env);
+    }
+
+    // ── Spotify OAuth ─────────────────────────────────────────────────────────
+    if (resource === 'spotify') {
+      if (id === 'login'        && method === 'GET')  return handleSpotifyLogin(request, env);
+      if (id === 'callback'     && method === 'GET')  return handleSpotifyCallback(request, env, url);
+      if (id === 'token'        && method === 'GET')  return handleSpotifyToken(request, env);
+      if (id === 'now-playing'  && method === 'GET')  return handleSpotifyNowPlaying(env);
+      if (id === 'disconnect'   && method === 'POST') return handleSpotifyDisconnect(request, env);
+      return json({ error: 'not found' }, 404);
     }
 
     // ── Protected (all routes below require a valid session) ─────────────────
@@ -925,6 +938,209 @@ async function getArtworks(): Promise<Response> {
   const data = await res.json();
   artCache = { data, expires: now + 60 * 60 * 1000 }; // cache 1 hour
   return json(data);
+}
+
+// ─── Spotify OAuth ────────────────────────────────────────────────────────────
+
+// Requires site auth; redirects to Spotify authorization page.
+async function handleSpotifyLogin(request: Request, env: Env): Promise<Response> {
+  await requireAuth(request, env);
+
+  const state = crypto.randomUUID();
+  const params = new URLSearchParams({
+    client_id:     env.SPOTIFY_CLIENT_ID,
+    response_type: 'code',
+    redirect_uri:  env.SPOTIFY_REDIRECT_URI,
+    state,
+    scope: 'user-read-currently-playing user-read-playback-state',
+  });
+
+  const stateCookie = `spotify_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/api/spotify/callback; Max-Age=600`;
+  return new Response(null, {
+    status: 302,
+    headers: {
+      'Location':   `https://accounts.spotify.com/authorize?${params}`,
+      'Set-Cookie': stateCookie,
+    },
+  });
+}
+
+// No site auth — cross-site redirect from Spotify. Verifies state cookie.
+async function handleSpotifyCallback(request: Request, env: Env, url: URL): Promise<Response> {
+  const code  = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+  const error = url.searchParams.get('error');
+
+  if (error) return new Response(null, { status: 302, headers: { 'Location': '/?spotify=denied' } });
+  if (!code || !state) return json({ error: 'missing code or state' }, 400);
+
+  const cookieState = getCookie(request, 'spotify_oauth_state');
+  if (!cookieState || cookieState !== state) {
+    return json({ error: 'state mismatch — possible CSRF' }, 403);
+  }
+
+  // Exchange authorization code for tokens.
+  const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${spotifyBasicAuth(env)}`,
+    },
+    body: new URLSearchParams({
+      grant_type:   'authorization_code',
+      code,
+      redirect_uri: env.SPOTIFY_REDIRECT_URI,
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    const text = await tokenRes.text().catch(() => '');
+    console.error('[spotify] token exchange failed:', text);
+    return new Response(null, { status: 302, headers: { 'Location': '/?spotify=error' } });
+  }
+
+  const tokens = await tokenRes.json() as {
+    access_token: string; refresh_token: string; expires_in: number;
+  };
+
+  const expiresAt = Math.floor(Date.now() / 1000) + tokens.expires_in;
+  const now       = new Date().toISOString();
+
+  await env.DB.prepare(
+    `INSERT INTO spotify_tokens (id, access_token, refresh_token, expires_at, updated_at)
+     VALUES ('main', ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       access_token = excluded.access_token,
+       refresh_token = excluded.refresh_token,
+       expires_at = excluded.expires_at,
+       updated_at = excluded.updated_at`
+  ).bind(tokens.access_token, tokens.refresh_token, expiresAt, now).run();
+
+  const clearState = 'spotify_oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/api/spotify/callback; Max-Age=0';
+  const linkedCookie = 'spotify_linked=1; Secure; SameSite=Strict; Path=/; Max-Age=31536000';
+  return new Response(null, {
+    status: 302,
+    headers: {
+      'Location':   '/?spotify=linked',
+      'Set-Cookie': clearState,
+    },
+  });
+}
+
+// Protected — returns a valid access token (refreshes if expired).
+async function handleSpotifyToken(request: Request, env: Env): Promise<Response> {
+  await requireAuth(request, env);
+  const token = await getValidSpotifyToken(env);
+  if (!token) return json({ error: 'not linked' }, 404);
+  return json({ access_token: token });
+}
+
+// Public — returns what is currently playing on Spotify.
+async function handleSpotifyNowPlaying(env: Env): Promise<Response> {
+  const token = await getValidSpotifyToken(env);
+  if (!token) return json({ is_playing: false });
+
+  const res = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+
+  if (res.status === 204 || res.status === 404) return json({ is_playing: false });
+  if (!res.ok) return json({ is_playing: false });
+
+  const data = await res.json() as {
+    is_playing: boolean;
+    progress_ms?: number;
+    item?: {
+      name: string;
+      duration_ms: number;
+      external_urls: { spotify: string };
+      artists: Array<{ name: string }>;
+      album: { name: string; images: Array<{ url: string }> };
+    };
+  };
+
+  if (!data.is_playing || !data.item) return json({ is_playing: false });
+
+  return json({
+    is_playing:    true,
+    track_name:    data.item.name,
+    artist_name:   data.item.artists.map(a => a.name).join(', '),
+    album_name:    data.item.album.name,
+    album_art_url: data.item.album.images[0]?.url ?? null,
+    duration_ms:   data.item.duration_ms,
+    progress_ms:   data.progress_ms ?? 0,
+    track_url:     data.item.external_urls.spotify,
+  });
+}
+
+// Protected — removes stored tokens and clears the linked cookie.
+async function handleSpotifyDisconnect(request: Request, env: Env): Promise<Response> {
+  await requireAuth(request, env);
+  await env.DB.prepare(`DELETE FROM spotify_tokens WHERE id = 'main'`).run().catch(() => {});
+  return new Response(JSON.stringify({ success: true }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Set-Cookie': 'spotify_linked=; Secure; SameSite=Strict; Path=/; Max-Age=0',
+      ...cors(),
+    },
+  });
+}
+
+// ─── Spotify helpers ──────────────────────────────────────────────────────────
+
+async function getValidSpotifyToken(env: Env): Promise<string | null> {
+  const row = await env.DB
+    .prepare(`SELECT access_token, refresh_token, expires_at FROM spotify_tokens WHERE id = 'main'`)
+    .first<{ access_token: string; refresh_token: string; expires_at: number }>();
+  if (!row) return null;
+
+  // Refresh if expiring within 60 seconds.
+  if (row.expires_at < Math.floor(Date.now() / 1000) + 60) {
+    return refreshSpotifyToken(env, row.refresh_token);
+  }
+  return row.access_token;
+}
+
+async function refreshSpotifyToken(env: Env, refreshToken: string): Promise<string | null> {
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${spotifyBasicAuth(env)}`,
+    },
+    body: new URLSearchParams({
+      grant_type:    'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  });
+
+  if (!res.ok) {
+    console.error('[spotify] refresh failed:', res.status);
+    return null;
+  }
+
+  const tokens = await res.json() as {
+    access_token: string; refresh_token?: string; expires_in: number;
+  };
+
+  const expiresAt = Math.floor(Date.now() / 1000) + tokens.expires_in;
+  const now       = new Date().toISOString();
+
+  await env.DB.prepare(
+    `UPDATE spotify_tokens SET
+       access_token = ?,
+       refresh_token = COALESCE(?, refresh_token),
+       expires_at = ?,
+       updated_at = ?
+     WHERE id = 'main'`
+  ).bind(tokens.access_token, tokens.refresh_token ?? null, expiresAt, now).run();
+
+  return tokens.access_token;
+}
+
+function spotifyBasicAuth(env: Env): string {
+  return btoa(`${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`);
 }
 
 // ─── Auth handlers ────────────────────────────────────────────────────────────
