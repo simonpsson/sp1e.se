@@ -208,47 +208,54 @@
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 12px;
     padding: 10px 16px;
-    display: flex;
+    display: none;
     align-items: center;
     gap: 12px;
     opacity: 0;
-    transition: opacity 0.5s ease, max-width 0.3s ease, padding 0.3s ease, border-radius 0.3s ease;
+    transition: opacity 0.5s ease;
   }
-  #spotify-player.sp-shown { opacity: 1; }
-  #spotify-player.hidden    { display: none; opacity: 0; }
-  body.immersive #spotify-player.sp-shown { opacity: 0.45; }
+  #spotify-player.sp-shown   { display: flex; }
+  #spotify-player.sp-visible { opacity: 1; }
+  body.immersive #spotify-player { opacity: 0.45; }
+
+  /* Mini state: paused */
+  #spotify-player.sp-mini { padding: 7px 12px; }
 
   #sp-art {
-    width: 48px;
-    height: 48px;
-    min-width: 48px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
     border-radius: 4px;
     object-fit: cover;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
     background: rgba(255,255,255,0.06);
     transition: opacity 0.3s ease, width 0.3s ease, height 0.3s ease, min-width 0.3s ease;
   }
+  #spotify-player.sp-mini #sp-art { width: 32px; height: 32px; min-width: 32px; }
 
   #sp-info {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
     overflow: hidden;
-    transition: opacity 0.25s ease;
   }
-  #sp-track-line {
+  #sp-track {
     font-family: 'DM Mono', monospace;
     font-size: 0.78rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.2;
     color: rgba(255,255,255,0.90);
   }
-  #sp-artist { color: rgba(255,255,255,0.50); font-size: 0.70rem; }
-  .sp-sep { color: rgba(255,255,255,0.25); }
+  #sp-artist {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: rgba(255,255,255,0.50);
+  }
   #sp-progress-wrap {
     height: 2px;
     background: rgba(255,255,255,0.10);
@@ -261,22 +268,25 @@
     width: 0%;
     transition: width 1s linear;
   }
-  #sp-visitor-label {
+  #sp-mini-label {
     font-family: 'DM Mono', monospace;
-    font-size: 0.58rem;
-    letter-spacing: 0.06em;
-    color: rgba(255,255,255,0.28);
+    font-size: 0.60rem;
+    letter-spacing: 0.07em;
+    color: rgba(255,255,255,0.30);
     display: none;
   }
-  #spotify-player.visitor-mode #sp-visitor-label { display: block; }
-  #spotify-player.visitor-mode #sp-controls { display: none; }
+  #spotify-player.sp-mini #sp-mini-label   { display: block; }
+  #spotify-player.sp-mini #sp-progress-wrap { display: none; }
+  #spotify-player.sp-mini #sp-artist        { display: none; }
+  #spotify-player.sp-mini #sp-controls      { display: none; }
+  #spotify-player.sp-mini #sp-link          { display: none; }
+  #spotify-player.sp-mini #sp-disconnect    { display: none; }
 
   #sp-controls {
     display: flex;
     align-items: center;
     gap: 2px;
     flex-shrink: 0;
-    transition: opacity 0.25s ease;
   }
   .sp-btn {
     background: none;
@@ -291,6 +301,7 @@
   }
   .sp-btn:hover { color: rgba(255,255,255,0.90); }
   #sp-play { font-size: 1rem; }
+
   #sp-link {
     display: flex;
     align-items: center;
@@ -302,7 +313,7 @@
   }
   #sp-link:hover { color: rgba(255,255,255,0.65); }
 
-  /* ── Disconnect × (top-right of player, show on hover) */
+  /* ── Disconnect × (top-right of player, show on hover) ── */
   #sp-disconnect {
     position: absolute;
     top: -7px;
@@ -326,21 +337,7 @@
   #spotify-player:hover #sp-disconnect { opacity: 1; }
   #sp-disconnect:hover { color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.25); }
 
-  /* ── Mini state (collapses after 5 min idle) ──────── */
-  #bottom-bar.sp-mini {
-    left: auto;
-    right: 2rem;
-    transform: none;
-  }
-  #bottom-bar.sp-mini #immersion-btn  { display: none; }
-  #bottom-bar.sp-mini #sp-disconnect  { display: none; }
-  #bottom-bar.sp-mini #spotify-player { max-width: 44px; padding: 5px; border-radius: 8px; gap: 0; cursor: pointer; }
-  #bottom-bar.sp-mini #sp-art         { width: 32px; height: 32px; min-width: 32px; }
-  #bottom-bar.sp-mini #sp-info        { display: none; }
-  #bottom-bar.sp-mini #sp-controls    { display: none; }
-  #bottom-bar.sp-mini #sp-link        { display: none; }
-
-  /* ── ♫ hint (unlinked, bottom-right) ─────────────── */
+  /* ── ♫ hint (bottom-right, shown when not linked) ─── */
   #sp-hint {
     position: fixed;
     bottom: 2rem;
@@ -348,9 +345,12 @@
     z-index: 10;
     font-size: 1.1rem;
     color: rgba(255,255,255,0.18);
-    text-decoration: none;
-    transition: color 0.2s;
+    background: none;
+    border: none;
+    padding: 0;
     line-height: 1;
+    cursor: pointer;
+    transition: color 0.2s;
   }
   #sp-hint:hover { color: rgba(255,255,255,0.42); }
   #sp-hint.hidden { display: none; }
@@ -487,7 +487,6 @@
       flex-direction: column-reverse;
       gap: 0;
     }
-    #bottom-bar.sp-mini { left: 0; right: 0; transform: none; }
     #spotify-player {
       max-width: 100%;
       border-radius: 0;
@@ -497,10 +496,9 @@
       padding: 8px 14px;
       padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
     }
-    #sp-art     { width: 36px !important; height: 36px !important; min-width: 36px !important; }
-    #sp-track-line { font-size: 0.72rem; }
-    #sp-artist  { font-size: 0.64rem; }
-    #sp-link    { display: none !important; }
+    #sp-art        { width: 36px !important; height: 36px !important; min-width: 36px !important; }
+    #sp-track      { font-size: 0.72rem; }
+    #sp-link       { display: none !important; }
     #sp-disconnect { display: none !important; }
     #immersion-btn { margin: 0.4rem 0; }
   }
@@ -540,34 +538,33 @@
 
 <!-- Spotify player + immersion button (stacked, centered) -->
 <div id="bottom-bar">
-  <div id="spotify-player" class="hidden" aria-live="polite">
+  <div id="spotify-player" aria-live="polite">
     <img id="sp-art" src="" alt="Album art">
     <div id="sp-info">
-      <div id="sp-track-line">
-        <span id="sp-title"></span><span class="sp-sep"> · </span><span id="sp-artist"></span>
-      </div>
+      <div id="sp-track"></div>
+      <div id="sp-artist"></div>
       <div id="sp-progress-wrap"><div id="sp-progress-fill"></div></div>
-      <div id="sp-visitor-label">Playing on Spotify</div>
+      <div id="sp-mini-label">Pausad</div>
     </div>
     <div id="sp-controls">
-      <button class="sp-btn" id="sp-prev" aria-label="Previous">⏮</button>
-      <button class="sp-btn" id="sp-play" aria-label="Play / Pause">▶</button>
-      <button class="sp-btn" id="sp-next" aria-label="Next">⏭</button>
+      <button class="sp-btn" id="sp-prev" aria-label="Föregående">⏮</button>
+      <button class="sp-btn" id="sp-play" aria-label="Spela / Pausa">▶</button>
+      <button class="sp-btn" id="sp-next" aria-label="Nästa">⏭</button>
     </div>
-    <a id="sp-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="Open in Spotify">
+    <a id="sp-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="Öppna i Spotify">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
         <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
       </svg>
     </a>
-    <button id="sp-disconnect" aria-label="Disconnect Spotify">×</button>
+    <button id="sp-disconnect" aria-label="Koppla bort Spotify">×</button>
   </div>
   <button id="immersion-btn" aria-label="Immersion mode">Immersion</button>
 </div>
 
 <!-- ♫ hint — visible when Spotify not linked -->
-<a id="sp-hint" href="#" aria-label="Link Spotify">♫</a>
+<button id="sp-hint" aria-label="Länka Spotify">♫</button>
 
 <!-- Immersion controls -->
 <button id="immersion-close" aria-label="Exit immersion">×</button>
@@ -580,22 +577,6 @@
 </div>
 
 <script>
-// ── Spotify OAuth callback (runs before anything else) ────────────────────────
-// Spotify redirects to https://sp1e.se/?code=...&state=...
-// We pick up those params, strip them from the URL, then exchange via AJAX.
-(function() {
-  const p = new URLSearchParams(location.search);
-  const code = p.get('code'), state = p.get('state');
-  if (!code || !state) return;
-  history.replaceState({}, '', '/');   // remove auth code from URL + browser history
-  fetch('/api/spotify/exchange?code=' + encodeURIComponent(code) +
-                               '&state=' + encodeURIComponent(state),
-    { credentials: 'same-origin' })
-  .then(r => r.json())
-  .then(d => { if (d.success) location.reload(); })
-  .catch(() => {});
-})();
-
 // ── Modal ─────────────────────────────────────────────────────────────────────
 const modal  = document.getElementById('modal');
 const input  = document.getElementById('pw-input');
@@ -846,57 +827,31 @@ async function gInit() {
 
 gInit();
 
-// ── Spotify player ─────────────────────────────────────────────────────────────
-const spPlayerEl    = document.getElementById('spotify-player');
-const spArtEl       = document.getElementById('sp-art');
-const spTitleEl     = document.getElementById('sp-title');
-const spArtistEl    = document.getElementById('sp-artist');
-const spFillEl      = document.getElementById('sp-progress-fill');
-const spBtnPrev     = document.getElementById('sp-prev');
-const spBtnPlay     = document.getElementById('sp-play');
-const spBtnNext     = document.getElementById('sp-next');
-const spLinkEl      = document.getElementById('sp-link');
-const spHintEl      = document.getElementById('sp-hint');
-const spDisconnect  = document.getElementById('sp-disconnect');
-const bottomBarEl   = document.getElementById('bottom-bar');
+// ── Spotify player ────────────────────────────────────────────────────────────
+const spPlayerEl   = document.getElementById('spotify-player');
+const spArtEl      = document.getElementById('sp-art');
+const spTrackEl    = document.getElementById('sp-track');
+const spArtistEl   = document.getElementById('sp-artist');
+const spFillEl     = document.getElementById('sp-progress-fill');
+const spBtnPrev    = document.getElementById('sp-prev');
+const spBtnPlay    = document.getElementById('sp-play');
+const spBtnNext    = document.getElementById('sp-next');
+const spLinkEl     = document.getElementById('sp-link');
+const spHintEl     = document.getElementById('sp-hint');
+const spDisconnect = document.getElementById('sp-disconnect');
 
-let sdkPlayer  = null;
-let progressIv = null;
-let visitorIv  = null;
-let miniTimer  = null;
-let lastArtUrl = '';
-let spShown    = false;
+let spPollIv  = null;
+let spLastArt = '';
+let spVisible = false;
 
 function hasCookie(name) {
   return document.cookie.split(';').some(c => c.trim().startsWith(name + '='));
 }
 const spLinked = hasCookie('spotify_linked');
 
-// ── Visibility ────────────────────────────────────────────────────────────────
-function showSpotifyPlayer(visitorMode) {
-  spPlayerEl.classList.remove('hidden', 'visitor-mode');
-  if (visitorMode) spPlayerEl.classList.add('visitor-mode');
-  if (!spShown) {
-    spShown = true;
-    // Two-frame trick: remove hidden first, then add sp-shown for opacity transition
-    requestAnimationFrame(() => requestAnimationFrame(() => spPlayerEl.classList.add('sp-shown')));
-  }
-  if (spHintEl) spHintEl.classList.add('hidden');
-}
-
-function hideSpotifyPlayer() {
-  spPlayerEl.classList.remove('sp-shown');
-  spPlayerEl.classList.add('hidden');
-  spShown = false;
-  stopProgress();
-  clearMiniTimer();
-  bottomBarEl.classList.remove('sp-mini');
-}
-
-// ── Album art crossfade ───────────────────────────────────────────────────────
-function setAlbumArt(url) {
-  if (!url || url === lastArtUrl) return;
-  lastArtUrl = url;
+function spSetArt(url) {
+  if (!url || url === spLastArt) return;
+  spLastArt = url;
   spArtEl.style.opacity = '0';
   setTimeout(() => {
     spArtEl.src = url;
@@ -910,184 +865,99 @@ function setAlbumArt(url) {
   }, 300);
 }
 
-// ── Track/progress update ─────────────────────────────────────────────────────
-function setPlayerTrack(artUrl, title, artist, progress, duration, trackUrl, isPlaying) {
-  setAlbumArt(artUrl);
-  spTitleEl.textContent  = title  || '';
-  spArtistEl.textContent = artist || '';
-  const pct = duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
-  spFillEl.style.transition = 'none';
-  spFillEl.style.width = pct + '%';
-  if (spBtnPlay) spBtnPlay.textContent = isPlaying ? '⏸' : '▶';
-  if (trackUrl && spLinkEl) {
-    spLinkEl.href = trackUrl.startsWith('spotify:')
-      ? `https://open.spotify.com/track/${trackUrl.split(':').pop()}`
-      : trackUrl;
+function spShow(isPlaying) {
+  spPlayerEl.classList.toggle('sp-mini', !isPlaying);
+  if (!spVisible) {
+    spPlayerEl.classList.add('sp-shown');
+    spVisible = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => spPlayerEl.classList.add('sp-visible')));
   }
+  if (spHintEl) spHintEl.classList.add('hidden');
 }
 
-function stopProgress() {
-  if (progressIv) { clearInterval(progressIv); progressIv = null; }
+function spHide() {
+  spPlayerEl.classList.remove('sp-shown', 'sp-visible', 'sp-mini');
+  spVisible = false;
 }
 
-// ── Mini / idle state ─────────────────────────────────────────────────────────
-const MINI_DELAY = 5 * 60 * 1000;
+async function spPoll() {
+  try {
+    const res = await fetch('/api/spotify/now-playing');
+    if (!res.ok) return;
+    const d = await res.json();
+    if (!d.track_name) { if (!spLinked) spHide(); return; }
 
-function scheduleMini() {
-  clearMiniTimer();
-  if (window.matchMedia('(max-width: 768px)').matches) return; // no mini on mobile
-  miniTimer = setTimeout(() => {
-    if (!spPlayerEl.classList.contains('hidden')) bottomBarEl.classList.add('sp-mini');
-  }, MINI_DELAY);
+    spSetArt(d.album_art_url);
+    spTrackEl.textContent  = d.track_name  || '';
+    spArtistEl.textContent = d.artist_name || '';
+
+    const pct = d.duration_ms > 0 ? Math.min(100, (d.progress_ms / d.duration_ms) * 100) : 0;
+    spFillEl.style.transition = 'none';
+    spFillEl.style.width = pct + '%';
+    if (spBtnPlay) spBtnPlay.textContent = d.is_playing ? '⏸' : '▶';
+
+    if (d.track_url && spLinkEl) {
+      spLinkEl.href = d.track_url.startsWith('spotify:')
+        ? 'https://open.spotify.com/track/' + d.track_url.split(':').pop()
+        : d.track_url;
+    }
+
+    if (spLinked) spShow(d.is_playing);
+  } catch {}
 }
 
-function clearMiniTimer() {
-  clearTimeout(miniTimer);
-  miniTimer = null;
-}
+// Start polling
+spPoll();
+spPollIv = setInterval(spPoll, 10_000);
 
-function expandMini() {
-  bottomBarEl.classList.remove('sp-mini');
-  scheduleMini(); // restart 5-min countdown
-}
-
-// Hover on the mini player expands it
-spPlayerEl.addEventListener('mouseenter', () => {
-  if (bottomBarEl.classList.contains('sp-mini')) expandMini();
-});
-
-// ── Disconnect ────────────────────────────────────────────────────────────────
-async function doDisconnect() {
-  try { await fetch('/api/spotify/disconnect', { method: 'POST', credentials: 'same-origin' }); }
-  catch {}
-  document.cookie = 'spotify_linked=; Max-Age=0; Path=/; Secure; SameSite=Strict';
-  if (sdkPlayer) { sdkPlayer.disconnect(); sdkPlayer = null; }
-  stopProgress();
-  hideSpotifyPlayer();
+// Show/hide ♫ hint
+if (spLinked) {
+  if (spHintEl) spHintEl.classList.add('hidden');
+} else {
   if (spHintEl) spHintEl.classList.remove('hidden');
 }
 
-if (spDisconnect) spDisconnect.addEventListener('click', e => { e.stopPropagation(); doDisconnect(); });
+// ♫ hint: open setup page in new tab
+if (spHintEl) {
+  spHintEl.addEventListener('click', () => {
+    window.open('/spotify-setup.html', '_blank', 'noopener,noreferrer');
+  });
+}
 
-// ── Space bar: prevent accidental control via keyboard focus ──────────────────
+// Controls (auth checked server-side via session cookie)
+async function spControl(action) {
+  try {
+    if (action === 'toggle') {
+      const playing = spBtnPlay && spBtnPlay.textContent === '⏸';
+      await fetch(playing ? '/api/spotify/pause' : '/api/spotify/play',
+        { method: 'PUT', credentials: 'same-origin' });
+    } else if (action === 'next') {
+      await fetch('/api/spotify/next',     { method: 'POST', credentials: 'same-origin' });
+    } else if (action === 'previous') {
+      await fetch('/api/spotify/previous', { method: 'POST', credentials: 'same-origin' });
+    }
+    setTimeout(spPoll, 800);
+  } catch {}
+}
+
+if (spBtnPrev) spBtnPrev.addEventListener('click', () => spControl('previous'));
+if (spBtnPlay) spBtnPlay.addEventListener('click', () => spControl('toggle'));
+if (spBtnNext) spBtnNext.addEventListener('click', () => spControl('next'));
+
+// Space bar prevention
 [spBtnPrev, spBtnPlay, spBtnNext].forEach(btn => {
   if (btn) btn.addEventListener('keydown', e => { if (e.key === ' ') e.preventDefault(); });
 });
 
-// ── Owner mode: Web Playback SDK ───────────────────────────────────────────────
-if (spLinked) {
-  if (spHintEl) spHintEl.classList.add('hidden');
-
-  window.onSpotifyWebPlaybackSDKReady = () => {
-    fetch('/api/spotify/token', { credentials: 'same-origin' })
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then(() => {
-        const player = new Spotify.Player({
-          name: 'SP1E',
-          getOAuthToken: cb => {
-            fetch('/api/spotify/token', { credentials: 'same-origin' })
-              .then(r => r.ok ? r.json() : Promise.reject())
-              .then(d => cb(d.access_token))
-              .catch(() => {});
-          },
-          volume: 0.5,
-        });
-
-        player.addListener('ready', ({ device_id }) => {
-          console.log('[sp1e] Spotify ready, device:', device_id);
-          window.spotifyDeviceId = device_id;
-        });
-
-        player.addListener('player_state_changed', state => {
-          if (!state) return;
-          const t    = state.track_window.current_track;
-          const imgs = t.album?.images ?? [];
-          setPlayerTrack(
-            (imgs[imgs.length - 1] ?? imgs[0])?.url,
-            t.name,
-            (t.artists ?? []).map(a => a.name).join(', '),
-            state.position, state.duration, t.uri, !state.paused,
-          );
-          showSpotifyPlayer(false);
-
-          stopProgress();
-          if (!state.paused) {
-            clearMiniTimer();
-            bottomBarEl.classList.remove('sp-mini');
-            progressIv = setInterval(async () => {
-              const s = await player.getCurrentState().catch(() => null);
-              if (!s || s.paused) { stopProgress(); return; }
-              const p = s.duration > 0 ? Math.min(100, (s.position / s.duration) * 100) : 0;
-              spFillEl.style.transition = 'width 1s linear';
-              spFillEl.style.width = p + '%';
-            }, 1000);
-          } else {
-            scheduleMini(); // start idle countdown when paused
-          }
-        });
-
-        player.addListener('initialization_error', () => hideSpotifyPlayer());
-        player.addListener('account_error',        () => hideSpotifyPlayer()); // not Premium
-
-        // Revoked access → clean up gracefully
-        player.addListener('authentication_error', () => {
-          console.warn('[sp1e] Spotify auth error — disconnecting');
-          doDisconnect();
-        });
-
-        player.connect();
-        sdkPlayer = player;
-        window.spotifyPlayer = player;
-      })
-      .catch(() => startVisitorPolling()); // session expired
-  };
-
-  const sdkScript  = document.createElement('script');
-  sdkScript.src    = 'https://sdk.scdn.co/spotify-player.js';
-  sdkScript.onerror = () => startVisitorPolling();
-  document.head.appendChild(sdkScript);
+// Disconnect
+async function doDisconnect() {
+  try { await fetch('/api/spotify/disconnect', { method: 'POST', credentials: 'same-origin' }); } catch {}
+  document.cookie = 'spotify_linked=; Max-Age=0; Path=/; Secure; SameSite=Strict';
+  spHide();
+  if (spHintEl) spHintEl.classList.remove('hidden');
 }
 
-// ── Visitor mode: poll /api/spotify/now-playing every 30 s ────────────────────
-function startVisitorPolling() {
-  if (visitorIv) return;
-  pollNowPlaying();
-  visitorIv = setInterval(pollNowPlaying, 30_000);
-}
-
-async function pollNowPlaying() {
-  try {
-    const res = await fetch('/api/spotify/now-playing');
-    if (!res.ok) { hideSpotifyPlayer(); return; }
-    const d = await res.json();
-    if (!d.is_playing) { hideSpotifyPlayer(); return; }
-    setPlayerTrack(d.album_art_url, d.track_name, d.artist_name,
-                   d.progress_ms, d.duration_ms, d.track_url, false);
-    showSpotifyPlayer(true);
-  } catch {}
-}
-
-if (!spLinked) startVisitorPolling();
-
-// Controls (only active in owner/SDK mode — space bar blocked above)
-spBtnPrev.addEventListener('click', () => { if (sdkPlayer) sdkPlayer.previousTrack(); });
-spBtnPlay.addEventListener('click', () => { if (sdkPlayer) sdkPlayer.togglePlay(); });
-spBtnNext.addEventListener('click', () => { if (sdkPlayer) sdkPlayer.nextTrack(); });
-
-// ♫ hint click — AJAX to get the Spotify auth URL, then navigate.
-// Avoids top-level navigation to /api/* (which hits the Java backend, not the Worker).
-if (spHintEl) {
-  spHintEl.addEventListener('click', async e => {
-    e.preventDefault();
-    try {
-      const res = await fetch('/api/spotify/login-url', { credentials: 'same-origin' });
-      if (res.status === 401) { openModal(); return; } // need to log in first
-      if (!res.ok) return;
-      const { url } = await res.json();
-      location.href = url; // navigate to accounts.spotify.com (external, fine)
-    } catch {}
-  });
-}
+if (spDisconnect) spDisconnect.addEventListener('click', e => { e.stopPropagation(); doDisconnect(); });
 </script>
 </body>
 </html>
