@@ -145,6 +145,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     if (resource === 'spotify') {
       if (id === 'login'        && method === 'GET')  return handleSpotifyLogin(request, env);
       if (id === 'callback'     && method === 'GET')  return handleSpotifyCallback(request, env, url);
+      if (id === 'exchange'     && method === 'GET')  return handleSpotifyExchange(request, env, url);
       if (id === 'token'        && method === 'GET')  return handleSpotifyToken(request, env);
       if (id === 'now-playing'  && method === 'GET') {
         if (!checkNowPlayingRateLimit(request)) return json({ error: 'rate limit exceeded' }, 429);
@@ -966,7 +967,11 @@ function checkNowPlayingRateLimit(request: Request): boolean {
 
 // Hardcoded so a misconfigured SPOTIFY_REDIRECT_URI env var can never break the flow.
 // Must match exactly what is registered in the Spotify Developer Dashboard.
-const SPOTIFY_REDIRECT = 'https://sp1e.se/api/spotify/callback';
+// Uses a static HTML page (/spotify-callback) so that Spotify's browser redirect
+// lands on a normal page — AJAX from that page calls /api/spotify/exchange.
+// This bypasses the reverse-proxy issue where top-level /api/* navigations never
+// reach the Cloudflare Worker.
+const SPOTIFY_REDIRECT = 'https://sp1e.se/spotify-callback';
 
 // Temporary debug: requires site auth, returns env var values for verification.
 async function handleSpotifyDebug(request: Request, env: Env): Promise<Response> {
@@ -1000,7 +1005,8 @@ async function handleSpotifyLogin(request: Request, env: Env): Promise<Response>
     scope: 'user-read-currently-playing user-read-playback-state',
   });
 
-  const stateCookie = `spotify_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/api/spotify/callback; Max-Age=600`;
+  // Path=/ so the cookie is sent when the browser lands on /spotify-callback
+  const stateCookie = `spotify_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`;
   return new Response(null, {
     status: 302,
     headers: {
@@ -1065,6 +1071,63 @@ async function handleSpotifyCallback(request: Request, env: Env, url: URL): Prom
   resHeaders.append('Set-Cookie', 'spotify_oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/api/spotify/callback; Max-Age=0');
   resHeaders.append('Set-Cookie', 'spotify_linked=1; Secure; SameSite=Strict; Path=/; Max-Age=31536000');
   return new Response(null, { status: 302, headers: resHeaders });
+}
+
+// Called via AJAX from /spotify-callback — avoids top-level navigation to /api/*.
+// Verifies state cookie, exchanges code for tokens, returns JSON.
+async function handleSpotifyExchange(request: Request, env: Env, url: URL): Promise<Response> {
+  const code  = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+  const error = url.searchParams.get('error');
+
+  if (error) return json({ success: false, error: 'access_denied' });
+  if (!code || !state) return json({ success: false, error: 'missing_params' }, 400);
+
+  const cookieState = getCookie(request, 'spotify_oauth_state');
+  if (!cookieState || cookieState !== state) {
+    return json({ success: false, error: 'state_mismatch' }, 403);
+  }
+
+  const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${spotifyBasicAuth(env)}`,
+    },
+    body: new URLSearchParams({
+      grant_type:   'authorization_code',
+      code,
+      redirect_uri: SPOTIFY_REDIRECT,
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    const text = await tokenRes.text().catch(() => '');
+    console.error('[spotify] exchange failed:', tokenRes.status, text);
+    return json({ success: false, error: 'token_exchange_failed' });
+  }
+
+  const tokens = await tokenRes.json() as {
+    access_token: string; refresh_token: string; expires_in: number;
+  };
+
+  const expiresAt = Math.floor(Date.now() / 1000) + tokens.expires_in;
+  const now       = new Date().toISOString();
+
+  await env.DB.prepare(
+    `INSERT INTO spotify_tokens (id, access_token, refresh_token, expires_at, updated_at)
+     VALUES ('main', ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       access_token  = excluded.access_token,
+       refresh_token = excluded.refresh_token,
+       expires_at    = excluded.expires_at,
+       updated_at    = excluded.updated_at`
+  ).bind(tokens.access_token, tokens.refresh_token, expiresAt, now).run();
+
+  const h = new Headers({ 'Content-Type': 'application/json', ...cors() });
+  h.append('Set-Cookie', 'spotify_oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0');
+  h.append('Set-Cookie', 'spotify_linked=1; Secure; SameSite=Strict; Path=/; Max-Age=31536000');
+  return new Response(JSON.stringify({ success: true }), { status: 200, headers: h });
 }
 
 // Protected — returns a valid access token (refreshes if expired).
