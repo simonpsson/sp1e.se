@@ -911,39 +911,70 @@ async function deleteFile(id: string, env: Env): Promise<Response> {
 // In-memory cache: reused across requests within the same Worker instance.
 let artCache: { data: unknown; expires: number } | null = null;
 
-async function getArtworks(): Promise<Response> {
-  const now = Date.now();
-  if (artCache && now < artCache.expires) {
-    return json(artCache.data);
-  }
+const ART_SEARCHES: Array<{ q: string; limit: number }> = [
+  { q: 'impressionism',         limit: 20 },
+  { q: 'Hilma af Klint',        limit: 20 },
+  { q: 'Gustav Klimt',          limit: 20 },
+  { q: 'Odilon Redon',          limit: 20 },
+  { q: 'Claude Monet',          limit: 20 },
+  { q: 'symbolism painting',    limit: 10 },
+  { q: 'art nouveau painting',  limit: 10 },
+  { q: 'post-impressionism',    limit: 10 },
+];
 
+async function fetchArtSearch(q: string, limit: number): Promise<Row[]> {
   const res = await fetch('https://api.artic.edu/api/v1/artworks/search', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'User-Agent': 'sp1e.se/1.0 (gallery)',
-      'AIC-User-Agent': 'sp1e.se/1.0 (gallery)',
+      'Content-Type':    'application/json',
+      'Accept':          'application/json',
+      'User-Agent':      'sp1e.se/1.0 (gallery)',
+      'AIC-User-Agent':  'sp1e.se/1.0 (gallery)',
     },
     body: JSON.stringify({
-      q: 'impressionism',
+      q,
       query: { bool: { must: [
         { term:   { is_public_domain: true } },
-        { exists: { field: 'image_id'       } },
+        { exists: { field: 'image_id'      } },
       ]}},
-      fields: ['id', 'title', 'artist_title', 'date_display', 'image_id'],
-      limit: 50,
+      fields: ['id', 'title', 'artist_title', 'date_display', 'image_id', 'style_titles'],
+      limit,
     }),
   });
-
   if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    console.error(`[gallery] AIC ${res.status}:`, errText.slice(0, 300));
-    return json({ error: 'upstream error', status: res.status }, 502);
+    console.error(`[gallery] AIC "${q}" ${res.status}`);
+    return [];
+  }
+  const body = await res.json() as { data?: Row[] };
+  return (body.data ?? []).filter(r => r.image_id);
+}
+
+async function getArtworks(): Promise<Response> {
+  const now = Date.now();
+  if (artCache && now < artCache.expires) return json(artCache.data);
+
+  // Fetch all searches in parallel; ignore individual failures (empty array fallback).
+  const results = await Promise.all(
+    ART_SEARCHES.map(({ q, limit }) => fetchArtSearch(q, limit).catch(() => [] as Row[]))
+  );
+
+  // Deduplicate by id.
+  const seen = new Set<unknown>();
+  const items: Row[] = [];
+  for (const batch of results) {
+    for (const row of batch) {
+      if (!seen.has(row.id)) { seen.add(row.id); items.push(row); }
+    }
   }
 
-  const data = await res.json();
-  artCache = { data, expires: now + 60 * 60 * 1000 }; // cache 1 hour
+  // Fisher-Yates shuffle so every cache window has a different order.
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+
+  const data = { data: items };
+  artCache = { data, expires: now + 2 * 60 * 60 * 1000 }; // cache 2 hours
   return json(data);
 }
 
