@@ -1016,15 +1016,10 @@ async function handleSpotifyCallback(request: Request, env: Env, url: URL): Prom
        updated_at = excluded.updated_at`
   ).bind(tokens.access_token, tokens.refresh_token, expiresAt, now).run();
 
-  const clearState = 'spotify_oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/api/spotify/callback; Max-Age=0';
-  const linkedCookie = 'spotify_linked=1; Secure; SameSite=Strict; Path=/; Max-Age=31536000';
-  return new Response(null, {
-    status: 302,
-    headers: {
-      'Location':   '/?spotify=linked',
-      'Set-Cookie': clearState,
-    },
-  });
+  const resHeaders = new Headers({ 'Location': '/?spotify=linked' });
+  resHeaders.append('Set-Cookie', 'spotify_oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/api/spotify/callback; Max-Age=0');
+  resHeaders.append('Set-Cookie', 'spotify_linked=1; Secure; SameSite=Strict; Path=/; Max-Age=31536000');
+  return new Response(null, { status: 302, headers: resHeaders });
 }
 
 // Protected — returns a valid access token (refreshes if expired).
@@ -1077,14 +1072,12 @@ async function handleSpotifyNowPlaying(env: Env): Promise<Response> {
 async function handleSpotifyDisconnect(request: Request, env: Env): Promise<Response> {
   await requireAuth(request, env);
   await env.DB.prepare(`DELETE FROM spotify_tokens WHERE id = 'main'`).run().catch(() => {});
-  return new Response(JSON.stringify({ success: true }), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Set-Cookie': 'spotify_linked=; Secure; SameSite=Strict; Path=/; Max-Age=0',
-      ...cors(),
-    },
+  const discHeaders = new Headers({
+    'Content-Type': 'application/json',
+    ...cors(),
   });
+  discHeaders.append('Set-Cookie', 'spotify_linked=; Secure; SameSite=Strict; Path=/; Max-Age=0');
+  return new Response(JSON.stringify({ success: true }), { status: 200, headers: discHeaders });
 }
 
 // ─── Spotify helpers ──────────────────────────────────────────────────────────
