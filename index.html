@@ -752,7 +752,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Background gallery ────────────────────────────────────────────────────────
-const GCACHE = 'sp1e-gallery-v4';
+const GCACHE = 'sp1e-gallery-v5';
 const GFADE  = 3000;
 const GBASE  = 'https://www.artic.edu/iiif/2';
 
@@ -764,7 +764,10 @@ let bgIntervalMs = 28_000;
 const bgImgA = document.getElementById('bg-img-a');
 const bgImgB = document.getElementById('bg-img-b');
 
-function gUrl(id) { return `${GBASE}/${id}/full/1600,/0/default.jpg`; }
+function gUrl(art) {
+  if (art.image_url) return art.image_url;
+  return `${GBASE}/${art.image_id}/full/1600,/0/default.jpg`;
+}
 
 function gShuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -781,7 +784,7 @@ function gOnChange(art) {
 function gShowFirst(art) {
   bgFront = bgImgA; bgBack = bgImgB;
   bgFront.style.zIndex = '1'; bgBack.style.zIndex = '0';
-  bgFront.src = gUrl(art.image_id);
+  bgFront.src = gUrl(art);
   bgFront.onload = () => {
     bgFront.onload = null;
     bgFront.style.opacity = '1';
@@ -791,7 +794,7 @@ function gShowFirst(art) {
 
 function gCrossfade(art) {
   gOnChange(art);
-  bgBack.src = gUrl(art.image_id);
+  bgBack.src = gUrl(art);
   bgBack.onload = () => {
     bgBack.onload = null;
     bgBack.style.zIndex = '2';
@@ -830,7 +833,7 @@ async function gFetch() {
   const res = await fetch('/api/art');
   if (!res.ok) return [];
   const data = await res.json();
-  const items = (data.data ?? []).filter(d => d.image_id);
+  const items = (data.data ?? []).filter(d => d.image_id || d.image_url);
   if (items.length) sessionStorage.setItem(GCACHE, JSON.stringify(items));
   return items;
 }

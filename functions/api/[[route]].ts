@@ -113,7 +113,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
 
     // ── Public: art gallery proxy (no auth, 1-hour cache) ───────────────────
     if (resource === 'art' && !id && method === 'GET') {
-      return getArtworks();
+      return getArtworks(env);
     }
 
     // ── Public: all public items (no auth) ──────────────────────────────────
@@ -281,25 +281,29 @@ async function getCategory(catId: string, url: URL, env: Env): Promise<Response>
       return json({ category: cat, subcategories: subs.results, items: [] });
     }
 
-    const ph   = activeIds.map(() => '?').join(',');
-    const want = typeFilter ? [typeFilter] : ['note', 'snippet', 'file', 'bookmark'];
+    const ph     = activeIds.map(() => '?').join(',');
+    const want   = typeFilter
+      ? typeFilter.split(',').filter(t => ['note','snippet','file','bookmark'].includes(t))
+      : ['note', 'snippet', 'file', 'bookmark'];
+    const search = url.searchParams.get('search')?.trim() ?? '';
+    const sLike  = search ? `%${search}%` : null;
 
     const [notes, snippets, files, bookmarks] = await Promise.all([
       want.includes('note')
-        ? env.DB.prepare(`SELECT *, 'note' AS type FROM notes WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-                .bind(...activeIds).all<Row>()
+        ? env.DB.prepare(`SELECT *, 'note' AS type FROM notes WHERE subcategory_id IN (${ph})${sLike ? ' AND (title LIKE ? OR content LIKE ?)' : ''} ORDER BY updated_at DESC`)
+                .bind(...activeIds, ...(sLike ? [sLike, sLike] : [])).all<Row>()
         : { results: [] as Row[] },
       want.includes('snippet')
-        ? env.DB.prepare(`SELECT *, 'snippet' AS type FROM snippets WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-                .bind(...activeIds).all<Row>()
+        ? env.DB.prepare(`SELECT *, 'snippet' AS type FROM snippets WHERE subcategory_id IN (${ph})${sLike ? ' AND (title LIKE ? OR code LIKE ?)' : ''} ORDER BY updated_at DESC`)
+                .bind(...activeIds, ...(sLike ? [sLike, sLike] : [])).all<Row>()
         : { results: [] as Row[] },
       want.includes('file')
-        ? env.DB.prepare(`SELECT *, 'file' AS type FROM files WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-                .bind(...activeIds).all<Row>()
+        ? env.DB.prepare(`SELECT *, 'file' AS type FROM files WHERE subcategory_id IN (${ph})${sLike ? ' AND filename LIKE ?' : ''} ORDER BY created_at DESC`)
+                .bind(...activeIds, ...(sLike ? [sLike] : [])).all<Row>()
         : { results: [] as Row[] },
       want.includes('bookmark')
-        ? env.DB.prepare(`SELECT *, 'bookmark' AS type FROM bookmarks WHERE subcategory_id IN (${ph}) ORDER BY created_at DESC`)
-                .bind(...activeIds).all<Row>()
+        ? env.DB.prepare(`SELECT *, 'bookmark' AS type FROM bookmarks WHERE subcategory_id IN (${ph})${sLike ? ' AND (title LIKE ? OR url LIKE ?)' : ''} ORDER BY created_at DESC`)
+                .bind(...activeIds, ...(sLike ? [sLike, sLike] : [])).all<Row>()
         : { results: [] as Row[] },
     ]);
 
@@ -919,7 +923,7 @@ async function deleteFile(id: string, env: Env): Promise<Response> {
 // ─── Art gallery proxy ────────────────────────────────────────────────────────
 
 // In-memory cache: reused across requests within the same Worker instance.
-let artCache: { data: unknown; expires: number } | null = null;
+let artCache: { items: Row[]; expires: number } | null = null;
 
 const ART_SEARCHES: Array<{ q: string; limit: number }> = [
   { q: 'impressionism',         limit: 20 },
@@ -959,33 +963,55 @@ async function fetchArtSearch(q: string, limit: number): Promise<Row[]> {
   return (body.data ?? []).filter(r => r.image_id);
 }
 
-async function getArtworks(): Promise<Response> {
+async function getArtworks(env: Env): Promise<Response> {
   const now = Date.now();
-  if (artCache && now < artCache.expires) return json(artCache.data);
 
-  // Fetch all searches in parallel; ignore individual failures (empty array fallback).
-  const results = await Promise.all(
-    ART_SEARCHES.map(({ q, limit }) => fetchArtSearch(q, limit).catch(() => [] as Row[]))
-  );
-
-  // Deduplicate by id.
-  const seen = new Set<unknown>();
-  const items: Row[] = [];
-  for (const batch of results) {
-    for (const row of batch) {
-      if (!seen.has(row.id)) { seen.add(row.id); items.push(row); }
+  // AIC items are cached for 2 hours (external API calls are expensive).
+  let aicItems: Row[];
+  if (artCache && now < artCache.expires) {
+    aicItems = artCache.items;
+  } else {
+    // Fetch all searches in parallel; ignore individual failures.
+    const results = await Promise.all(
+      ART_SEARCHES.map(({ q, limit }) => fetchArtSearch(q, limit).catch(() => [] as Row[]))
+    );
+    // Deduplicate by id.
+    const seen = new Set<unknown>();
+    aicItems = [];
+    for (const batch of results) {
+      for (const row of batch) {
+        if (!seen.has(row.id)) { seen.add(row.id); aicItems.push(row); }
+      }
     }
+    artCache = { items: aicItems, expires: now + 2 * 60 * 60 * 1000 };
   }
 
-  // Fisher-Yates shuffle so every cache window has a different order.
+  // D1 artworks: fetch up to 20 public artworks (fresh each request — fast local query).
+  let d1Items: Row[] = [];
+  try {
+    const r = await env.DB.prepare(
+      `SELECT id, title, artist, date_display, image_url FROM artworks
+       WHERE is_public = 1 AND image_url IS NOT NULL
+       ORDER BY RANDOM() LIMIT 20`
+    ).all<Row>();
+    d1Items = r.results.map(a => ({
+      id:           a.id,
+      title:        a.title,
+      artist_title: a.artist,
+      date_display: a.date_display,
+      image_id:     null,
+      image_url:    a.image_url,
+    }));
+  } catch { /* D1 unavailable or empty — degrade gracefully */ }
+
+  // Combine AIC + D1, then shuffle.
+  const items = [...aicItems, ...d1Items];
   for (let i = items.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [items[i], items[j]] = [items[j], items[i]];
   }
 
-  const data = { data: items };
-  artCache = { data, expires: now + 2 * 60 * 60 * 1000 }; // cache 2 hours
-  return json(data);
+  return json({ data: items });
 }
 
 // ─── Artworks CRUD ────────────────────────────────────────────────────────────

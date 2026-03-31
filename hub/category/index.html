@@ -414,6 +414,55 @@
   }
   .modal-overlay.open .modal { transform: translateY(0); }
 
+  /* ── Sort / filter bar ─────────────────────────────── */
+  .filter-bar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;
+    margin-bottom: 1rem; padding: 0.6rem 0.75rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .filter-search {
+    flex: 1 1 140px; min-width: 0;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.38rem 0.7rem;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .filter-search:focus { border-color: var(--border-hi); }
+  .filter-search::placeholder { color: var(--dim); }
+
+  .type-pills { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+  .type-pill {
+    padding: 0.25rem 0.6rem; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.12);
+    font-family: 'DM Mono', monospace; font-size: 0.65rem;
+    color: var(--muted); background: none; cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .type-pill:hover { border-color: rgba(74,242,200,0.4); color: var(--accent); }
+  .type-pill.active { background: var(--accent-dim); border-color: rgba(74,242,200,0.5); color: var(--accent); }
+
+  .sort-wrap { display: flex; align-items: center; gap: 0.3rem; margin-left: auto; flex-shrink: 0; }
+  .sort-wrap select {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.32rem 0.55rem;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    outline: none; cursor: pointer;
+  }
+  .order-btn {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.28rem 0.5rem; font-size: 0.85rem; line-height: 1;
+    color: var(--muted); cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .order-btn:hover { border-color: var(--border-hi); color: var(--text); }
+
+  /* Mobile: filter bar stacks */
+  @media (max-width: 560px) {
+    .filter-bar { flex-direction: column; align-items: stretch; }
+    .sort-wrap  { margin-left: 0; }
+  }
+
   /* ── Tag filter pills ──────────────────────────────── */
   #tag-filter-row {
     display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem;
@@ -490,6 +539,25 @@
 
   <nav class="tabs" id="tabs"></nav>
 
+  <div class="filter-bar" id="filter-bar">
+    <input class="filter-search" id="search-input" type="search" placeholder="Sök…" autocomplete="off" spellcheck="false">
+    <div class="type-pills" id="type-pills">
+      <button class="type-pill active" data-type="">Alla</button>
+      <button class="type-pill" data-type="note">📝 Anteckn.</button>
+      <button class="type-pill" data-type="snippet">💻 Snippet</button>
+      <button class="type-pill" data-type="file">📁 Fil</button>
+      <button class="type-pill" data-type="bookmark">🔖 Bokmärke</button>
+    </div>
+    <div class="sort-wrap">
+      <select id="sort-sel" title="Sortera efter">
+        <option value="created_at">Datum</option>
+        <option value="title">Titel</option>
+        <option value="type">Typ</option>
+      </select>
+      <button class="order-btn" id="order-btn" title="Växla ordning">↓</button>
+    </div>
+  </div>
+
   <div id="tag-filter-row"></div>
 
   <div class="toolbar">
@@ -552,6 +620,10 @@ const APP = {
   items:         [],
   activeSubcat:  null,   // null = all
   activeTags:    new Set(),
+  filterType:    '',     // '' = all types
+  sortBy:        'created_at',
+  sortOrder:     'desc',
+  searchQuery:   '',
   editingId:     null,   // set when editing
   editingType:   null,
 };
@@ -612,6 +684,7 @@ const APP = {
   });
 
   await loadCategory();
+  initFilterBar();
 })();
 
 // ─── Data ─────────────────────────────────────────────
@@ -619,6 +692,13 @@ const APP = {
 async function loadCategory(subcatId = APP.activeSubcat) {
   APP.activeSubcat = subcatId;
   APP.activeTags.clear();
+  APP.searchQuery  = '';
+  APP.filterType   = '';
+  // Reset filter bar UI if it's been initialised
+  const si = document.getElementById('search-input');
+  const tp = document.querySelectorAll('.type-pill');
+  if (si) si.value = '';
+  tp.forEach(p => p.classList.toggle('active', p.dataset.type === ''));
   const url = new URL(`/api/categories/${APP.categoryId}`, location.origin);
   if (subcatId) url.searchParams.set('subcategory', subcatId);
 
@@ -643,6 +723,43 @@ async function loadCategory(subcatId = APP.activeSubcat) {
   } finally {
     stopProgress();
   }
+}
+
+// ─── Filter bar ───────────────────────────────────────
+
+function initFilterBar() {
+  // Search input — debounced
+  let searchTimer;
+  document.getElementById('search-input').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      APP.searchQuery = e.target.value.trim();
+      renderItems();
+    }, 200);
+  });
+
+  // Type pills
+  document.getElementById('type-pills').addEventListener('click', e => {
+    const pill = e.target.closest('.type-pill');
+    if (!pill) return;
+    APP.filterType = pill.dataset.type;
+    document.querySelectorAll('.type-pill').forEach(p => p.classList.toggle('active', p.dataset.type === APP.filterType));
+    renderItems();
+  });
+
+  // Sort select
+  document.getElementById('sort-sel').addEventListener('change', e => {
+    APP.sortBy = e.target.value;
+    renderItems();
+  });
+
+  // Order toggle
+  const orderBtn = document.getElementById('order-btn');
+  orderBtn.addEventListener('click', () => {
+    APP.sortOrder = APP.sortOrder === 'desc' ? 'asc' : 'desc';
+    orderBtn.textContent = APP.sortOrder === 'desc' ? '↓' : '↑';
+    renderItems();
+  });
 }
 
 // ─── Tabs ─────────────────────────────────────────────
@@ -689,12 +806,46 @@ function renderTagPills() {
 }
 
 function renderFilteredItems() {
-  const items = APP.activeTags.size
-    ? APP.items.filter(item => {
-        const tags = parseTags(item.tags);
-        return [...APP.activeTags].every(t => tags.includes(t));
-      })
-    : APP.items;
+  let items = APP.items;
+
+  // Type filter
+  if (APP.filterType) items = items.filter(i => i.type === APP.filterType);
+
+  // Tag filter
+  if (APP.activeTags.size) {
+    items = items.filter(item => {
+      const tags = parseTags(item.tags);
+      return [...APP.activeTags].every(t => tags.includes(t));
+    });
+  }
+
+  // Text search (client-side, across title/content/code/url)
+  if (APP.searchQuery) {
+    const q = APP.searchQuery.toLowerCase();
+    items = items.filter(i => {
+      const title = (i.title || i.filename || '').toLowerCase();
+      const body  = (i.content || i.code || i.description || i.url || '').toLowerCase();
+      return title.includes(q) || body.includes(q);
+    });
+  }
+
+  // Sort
+  items = [...items].sort((a, b) => {
+    let va, vb;
+    if (APP.sortBy === 'title') {
+      va = (a.title || a.filename || '').toLowerCase();
+      vb = (b.title || b.filename || '').toLowerCase();
+    } else if (APP.sortBy === 'type') {
+      va = a.type ?? ''; vb = b.type ?? '';
+    } else {
+      // created_at / updated_at — use whichever is present
+      va = (a.updated_at || a.created_at || '');
+      vb = (b.updated_at || b.created_at || '');
+    }
+    const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+    return APP.sortOrder === 'asc' ? cmp : -cmp;
+  });
+
   renderItemList(items);
 }
 
