@@ -141,6 +141,17 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       return getPublicItem('bookmarks', id, request, env);
     }
 
+    // ── Artworks (list/get public; write ops require auth) ───────────────────
+    if (resource === 'artworks') {
+      if (!id && method === 'GET')                        return listArtworks(url, env);
+      if (id === 'fetch-redon'  && method === 'GET')      { await requireAuth(request, env); return fetchRedon(env); }
+      if (id === 'import'       && method === 'POST')     { await requireAuth(request, env); return importArtworks(request, env); }
+      if (id && sub === 'favorite' && method === 'PUT')   { await requireAuth(request, env); return toggleFavorite(id, env); }
+      if (id && !sub && method === 'GET')                 return getArtwork(id, env);
+      if (id && !sub && method === 'DELETE')              { await requireAuth(request, env); return deleteArtwork(id, env); }
+      return json({ error: 'not found' }, 404);
+    }
+
     // ── Spotify ───────────────────────────────────────────────────────────────
     if (resource === 'spotify') {
       if (id === 'auth-url'    && method === 'GET')  return handleSpotifyAuthUrl(request, env);
@@ -975,6 +986,270 @@ async function getArtworks(): Promise<Response> {
   const data = { data: items };
   artCache = { data, expires: now + 2 * 60 * 60 * 1000 }; // cache 2 hours
   return json(data);
+}
+
+// ─── Artworks CRUD ────────────────────────────────────────────────────────────
+
+async function listArtworks(url: URL, env: Env): Promise<Response> {
+  const artist  = url.searchParams.get('artist')    ?? '';
+  const school  = url.searchParams.get('school')    ?? '';
+  const search  = url.searchParams.get('search')    ?? '';
+  const sort    = url.searchParams.get('sort')      ?? 'added_at';
+  const order   = url.searchParams.get('order')     ?? 'desc';
+  const limit   = Math.min(Math.max(1, parseInt(url.searchParams.get('limit')  ?? '50')), 200);
+  const offset  = Math.max(0,          parseInt(url.searchParams.get('offset') ?? '0'));
+  const favOnly = url.searchParams.get('favorites') === '1';
+
+  const VALID_SORTS: Record<string, string> = {
+    title: 'title', artist: 'artist', date_display: 'date_display', added_at: 'added_at',
+  };
+  const sortCol = VALID_SORTS[sort] ?? 'added_at';
+  const sortDir = order === 'asc' ? 'ASC' : 'DESC';
+
+  const conditions: string[] = [];
+  const params: unknown[]    = [];
+  if (artist)  { conditions.push('artist = ?');        params.push(artist); }
+  if (school)  { conditions.push('school = ?');        params.push(school); }
+  if (search)  { conditions.push('title LIKE ?');      params.push(`%${search}%`); }
+  if (favOnly) { conditions.push('is_favorite = 1'); }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const [rows, countRow, schools, artists] = await Promise.all([
+    env.DB.prepare(`SELECT * FROM artworks ${where} ORDER BY ${sortCol} ${sortDir} LIMIT ? OFFSET ?`)
+      .bind(...params, limit, offset).all<Row>(),
+    env.DB.prepare(`SELECT COUNT(*) as cnt FROM artworks ${where}`)
+      .bind(...params).first<{ cnt: number }>(),
+    env.DB.prepare('SELECT DISTINCT school FROM artworks WHERE school IS NOT NULL ORDER BY school')
+      .all<{ school: string }>(),
+    env.DB.prepare('SELECT DISTINCT artist FROM artworks WHERE artist IS NOT NULL ORDER BY artist')
+      .all<{ artist: string }>(),
+  ]);
+
+  return json({
+    items:   rows.results,
+    total:   countRow?.cnt ?? 0,
+    limit,
+    offset,
+    schools: schools.results.map(r => r.school),
+    artists: artists.results.map(r => r.artist),
+  });
+}
+
+async function getArtwork(id: string, env: Env): Promise<Response> {
+  const row = await env.DB.prepare('SELECT * FROM artworks WHERE id = ?').bind(id).first<Row>();
+  if (!row) return json({ error: 'not found' }, 404);
+  return json(row);
+}
+
+async function deleteArtwork(id: string, env: Env): Promise<Response> {
+  await env.DB.prepare('DELETE FROM artworks WHERE id = ?').bind(id).run();
+  return json({ success: true });
+}
+
+async function toggleFavorite(id: string, env: Env): Promise<Response> {
+  await env.DB.prepare(
+    'UPDATE artworks SET is_favorite = CASE WHEN is_favorite = 1 THEN 0 ELSE 1 END WHERE id = ?'
+  ).bind(id).run();
+  const row = await env.DB.prepare('SELECT is_favorite FROM artworks WHERE id = ?')
+    .bind(id).first<{ is_favorite: number }>();
+  return json({ is_favorite: row?.is_favorite ?? 0 });
+}
+
+async function importArtworks(request: Request, env: Env): Promise<Response> {
+  let items: unknown[];
+  try { items = await request.json() as unknown[]; }
+  catch { return json({ error: 'invalid JSON' }, 400); }
+  if (!Array.isArray(items)) return json({ error: 'expected array' }, 400);
+
+  const stmts = items.map((item: unknown) => {
+    const w = item as Record<string, unknown>;
+    return env.DB.prepare(
+      `INSERT OR IGNORE INTO artworks
+         (id, title, artist, date_display, medium, dimensions, school, image_url,
+          thumbnail_url, source_museum, source_id, source_url, description, tags)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      w.id, w.title, w.artist,
+      w.date_display ?? null, w.medium ?? null, w.dimensions ?? null, w.school ?? null,
+      w.image_url ?? null, w.thumbnail_url ?? null, w.source_museum ?? null,
+      w.source_id ?? null, w.source_url ?? null, w.description ?? null,
+      Array.isArray(w.tags) ? JSON.stringify(w.tags) : (w.tags ?? null)
+    );
+  });
+
+  let imported = 0;
+  for (let i = 0; i < stmts.length; i += 100) {
+    await env.DB.batch(stmts.slice(i, i + 100));
+    imported += Math.min(100, stmts.length - i);
+  }
+  return json({ imported });
+}
+
+// ─── Redon import ─────────────────────────────────────────────────────────────
+
+interface ArtworkRecord {
+  id: string; title: string; artist: string;
+  date_display: string | null; medium: string | null; dimensions: string | null;
+  school: string | null; image_url: string | null; thumbnail_url: string | null;
+  source_museum: string; source_id: string; source_url: string | null;
+  description: string | null; tags: string;
+}
+
+async function fetchRedon(env: Env): Promise<Response> {
+  const [articRes, metRes, clevRes] = await Promise.allSettled([
+    fetchARTICRedon(),
+    fetchMetRedon(),
+    fetchClevelandRedon(),
+  ]);
+
+  const artic     = articRes.status === 'fulfilled' ? articRes.value     : [];
+  const met       = metRes.status   === 'fulfilled' ? metRes.value       : [];
+  const cleveland = clevRes.status  === 'fulfilled' ? clevRes.value      : [];
+  const all       = [...artic, ...met, ...cleveland];
+
+  for (let i = 0; i < all.length; i += 100) {
+    const batch = all.slice(i, i + 100).map(w =>
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO artworks
+           (id, title, artist, date_display, medium, dimensions, school, image_url,
+            thumbnail_url, source_museum, source_id, source_url, description, tags)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        w.id, w.title, w.artist, w.date_display, w.medium, w.dimensions, w.school,
+        w.image_url, w.thumbnail_url, w.source_museum, w.source_id, w.source_url,
+        w.description, w.tags
+      )
+    );
+    await env.DB.batch(batch);
+  }
+
+  return json({
+    imported: { artic: artic.length, met: met.length, cleveland: cleveland.length, total: all.length },
+    errors: {
+      artic:     articRes.status === 'rejected' ? String((articRes as PromiseRejectedResult).reason) : null,
+      met:       metRes.status   === 'rejected' ? String((metRes   as PromiseRejectedResult).reason) : null,
+      cleveland: clevRes.status  === 'rejected' ? String((clevRes  as PromiseRejectedResult).reason) : null,
+    },
+  });
+}
+
+async function fetchARTICRedon(): Promise<ArtworkRecord[]> {
+  const works: ArtworkRecord[] = [];
+  for (const from of [0, 100]) {
+    const res = await fetch('https://api.artic.edu/api/v1/artworks/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        q: 'Odilon Redon',
+        query: { bool: { must: [
+          { term: { artist_title: 'Odilon Redon' } },
+          { exists: { field: 'image_id' } },
+        ]}},
+        fields: ['id','title','artist_title','date_display','medium_display','dimensions','image_id','description'],
+        limit: 100, from,
+      }),
+    });
+    if (!res.ok) continue;
+    const data = await res.json() as { data?: Array<Record<string, unknown>> };
+    for (const item of data.data ?? []) {
+      if (!item.image_id) continue;
+      const imgId = item.image_id as string;
+      works.push({
+        id:            `artic-${item.id}`,
+        title:         String(item.title ?? ''),
+        artist:        'Odilon Redon',
+        date_display:  String(item.date_display ?? '') || null,
+        medium:        String(item.medium_display ?? '') || null,
+        dimensions:    String(item.dimensions ?? '') || null,
+        school:        'Symbolism',
+        image_url:     `https://www.artic.edu/iiif/2/${imgId}/full/1200,/0/default.jpg`,
+        thumbnail_url: `https://www.artic.edu/iiif/2/${imgId}/full/400,/0/default.jpg`,
+        source_museum: 'Art Institute of Chicago',
+        source_id:     String(item.id),
+        source_url:    `https://www.artic.edu/artworks/${item.id}`,
+        description:   String(item.description ?? '') || null,
+        tags:          '["redon","symbolism","french","artic"]',
+      });
+    }
+  }
+  return works;
+}
+
+async function fetchMetRedon(): Promise<ArtworkRecord[]> {
+  const searchRes = await fetch(
+    'https://collectionapi.metmuseum.org/public/collection/v1/search?q=odilon+redon&hasImages=true'
+  );
+  if (!searchRes.ok) return [];
+  const searchData = await searchRes.json() as { objectIDs?: number[] };
+  const ids = (searchData.objectIDs ?? []).slice(0, 200);
+
+  const works: ArtworkRecord[] = [];
+  for (let i = 0; i < ids.length; i += 10) {
+    const batch = await Promise.allSettled(
+      ids.slice(i, i + 10).map(id =>
+        fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`)
+          .then(r => r.ok ? r.json() : null)
+      )
+    );
+    for (const result of batch) {
+      if (result.status !== 'fulfilled' || !result.value) continue;
+      const obj = result.value as Record<string, unknown>;
+      if (!obj.isPublicDomain || !obj.primaryImage) continue;
+      const constituents = (obj.constituents ?? []) as Array<{ name: string }>;
+      const isRedon = constituents.some(c => c.name === 'Odilon Redon') ||
+                      String(obj.artistDisplayName ?? '').includes('Redon');
+      if (!isRedon) continue;
+      works.push({
+        id:            `met-${obj.objectID}`,
+        title:         String(obj.title ?? ''),
+        artist:        'Odilon Redon',
+        date_display:  String(obj.objectDate ?? '') || null,
+        medium:        String(obj.medium ?? '') || null,
+        dimensions:    String(obj.dimensions ?? '') || null,
+        school:        'Symbolism',
+        image_url:     String(obj.primaryImage),
+        thumbnail_url: String(obj.primaryImageSmall ?? obj.primaryImage),
+        source_museum: 'Metropolitan Museum of Art',
+        source_id:     String(obj.objectID),
+        source_url:    String(obj.objectURL ?? '') || null,
+        description:   null,
+        tags:          '["redon","symbolism","french","met"]',
+      });
+    }
+  }
+  return works;
+}
+
+async function fetchClevelandRedon(): Promise<ArtworkRecord[]> {
+  const res = await fetch(
+    'https://openaccess-api.clevelandart.org/api/artworks/?artists=Odilon+Redon&has_image=1&limit=100'
+  );
+  if (!res.ok) return [];
+  const data = await res.json() as {
+    data?: Array<{
+      id: number; title: string; creation_date: string; technique: string;
+      measurements: string; url: string;
+      images?: { web?: { url: string }; print?: { url: string } };
+    }>;
+  };
+  return (data.data ?? [])
+    .filter(item => item.images?.web?.url)
+    .map(item => ({
+      id:            `cma-${item.id}`,
+      title:         item.title ?? '',
+      artist:        'Odilon Redon',
+      date_display:  item.creation_date ?? null,
+      medium:        item.technique ?? null,
+      dimensions:    item.measurements ?? null,
+      school:        'Symbolism',
+      image_url:     item.images?.print?.url ?? item.images?.web?.url ?? null,
+      thumbnail_url: item.images?.web?.url ?? null,
+      source_museum: 'Cleveland Museum of Art',
+      source_id:     String(item.id),
+      source_url:    item.url ?? null,
+      description:   null,
+      tags:          '["redon","symbolism","french","cleveland"]',
+    }));
 }
 
 // ─── Spotify rate limiter (in-memory, resets on redeploy) ────────────────────

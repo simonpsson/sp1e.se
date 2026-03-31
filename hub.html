@@ -101,7 +101,7 @@
   .logout-icon { display: none; }
 
   /* ── Layout ────────────────────────────────────────── */
-  main { max-width: 900px; margin: 0 auto; padding: 2rem 2rem 6rem; }
+  main, #art-view { max-width: 900px; margin: 0 auto; padding: 2rem 2rem 6rem; }
 
   /* ── Category grid ─────────────────────────────────── */
   .cat-grid {
@@ -279,7 +279,7 @@
   .section-row .section-title { margin: 0; }
 
   @media (max-width: 640px) {
-    main { padding: 1.5rem 1rem 4rem; }
+    main, #art-view { padding: 1.5rem 1rem 4rem; }
     .topbar { padding: 0 1rem; grid-template-columns: auto 1fr auto; gap: 0.6rem; }
     .topbar-right { gap: 0.4rem; }
     .cat-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
@@ -394,6 +394,238 @@
     .gallery-frame { border-radius: 0; border-left: none; border-right: none; }
     .gallery-caption { padding-left: 1rem; padding-right: 1rem; }
   }
+
+  /* ── Art collection view ───────────────────────────── */
+  #art-view { display: none; }
+
+  .art-header {
+    display: flex; align-items: center; gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .art-back {
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted); letter-spacing: 0.04em;
+    padding: 0.35rem 0.7rem; border-radius: 6px;
+    border: 1px solid var(--border);
+    transition: color 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+  }
+  .art-back:hover { color: var(--text); border-color: var(--border-hi); }
+  .art-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 1.6rem; letter-spacing: 0.04em;
+    color: var(--heading); flex: 1;
+  }
+
+  .art-filters {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.65rem 0.85rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .art-search {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.4rem 0.7rem;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.75rem;
+    outline: none; min-width: 140px; flex: 1;
+    transition: border-color 0.15s;
+  }
+  .art-search:focus { border-color: var(--border-hi); }
+  .art-search::placeholder { color: var(--dim); }
+  .art-select {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.4rem 0.6rem;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    outline: none; cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .art-select:focus { border-color: var(--border-hi); }
+  .art-order-btn, .art-fav-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.4rem 0.65rem;
+    color: var(--muted); font-size: 0.82rem; cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    line-height: 1; flex-shrink: 0;
+  }
+  .art-order-btn:hover, .art-fav-btn:hover { color: var(--text); border-color: var(--border-hi); }
+  .art-fav-btn.active { color: #f5c518; border-color: #f5c518; background: rgba(245,197,24,0.08); }
+
+  .art-count {
+    font-size: 0.65rem; color: var(--muted);
+    letter-spacing: 0.05em; margin-bottom: 0.85rem;
+  }
+
+  .art-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  @media (max-width: 768px) { .art-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .art-grid { grid-template-columns: 1fr; } }
+
+  .art-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; cursor: pointer;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  .art-card:hover {
+    border-color: var(--border-hi);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .art-card-img {
+    width: 100%; aspect-ratio: 4/3; overflow: hidden;
+    background: var(--surface2); position: relative;
+  }
+  .art-card-img img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.3s ease, opacity 0.4s ease;
+    opacity: 0;
+  }
+  .art-card-img img.loaded { opacity: 1; }
+  .art-card:hover .art-card-img img { transform: scale(1.04); }
+  .art-card-badge {
+    position: absolute; bottom: 0.4rem; right: 0.4rem;
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+    border-radius: 4px; padding: 0.15rem 0.4rem;
+    font-size: 0.52rem; letter-spacing: 0.05em; color: rgba(255,255,255,0.65);
+  }
+  [data-theme="light"] .art-card-badge { background: rgba(0,0,0,0.50); color: rgba(255,255,255,0.85); }
+  .art-card-fav {
+    position: absolute; top: 0.4rem; right: 0.4rem;
+    font-size: 0.75rem; opacity: 0.9;
+  }
+  .art-card-info { padding: 0.65rem 0.75rem 0.8rem; }
+  .art-card-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-weight: 300; font-size: 0.95rem;
+    color: var(--text); line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 0.2rem;
+  }
+  .art-card-sub {
+    font-size: 0.62rem; color: var(--muted); letter-spacing: 0.03em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .art-load-wrap { text-align: center; margin-bottom: 2rem; }
+  .art-load-btn {
+    background: none; border: 1px solid var(--border);
+    border-radius: 20px; padding: 0.55rem 1.6rem;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    letter-spacing: 0.08em; color: var(--muted); cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .art-load-btn:hover { color: var(--text); border-color: var(--border-hi); }
+  .art-load-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .art-empty {
+    padding: 3rem 0; text-align: center;
+    font-size: 0.78rem; color: var(--muted); line-height: 2;
+  }
+
+  /* ── Artwork detail modal ──────────────────────────── */
+  #art-modal {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.92); backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  #art-modal.open { opacity: 1; pointer-events: all; }
+
+  .art-modal-inner {
+    display: flex; gap: 0; max-width: 1100px; width: 100%;
+    max-height: 92vh; margin: 1rem;
+    border-radius: 14px; overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.8);
+  }
+  .art-modal-img-wrap {
+    flex: 1; min-width: 0; background: #050508;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 360px; position: relative;
+  }
+  .art-modal-img-wrap img {
+    max-width: 100%; max-height: 85vh;
+    object-fit: contain; display: block;
+  }
+  .art-modal-meta {
+    width: 280px; flex-shrink: 0;
+    padding: 1.5rem 1.25rem; overflow-y: auto;
+    border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 0.6rem;
+  }
+  .art-modal-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-weight: 300; font-size: 1.25rem;
+    color: var(--heading); line-height: 1.3; margin-bottom: 0.25rem;
+  }
+  .art-modal-artist { font-size: 0.72rem; color: var(--accent); letter-spacing: 0.05em; }
+  .art-modal-row    { font-size: 0.68rem; color: var(--muted); line-height: 1.5; }
+  .art-modal-label  { color: var(--dim); margin-right: 0.3em; }
+  .art-modal-school {
+    display: inline-block; font-size: 0.6rem; letter-spacing: 0.06em;
+    padding: 0.15rem 0.5rem; border-radius: 4px;
+    background: var(--accent-dim); color: var(--accent);
+    border: 1px solid rgba(74,242,200,0.20);
+  }
+  .art-modal-actions {
+    display: flex; flex-direction: column; gap: 0.5rem; margin-top: auto; padding-top: 1rem;
+  }
+  .art-modal-fav {
+    background: none; border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.45rem 0.75rem;
+    font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    color: var(--muted); cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    text-align: left;
+  }
+  .art-modal-fav:hover    { color: var(--text); border-color: var(--border-hi); }
+  .art-modal-fav.favorited { color: #f5c518; border-color: #f5c518; background: rgba(245,197,24,0.08); }
+  .art-modal-link {
+    display: block; padding: 0.45rem 0.75rem;
+    border: 1px solid var(--border); border-radius: 6px;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    color: var(--muted); text-decoration: none;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .art-modal-link:hover { color: var(--text); border-color: var(--border-hi); }
+
+  /* modal controls */
+  .art-modal-close {
+    position: absolute; top: 1rem; right: 1rem; z-index: 10;
+    background: rgba(0,0,0,0.55); border: none; border-radius: 50%;
+    width: 34px; height: 34px; cursor: pointer;
+    color: rgba(255,255,255,0.65); font-size: 1.2rem; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    transition: color 0.15s, background 0.15s;
+  }
+  .art-modal-close:hover { color: #fff; background: rgba(0,0,0,0.8); }
+  .art-modal-nav {
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
+    background: rgba(0,0,0,0.45); border: none; border-radius: 50%;
+    width: 40px; height: 40px; cursor: pointer;
+    color: rgba(255,255,255,0.65); font-size: 1.4rem; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    transition: color 0.15s, background 0.15s;
+  }
+  .art-modal-nav:hover { color: #fff; background: rgba(0,0,0,0.75); }
+  #art-modal-prev { left: 0.75rem; }
+  #art-modal-next { right: 0.75rem; }
+
+  @media (max-width: 640px) {
+    .art-modal-inner { flex-direction: column; margin: 0; border-radius: 0; max-height: 100vh; }
+    .art-modal-meta  { width: 100%; border-left: none; border-top: 1px solid var(--border); max-height: 45vh; }
+    .art-modal-img-wrap { min-height: 200px; }
+    #art-view > .art-header { margin-bottom: 1rem; }
+    .art-filters { gap: 0.4rem; }
+  }
 </style>
 </head>
 <body>
@@ -465,6 +697,58 @@
     <li class="empty">Laddar...</li>
   </ul>
 </main>
+
+<!-- Art collection view (replaces main when "Konst" is clicked) -->
+<div id="art-view" style="display:none">
+  <div class="art-header">
+    <button class="art-back" id="art-back">← Hub</button>
+    <h1 class="art-heading">Konst 🎨</h1>
+  </div>
+  <div class="art-filters">
+    <input type="text" class="art-search" id="art-search" placeholder="Sök titel…" autocomplete="off">
+    <select class="art-select" id="art-sort">
+      <option value="added_at">Datum tillagd</option>
+      <option value="title">Titel (A–Ö)</option>
+      <option value="artist">Konstnär</option>
+      <option value="date_display">Årtal</option>
+    </select>
+    <button class="art-order-btn" id="art-order" title="Byt ordning">↓</button>
+    <select class="art-select" id="art-school"><option value="">Alla stilar</option></select>
+    <select class="art-select" id="art-artist"><option value="">Alla konstnärer</option></select>
+    <button class="art-fav-btn" id="art-fav" title="Visa favoriter">⭐</button>
+  </div>
+  <div class="art-count" id="art-count"></div>
+  <div class="art-grid" id="art-grid"></div>
+  <div class="art-load-wrap" id="art-load-wrap" style="display:none">
+    <button class="art-load-btn" id="art-load-btn">Ladda fler</button>
+  </div>
+</div>
+
+<!-- Artwork detail modal -->
+<div id="art-modal">
+  <button class="art-modal-close" id="art-modal-close">×</button>
+  <button class="art-modal-nav" id="art-modal-prev">‹</button>
+  <button class="art-modal-nav" id="art-modal-next">›</button>
+  <div class="art-modal-inner">
+    <div class="art-modal-img-wrap">
+      <img id="art-modal-img" src="" alt="">
+    </div>
+    <div class="art-modal-meta">
+      <div class="art-modal-title" id="art-modal-title"></div>
+      <div class="art-modal-artist" id="art-modal-artist"></div>
+      <div class="art-modal-row" id="art-modal-date"></div>
+      <div class="art-modal-row" id="art-modal-medium"></div>
+      <div class="art-modal-row" id="art-modal-dims"></div>
+      <div style="margin-top:0.25rem"><span class="art-modal-school" id="art-modal-school"></span></div>
+      <div class="art-modal-actions">
+        <button class="art-modal-fav" id="art-modal-fav">⭐ Lägg till favorit</button>
+        <a class="art-modal-link" id="art-modal-link" href="#" target="_blank" rel="noopener">
+          Visa på museum ↗
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
 <script>
@@ -677,13 +961,25 @@ function renderGrid(cats, error) {
     el.innerHTML = '<p class="empty">Inga kategorier ännu.</p>';
     return;
   }
-  el.innerHTML = cats.map(c => `
-    <a class="cat-card" href="/hub/category/?id=${esc(c.id)}">
+  el.innerHTML = cats.map(c => {
+    if (c.id === 'konst') {
+      return `<a class="cat-card" href="#" data-art-cat>
+        <span class="cat-icon">${c.icon ?? ''}</span>
+        <span class="cat-name">${esc(c.name)}</span>
+        <span class="cat-count">Galleri</span>
+      </a>`;
+    }
+    return `<a class="cat-card" href="/hub/category/?id=${esc(c.id)}">
       <span class="cat-icon">${c.icon ?? ''}</span>
       <span class="cat-name">${esc(c.name)}</span>
       <span class="cat-count">${c.item_count ?? 0} objekt</span>
-    </a>
-  `).join('');
+    </a>`;
+  }).join('');
+
+  el.querySelector('[data-art-cat]')?.addEventListener('click', e => {
+    e.preventDefault();
+    showArtView();
+  });
 }
 
 function recentHref(item) {
@@ -977,6 +1273,261 @@ function relTime(iso) {
       // leave section visible — dark frame is a design element even without images
     }
   }
+
+// ── Art collection gallery ────────────────────────────
+let artItems     = [];  // current loaded items
+let artTotal     = 0;
+let artOffset    = 0;
+let artOrder     = 'desc';
+let artFavOnly   = false;
+let artSearchQ   = '';
+let artSearchTmr = null;
+let artModalIdx  = -1;  // index in artItems of open modal
+
+const ART_LIMIT = 50;
+
+function showArtView() {
+  document.querySelector('main').style.display = 'none';
+  document.getElementById('art-view').style.display = 'block';
+  if (!artItems.length) loadArtworks(true);
+}
+
+function hideArtView() {
+  document.getElementById('art-view').style.display = 'none';
+  document.querySelector('main').style.display = '';
+}
+
+document.getElementById('art-back').addEventListener('click', hideArtView);
+
+// ── Filters ───────────────────────────────────────────
+const artSortEl   = document.getElementById('art-sort');
+const artOrderEl  = document.getElementById('art-order');
+const artSchoolEl = document.getElementById('art-school');
+const artArtistEl = document.getElementById('art-artist');
+const artFavEl    = document.getElementById('art-fav');
+const artSearchEl = document.getElementById('art-search');
+
+artSortEl.addEventListener('change',  () => loadArtworks(true));
+artSchoolEl.addEventListener('change', () => loadArtworks(true));
+artArtistEl.addEventListener('change', () => loadArtworks(true));
+
+artOrderEl.addEventListener('click', () => {
+  artOrder = artOrder === 'desc' ? 'asc' : 'desc';
+  artOrderEl.textContent = artOrder === 'asc' ? '↑' : '↓';
+  loadArtworks(true);
+});
+
+artFavEl.addEventListener('click', () => {
+  artFavOnly = !artFavOnly;
+  artFavEl.classList.toggle('active', artFavOnly);
+  loadArtworks(true);
+});
+
+artSearchEl.addEventListener('input', () => {
+  clearTimeout(artSearchTmr);
+  artSearchTmr = setTimeout(() => {
+    artSearchQ = artSearchEl.value.trim();
+    loadArtworks(true);
+  }, 280);
+});
+
+document.getElementById('art-load-btn').addEventListener('click', () => loadArtworks(false));
+
+// ── Load artworks ─────────────────────────────────────
+async function loadArtworks(reset) {
+  if (reset) { artItems = []; artOffset = 0; }
+
+  const params = new URLSearchParams({
+    sort:   artSortEl.value,
+    order:  artOrder,
+    limit:  ART_LIMIT,
+    offset: artOffset,
+  });
+  if (artSchoolEl.value)  params.set('school', artSchoolEl.value);
+  if (artArtistEl.value)  params.set('artist', artArtistEl.value);
+  if (artSearchQ)         params.set('search', artSearchQ);
+  if (artFavOnly)         params.set('favorites', '1');
+
+  const gridEl    = document.getElementById('art-grid');
+  const countEl   = document.getElementById('art-count');
+  const loadWrap  = document.getElementById('art-load-wrap');
+  const loadBtn   = document.getElementById('art-load-btn');
+
+  if (reset) { gridEl.innerHTML = '<div class="art-empty" style="color:var(--dim)">Laddar…</div>'; }
+  loadBtn.disabled = true;
+
+  try {
+    const res  = await fetch('/api/artworks?' + params, { credentials: 'same-origin' });
+    const data = await res.json();
+    const newItems = data.items ?? [];
+
+    // Populate filter dropdowns once (on first load)
+    if (reset && artItems.length === 0 && data.schools?.length) {
+      const curSchool = artSchoolEl.value;
+      artSchoolEl.innerHTML = '<option value="">Alla stilar</option>' +
+        (data.schools ?? []).map(s => `<option value="${esc(s)}"${s===curSchool?' selected':''}>${esc(s)}</option>`).join('');
+    }
+    if (reset && artItems.length === 0 && data.artists?.length) {
+      const curArtist = artArtistEl.value;
+      artArtistEl.innerHTML = '<option value="">Alla konstnärer</option>' +
+        (data.artists ?? []).map(a => `<option value="${esc(a)}"${a===curArtist?' selected':''}>${esc(a)}</option>`).join('');
+    }
+
+    artItems    = reset ? newItems : [...artItems, ...newItems];
+    artTotal    = data.total ?? 0;
+    artOffset   = artItems.length;
+
+    countEl.textContent = artTotal + ' konstverk';
+
+    if (reset) {
+      if (!artItems.length) {
+        gridEl.innerHTML = `<div class="art-empty">
+          Inga konstverk ännu.<br>
+          <span style="font-size:.65rem;color:var(--dim)">Importera via /api/artworks/fetch-redon</span>
+        </div>`;
+      } else {
+        gridEl.innerHTML = '';
+        artItems.forEach((art, i) => gridEl.appendChild(makeArtCard(art, i)));
+      }
+    } else {
+      const startIdx = artItems.length - newItems.length;
+      newItems.forEach((art, i) => gridEl.appendChild(makeArtCard(art, startIdx + i)));
+    }
+
+    loadWrap.style.display = artItems.length < artTotal ? 'block' : 'none';
+  } catch (e) {
+    if (reset) gridEl.innerHTML = `<div class="art-empty">Kunde inte ladda konstverk.</div>`;
+  } finally {
+    loadBtn.disabled = false;
+  }
+}
+
+function makeArtCard(art, idx) {
+  const div = document.createElement('div');
+  div.className = 'art-card';
+  div.dataset.idx = idx;
+
+  const museumShort = (art.source_museum ?? '')
+    .replace('Art Institute of Chicago', 'AIC')
+    .replace('Metropolitan Museum of Art', 'Met')
+    .replace('Cleveland Museum of Art', 'CMA');
+
+  div.innerHTML = `
+    <div class="art-card-img">
+      <img src="${esc(art.thumbnail_url ?? art.image_url ?? '')}" alt="${esc(art.title)}" loading="lazy">
+      <span class="art-card-badge">${esc(museumShort)}</span>
+      ${art.is_favorite ? '<span class="art-card-fav">⭐</span>' : ''}
+    </div>
+    <div class="art-card-info">
+      <div class="art-card-title">${esc(art.title)}</div>
+      <div class="art-card-sub">${esc(art.artist)}${art.date_display ? ' · ' + esc(art.date_display) : ''}</div>
+    </div>`;
+
+  // Lazy image fade-in
+  const img = div.querySelector('img');
+  if (img.complete) { img.classList.add('loaded'); }
+  else { img.onload = () => img.classList.add('loaded'); }
+
+  div.addEventListener('click', () => openArtModal(idx));
+  return div;
+}
+
+// ── Detail modal ──────────────────────────────────────
+const artModal      = document.getElementById('art-modal');
+const artModalImg   = document.getElementById('art-modal-img');
+const artModalTitle = document.getElementById('art-modal-title');
+const artModalArtist= document.getElementById('art-modal-artist');
+const artModalDate  = document.getElementById('art-modal-date');
+const artModalMedium= document.getElementById('art-modal-medium');
+const artModalDims  = document.getElementById('art-modal-dims');
+const artModalSchool= document.getElementById('art-modal-school');
+const artModalFav   = document.getElementById('art-modal-fav');
+const artModalLink  = document.getElementById('art-modal-link');
+
+function openArtModal(idx) {
+  artModalIdx = idx;
+  populateModal(artItems[idx]);
+  artModal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeArtModal() {
+  artModal.classList.remove('open');
+  document.body.style.overflow = '';
+  artModalIdx = -1;
+}
+
+function populateModal(art) {
+  if (!art) return;
+  artModalImg.src = art.image_url ?? art.thumbnail_url ?? '';
+  artModalImg.alt = art.title ?? '';
+  artModalTitle.textContent  = art.title ?? '';
+  artModalArtist.textContent = art.artist ?? '';
+
+  artModalDate.innerHTML   = art.date_display ? `<span class="art-modal-label">År</span>${esc(art.date_display)}` : '';
+  artModalMedium.innerHTML = art.medium       ? `<span class="art-modal-label">Medium</span>${esc(art.medium)}` : '';
+  artModalDims.innerHTML   = art.dimensions   ? `<span class="art-modal-label">Mått</span>${esc(art.dimensions)}` : '';
+
+  artModalSchool.textContent = art.school ?? '';
+  artModalSchool.style.display = art.school ? '' : 'none';
+
+  artModalFav.textContent = art.is_favorite ? '⭐ Ta bort favorit' : '⭐ Lägg till favorit';
+  artModalFav.classList.toggle('favorited', !!art.is_favorite);
+  artModalFav.dataset.id = art.id;
+
+  if (art.source_url) {
+    artModalLink.href = art.source_url;
+    artModalLink.textContent = `Visa på ${art.source_museum ?? 'museum'} ↗`;
+    artModalLink.style.display = '';
+  } else {
+    artModalLink.style.display = 'none';
+  }
+}
+
+document.getElementById('art-modal-close').addEventListener('click', closeArtModal);
+artModal.addEventListener('click', e => { if (e.target === artModal) closeArtModal(); });
+
+document.getElementById('art-modal-prev').addEventListener('click', () => {
+  if (artModalIdx > 0) { artModalIdx--; populateModal(artItems[artModalIdx]); }
+});
+document.getElementById('art-modal-next').addEventListener('click', () => {
+  if (artModalIdx < artItems.length - 1) { artModalIdx++; populateModal(artItems[artModalIdx]); }
+});
+
+document.addEventListener('keydown', e => {
+  if (!artModal.classList.contains('open')) return;
+  if (e.key === 'Escape')     closeArtModal();
+  if (e.key === 'ArrowLeft')  { if (artModalIdx > 0) { artModalIdx--; populateModal(artItems[artModalIdx]); } }
+  if (e.key === 'ArrowRight') { if (artModalIdx < artItems.length - 1) { artModalIdx++; populateModal(artItems[artModalIdx]); } }
+});
+
+// Favorite toggle in modal
+artModalFav.addEventListener('click', async () => {
+  const id = artModalFav.dataset.id;
+  if (!id) return;
+  try {
+    const res  = await fetch(`/api/artworks/${id}/favorite`, { method: 'PUT', credentials: 'same-origin' });
+    const data = await res.json();
+    const isFav = !!data.is_favorite;
+    // Update in artItems array
+    const idx = artItems.findIndex(a => a.id === id);
+    if (idx !== -1) {
+      artItems[idx] = { ...artItems[idx], is_favorite: isFav ? 1 : 0 };
+      populateModal(artItems[idx]);
+      // Refresh card badge
+      const card = document.querySelector(`.art-card[data-idx="${idx}"]`);
+      if (card) {
+        const favBadge = card.querySelector('.art-card-fav');
+        if (isFav && !favBadge) {
+          const imgWrap = card.querySelector('.art-card-img');
+          imgWrap?.insertAdjacentHTML('beforeend', '<span class="art-card-fav">⭐</span>');
+        } else if (!isFav && favBadge) {
+          favBadge.remove();
+        }
+      }
+    }
+  } catch {}
+});
 
   // Pause on hover
   frame.addEventListener('mouseenter', () => {

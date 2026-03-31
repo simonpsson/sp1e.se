@@ -115,7 +115,8 @@ INSERT OR IGNORE INTO categories (id, name, icon, sort_order) VALUES
   ('databricks',  'Databricks', '🧱',  4),
   ('dokument',    'Dokument',   '📄',  5),
   ('bilder',      'Bilder',     '🖼️',  6),
-  ('bokmarken',   'Bokmärken',  '🔗',  7);
+  ('bokmarken',   'Bokmärken',  '🔗',  7),
+  ('konst',       'Konst',      '🎨',  8);
 
 -- ─── Seed: subcategories ─────────────────────────────────────────────────────
 
@@ -151,4 +152,35 @@ INSERT OR IGNORE INTO subcategories (id, category_id, name, sort_order) VALUES
   ('bokmarken-verktyg',     'bokmarken',  'Verktyg',       1),
   ('bokmarken-artiklar',    'bokmarken',  'Artiklar',      2),
   ('bokmarken-referens',    'bokmarken',  'Referens',      3),
-  ('bokmarken-ovrigt',      'bokmarken',  'Övrigt',        4);
+  ('bokmarken-ovrigt',      'bokmarken',  'Övrigt',        4),
+  -- Konst
+  ('konst-galleri',         'konst',      'Galleri',       1),
+  ('konst-favoriter',       'konst',      'Favoriter',     2),
+  ('konst-artister',        'konst',      'Konstnärer',    3);
+
+-- ─── Artworks ────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS artworks (
+  id            TEXT    PRIMARY KEY,
+  title         TEXT    NOT NULL,
+  artist        TEXT    NOT NULL,
+  date_display  TEXT,
+  medium        TEXT,
+  dimensions    TEXT,
+  school        TEXT,
+  image_url     TEXT,
+  thumbnail_url TEXT,
+  source_museum TEXT,
+  source_id     TEXT,
+  source_url    TEXT,
+  description   TEXT,
+  is_public     INTEGER NOT NULL DEFAULT 0,
+  is_favorite   INTEGER NOT NULL DEFAULT 0,
+  tags          TEXT,
+  added_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_artworks_artist   ON artworks (artist);
+CREATE INDEX IF NOT EXISTS idx_artworks_school   ON artworks (school);
+CREATE INDEX IF NOT EXISTS idx_artworks_favorite ON artworks (is_favorite);
+CREATE INDEX IF NOT EXISTS idx_artworks_added    ON artworks (added_at DESC);
