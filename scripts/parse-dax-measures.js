@@ -2,180 +2,215 @@
 /**
  * parse-dax-measures.js
  *
- * Reads hemfrid_dax_measures.md from the repo root and produces
- * dax-measures.json, which is embedded in the Worker's import-dax route.
+ * Reads hemfrid_dax_measures.md → writes functions/api/_dax-data.ts
+ *
+ * Structure expected in the markdown:
+ *   ## N. CATEGORY NAME        ← sets current subcategory
+ *   ```dax
+ *   // === SNIPPET TITLE ===   ← first line of code block is the title comment
+ *   DAX code...
+ *   ```
+ *
+ * Each ```dax block becomes one snippet.
+ * Title is extracted from the first `// === ... ===` comment.
+ * If no title comment, falls back to "Category heading (N)".
  *
  * Usage:
  *   node scripts/parse-dax-measures.js
- *
- * The script expects the markdown to follow this structure:
- *
- *   ## Category Name
- *   <!-- subcategory_id: pb-revenue -->
- *
- *   ### Snippet Title
- *   Description text (optional, any paragraph before the code block)
- *   ```dax
- *   DAX code here
- *   ```
- *   Tags: tag1, tag2, tag3   (optional)
- *
- * Each H2 section maps to one of the 12 subcategories.
- * Each H3 inside it becomes one snippet.
  */
 
 const fs   = require('fs');
 const path = require('path');
 
-const ROOT     = path.resolve(__dirname, '..');
-const SRC      = path.join(ROOT, 'hemfrid_dax_measures.md');
-const OUT      = path.join(ROOT, 'functions', 'api', '_dax-data.ts');
+const ROOT = path.resolve(__dirname, '..');
+const SRC  = path.join(ROOT, 'hemfrid_dax_measures.md');
+const OUT  = path.join(ROOT, 'functions', 'api', '_dax-data.ts');
 
 if (!fs.existsSync(SRC)) {
   console.error('ERROR: hemfrid_dax_measures.md not found at repo root.');
-  console.error('Add the file then re-run: node scripts/parse-dax-measures.js');
   process.exit(1);
 }
 
-// Subcategory id mapping — key is a lowercased fragment of the H2 heading
-const SUBCAT_MAP = {
-  'revenue':    'pb-revenue',
-  'financial':  'pb-revenue',
-  'orders':     'pb-orders',
-  'bookings':   'pb-orders',
-  'customer':   'pb-customers',
-  'workforce':  'pb-workforce',
-  'operations': 'pb-workforce',
-  'geographic': 'pb-geo',
-  'rut':        'pb-rut',
-  'seasonal':   'pb-seasonal',
-  'trend':      'pb-seasonal',
-  'marketing':  'pb-marketing',
-  'acquisition':'pb-marketing',
-  'quality':    'pb-quality',
-  'complaint':  'pb-quality',
-  'forecast':   'pb-forecast',
-  'target':     'pb-forecast',
-  'ranking':    'pb-ranking',
-  'comparative':'pb-ranking',
-  'helper':     'pb-utility',
-  'utility':    'pb-utility',
+// Subcategory mapping: fragment of lowercased H2 heading → subcategory id
+const SUBCAT_MAP = [
+  { keys: ['revenue', 'financial'],          id: 'pb-revenue'   },
+  { keys: ['orders', 'bookings'],            id: 'pb-orders'    },
+  { keys: ['customer'],                      id: 'pb-customers' },
+  { keys: ['workforce', 'operations'],       id: 'pb-workforce' },
+  { keys: ['geographic'],                    id: 'pb-geo'       },
+  { keys: ['rut'],                           id: 'pb-rut'       },
+  { keys: ['seasonal', 'trend'],             id: 'pb-seasonal'  },
+  { keys: ['marketing', 'acquisition'],      id: 'pb-marketing' },
+  { keys: ['quality', 'complaint'],          id: 'pb-quality'   },
+  { keys: ['forecast', 'target'],            id: 'pb-forecast'  },
+  { keys: ['ranking', 'comparative'],        id: 'pb-ranking'   },
+  { keys: ['helper', 'utility'],             id: 'pb-utility'   },
+];
+
+// Default tags per subcategory
+const TAGS_MAP = {
+  'pb-revenue':   ['dax', 'revenue', 'kpi', 'hemfrid'],
+  'pb-orders':    ['dax', 'orders', 'bookings', 'hemfrid'],
+  'pb-customers': ['dax', 'customers', 'retention', 'hemfrid'],
+  'pb-workforce': ['dax', 'workforce', 'operations', 'hemfrid'],
+  'pb-geo':       ['dax', 'geographic', 'region', 'hemfrid'],
+  'pb-rut':       ['dax', 'rut', 'rut-avdrag', 'hemfrid'],
+  'pb-seasonal':  ['dax', 'seasonal', 'trend', 'hemfrid'],
+  'pb-marketing': ['dax', 'marketing', 'acquisition', 'hemfrid'],
+  'pb-quality':   ['dax', 'quality', 'complaints', 'hemfrid'],
+  'pb-forecast':  ['dax', 'forecast', 'targets', 'hemfrid'],
+  'pb-ranking':   ['dax', 'ranking', 'comparative', 'hemfrid'],
+  'pb-utility':   ['dax', 'utility', 'helper', 'hemfrid'],
 };
 
 function resolveSubcat(heading) {
   const lower = heading.toLowerCase();
-  for (const [key, id] of Object.entries(SUBCAT_MAP)) {
-    if (lower.includes(key)) return id;
+  for (const { keys, id } of SUBCAT_MAP) {
+    if (keys.some(k => lower.includes(k))) return id;
   }
   return null;
 }
 
+// Extract title from the first `// === TITLE ===` comment in a code block.
+// Returns null if no such comment exists.
+function extractTitleFromCode(codeLines) {
+  for (const line of codeLines) {
+    const m = line.match(/^\/\/\s*={2,}\s*(.+?)\s*={0,}\s*$/);
+    if (m) {
+      // Capitalise first letter of each word, keep rest lowercase-ish
+      return m[1].trim()
+        .split(/\s+/)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ')
+        // Restore common acronyms
+        .replace(/\bYoy\b/gi, 'YoY')
+        .replace(/\bMom\b/gi, 'MoM')
+        .replace(/\bYtd\b/gi, 'YTD')
+        .replace(/\bMtd\b/gi, 'MTD')
+        .replace(/\bQtd\b/gi, 'QTD')
+        .replace(/\bCagr\b/gi, 'CAGR')
+        .replace(/\bRut\b/gi, 'RUT')
+        .replace(/\bKpi\b/gi, 'KPI')
+        .replace(/\bNps\b/gi, 'NPS');
+    }
+  }
+  return null;
+}
+
+// Description map keyed by title fragment (lowercase)
+const DESC_MAP = {
+  'grundläggande':  'Grundläggande intäktsmått: Total Revenue, AOV, Gross Margin, EBITDA, kostnader',
+  'tjänstetyp':     'Intäktsuppdelning per tjänst: Hemstäd, Kontorsstäd, Flyttstäd, Fönsterputs, etc.',
+  'tidsintelligens':'Tidsintelligens: Year-over-Year, Month-over-Month, YTD, Rolling averages, CAGR',
+  'orders':         'Ordermått: completion/cancellation rate, recurring orders, first-time vs repeat, lead time',
+  'kundanalys':     'Kundmått: new/returning, retention, churn, CLV, cross-sell, top 10%',
+  'kundsegmentering':'Segmentering: At Risk, Lost, VIP/Loyal/Active/New, NPS, churn risk',
+  'workforce':      'Personal och drift: revenue per anställd, utilization, sjukfrånvaro, on-time rate',
+  'geografisk':     'Regionmått: marknadsandel, revenue per capita, regional ranking, growth by area',
+  'rut':            'RUT-avdrag: RUT-andel, utrymme kvar, kunder nära tak (75 000 kr)',
+  'säsong':         'Säsongsmönster: seasonality index, holiday impact, summer dip, trend direction',
+  'marketing':      'Marknadsföring: CAC, Marketing ROI, conversion rate, payback period, channel performance',
+  'kvalitet':       'Kvalitetsmått: redo rate, klagomålshantering, resolution time, service quality score',
+  'forecasting':    'Prognos: target achievement, run rate, projected year-end, gap to target',
+  'comparative':    'Jämförelser: RANKX, percentiler, Pareto 80/20, index vs average, best month ever',
+  'helper':         'Hjälpmått: data freshness, formatting, conditional formatting values, KPI-pilar',
+};
+
+function resolveDesc(title) {
+  const lower = title.toLowerCase();
+  for (const [key, desc] of Object.entries(DESC_MAP)) {
+    if (lower.includes(key)) return desc;
+  }
+  return null;
+}
+
+// ── Parse ────────────────────────────────────────────
 const src    = fs.readFileSync(SRC, 'utf8');
 const lines  = src.split('\n');
 const output = [];
 
-let currentSubcat = null;
-let snippetTitle  = null;
-let snippetDesc   = null;
-let snippetTags   = [];
-let inCode        = false;
-let codeLang      = 'dax';
-let codeLines     = [];
+let currentSubcat   = null;
+let currentCategory = '';
+let catBlockIdx     = 0;   // count of code blocks within current category
+let inCode          = false;
+let codeLines       = [];
 
-function flushSnippet() {
-  if (!snippetTitle || !codeLines.length || !currentSubcat) return;
-  const code = codeLines.join('\n').trimEnd();
-  if (!code) return;
+function flushBlock() {
+  if (!codeLines.length || !currentSubcat) { codeLines = []; return; }
+
+  const title  = extractTitleFromCode(codeLines)
+    ?? (catBlockIdx > 1 ? `${currentCategory} (${catBlockIdx})` : currentCategory);
+  const code   = codeLines.join('\n').trimEnd();
+
   output.push({
-    title:          snippetTitle.trim(),
-    language:       codeLang || 'dax',
+    title,
+    language:       'dax',
     code,
-    description:    snippetDesc ? snippetDesc.trim() : null,
+    description:    resolveDesc(title),
     subcategory_id: currentSubcat,
-    tags:           snippetTags,
+    tags:           TAGS_MAP[currentSubcat] ?? ['dax', 'hemfrid'],
   });
-  snippetTitle = null;
-  snippetDesc  = null;
-  snippetTags  = [];
-  codeLines    = [];
-  codeLang     = 'dax';
+
+  codeLines = [];
 }
 
-for (let i = 0; i < lines.length; i++) {
-  const line = lines[i];
-
-  // H2 — new category
-  if (/^## /.test(line)) {
-    flushSnippet();
-    snippetTitle = null;
-    const heading = line.replace(/^## /, '');
-    // Check next line for explicit subcategory comment
-    const next = lines[i + 1] ?? '';
-    const explicit = next.match(/<!--\s*subcategory_id:\s*(\S+)\s*-->/);
-    currentSubcat = explicit ? explicit[1] : resolveSubcat(heading);
-    continue;
-  }
-
-  // H3 — new snippet
-  if (/^### /.test(line)) {
-    flushSnippet();
-    snippetTitle = line.replace(/^### /, '');
-    snippetDesc  = null;
-    snippetTags  = [];
-    codeLines    = [];
-    inCode       = false;
-    continue;
-  }
-
-  // Tags line
-  const tagsMatch = line.match(/^[Tt]ags?:\s*(.+)/);
-  if (tagsMatch && !inCode) {
-    snippetTags = tagsMatch[1].split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean);
+for (const line of lines) {
+  // H2 → new category
+  if (/^## /.test(line) && !inCode) {
+    flushBlock();
+    const heading = line.replace(/^##\s+\d*\.?\s*/, '');
+    currentSubcat   = resolveSubcat(heading);
+    currentCategory = heading.split(/\s+/).slice(0, 4).join(' '); // short label
+    catBlockIdx     = 0;
     continue;
   }
 
   // Code fence open
-  const fenceOpen = line.match(/^```(\w*)/);
-  if (fenceOpen && !inCode) {
-    inCode   = true;
-    codeLang = fenceOpen[1] || 'dax';
+  if (/^```dax/.test(line) && !inCode) {
+    inCode      = true;
+    codeLines   = [];
     continue;
   }
 
   // Code fence close
   if (line.startsWith('```') && inCode) {
     inCode = false;
+    catBlockIdx++;
+    flushBlock();
     continue;
   }
 
   if (inCode) {
     codeLines.push(line);
-    continue;
-  }
-
-  // Description paragraph (between H3 and first code block)
-  if (snippetTitle && !codeLines.length && line.trim() && !line.startsWith('#')) {
-    snippetDesc = (snippetDesc ? snippetDesc + ' ' : '') + line.trim();
   }
 }
 
-flushSnippet();
+flushBlock(); // safety
 
-// Serialize as TypeScript constant
-function escape(s) { return s.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${'); }
+// ── Emit TypeScript ──────────────────────────────────
+function escape(s) {
+  return s
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\$\{/g, '\\${');
+}
 
-const entries = output.map(s => `  {
+const entries = output.map(s => {
+  const desc = s.description ? JSON.stringify(s.description) : 'null';
+  return `  {
     title:          ${JSON.stringify(s.title)},
-    language:       ${JSON.stringify(s.language)},
+    language:       "dax",
     code:           \`${escape(s.code)}\`,
-    description:    ${s.description ? JSON.stringify(s.description) : 'null'},
+    description:    ${desc},
     subcategory_id: ${JSON.stringify(s.subcategory_id)},
     tags:           ${JSON.stringify(s.tags)},
-  }`).join(',\n');
+  }`;
+}).join(',\n');
 
 const ts = `/**
  * DAX measures data — AUTO-GENERATED by scripts/parse-dax-measures.js
- * DO NOT EDIT MANUALLY.
+ * Source: hemfrid_dax_measures.md
+ * DO NOT EDIT MANUALLY — re-run the script to regenerate.
  */
 
 export interface DaxMeasure {
@@ -194,11 +229,11 @@ ${entries}
 
 fs.writeFileSync(OUT, ts);
 
-console.log(`Wrote ${output.length} snippets to functions/api/_dax-data.ts`);
+// ── Summary ───────────────────────────────────────────
+console.log(`\nWrote ${output.length} snippets to functions/api/_dax-data.ts\n`);
 const byCat = {};
-for (const s of output) {
-  byCat[s.subcategory_id] = (byCat[s.subcategory_id] ?? 0) + 1;
-}
+for (const s of output) byCat[s.subcategory_id] = (byCat[s.subcategory_id] ?? 0) + 1;
 for (const [cat, n] of Object.entries(byCat)) {
-  console.log(`  ${cat}: ${n} snippet(s)`);
+  console.log(`  ${cat.padEnd(16)} ${n} snippet(s)  — "${output.find(s => s.subcategory_id === cat)?.title}"`);
 }
+console.log('');
