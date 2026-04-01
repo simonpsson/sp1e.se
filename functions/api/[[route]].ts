@@ -191,9 +191,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     }
 
     if (resource === 'snippets') {
-      if (!id && method === 'POST')                          return createItem('snippets', request, env, SNIPPET_FIELDS);
-      if (id  && method === 'DELETE')                        return deleteItem('snippets', id, env);
-      if (id  && (method === 'PATCH' || method === 'PUT'))   return updateItem('snippets', id, request, env, SNIPPET_FIELDS);
+      if (id === 'bulk' && method === 'POST')                      { await requireAuth(request, env); return bulkCreateSnippets(request, env); }
+      if (!id && method === 'POST')                                return createItem('snippets', request, env, SNIPPET_FIELDS);
+      if (id  && method === 'DELETE')                              return deleteItem('snippets', id, env);
+      if (id  && (method === 'PATCH' || method === 'PUT'))         return updateItem('snippets', id, request, env, SNIPPET_FIELDS);
     }
 
     if (resource === 'bookmarks') {
@@ -1012,6 +1013,60 @@ async function getArtworks(env: Env): Promise<Response> {
   }
 
   return json({ data: items });
+}
+
+// ─── Bulk snippet import ──────────────────────────────────────────────────────
+
+interface BulkSnippet {
+  title:          string;
+  language:       string;
+  code:           string;
+  description?:   string;
+  subcategory_id?: string | null;
+  tags?:          string[];
+}
+
+async function bulkCreateSnippets(request: Request, env: Env): Promise<Response> {
+  let body: { snippets?: unknown };
+  try { body = await request.json() as { snippets?: unknown }; }
+  catch { return json({ error: 'Invalid JSON' }, 400); }
+
+  const raw = body.snippets;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return json({ error: '`snippets` array required' }, 400);
+  }
+
+  const snippets = raw as BulkSnippet[];
+  let imported = 0;
+  let skipped  = 0;
+
+  // Batch in groups of 100 (D1 batch limit).
+  const BATCH = 100;
+  for (let i = 0; i < snippets.length; i += BATCH) {
+    const chunk = snippets.slice(i, i + BATCH);
+    const stmts = chunk.map(s => {
+      const id   = crypto.randomUUID();
+      const tags = JSON.stringify(Array.isArray(s.tags) ? s.tags : []);
+      return env.DB.prepare(`
+        INSERT OR IGNORE INTO snippets (id, title, language, code, description, subcategory_id, tags, is_public)
+        SELECT ?, ?, ?, ?, ?, ?, ?, 0
+        WHERE NOT EXISTS (
+          SELECT 1 FROM snippets WHERE title = ? AND subcategory_id IS ?
+        )
+      `).bind(
+        id, s.title, s.language, s.code ?? '', s.description ?? null, s.subcategory_id ?? null, tags,
+        s.title, s.subcategory_id ?? null
+      );
+    });
+
+    const results = await env.DB.batch(stmts);
+    for (const r of results) {
+      if ((r.meta?.changes ?? 0) > 0) imported++;
+      else skipped++;
+    }
+  }
+
+  return json({ imported, skipped, total: snippets.length });
 }
 
 // ─── Artworks CRUD ────────────────────────────────────────────────────────────
