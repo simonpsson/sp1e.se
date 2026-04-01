@@ -1889,7 +1889,29 @@ async function importDaxMeasures(env: Env): Promise<Response> {
   const measures = DAX_MEASURES;
   if (!measures.length) {
     return json({
-      error: 'dax-measures.json is empty. Run: node scripts/parse-dax-measures.js, then redeploy.',
+      error: 'inlined DAX_MEASURES is empty. Redeploy a build that includes the inlined data block in functions/api/[[route]].ts.',
+    }, 400);
+  }
+
+  const requiredSubcategoryIds = [...new Set(
+    measures.map(m => m.subcategory_id).filter(Boolean)
+  )];
+
+  const placeholders = requiredSubcategoryIds.map(() => '?').join(', ');
+  const existing = await env.DB.prepare(`
+    SELECT id
+    FROM subcategories
+    WHERE id IN (${placeholders})
+  `).bind(...requiredSubcategoryIds).all<{ id: string }>();
+
+  const existingIds = new Set(existing.results.map(row => row.id));
+  const missingSubcategories = requiredSubcategoryIds.filter(id => !existingIds.has(id));
+
+  if (missingSubcategories.length) {
+    return json({
+      error: 'missing dax subcategories',
+      missing_subcategories: missingSubcategories,
+      hint: 'Run: npx wrangler d1 execute sp1e-db --remote --file=seed-dax-categories.sql',
     }, 400);
   }
 
