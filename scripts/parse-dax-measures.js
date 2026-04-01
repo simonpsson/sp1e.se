@@ -1,0 +1,204 @@
+#!/usr/bin/env node
+/**
+ * parse-dax-measures.js
+ *
+ * Reads hemfrid_dax_measures.md from the repo root and produces
+ * dax-measures.json, which is embedded in the Worker's import-dax route.
+ *
+ * Usage:
+ *   node scripts/parse-dax-measures.js
+ *
+ * The script expects the markdown to follow this structure:
+ *
+ *   ## Category Name
+ *   <!-- subcategory_id: pb-revenue -->
+ *
+ *   ### Snippet Title
+ *   Description text (optional, any paragraph before the code block)
+ *   ```dax
+ *   DAX code here
+ *   ```
+ *   Tags: tag1, tag2, tag3   (optional)
+ *
+ * Each H2 section maps to one of the 12 subcategories.
+ * Each H3 inside it becomes one snippet.
+ */
+
+const fs   = require('fs');
+const path = require('path');
+
+const ROOT     = path.resolve(__dirname, '..');
+const SRC      = path.join(ROOT, 'hemfrid_dax_measures.md');
+const OUT      = path.join(ROOT, 'functions', 'api', '_dax-data.ts');
+
+if (!fs.existsSync(SRC)) {
+  console.error('ERROR: hemfrid_dax_measures.md not found at repo root.');
+  console.error('Add the file then re-run: node scripts/parse-dax-measures.js');
+  process.exit(1);
+}
+
+// Subcategory id mapping — key is a lowercased fragment of the H2 heading
+const SUBCAT_MAP = {
+  'revenue':    'pb-revenue',
+  'financial':  'pb-revenue',
+  'orders':     'pb-orders',
+  'bookings':   'pb-orders',
+  'customer':   'pb-customers',
+  'workforce':  'pb-workforce',
+  'operations': 'pb-workforce',
+  'geographic': 'pb-geo',
+  'rut':        'pb-rut',
+  'seasonal':   'pb-seasonal',
+  'trend':      'pb-seasonal',
+  'marketing':  'pb-marketing',
+  'acquisition':'pb-marketing',
+  'quality':    'pb-quality',
+  'complaint':  'pb-quality',
+  'forecast':   'pb-forecast',
+  'target':     'pb-forecast',
+  'ranking':    'pb-ranking',
+  'comparative':'pb-ranking',
+  'helper':     'pb-utility',
+  'utility':    'pb-utility',
+};
+
+function resolveSubcat(heading) {
+  const lower = heading.toLowerCase();
+  for (const [key, id] of Object.entries(SUBCAT_MAP)) {
+    if (lower.includes(key)) return id;
+  }
+  return null;
+}
+
+const src    = fs.readFileSync(SRC, 'utf8');
+const lines  = src.split('\n');
+const output = [];
+
+let currentSubcat = null;
+let snippetTitle  = null;
+let snippetDesc   = null;
+let snippetTags   = [];
+let inCode        = false;
+let codeLang      = 'dax';
+let codeLines     = [];
+
+function flushSnippet() {
+  if (!snippetTitle || !codeLines.length || !currentSubcat) return;
+  const code = codeLines.join('\n').trimEnd();
+  if (!code) return;
+  output.push({
+    title:          snippetTitle.trim(),
+    language:       codeLang || 'dax',
+    code,
+    description:    snippetDesc ? snippetDesc.trim() : null,
+    subcategory_id: currentSubcat,
+    tags:           snippetTags,
+  });
+  snippetTitle = null;
+  snippetDesc  = null;
+  snippetTags  = [];
+  codeLines    = [];
+  codeLang     = 'dax';
+}
+
+for (let i = 0; i < lines.length; i++) {
+  const line = lines[i];
+
+  // H2 — new category
+  if (/^## /.test(line)) {
+    flushSnippet();
+    snippetTitle = null;
+    const heading = line.replace(/^## /, '');
+    // Check next line for explicit subcategory comment
+    const next = lines[i + 1] ?? '';
+    const explicit = next.match(/<!--\s*subcategory_id:\s*(\S+)\s*-->/);
+    currentSubcat = explicit ? explicit[1] : resolveSubcat(heading);
+    continue;
+  }
+
+  // H3 — new snippet
+  if (/^### /.test(line)) {
+    flushSnippet();
+    snippetTitle = line.replace(/^### /, '');
+    snippetDesc  = null;
+    snippetTags  = [];
+    codeLines    = [];
+    inCode       = false;
+    continue;
+  }
+
+  // Tags line
+  const tagsMatch = line.match(/^[Tt]ags?:\s*(.+)/);
+  if (tagsMatch && !inCode) {
+    snippetTags = tagsMatch[1].split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean);
+    continue;
+  }
+
+  // Code fence open
+  const fenceOpen = line.match(/^```(\w*)/);
+  if (fenceOpen && !inCode) {
+    inCode   = true;
+    codeLang = fenceOpen[1] || 'dax';
+    continue;
+  }
+
+  // Code fence close
+  if (line.startsWith('```') && inCode) {
+    inCode = false;
+    continue;
+  }
+
+  if (inCode) {
+    codeLines.push(line);
+    continue;
+  }
+
+  // Description paragraph (between H3 and first code block)
+  if (snippetTitle && !codeLines.length && line.trim() && !line.startsWith('#')) {
+    snippetDesc = (snippetDesc ? snippetDesc + ' ' : '') + line.trim();
+  }
+}
+
+flushSnippet();
+
+// Serialize as TypeScript constant
+function escape(s) { return s.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${'); }
+
+const entries = output.map(s => `  {
+    title:          ${JSON.stringify(s.title)},
+    language:       ${JSON.stringify(s.language)},
+    code:           \`${escape(s.code)}\`,
+    description:    ${s.description ? JSON.stringify(s.description) : 'null'},
+    subcategory_id: ${JSON.stringify(s.subcategory_id)},
+    tags:           ${JSON.stringify(s.tags)},
+  }`).join(',\n');
+
+const ts = `/**
+ * DAX measures data — AUTO-GENERATED by scripts/parse-dax-measures.js
+ * DO NOT EDIT MANUALLY.
+ */
+
+export interface DaxMeasure {
+  title:          string;
+  language:       string;
+  code:           string;
+  description:    string | null;
+  subcategory_id: string;
+  tags:           string[];
+}
+
+export const DAX_MEASURES: DaxMeasure[] = [
+${entries}
+];
+`;
+
+fs.writeFileSync(OUT, ts);
+
+console.log(`Wrote ${output.length} snippets to functions/api/_dax-data.ts`);
+const byCat = {};
+for (const s of output) {
+  byCat[s.subcategory_id] = (byCat[s.subcategory_id] ?? 0) + 1;
+}
+for (const [cat, n] of Object.entries(byCat)) {
+  console.log(`  ${cat}: ${n} snippet(s)`);
+}
