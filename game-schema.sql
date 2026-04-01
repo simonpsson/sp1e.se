@@ -1,0 +1,158 @@
+-- sp1e.se Mosquito — game tables
+-- Run: npx wrangler d1 execute sp1e-db --remote --file=game-schema.sql
+-- Local: npx wrangler d1 execute sp1e-db --local  --file=game-schema.sql
+
+-- ─── Rounds ──────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_rounds (
+  id           TEXT    PRIMARY KEY,
+  round_number INTEGER NOT NULL,
+  start_date   TEXT    NOT NULL,
+  end_date     TEXT    NOT NULL,
+  is_active    INTEGER DEFAULT 1,
+  created_at   TEXT    DEFAULT (datetime('now'))
+);
+
+-- ─── Players ─────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_players (
+  id           TEXT    PRIMARY KEY,
+  round_id     TEXT    NOT NULL,
+  name         TEXT    NOT NULL UNIQUE,
+  level        INTEGER DEFAULT 1,
+  xp           INTEGER DEFAULT 0,
+  cash         INTEGER DEFAULT 500,
+  bank         INTEGER DEFAULT 0,
+  respect      INTEGER DEFAULT 0,
+
+  -- Stats (0-100)
+  strength     INTEGER DEFAULT 10,
+  intelligence INTEGER DEFAULT 10,
+  charisma     INTEGER DEFAULT 10,
+  stealth      INTEGER DEFAULT 10,
+
+  -- Combat
+  hp           INTEGER DEFAULT 100,
+  hp_max       INTEGER DEFAULT 100,
+
+  -- Energy (replenishes 1/3min)
+  energy          INTEGER DEFAULT 100,
+  energy_max      INTEGER DEFAULT 100,
+  energy_last_regen TEXT   DEFAULT (datetime('now')),
+
+  -- Profession: rånare, langare, torped, hallick, bedragare
+  profession   TEXT    DEFAULT 'none',
+
+  -- Side
+  side         TEXT    DEFAULT 'eastside',
+
+  -- Status flags
+  in_prison    INTEGER DEFAULT 0,
+  prison_until TEXT,
+  in_hospital  INTEGER DEFAULT 0,
+  hospital_until TEXT,
+  is_alive     INTEGER DEFAULT 1,
+
+  last_action  TEXT    DEFAULT (datetime('now')),
+  created_at   TEXT    DEFAULT (datetime('now')),
+
+  FOREIGN KEY (round_id) REFERENCES game_rounds(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_players_round   ON game_players (round_id);
+CREATE INDEX IF NOT EXISTS idx_game_players_respect ON game_players (respect DESC);
+
+-- ─── Inventory ───────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_inventory (
+  id          TEXT    PRIMARY KEY,
+  player_id   TEXT    NOT NULL,
+  item_type   TEXT    NOT NULL,  -- weapon, drug, vehicle, armor, tool
+  item_name   TEXT    NOT NULL,
+  quantity    INTEGER DEFAULT 1,
+  buy_price   INTEGER,
+  properties  TEXT,              -- JSON: {"damage":15,"accuracy":80}
+  created_at  TEXT    DEFAULT (datetime('now')),
+  FOREIGN KEY (player_id) REFERENCES game_players(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_inv_player ON game_inventory (player_id);
+
+-- ─── Properties ──────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_properties (
+  id               TEXT    PRIMARY KEY,
+  player_id        TEXT    NOT NULL,
+  property_type    TEXT    NOT NULL,  -- stash_house, nightclub, drug_lab, garage, safehouse
+  property_name    TEXT    NOT NULL,
+  level            INTEGER DEFAULT 1,
+  income_per_hour  INTEGER DEFAULT 0,
+  last_collected   TEXT    DEFAULT (datetime('now')),
+  created_at       TEXT    DEFAULT (datetime('now')),
+  FOREIGN KEY (player_id) REFERENCES game_players(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_props_player ON game_properties (player_id);
+
+-- ─── NPCs ────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_npcs (
+  id          TEXT    PRIMARY KEY,
+  round_id    TEXT    NOT NULL,
+  name        TEXT    NOT NULL,
+  level       INTEGER DEFAULT 1,
+  respect     INTEGER DEFAULT 0,
+  strength    INTEGER DEFAULT 10,
+  cash        INTEGER DEFAULT 100,
+  side        TEXT    DEFAULT 'eastside',
+  personality TEXT,  -- aggressive, defensive, trader, passive
+  is_alive    INTEGER DEFAULT 1,
+  FOREIGN KEY (round_id) REFERENCES game_rounds(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_npcs_round ON game_npcs (round_id);
+
+-- ─── Action log ──────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_action_log (
+  id             TEXT    PRIMARY KEY,
+  player_id      TEXT    NOT NULL,
+  action_type    TEXT    NOT NULL,  -- robbery, assault, drug_deal, training, property, streetrace
+  description    TEXT,
+  cash_change    INTEGER DEFAULT 0,
+  respect_change INTEGER DEFAULT 0,
+  xp_change      INTEGER DEFAULT 0,
+  success        INTEGER DEFAULT 1,
+  created_at     TEXT    DEFAULT (datetime('now')),
+  FOREIGN KEY (player_id) REFERENCES game_players(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_log_player  ON game_action_log (player_id);
+CREATE INDEX IF NOT EXISTS idx_game_log_created ON game_action_log (created_at DESC);
+
+-- ─── Leaderboard (Hall of Fame) ───────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_leaderboard (
+  id            TEXT    PRIMARY KEY,
+  round_id      TEXT    NOT NULL,
+  round_number  INTEGER NOT NULL,
+  player_name   TEXT    NOT NULL,
+  final_respect INTEGER NOT NULL,
+  final_level   INTEGER,
+  final_cash    INTEGER,
+  profession    TEXT,
+  side          TEXT,
+  rank          INTEGER,
+  created_at    TEXT    DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_lb_round ON game_leaderboard (round_id);
+
+-- ─── Assault cooldowns ───────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_assault_cooldowns (
+  attacker_id TEXT NOT NULL,
+  target_id   TEXT NOT NULL,
+  attacked_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (attacker_id, target_id)
+);
