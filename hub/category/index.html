@@ -463,6 +463,135 @@
     .sort-wrap  { margin-left: 0; }
   }
 
+  /* ── DAX Reference Layout ──────────────────────────── */
+  main.dax-mode { max-width: min(1240px, 97vw); padding-left: 1.5rem; padding-right: 1.5rem; }
+
+  .dax-search-bar { margin-bottom: 1.5rem; }
+  .dax-search-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.65rem 1rem;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .dax-search-input:focus { border-color: var(--border-hi); }
+  .dax-search-input::placeholder { color: var(--dim); }
+
+  .dax-layout { display: flex; gap: 2rem; align-items: flex-start; }
+
+  .dax-sidebar {
+    width: 210px; flex-shrink: 0;
+    position: sticky; top: 72px;
+    max-height: calc(100vh - 88px); overflow-y: auto;
+  }
+  .dax-sidebar::-webkit-scrollbar { width: 3px; }
+  .dax-sidebar::-webkit-scrollbar-track { background: transparent; }
+  .dax-sidebar::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+  .dax-sidebar-label {
+    font-size: 0.58rem; letter-spacing: 0.08em; color: var(--dim);
+    text-transform: uppercase; padding: 0 0.4rem; margin-bottom: 0.5rem;
+  }
+  .dax-sb-link {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.42rem 0.65rem; border-radius: 6px; width: 100%;
+    background: none; border: none; text-align: left; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted);
+    transition: color 0.15s, background 0.15s;
+  }
+  .dax-sb-link:hover { color: var(--text); background: var(--hover-bg); }
+  .dax-sb-link.active { color: var(--accent); background: var(--accent-dim); }
+  .dax-sb-count { font-size: 0.58rem; color: var(--dim); }
+  .dax-sb-link.active .dax-sb-count { color: rgba(74,242,200,0.6); }
+
+  .dax-main { flex: 1; min-width: 0; }
+  .dax-intro {
+    font-size: 0.75rem; color: var(--muted); line-height: 1.7;
+    padding: 0.9rem 1.1rem; margin-bottom: 1.5rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .dax-no-results { font-size: 0.78rem; color: var(--muted); padding: 2rem 0; text-align: center; }
+
+  /* Accordion */
+  .dax-section { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 0.65rem; overflow: hidden; }
+  .dax-section.hidden { display: none; }
+  .dax-section-hdr {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.8rem 1.1rem; cursor: pointer; width: 100%;
+    background: var(--surface); border: none; text-align: left;
+    font-family: 'DM Mono', monospace; transition: background 0.15s;
+    user-select: none;
+  }
+  .dax-section-hdr:hover { background: var(--hover-bg); }
+  .dax-section-hdr.open { background: var(--surface2); }
+  .dax-chev { font-size: 0.6rem; color: var(--dim); transition: transform 0.25s; }
+  .dax-section-hdr.open .dax-chev { transform: rotate(90deg); }
+  .dax-section-name { font-size: 0.79rem; color: var(--text); flex: 1; }
+  .dax-section-badge {
+    font-size: 0.57rem; padding: 0.08rem 0.42rem; border-radius: 999px;
+    background: var(--accent-dim); border: 1px solid rgba(74,242,200,0.2); color: var(--accent);
+  }
+  .dax-section-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+  .dax-section-body.open { max-height: 20000px; border-top: 1px solid var(--border); }
+  .dax-section-inner { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+  /* Snippet inside accordion */
+  .dax-snippet { }
+  .dax-snippet.hidden { display: none; }
+  .dax-snippet-title { font-size: 0.8rem; color: var(--text); margin-bottom: 0.25rem; }
+  .dax-snippet-desc  { font-size: 0.7rem; color: var(--muted); margin-bottom: 0.6rem; line-height: 1.5; }
+  .dax-code-wrap {
+    position: relative; border-radius: 7px; overflow: hidden;
+    background: #12121a; border: 1px solid rgba(255,255,255,0.06);
+  }
+  .dax-code-block {
+    overflow-x: auto; padding: 0.9rem 1rem; margin: 0;
+    font-family: 'DM Mono', monospace; font-size: 0.7rem; line-height: 1.65;
+    color: #cdd6f4; background: transparent;
+    tab-size: 2; white-space: pre;
+  }
+  .copy-btn {
+    position: absolute; top: 0.45rem; right: 0.5rem;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 5px; padding: 0.2rem 0.55rem;
+    font-family: 'DM Mono', monospace; font-size: 0.6rem; color: rgba(255,255,255,0.45);
+    cursor: pointer; transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85); }
+  .copy-btn.copied { color: #4af2c8; border-color: rgba(74,242,200,0.4); }
+  .dax-tags { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.6rem; }
+  .dax-tag {
+    font-size: 0.58rem; padding: 0.1rem 0.35rem; border-radius: 3px;
+    border: 1px solid var(--border-hi); color: var(--muted);
+  }
+
+  /* DAX syntax highlight colours */
+  .dh-comment { color: #6c7086; font-style: italic; }
+  .dh-string  { color: #a6e3a1; }
+  .dh-num     { color: #fab387; }
+  .dh-func    { color: #89dceb; }
+  .dh-kw      { color: #cba6f7; }
+  .dh-col     { color: #89b4fa; }
+
+  /* Mobile DAX layout */
+  @media (max-width: 768px) {
+    main.dax-mode { padding-left: 1rem; padding-right: 1rem; }
+    .dax-layout { flex-direction: column; gap: 1rem; }
+    .dax-sidebar {
+      position: static; width: 100%; max-height: none;
+      display: flex; gap: 0.4rem; flex-wrap: nowrap;
+      overflow-x: auto; padding-bottom: 0.25rem;
+    }
+    .dax-sidebar::-webkit-scrollbar { height: 3px; }
+    .dax-sidebar-label { display: none; }
+    .dax-sb-link {
+      white-space: nowrap; flex-shrink: 0; border-radius: 999px;
+      border: 1px solid var(--border); padding: 0.3rem 0.7rem; width: auto;
+    }
+    .dax-sb-count { display: none; }
+    .dax-code-block { font-size: 0.65rem; }
+    .copy-btn { opacity: 1; }
+  }
+
   /* ── Tag filter pills ──────────────────────────────── */
   #tag-filter-row {
     display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem;
@@ -566,6 +695,28 @@
   </div>
 
   <div class="items" id="items"></div>
+
+  <!-- ── DAX reference layout (power-bi only) ── -->
+  <div id="dax-view" style="display:none">
+    <div class="dax-search-bar">
+      <input class="dax-search-input" id="dax-search" type="search"
+             placeholder="Sök i DAX-biblioteket… (titel, beskrivning, kod, taggar)"
+             autocomplete="off" spellcheck="false">
+    </div>
+    <div class="dax-layout">
+      <aside class="dax-sidebar" id="dax-sidebar">
+        <p class="dax-sidebar-label">Kategorier</p>
+      </aside>
+      <div class="dax-main" id="dax-main">
+        <p class="dax-intro">
+          <strong>DAX Measures Library</strong> — En praktisk referens med 150+ measures anpassade för
+          BI-analys inom servicebranschen. Organiserade efter användningsområde med kopierbar kod.
+        </p>
+        <div id="dax-sections"></div>
+        <p class="dax-no-results" id="dax-no-results" style="display:none">Inga measures matchar sökningen.</p>
+      </div>
+    </div>
+  </div>
 </main>
 
 <!-- New / Edit modal -->
@@ -683,8 +834,12 @@ const APP = {
     if (e.key === 'Escape') closeModal();
   });
 
-  await loadCategory();
-  initFilterBar();
+  if (APP.categoryId === 'power-bi') {
+    await loadDaxView();
+  } else {
+    await loadCategory();
+    initFilterBar();
+  }
 })();
 
 // ─── Data ─────────────────────────────────────────────
@@ -723,6 +878,325 @@ async function loadCategory(subcatId = APP.activeSubcat) {
   } finally {
     stopProgress();
   }
+}
+
+// ─── DAX reference view ───────────────────────────────
+
+async function loadDaxView() {
+  const url = new URL(`/api/categories/${APP.categoryId}`, location.origin);
+  startProgress();
+  try {
+    const res  = await fetch(url, { credentials: 'same-origin' });
+    const data = await res.json();
+    if (!res.ok) { location.href = '/hub'; return; }
+
+    APP.category      = data.category;
+    APP.subcategories = data.subcategories ?? [];
+    APP.items         = data.items         ?? [];
+
+    document.title = `${APP.category.name} — sp1e.se`;
+    document.getElementById('cat-icon').textContent = APP.category.icon ?? '';
+    document.getElementById('cat-name').textContent = APP.category.name;
+
+    // Switch layout
+    document.querySelector('main').classList.add('dax-mode');
+    document.getElementById('tabs').style.display       = 'none';
+    document.getElementById('filter-bar').style.display = 'none';
+    document.getElementById('tag-filter-row').style.display = 'none';
+    document.querySelector('.toolbar').style.display    = 'none';
+    document.getElementById('items').style.display      = 'none';
+    document.getElementById('new-btn').style.display    = 'none';
+    document.getElementById('dax-view').style.display   = '';
+
+    renderDaxView(APP.subcategories, APP.items);
+    initDaxSearch();
+    initDaxScrollSpy();
+  } catch {
+    showToast('Kunde inte ladda DAX-biblioteket.');
+  } finally {
+    stopProgress();
+  }
+}
+
+// Group items by subcategory, render sidebar + accordion
+function renderDaxView(subcats, items) {
+  // Build map: subcat.id → { subcat, snippets[] }
+  const map = new Map();
+  for (const s of subcats) map.set(s.id, { subcat: s, snippets: [] });
+  for (const item of items) {
+    if (item.type === 'snippet' && map.has(item.subcategory_id)) {
+      map.get(item.subcategory_id).snippets.push(item);
+    }
+  }
+
+  // Sidebar
+  const sidebar = document.getElementById('dax-sidebar');
+  const btnsFrag = document.createDocumentFragment();
+  let first = true;
+  for (const [id, { subcat, snippets }] of map) {
+    const btn = document.createElement('button');
+    btn.className   = 'dax-sb-link' + (first ? ' active' : '');
+    btn.dataset.id  = id;
+    btn.dataset.sec = `dax-sec-${id}`;
+    btn.innerHTML   = `<span>${esc(subcat.name)}</span><span class="dax-sb-count">${snippets.length}</span>`;
+    btn.addEventListener('click', () => {
+      const sec = document.getElementById(`dax-sec-${id}`);
+      if (!sec) return;
+      // Open section if closed
+      openDaxSection(sec);
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    btnsFrag.appendChild(btn);
+    first = false;
+  }
+  sidebar.appendChild(btnsFrag);
+
+  // Sections
+  const container = document.getElementById('dax-sections');
+  let sectionIdx  = 0;
+  for (const [id, { subcat, snippets }] of map) {
+    if (!snippets.length) continue;
+    const isFirst = sectionIdx === 0;
+
+    const section  = document.createElement('div');
+    section.className = 'dax-section';
+    section.id        = `dax-sec-${id}`;
+
+    const hdr = document.createElement('button');
+    hdr.className = `dax-section-hdr${isFirst ? ' open' : ''}`;
+    hdr.innerHTML = `
+      <span class="dax-chev">▶</span>
+      <span class="dax-section-name">${esc(subcat.name)}</span>
+      <span class="dax-section-badge">${snippets.length}</span>`;
+    hdr.addEventListener('click', () => toggleDaxSection(section));
+
+    const body = document.createElement('div');
+    body.className = `dax-section-body${isFirst ? ' open' : ''}`;
+
+    const inner = document.createElement('div');
+    inner.className = 'dax-section-inner';
+
+    for (const snip of snippets) {
+      inner.appendChild(makeDaxSnippet(snip));
+    }
+
+    body.appendChild(inner);
+    section.appendChild(hdr);
+    section.appendChild(body);
+    container.appendChild(section);
+    sectionIdx++;
+  }
+
+  // Copy button delegation
+  document.getElementById('dax-sections').addEventListener('click', e => {
+    const btn = e.target.closest('.copy-btn');
+    if (!btn) return;
+    const code = btn.closest('.dax-code-wrap').querySelector('.dax-code-block');
+    navigator.clipboard.writeText(code.dataset.raw ?? code.textContent).then(() => {
+      btn.textContent = 'Kopierat ✓';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Kopiera'; btn.classList.remove('copied'); }, 2000);
+    }).catch(() => showToast('Kunde inte kopiera.'));
+  });
+}
+
+function makeDaxSnippet(snip) {
+  const tags = parseTags(snip.tags);
+  const wrap = document.createElement('div');
+  wrap.className    = 'dax-snippet';
+  wrap.dataset.id   = snip.id;
+  wrap.dataset.text = [snip.title, snip.description || '', snip.code || '', tags.join(' ')].join(' ').toLowerCase();
+
+  const highlighted = highlightDax(snip.code ?? '');
+  wrap.innerHTML = `
+    <p class="dax-snippet-title">${esc(snip.title)}</p>
+    ${snip.description ? `<p class="dax-snippet-desc">${esc(snip.description)}</p>` : ''}
+    <div class="dax-code-wrap">
+      <button class="copy-btn" type="button">Kopiera</button>
+      <pre class="dax-code-block" data-raw="${esc(snip.code ?? '')}">${highlighted}</pre>
+    </div>
+    ${tags.length ? `<div class="dax-tags">${tags.map(t => `<span class="dax-tag">#${esc(t)}</span>`).join('')}</div>` : ''}`;
+  return wrap;
+}
+
+function toggleDaxSection(section) {
+  const hdr  = section.querySelector('.dax-section-hdr');
+  const body = section.querySelector('.dax-section-body');
+  const isOpen = body.classList.contains('open');
+  hdr.classList.toggle('open', !isOpen);
+  body.classList.toggle('open', !isOpen);
+}
+
+function openDaxSection(section) {
+  section.querySelector('.dax-section-hdr').classList.add('open');
+  section.querySelector('.dax-section-body').classList.add('open');
+}
+
+function initDaxSearch() {
+  let timer;
+  document.getElementById('dax-search').addEventListener('input', e => {
+    clearTimeout(timer);
+    timer = setTimeout(() => daxFilter(e.target.value.trim()), 150);
+  });
+}
+
+function daxFilter(q) {
+  const lower = q.toLowerCase();
+  const sections = document.querySelectorAll('.dax-section');
+  let anyVisible = false;
+
+  for (const sec of sections) {
+    const snippets = sec.querySelectorAll('.dax-snippet');
+    let secVisible = false;
+
+    for (const snip of snippets) {
+      const match = !lower || (snip.dataset.text || '').includes(lower);
+      snip.classList.toggle('hidden', !match);
+      if (match) secVisible = true;
+    }
+
+    sec.classList.toggle('hidden', !secVisible);
+    if (secVisible) {
+      anyVisible = true;
+      // Auto-open sections that have matches
+      if (lower) openDaxSection(sec);
+    }
+  }
+
+  document.getElementById('dax-no-results').style.display = anyVisible ? 'none' : '';
+
+  // Update sidebar counts / hidden state
+  document.querySelectorAll('.dax-sb-link').forEach(btn => {
+    const sec = document.getElementById(btn.dataset.sec);
+    btn.style.opacity = sec?.classList.contains('hidden') ? '0.35' : '';
+  });
+}
+
+function initDaxScrollSpy() {
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const id  = entry.target.id.replace('dax-sec-', '');
+      document.querySelectorAll('.dax-sb-link').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.id === id);
+      });
+      // Scroll active sidebar link into view on mobile
+      const activeBtn = document.querySelector(`.dax-sb-link[data-id="${id}"]`);
+      activeBtn?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    }
+  }, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+
+  document.querySelectorAll('.dax-section').forEach(sec => observer.observe(sec));
+}
+
+// ── Minimal DAX syntax highlighter ────────────────────
+const DAX_FUNCS = new Set([
+  'CALCULATE','CALCULATETABLE','FILTER','ALL','ALLEXCEPT','ALLSELECTED','ALLNOBLANKROW',
+  'REMOVEFILTERS','KEEPFILTERS','USERELATIONSHIP','CROSSFILTER','TREATAS',
+  'SUM','SUMX','AVERAGE','AVERAGEX','COUNT','COUNTA','COUNTX','COUNTBLANK','COUNTROWS',
+  'DISTINCTCOUNT','DISTINCTCOUNTNOBLANK','MAX','MAXX','MIN','MINX','PRODUCT','PRODUCTX',
+  'DIVIDE','ABS','ROUND','ROUNDUP','ROUNDDOWN','CEILING','FLOOR','INT','MOD','POWER','SQRT',
+  'RANKX','TOPN','PERCENTILE','PERCENTILEX',
+  'IF','IFERROR','SWITCH','ISBLANK','ISEMPTY','ISNUMBER','ISTEXT','ISERROR',
+  'AND','OR','NOT','IN','CONTAINS','CONTAINSROW',
+  'VALUES','DISTINCT','UNION','INTERSECT','EXCEPT','CROSSJOIN','NATURALLEFTOUTERJOIN','NATURALINNERJOIN',
+  'RELATED','RELATEDTABLE','LOOKUPVALUE',
+  'ADDCOLUMNS','SELECTCOLUMNS','SUMMARIZE','SUMMARIZECOLUMNS','GENERATE','GENERATEALL',
+  'EARLIER','EARLIEST','ROW','GROUPBY',
+  'DATEADD','DATESYTD','DATESMTD','DATESQTD','DATESBETWEEN','DATESINPERIOD',
+  'PREVIOUSDAY','PREVIOUSMONTH','PREVIOUSQUARTER','PREVIOUSYEAR',
+  'NEXTDAY','NEXTMONTH','NEXTQUARTER','NEXTYEAR',
+  'SAMEPERIODLASTYEAR','PARALLELPERIOD',
+  'STARTOFYEAR','ENDOFYEAR','STARTOFMONTH','ENDOFMONTH','STARTOFQUARTER','ENDOFQUARTER',
+  'FIRSTDATE','LASTDATE','TOTALMTD','TOTALQTD','TOTALYTD',
+  'SELECTEDVALUE','HASONEVALUE','HASONEFILTER','ISFILTERED','ISCROSSFILTERED',
+  'CONCATENATE','CONCATENATEX','FORMAT','LEFT','RIGHT','MID','LEN','UPPER','LOWER',
+  'SUBSTITUTE','TRIM','REPLACE','REPT','UNICHAR','SEARCH','FIND',
+  'DATE','TIME','NOW','TODAY','YEAR','MONTH','DAY','HOUR','MINUTE','SECOND',
+  'WEEKDAY','WEEKNUM','EOMONTH','EDATE','DATEDIFF','DATEVALUE',
+  'TEXT','VALUE','CONVERT','INT','FIXED','DOLLAR',
+  'CALENDAR','CALENDARAUTO','DATATABLE','GENERATESERIES',
+]);
+
+const DAX_KWS = new Set(['VAR','RETURN','IF','THEN','ELSE','TRUE','FALSE','BLANK','AND','OR','NOT','IN']);
+
+function highlightDax(raw) {
+  const out = [];
+  let i = 0;
+
+  function pushText(s) {
+    out.push(s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'));
+  }
+  function pushSpan(cls, s) {
+    out.push(`<span class="${cls}">${s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`);
+  }
+
+  while (i < raw.length) {
+    const ch = raw[i];
+
+    // Line comment
+    if (ch === '/' && raw[i+1] === '/') {
+      const end = raw.indexOf('\n', i);
+      const s   = end === -1 ? raw.slice(i) : raw.slice(i, end);
+      pushSpan('dh-comment', s);
+      i += s.length;
+      continue;
+    }
+
+    // Block comment
+    if (ch === '/' && raw[i+1] === '*') {
+      const end = raw.indexOf('*/', i + 2);
+      const s   = end === -1 ? raw.slice(i) : raw.slice(i, end + 2);
+      pushSpan('dh-comment', s);
+      i += s.length;
+      continue;
+    }
+
+    // String
+    if (ch === '"') {
+      let j = i + 1;
+      while (j < raw.length && raw[j] !== '"') j++;
+      pushSpan('dh-string', raw.slice(i, j + 1));
+      i = j + 1;
+      continue;
+    }
+
+    // Number
+    if (/\d/.test(ch) || (ch === '.' && /\d/.test(raw[i+1] ?? ''))) {
+      let j = i;
+      while (j < raw.length && /[\d.%]/.test(raw[j])) j++;
+      pushSpan('dh-num', raw.slice(i, j));
+      i = j;
+      continue;
+    }
+
+    // Identifier → function or keyword
+    if (/[A-Za-z_]/.test(ch)) {
+      let j = i;
+      while (j < raw.length && /[A-Za-z0-9_]/.test(raw[j])) j++;
+      const word  = raw.slice(i, j);
+      const upper = word.toUpperCase();
+      if (DAX_FUNCS.has(upper))     pushSpan('dh-func', word);
+      else if (DAX_KWS.has(upper))  pushSpan('dh-kw', word);
+      else pushText(word);
+      i = j;
+      continue;
+    }
+
+    // Table[Column] — bracket content
+    if (ch === '[') {
+      let j = i + 1;
+      while (j < raw.length && raw[j] !== ']') j++;
+      pushSpan('dh-col', raw.slice(i, j + 1));
+      i = j + 1;
+      continue;
+    }
+
+    pushText(ch);
+    i++;
+  }
+
+  return out.join('');
 }
 
 // ─── Filter bar ───────────────────────────────────────
