@@ -158,6 +158,24 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       return importDaxMeasures(env);
     }
 
+    // ── Game (Mosquito) — own session cookie, no site auth ───────────────────
+    if (resource === 'game') {
+      if (id === 'create-character' && method === 'POST') return gameCreateCharacter(request, env);
+      if (id === 'player'           && method === 'GET')  return gameGetPlayer(request, env);
+      if (id === 'status'           && method === 'GET')  return gameGetStatus(request, env);
+      if (id === 'drug-prices'      && method === 'GET')  return gameGetDrugPrices();
+      if (id === 'action') {
+        if (sub === 'robbery'       && method === 'POST') return gameActionRobbery(request, env);
+        if (sub === 'train'         && method === 'POST') return gameActionTrain(request, env);
+        if (sub === 'drug-deal'     && method === 'POST') return gameActionDrugDeal(request, env);
+        if (sub === 'assault'       && method === 'POST') return gameActionAssault(request, env);
+        if (sub === 'prison-escape' && method === 'POST') return gameActionPrisonEscape(request, env);
+        if (sub === 'hospital'      && method === 'POST') return gameActionHospital(request, env);
+        if (sub === 'bank'          && method === 'POST') return gameActionBank(request, env);
+      }
+      return json({ error: 'not found' }, 404);
+    }
+
     // ── Spotify ───────────────────────────────────────────────────────────────
     if (resource === 'spotify') {
       if (id === 'auth-url'    && method === 'GET')  return handleSpotifyAuthUrl(request, env);
@@ -1019,6 +1037,687 @@ async function getArtworks(env: Env): Promise<Response> {
   }
 
   return json({ data: items });
+}
+
+// ─── Game (Mosquito) ─────────────────────────────────────────────────────────
+
+const GAME_COOKIE = 'game_session';
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function getGameCookie(request: Request): string | null {
+  const cookie = request.headers.get('Cookie') ?? '';
+  const match  = cookie.match(/(?:^|;\s*)game_session=([^;]+)/);
+  return match ? match[1] : null;
+}
+
+function setGameCookie(playerId: string): string {
+  return `${GAME_COOKIE}=${playerId}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${60 * 60 * 24 * 30}`;
+}
+
+async function requireGamePlayer(request: Request, env: Env): Promise<Row> {
+  const pid = getGameCookie(request);
+  if (!pid) throw new GameError('No active character. Create one first.', 401);
+  const player = await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>();
+  if (!player) throw new GameError('Character not found.', 404);
+  return player;
+}
+
+function gameJson(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...cors() },
+  });
+}
+
+class GameError extends Error {
+  constructor(message: string, public status = 400) { super(message); }
+}
+
+/** Recalculate energy based on time elapsed since last_regen. */
+function calcEnergy(player: Row): number {
+  const max       = (player.energy_max as number) ?? 100;
+  const stored    = (player.energy as number) ?? 0;
+  if (stored >= max) return max;
+  const lastRegen = new Date((player.energy_last_regen as string) ?? new Date().toISOString());
+  const elapsed   = (Date.now() - lastRegen.getTime()) / 1000 / 60; // minutes
+  const regained  = Math.floor(elapsed / 3); // 1 energy per 3 minutes
+  return Math.min(max, stored + regained);
+}
+
+/** Update stored energy + reset regen clock. */
+async function updateEnergy(env: Env, playerId: string, currentEnergy: number, cost: number): Promise<number> {
+  const newEnergy = currentEnergy - cost;
+  await env.DB.prepare(
+    `UPDATE game_players SET energy = ?, energy_last_regen = datetime('now') WHERE id = ?`
+  ).bind(newEnergy, playerId).run();
+  return newEnergy;
+}
+
+function getActiveRound(env: Env): Promise<Row | null> {
+  return env.DB.prepare(`SELECT * FROM game_rounds WHERE is_active = 1 ORDER BY round_number DESC LIMIT 1`).first<Row>();
+}
+
+function rand(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function xpForLevel(level: number): number { return level * level * 100; }
+function levelFromXp(xp: number): number {
+  let level = 1;
+  while (xpForLevel(level + 1) <= xp) level++;
+  return Math.min(level, 50);
+}
+
+async function logAction(
+  env: Env, playerId: string, actionType: string,
+  description: string, cashChange: number, respectChange: number, xpChange: number, success: boolean
+): Promise<void> {
+  const id = crypto.randomUUID();
+  await env.DB.prepare(
+    `INSERT INTO game_action_log (id, player_id, action_type, description, cash_change, respect_change, xp_change, success)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, playerId, actionType, description, cashChange, respectChange, xpChange, success ? 1 : 0).run();
+}
+
+// ── ROBBERY config ────────────────────────────────────────────────────────────
+
+const ROBBERY_TARGETS: Record<string, {
+  label: string; minCash: number; maxCash: number; energy: number;
+  baseChance: number; prisonChance: number; respect: number; xp: number;
+}> = {
+  shoplift:       { label: 'Snattar godis',         minCash: 50,     maxCash: 200,     energy: 5,  baseChance: 90, prisonChance: 5,  respect: 1,  xp: 10  },
+  pickpocket:     { label: 'Ficktjuvar en turist',   minCash: 100,    maxCash: 400,     energy: 5,  baseChance: 85, prisonChance: 8,  respect: 2,  xp: 15  },
+  car_breakin:    { label: 'Bryter sig in i en bil', minCash: 200,    maxCash: 800,     energy: 8,  baseChance: 75, prisonChance: 12, respect: 3,  xp: 25  },
+  gas_station:    { label: 'Rånar en bensinmack',    minCash: 500,    maxCash: 2000,    energy: 10, baseChance: 65, prisonChance: 20, respect: 5,  xp: 40  },
+  house:          { label: 'Bryter sig in i ett hus',minCash: 1000,   maxCash: 4000,    energy: 12, baseChance: 55, prisonChance: 25, respect: 8,  xp: 60  },
+  jewelry:        { label: 'Rånar en juvelbutik',    minCash: 3000,   maxCash: 10000,   energy: 15, baseChance: 40, prisonChance: 35, respect: 15, xp: 100 },
+  bank:           { label: 'Rånar en bank',          minCash: 10000,  maxCash: 50000,   energy: 20, baseChance: 25, prisonChance: 45, respect: 30, xp: 200 },
+  casino:         { label: 'Rånar ett kasino',       minCash: 50000,  maxCash: 200000,  energy: 25, baseChance: 15, prisonChance: 55, respect: 60, xp: 400 },
+  federal_reserve:{ label: 'Rånar riksbanken',       minCash: 200000, maxCash: 1000000, energy: 30, baseChance: 5,  prisonChance: 70, respect: 200,xp: 1000},
+};
+
+// Prison sentences in minutes per robbery
+const PRISON_SENTENCES: Record<string, number> = {
+  shoplift: 5, pickpocket: 8, car_breakin: 12, gas_station: 20,
+  house: 25, jewelry: 40, bank: 60, casino: 90, federal_reserve: 120,
+};
+
+// ── Drug prices ───────────────────────────────────────────────────────────────
+
+const DRUG_BASE_PRICES: Record<string, number> = {
+  marijuana: 50, cocaine: 300, heroin: 500, ecstasy: 200, meth: 400,
+};
+const DRUG_NAMES = Object.keys(DRUG_BASE_PRICES);
+
+function getDrugPrice(drug: string): number {
+  const idx   = DRUG_NAMES.indexOf(drug);
+  const base  = DRUG_BASE_PRICES[drug] ?? 0;
+  const cycle = Date.now() / (1000 * 60 * 30);
+  const mult  = Math.sin(cycle + idx) * 0.5 + 1; // 0.5–1.5
+  return Math.max(1, Math.round(base * mult));
+}
+
+function getDrugTrend(drug: string): string {
+  const idx   = DRUG_NAMES.indexOf(drug);
+  const cycle = Date.now() / (1000 * 60 * 30);
+  const now   = Math.sin(cycle + idx);
+  const soon  = Math.sin(cycle + idx + 0.05);
+  if (soon > now + 0.05) return '\u2191 rising';
+  if (soon < now - 0.05) return '\u2193 falling';
+  return '\u2192 stable';
+}
+
+// ── Route handlers ────────────────────────────────────────────────────────────
+
+async function gameCreateCharacter(request: Request, env: Env): Promise<Response> {
+  const round = await getActiveRound(env);
+  if (!round) return gameJson({ error: 'No active round. Contact admin.' }, 503);
+
+  const body   = await request.json<{ name?: string; side?: string }>();
+  const name   = (body.name ?? '').trim().slice(0, 24);
+  const side   = body.side === 'westside' ? 'westside' : 'eastside';
+
+  if (!name || name.length < 2)
+    return gameJson({ error: 'Name must be 2–24 characters.' }, 400);
+  if (!/^[\w\s\u00C0-\u024F]+$/u.test(name))
+    return gameJson({ error: 'Name contains invalid characters.' }, 400);
+
+  const existing = await env.DB.prepare(
+    `SELECT id FROM game_players WHERE name = ? AND round_id = ?`
+  ).bind(name, round.id as string).first();
+  if (existing) return gameJson({ error: 'That name is taken. Pick another.' }, 409);
+
+  const pid = crypto.randomUUID();
+  await env.DB.prepare(`
+    INSERT INTO game_players (id, round_id, name, side)
+    VALUES (?, ?, ?, ?)
+  `).bind(pid, round.id as string, name, side).run();
+
+  const player = await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>();
+  return new Response(JSON.stringify({ player }), {
+    status: 201,
+    headers: {
+      'Content-Type': 'application/json',
+      'Set-Cookie': setGameCookie(pid),
+      ...cors(),
+    },
+  });
+}
+
+async function gameGetPlayer(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const pid     = player.id as string;
+  const energy  = calcEnergy(player);
+
+  // Fetch inventory + last 20 actions in parallel
+  const [invRes, logRes] = await Promise.all([
+    env.DB.prepare('SELECT * FROM game_inventory WHERE player_id = ?').bind(pid).all<Row>(),
+    env.DB.prepare('SELECT * FROM game_action_log WHERE player_id = ? ORDER BY created_at DESC LIMIT 20').bind(pid).all<Row>(),
+  ]);
+
+  // Prison/hospital time remaining
+  const now          = Date.now();
+  const prisonUntil  = player.prison_until  ? new Date(player.prison_until  as string).getTime() : null;
+  const hospitalUntil= player.hospital_until? new Date(player.hospital_until as string).getTime() : null;
+
+  return gameJson({
+    player: { ...player, energy },
+    prison_seconds_left:  prisonUntil   ? Math.max(0, Math.floor((prisonUntil   - now) / 1000)) : 0,
+    hospital_seconds_left:hospitalUntil ? Math.max(0, Math.floor((hospitalUntil - now) / 1000)) : 0,
+    inventory: invRes.results,
+    log:       logRes.results,
+  });
+}
+
+async function gameGetStatus(request: Request, env: Env): Promise<Response> {
+  const round = await getActiveRound(env);
+  if (!round) return gameJson({ error: 'No active round.' }, 503);
+
+  const [topRes, countRes] = await Promise.all([
+    env.DB.prepare(
+      `SELECT name, level, respect, side, profession
+       FROM game_players WHERE round_id = ? AND is_alive = 1
+       ORDER BY respect DESC LIMIT 10`
+    ).bind(round.id as string).all<Row>(),
+    env.DB.prepare(
+      `SELECT COUNT(*) as cnt FROM game_players WHERE round_id = ? AND is_alive = 1`
+    ).bind(round.id as string).first<{ cnt: number }>(),
+  ]);
+
+  const endDate = new Date(round.end_date as string).getTime();
+  const secondsLeft = Math.max(0, Math.floor((endDate - Date.now()) / 1000));
+
+  return gameJson({
+    round: {
+      number: round.round_number,
+      start:  round.start_date,
+      end:    round.end_date,
+      seconds_left: secondsLeft,
+    },
+    top10: topRes.results,
+    player_count: countRes?.cnt ?? 0,
+  });
+}
+
+function gameGetDrugPrices(): Response {
+  const prices: Record<string, { price: number; trend: string }> = {};
+  for (const drug of DRUG_NAMES) {
+    prices[drug] = { price: getDrugPrice(drug), trend: getDrugTrend(drug) };
+  }
+  return gameJson({ prices });
+}
+
+async function gameActionRobbery(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const body   = await request.json<{ target?: string }>();
+  const target = body.target ?? '';
+  const cfg    = ROBBERY_TARGETS[target];
+  if (!cfg) return gameJson({ error: `Unknown target "${target}".` }, 400);
+
+  if (player.in_prison)   return gameJson({ error: 'Du sitter i fängelse.' }, 400);
+  if (player.in_hospital) return gameJson({ error: 'Du är på sjukhus.' }, 400);
+  if (!player.is_alive)   return gameJson({ error: 'Du är eliminerad.' }, 400);
+
+  const energy = calcEnergy(player);
+  if (energy < cfg.energy)
+    return gameJson({ error: `Not enough energy. Need ${cfg.energy}, have ${energy}.` }, 400);
+
+  const pid          = player.id as string;
+  const stealth      = (player.stealth      as number) ?? 10;
+  const intelligence = (player.intelligence as number) ?? 10;
+  const level        = (player.level        as number) ?? 1;
+
+  const successChance = Math.min(95, cfg.baseChance + stealth * 0.5 + intelligence * 0.3 + level * 2);
+  const roll          = Math.random() * 100;
+  const success       = roll < successChance;
+
+  let cashGained     = 0;
+  let respectGained  = 0;
+  let xpGained       = 0;
+  let caught         = false;
+  let message        = '';
+  let prisonMinutes  = 0;
+
+  if (success) {
+    cashGained    = rand(cfg.minCash, cfg.maxCash);
+    respectGained = cfg.respect;
+    xpGained      = cfg.xp;
+    message       = `\u2713 ${cfg.label}. Du fickar ${cashGained.toLocaleString('sv')} kr.`;
+  } else {
+    // Missed; chance of getting caught
+    const caughtRoll = Math.random() * 100;
+    caught = caughtRoll < cfg.prisonChance;
+    xpGained = Math.floor(cfg.xp * 0.2); // partial XP for trying
+    if (caught) {
+      prisonMinutes = PRISON_SENTENCES[target] ?? 10;
+      message = `\u2717 ${cfg.label} misslyckades. Gripen! ${prisonMinutes} min i fängelse.`;
+    } else {
+      message = `\u2717 ${cfg.label} misslyckades. Du lyckades fly.`;
+    }
+  }
+
+  // Compute new XP + level
+  const currentXp  = (player.xp   as number) + xpGained;
+  const currentCash = (player.cash as number) + cashGained;
+  const newLevel    = levelFromXp(currentXp);
+
+  const newEnergy   = await updateEnergy(env, pid, energy, cfg.energy);
+
+  if (caught) {
+    const prisonUntil = new Date(Date.now() + prisonMinutes * 60 * 1000).toISOString();
+    await env.DB.prepare(
+      `UPDATE game_players SET cash = ?, respect = respect + ?, xp = ?, level = ?,
+       in_prison = 1, prison_until = ?, last_action = datetime('now') WHERE id = ?`
+    ).bind(currentCash, respectGained, currentXp, newLevel, prisonUntil, pid).run();
+  } else {
+    await env.DB.prepare(
+      `UPDATE game_players SET cash = ?, respect = respect + ?, xp = ?, level = ?,
+       last_action = datetime('now') WHERE id = ?`
+    ).bind(currentCash, respectGained, currentXp, newLevel, pid).run();
+  }
+
+  await logAction(env, pid, 'robbery', message, cashGained, respectGained, xpGained, success);
+
+  return gameJson({
+    success, caught, message,
+    cash_gained: cashGained, respect_gained: respectGained, xp_gained: xpGained,
+    new_cash: currentCash, new_level: newLevel, energy_left: newEnergy,
+  });
+}
+
+async function gameActionTrain(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  if (player.in_prison)   return gameJson({ error: 'Du sitter i fängelse.' }, 400);
+  if (player.in_hospital) return gameJson({ error: 'Du är på sjukhus.' }, 400);
+
+  const body = await request.json<{ stat?: string }>();
+  const stat = body.stat ?? '';
+  if (!['strength', 'intelligence', 'charisma', 'stealth'].includes(stat))
+    return gameJson({ error: 'Invalid stat. Choose: strength, intelligence, charisma, stealth.' }, 400);
+
+  const COST = 10;
+  const energy = calcEnergy(player);
+  if (energy < COST) return gameJson({ error: `Not enough energy. Need ${COST}, have ${energy}.` }, 400);
+
+  const increase  = rand(1, 3);
+  const newVal    = Math.min(100, ((player[stat] as number) ?? 10) + increase);
+  const xpGained  = 20;
+  const currentXp = (player.xp as number) + xpGained;
+  const newLevel  = levelFromXp(currentXp);
+
+  await updateEnergy(env, player.id as string, energy, COST);
+  await env.DB.prepare(
+    `UPDATE game_players SET ${stat} = ?, xp = ?, level = ?, last_action = datetime('now') WHERE id = ?`
+  ).bind(newVal, currentXp, newLevel, player.id as string).run();
+
+  const msg = `Tränar ${stat}. +${increase} (nu ${newVal}).`;
+  await logAction(env, player.id as string, 'training', msg, 0, 0, xpGained, true);
+
+  return gameJson({ stat, increase, new_value: newVal, xp_gained: xpGained, new_level: newLevel });
+}
+
+async function gameActionDrugDeal(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  if (player.in_prison)   return gameJson({ error: 'Du sitter i fängelse.' }, 400);
+  if (player.in_hospital) return gameJson({ error: 'Du är på sjukhus.' }, 400);
+
+  const body     = await request.json<{ action?: string; drug?: string; quantity?: number }>();
+  const action   = body.action ?? '';
+  const drug     = (body.drug ?? '').toLowerCase();
+  const quantity = Math.max(1, Math.floor(body.quantity ?? 1));
+
+  if (!['buy', 'sell'].includes(action)) return gameJson({ error: 'action must be "buy" or "sell".' }, 400);
+  if (!DRUG_NAMES.includes(drug))        return gameJson({ error: `Unknown drug "${drug}".` }, 400);
+  if (quantity < 1 || quantity > 100)    return gameJson({ error: 'Quantity must be 1–100.' }, 400);
+
+  const pid          = player.id as string;
+  const intelligence = (player.intelligence as number) ?? 10;
+  const charisma     = (player.charisma     as number) ?? 10;
+  const basePrice    = getDrugPrice(drug);
+
+  if (action === 'buy') {
+    const COST    = 5;
+    const energy  = calcEnergy(player);
+    if (energy < COST) return gameJson({ error: `Not enough energy. Need ${COST}.` }, 400);
+
+    const discount = Math.min(0.2, intelligence * 0.002); // up to 20% discount
+    const unitPrice = Math.round(basePrice * (1 - discount));
+    const total     = unitPrice * quantity;
+    const cash      = (player.cash as number) ?? 0;
+    if (cash < total) return gameJson({ error: `Not enough cash. Need ${total}, have ${cash}.` }, 400);
+
+    // Upsert inventory
+    const existing = await env.DB.prepare(
+      `SELECT id, quantity FROM game_inventory WHERE player_id = ? AND item_type = 'drug' AND item_name = ?`
+    ).bind(pid, drug).first<Row>();
+
+    if (existing) {
+      await env.DB.prepare(
+        `UPDATE game_inventory SET quantity = quantity + ? WHERE id = ?`
+      ).bind(quantity, existing.id as string).run();
+    } else {
+      await env.DB.prepare(
+        `INSERT INTO game_inventory (id, player_id, item_type, item_name, quantity, buy_price)
+         VALUES (?, ?, 'drug', ?, ?, ?)`
+      ).bind(crypto.randomUUID(), pid, drug, quantity, unitPrice).run();
+    }
+
+    await updateEnergy(env, pid, energy, COST);
+    await env.DB.prepare(
+      `UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`
+    ).bind(total, pid).run();
+
+    const msg = `K\u00f6per ${quantity}x ${drug} \u00e0 ${unitPrice} kr/st.`;
+    await logAction(env, pid, 'drug_deal', msg, -total, 0, 5, true);
+    return gameJson({ bought: quantity, unit_price: unitPrice, total_cost: total, new_cash: cash - total });
+
+  } else {
+    // sell — no energy cost
+    const existing = await env.DB.prepare(
+      `SELECT id, quantity FROM game_inventory WHERE player_id = ? AND item_type = 'drug' AND item_name = ?`
+    ).bind(pid, drug).first<Row>();
+    if (!existing || (existing.quantity as number) < quantity)
+      return gameJson({ error: `You don't have ${quantity}x ${drug}.` }, 400);
+
+    const bonus     = Math.min(0.2, charisma * 0.002); // up to 20% bonus
+    const unitPrice = Math.round(basePrice * (1 + bonus));
+    const total     = unitPrice * quantity;
+    const respectGained = Math.max(1, Math.floor(quantity * 0.5));
+    const xpGained     = Math.max(5, quantity * 2);
+
+    const newQty = (existing.quantity as number) - quantity;
+    if (newQty === 0) {
+      await env.DB.prepare(`DELETE FROM game_inventory WHERE id = ?`).bind(existing.id as string).run();
+    } else {
+      await env.DB.prepare(`UPDATE game_inventory SET quantity = ? WHERE id = ?`).bind(newQty, existing.id as string).run();
+    }
+
+    const currentXp = (player.xp as number) + xpGained;
+    const newLevel  = levelFromXp(currentXp);
+    await env.DB.prepare(
+      `UPDATE game_players SET cash = cash + ?, respect = respect + ?, xp = ?, level = ?,
+       last_action = datetime('now') WHERE id = ?`
+    ).bind(total, respectGained, currentXp, newLevel, pid).run();
+
+    const msg = `S\u00e4ljer ${quantity}x ${drug} \u00e0 ${unitPrice} kr/st.`;
+    await logAction(env, pid, 'drug_deal', msg, total, respectGained, xpGained, true);
+    return gameJson({ sold: quantity, unit_price: unitPrice, total_earned: total, respect_gained: respectGained, xp_gained: xpGained, new_level: newLevel });
+  }
+}
+
+async function gameActionAssault(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  if (player.in_prison)   return gameJson({ error: 'Du sitter i fängelse.' }, 400);
+  if (player.in_hospital) return gameJson({ error: 'Du är på sjukhus.' }, 400);
+  if (!player.is_alive)   return gameJson({ error: 'Du är eliminerad.' }, 400);
+
+  const body      = await request.json<{ target_id?: string }>();
+  const targetId  = (body.target_id ?? '').trim();
+  if (!targetId)  return gameJson({ error: 'target_id required.' }, 400);
+
+  const COST  = 15;
+  const energy = calcEnergy(player);
+  if (energy < COST) return gameJson({ error: `Not enough energy. Need ${COST}.` }, 400);
+
+  const pid = player.id as string;
+
+  // Check 24h cooldown
+  const cooldown = await env.DB.prepare(
+    `SELECT attacked_at FROM game_assault_cooldowns WHERE attacker_id = ? AND target_id = ?`
+  ).bind(pid, targetId).first<{ attacked_at: string }>();
+  if (cooldown) {
+    const since = Date.now() - new Date(cooldown.attacked_at).getTime();
+    if (since < 24 * 60 * 60 * 1000) {
+      const hoursLeft = Math.ceil((24 * 60 * 60 * 1000 - since) / 3600000);
+      return gameJson({ error: `Can't attack same target for ${hoursLeft} more hour(s).` }, 400);
+    }
+  }
+
+  // Fetch target (NPC or player)
+  let target: Row | null = null;
+  const isNpc = targetId.startsWith('npc-');
+  if (isNpc) {
+    target = await env.DB.prepare(`SELECT * FROM game_npcs WHERE id = ?`).bind(targetId).first<Row>();
+  } else {
+    target = await env.DB.prepare(`SELECT * FROM game_players WHERE id = ?`).bind(targetId).first<Row>();
+  }
+  if (!target) return gameJson({ error: 'Target not found.' }, 404);
+  if (target.is_alive === 0) return gameJson({ error: 'Target is already down.' }, 400);
+
+  // Get weapon bonus
+  const weaponRow = await env.DB.prepare(
+    `SELECT properties FROM game_inventory WHERE player_id = ? AND item_type = 'weapon' ORDER BY buy_price DESC LIMIT 1`
+  ).bind(pid).first<Row>();
+  let weaponDmg = 0;
+  if (weaponRow?.properties) {
+    try { const p = JSON.parse(weaponRow.properties as string); weaponDmg = p.damage ?? 0; } catch {}
+  }
+
+  const attackerStr = (player.strength  as number) ?? 10;
+  const targetStr   = (target.strength  as number) ?? 10;
+  const attackPower = attackerStr + weaponDmg + rand(1, 20);
+  const defensePower= targetStr + rand(1, 15);
+
+  const success = attackPower > defensePower;
+  let damageDelt   = 0;
+  let damageTaken  = 0;
+  let cashStolen   = 0;
+  let respectGained= 0;
+  let message      = '';
+
+  if (success) {
+    damageDelt    = rand(10, 40);
+    cashStolen    = Math.floor(((target.cash as number) ?? 0) * (rand(10, 30) / 100));
+    respectGained = Math.max(1, Math.floor(cashStolen / 200));
+    message       = `\u2713 Slog ner ${target.name as string}. Stal ${cashStolen.toLocaleString('sv')} kr.`;
+
+    // Reduce target HP
+    const targetHp = Math.max(0, ((isNpc ? (target.hp ?? 50) : target.hp) as number) - damageDelt);
+    const knocked  = targetHp === 0;
+
+    if (isNpc) {
+      await env.DB.prepare(`UPDATE game_npcs SET hp = ?, is_alive = ?, cash = cash - ? WHERE id = ?`)
+        .bind(targetHp, knocked ? 0 : 1, cashStolen, targetId).run();
+    } else {
+      const hospitalUntil = knocked ? new Date(Date.now() + 60 * 60 * 1000).toISOString() : null;
+      await env.DB.prepare(
+        `UPDATE game_players SET hp = ?, in_hospital = ?, hospital_until = ?, cash = cash - ? WHERE id = ?`
+      ).bind(targetHp, knocked ? 1 : 0, hospitalUntil, cashStolen, targetId).run();
+    }
+
+    const currentXp = (player.xp as number) + 50;
+    const newLevel  = levelFromXp(currentXp);
+    await env.DB.prepare(
+      `UPDATE game_players SET cash = cash + ?, respect = respect + ?, xp = ?, level = ?, last_action = datetime('now') WHERE id = ?`
+    ).bind(cashStolen, respectGained, currentXp, newLevel, pid).run();
+  } else {
+    damageTaken = rand(5, 25);
+    message     = `\u2717 Attacken mot ${target.name as string} misslyckades. Du fick stryk.`;
+    const newHp = Math.max(0, (player.hp as number) - damageTaken);
+    const hospitalized = newHp === 0;
+    const hospitalUntil = hospitalized ? new Date(Date.now() + 30 * 60 * 1000).toISOString() : null;
+    await env.DB.prepare(
+      `UPDATE game_players SET hp = ?, in_hospital = ?, hospital_until = ?, last_action = datetime('now') WHERE id = ?`
+    ).bind(newHp, hospitalized ? 1 : 0, hospitalUntil, pid).run();
+  }
+
+  await updateEnergy(env, pid, energy, COST);
+
+  // Upsert cooldown
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO game_assault_cooldowns (attacker_id, target_id, attacked_at)
+     VALUES (?, ?, datetime('now'))`
+  ).bind(pid, targetId).run();
+
+  await logAction(env, pid, 'assault', message, cashStolen, respectGained, success ? 50 : 0, success);
+
+  return gameJson({ success, message, damage_dealt: damageDelt, damage_taken: damageTaken, cash_stolen: cashStolen });
+}
+
+async function gameActionPrisonEscape(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  if (!player.in_prison) return gameJson({ error: 'Du sitter inte i fängelse.' }, 400);
+
+  const prisonUntil  = new Date((player.prison_until as string)).getTime();
+  const remaining    = Math.max(0, prisonUntil - Date.now());
+  const bribeCost    = Math.max(500, Math.floor(remaining / 1000) * 10); // $10 per remaining second, min $500
+  const stealth      = (player.stealth as number) ?? 10;
+  const escapeChance = Math.min(80, 20 + stealth * 0.6);
+
+  const body   = await request.json<{ method?: string }>().catch(() => ({ method: 'escape' }));
+  const method = body.method ?? 'escape';
+
+  const pid  = player.id as string;
+  const cash = (player.cash as number) ?? 0;
+
+  if (method === 'bribe') {
+    if (cash < bribeCost)
+      return gameJson({ error: `Mutan kostar ${bribeCost} kr. Du har ${cash} kr.` }, 400);
+    await env.DB.prepare(
+      `UPDATE game_players SET in_prison = 0, prison_until = NULL, cash = cash - ?,
+       last_action = datetime('now') WHERE id = ?`
+    ).bind(bribeCost, pid).run();
+    await logAction(env, pid, 'prison', `Mutade sig ut ur f\u00e4ngelset f\u00f6r ${bribeCost} kr.`, -bribeCost, 0, 0, true);
+    return gameJson({ success: true, method: 'bribe', cost: bribeCost, message: `Mutade vakten. Frihet k\u00f6star ${bribeCost} kr.` });
+  }
+
+  // Escape attempt
+  const roll    = Math.random() * 100;
+  const success = roll < escapeChance;
+  if (success) {
+    await env.DB.prepare(
+      `UPDATE game_players SET in_prison = 0, prison_until = NULL, last_action = datetime('now') WHERE id = ?`
+    ).bind(pid).run();
+    await logAction(env, pid, 'prison', 'R\u00f6mde fr\u00e5n f\u00e4ngelset.', 0, 5, 30, true);
+    return gameJson({ success: true, method: 'escape', message: 'Du lyckades r\u00f6mma! +5 respect.' });
+  } else {
+    // Add 10 min penalty
+    const newRelease = new Date(Math.max(prisonUntil, Date.now()) + 10 * 60 * 1000).toISOString();
+    await env.DB.prepare(
+      `UPDATE game_players SET prison_until = ? WHERE id = ?`
+    ).bind(newRelease, pid).run();
+    await logAction(env, pid, 'prison', 'R\u00f6mningsf\u00f6rs\u00f6k misslyckades. +10 min.', 0, 0, 0, false);
+    return gameJson({ success: false, method: 'escape', message: 'Misslyckades. +10 min till domen.', bribe_cost: bribeCost });
+  }
+}
+
+async function gameActionHospital(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const body = await request.json<{ action?: string; stat?: string }>().catch(() => ({}));
+  const action = body.action ?? 'heal';
+  const pid    = player.id as string;
+  const hp     = (player.hp     as number) ?? 100;
+  const hpMax  = (player.hp_max as number) ?? 100;
+  const cash   = (player.cash   as number) ?? 0;
+
+  if (action === 'heal') {
+    if (hp >= hpMax) return gameJson({ message: 'Du har fullt HP.', hp, hp_max: hpMax });
+    const missing  = hpMax - hp;
+    const healCost = Math.max(100, missing * 10); // $10/HP, min $100
+    if (cash < healCost) return gameJson({ error: `L\u00e4kning kostar ${healCost} kr. Du har ${cash} kr.` }, 400);
+
+    await env.DB.prepare(
+      `UPDATE game_players SET hp = ?, in_hospital = 0, hospital_until = NULL,
+       cash = cash - ?, last_action = datetime('now') WHERE id = ?`
+    ).bind(hpMax, healCost, pid).run();
+
+    await logAction(env, pid, 'hospital', `Helades till full h\u00e4lsa f\u00f6r ${healCost} kr.`, -healCost, 0, 0, true);
+    return gameJson({ healed: true, cost: healCost, new_hp: hpMax, new_cash: cash - healCost });
+  }
+
+  if (action === 'boost') {
+    const stat = body.stat ?? '';
+    if (!['strength', 'intelligence', 'charisma', 'stealth'].includes(stat))
+      return gameJson({ error: 'stat must be strength/intelligence/charisma/stealth.' }, 400);
+    const BOOST_COST = 5000;
+    if (cash < BOOST_COST) return gameJson({ error: `Boost kostar ${BOOST_COST} kr.` }, 400);
+    const newVal = Math.min(100, ((player[stat] as number) ?? 10) + 1);
+    await env.DB.prepare(
+      `UPDATE game_players SET ${stat} = ?, cash = cash - ?, last_action = datetime('now') WHERE id = ?`
+    ).bind(newVal, BOOST_COST, pid).run();
+    await logAction(env, pid, 'hospital', `K\u00f6pte stat-boost: ${stat} +1.`, -BOOST_COST, 0, 0, true);
+    return gameJson({ boosted: stat, new_value: newVal, cost: BOOST_COST, new_cash: cash - BOOST_COST });
+  }
+
+  return gameJson({ error: 'action must be "heal" or "boost".' }, 400);
+}
+
+async function gameActionBank(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const body   = await request.json<{ action?: string; amount?: number }>();
+  const action = body.action ?? '';
+  const amount = Math.floor(body.amount ?? 0);
+  if (amount <= 0) return gameJson({ error: 'amount must be positive.' }, 400);
+  if (!['deposit', 'withdraw'].includes(action)) return gameJson({ error: 'action must be "deposit" or "withdraw".' }, 400);
+
+  const pid  = player.id as string;
+  const cash = (player.cash as number) ?? 0;
+  const bank = (player.bank as number) ?? 0;
+  const FEE  = 0.05; // 5% deposit fee
+
+  if (action === 'deposit') {
+    if (cash < amount) return gameJson({ error: `Du har bara ${cash} kr.` }, 400);
+    const fee        = Math.floor(amount * FEE);
+    const deposited  = amount - fee;
+    await env.DB.prepare(
+      `UPDATE game_players SET cash = cash - ?, bank = bank + ?, last_action = datetime('now') WHERE id = ?`
+    ).bind(amount, deposited, pid).run();
+    await logAction(env, pid, 'bank', `Satte in ${amount} kr (avgift ${fee} kr).`, -amount, 0, 0, true);
+    return gameJson({ deposited, fee, new_cash: cash - amount, new_bank: bank + deposited });
+  }
+
+  // withdraw
+  if (bank < amount) return gameJson({ error: `Du har bara ${bank} kr i banken.` }, 400);
+  await env.DB.prepare(
+    `UPDATE game_players SET cash = cash + ?, bank = bank - ?, last_action = datetime('now') WHERE id = ?`
+  ).bind(amount, amount, pid).run();
+  await logAction(env, pid, 'bank', `Tog ut ${amount} kr fr\u00e5n banken.`, amount, 0, 0, true);
+  return gameJson({ withdrawn: amount, new_cash: cash + amount, new_bank: bank - amount });
 }
 
 // ─── DAX measures data (inlined — Cloudflare Pages does not bundle _ helpers) ──
