@@ -14,9 +14,9 @@
 ## Current Status
 
 - **Landing page** (`/`) — art background (AIC impressionism API), Immersion mode, Mosquito + Σ.Π. entry points
-- **Hub** (`/hub`) — 7 categories seeded, art gallery, full-text search, recent items, export
+- **Hub** (`/hub`) — seeded categories, art gallery, full-text search, recent items, export
 - **Auth** — PBKDF2 hash working, session cookies set/cleared correctly
-- **D1** — all tables created and seeded (run `npx wrangler d1 execute sp1e-db --remote --file=schema.sql`)
+- **D1** — base schema + default categories seeded via `schema.sql`; DAX import also needs `seed-dax-categories.sql`
 - **R2** — bucket created; base64 D1 fallback for files ≤ 1 MB when R2 unavailable
 
 ## Pages
@@ -43,6 +43,7 @@
 | GET | `health` | — | Health check |
 | GET | `art` | — | AIC impressionism proxy (1-hour in-memory cache) |
 | GET | `gallery/impressionism` | — | Legacy AIC proxy (has `classification_title: painting` filter) |
+| GET | `import-dax` | ✓ | One-shot DAX snippet import into `snippets` (requires DAX subcategory seed first) |
 | POST | `auth/login` | — | Password → session cookie |
 | POST | `auth/logout` | — | Clears session cookie |
 | GET | `auth/check` | — | Returns `{ authenticated: bool }` |
@@ -61,7 +62,7 @@
 | DELETE | `files/:id` | ✓ | Delete file |
 | GET | `search` | ✓ | Full-text search across all content types |
 | GET | `public/items` | — | Public items (is_public = 1) |
-| GET/POST | `seed` | — | Seed default categories + subcategories |
+| GET | `seed` | ✓ | Seed default categories + subcategories |
 
 ## D1 Schema (schema.sql)
 
@@ -69,6 +70,24 @@ Tables: `sessions`, `categories`, `subcategories`, `notes`, `snippets`, `bookmar
 
 - `files` has a `data TEXT` column for base64 D1 fallback when R2 is unavailable
 - Run `npx wrangler d1 execute sp1e-db --remote --file=schema.sql` to apply in production
+
+## DAX Deploy Flow
+
+`main` is the source-of-truth branch for the DAX import flow.
+
+1. Apply the base schema:
+   `npx wrangler d1 execute sp1e-db --remote --file=schema.sql`
+2. Seed the extra Power BI DAX subcategories:
+   `npx wrangler d1 execute sp1e-db --remote --file=seed-dax-categories.sql`
+3. Log in to the deployed site and trigger the import:
+   `https://sp1e.se/api/import-dax`
+4. Verify the Power BI category page:
+   `https://sp1e.se/hub/category/?id=power-bi`
+
+Notes:
+- `schema.sql` does not include the extra `pb-*` DAX subcategories. Those come from `seed-dax-categories.sql`.
+- The runtime import data is inlined directly inside `functions/api/[[route]].ts` as `DAX_MEASURES`.
+- `functions/api/_dax-data.ts` is generated source material, not the Pages runtime dependency.
 
 ## Known Issues / TODO
 
@@ -91,6 +110,9 @@ Development branches (e.g. `claude/recommend-improvements-*`) create preview dep
 ```bash
 # Apply D1 schema to production
 npx wrangler d1 execute sp1e-db --remote --file=schema.sql
+
+# Seed DAX subcategories for Power BI imports
+npx wrangler d1 execute sp1e-db --remote --file=seed-dax-categories.sql
 
 # Check D1 tables
 npx wrangler d1 execute sp1e-db --remote --command="SELECT name FROM sqlite_master WHERE type='table'"
