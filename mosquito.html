@@ -184,14 +184,48 @@ select:focus{border-color:var(--red);}
 /* ─── Mobile nav ──────────────────────────────────────────────────────────── */
 #mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:100;overflow-x:auto;}
 .mb-inner{display:flex;min-width:max-content;width:100%;}
-.mb{flex:1;background:none;border:none;border-radius:0;color:var(--dim);font-size:9px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;min-width:48px;}
+.mb{flex:1;background:none;border:none;border-radius:0;color:var(--dim);font-size:9px;padding:8px 4px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;white-space:nowrap;min-width:48px;}
 .mb:hover{color:var(--white);background:var(--bg3);}
 .mb.active{color:var(--red);}
 .mb-icon{font-size:14px;}
 @media(max-width:640px){
   #mob-nav{display:flex;}
   #main-area{padding:12px;padding-bottom:70px;}
+  button{min-height:44px;}
 }
+
+/* ─── Animations ──────────────────────────────────────────────────────────── */
+@keyframes lvlup-in{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+@keyframes lvlup-out{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.2)}}
+@keyframes pulse-green{0%,100%{box-shadow:none}50%{box-shadow:0 0 8px var(--green)}}
+@keyframes fade-in-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
+#lvlup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:16px;text-align:center;}
+#lvlup-overlay.show{display:flex;}
+.lvlup-text{font-size:42px;font-weight:500;color:var(--red);letter-spacing:6px;animation:lvlup-in .4s ease;}
+.lvlup-level{font-size:22px;color:var(--white);}
+.lvlup-unlocks{font-size:12px;color:var(--amber);max-width:320px;line-height:1.8;}
+.lvlup-close{margin-top:12px;font-size:11px;color:var(--dim);cursor:pointer;}
+.combat-log{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
+.combat-line{font-size:12px;animation:fade-in-up .3s ease both;}
+.suspense-msg{color:var(--amber);font-size:12px;min-height:18px;}
+.suspense-dots::after{content:'';animation:dots 1s steps(3,end) infinite;}
+
+/* ─── Race section ────────────────────────────────────────────────────────── */
+.race-tiers{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px;}
+.race-tier{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;}
+.race-tier-name{font-size:14px;font-weight:500;color:var(--white);margin-bottom:4px;}
+.race-tier-fee{font-size:12px;color:var(--amber);margin-bottom:4px;}
+.race-tier-prize{font-size:12px;color:var(--green);margin-bottom:12px;}
+.race-log{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;min-height:60px;display:none;}
+.race-log.show{display:block;}
+.vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;}
+.vehicle-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;}
+.vehicle-card.owned{border-color:var(--green);}
+.vehicle-name{font-size:12px;font-weight:500;color:var(--white);margin-bottom:4px;}
+.vehicle-cost{font-size:11px;color:var(--amber);margin-bottom:2px;}
+.vehicle-bonus{font-size:10px;color:var(--dim);margin-bottom:8px;}
+.vehicle-owned-badge{font-size:10px;color:var(--green);margin-bottom:6px;}
 </style>
 </head>
 <body>
@@ -334,6 +368,7 @@ select:focus{border-color:var(--red);}
         <button class="nav-btn nv" data-s="strid">&#x1F94A; Strid</button>
         <button class="nav-btn nv" data-s="traning">&#x1F3CB; Tr&auml;ning</button>
         <button class="nav-btn nv" data-s="fastigheter">&#x1F3E0; Fastigheter</button>
+        <button class="nav-btn nv" data-s="race">&#x1F3CE; Streetrace</button>
         <button class="nav-btn nv" data-s="ranking">&#x1F3C6; Ranking</button>
       </div>
       <div class="sb-back"><a href="/">&larr; Tillbaka</a></div>
@@ -430,6 +465,39 @@ select:focus{border-color:var(--red);}
         <div id="prop-msg" class="amsg"></div>
       </div>
 
+      <!-- Race -->
+      <div id="s-race" class="g-sec">
+        <div class="sec-title">STREETRACE</div>
+        <div class="sec-sub">L&aring;ses upp vid level 10. V&auml;lj tier &mdash; satsa insats &mdash; vinn 3x.</div>
+        <div id="race-lock" class="lock-notice" style="display:none;">&#x1F512; L&aring;ses upp vid level 10</div>
+        <div id="race-content">
+          <div id="race-log" class="race-log"></div>
+          <div class="race-tiers">
+            <div class="race-tier">
+              <div class="race-tier-name">&#x1F7E2; GRÖN TIER</div>
+              <div class="race-tier-fee">Insats: 1&nbsp;000 kr</div>
+              <div class="race-tier-prize">Vinst: 3&nbsp;000 kr + 50 XP</div>
+              <button onclick="doRace(1)">STARTA RACE</button>
+            </div>
+            <div class="race-tier">
+              <div class="race-tier-name">&#x1F7E1; GUL TIER</div>
+              <div class="race-tier-fee">Insats: 5&nbsp;000 kr</div>
+              <div class="race-tier-prize">Vinst: 15&nbsp;000 kr + 150 XP</div>
+              <button onclick="doRace(2)">STARTA RACE</button>
+            </div>
+            <div class="race-tier">
+              <div class="race-tier-name">&#x1F534; R&Ouml;D TIER</div>
+              <div class="race-tier-fee">Insats: 25&nbsp;000 kr</div>
+              <div class="race-tier-prize">Vinst: 75&nbsp;000 kr + 400 XP</div>
+              <button onclick="doRace(3)">STARTA RACE</button>
+            </div>
+          </div>
+          <div id="race-msg" class="amsg"></div>
+          <div class="sec-sub" style="margin:16px 0 10px;">FORDON</div>
+          <div id="vehicle-grid" class="vehicle-grid"></div>
+        </div>
+      </div>
+
       <!-- Ranking -->
       <div id="s-ranking" class="g-sec">
         <div class="sec-title">RANKING</div>
@@ -453,7 +521,18 @@ select:focus{border-color:var(--red);}
     <button class="mb" data-s="strid"><span class="mb-icon">&#x1F94A;</span>Strid</button>
     <button class="mb" data-s="traning"><span class="mb-icon">&#x1F3CB;</span>Tr&auml;na</button>
     <button class="mb" data-s="fastigheter"><span class="mb-icon">&#x1F3E0;</span>Fast.</button>
+    <button class="mb" data-s="race"><span class="mb-icon">&#x1F3CE;</span>Race</button>
     <button class="mb" data-s="ranking"><span class="mb-icon">&#x1F3C6;</span>Rank</button>
+  </div>
+</div>
+
+<!-- Level-up overlay -->
+<div id="lvlup-overlay">
+  <div class="lvlup-text">LEVEL UP!</div>
+  <div class="lvlup-level" id="lvlup-level">Level 2</div>
+  <div class="lvlup-unlocks" id="lvlup-unlocks"></div>
+  <div class="lvlup-close" onclick="document.getElementById('lvlup-overlay').classList.remove('show')">
+    [tryck var som helst f&ouml;r att st&auml;nga]
   </div>
 </div>
 <script>
@@ -462,7 +541,8 @@ const G={
   section:'gatan',busy:false,selectedSide:'eastside',
   drugSel:'marijuana',drugQty:1,
   _fetchedAt:0,_nrgTick:null,_prisonTick:null,_pollTimer:null,_pricePoll:null,
-  _propTicks:{},log:[]
+  _propTicks:{},log:[],
+  vehicles:[]
 };
 
 async function api(path,opts={}){
@@ -600,7 +680,7 @@ function renderSection(s){
   const el=document.getElementById('s-'+s);
   if(el) el.style.display='';
   document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
-  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,fastigheter:renderFastigheter,ranking:renderRanking};
+  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking};
   if(fns[s]) fns[s]();
 }
 
@@ -662,13 +742,18 @@ function renderBrott(){
 async function doRobbery(target){
   if(G.busy) return;G.busy=true;
   const card=document.getElementById('rc-'+target);
+  const msgEl=document.getElementById('rob-msg');
+  if(msgEl){msgEl.className='amsg info suspense-msg';msgEl.innerHTML='<span class="suspense-dots">Brott p\xe5g\xe5r</span>';}
+  await new Promise(res=>setTimeout(res,1400));
+  const oldLevel=G.player?G.player.level:1;
   const r=await post('action/robbery',{target});
   G.busy=false;
+  if(msgEl) msgEl.className='amsg';
   if(r.error){
     setMsg('rob-msg',r.error,'err');
     if(card){card.classList.add('flash-err');setTimeout(()=>card.classList.remove('flash-err'),800);}
   }else{
-    const msg=r.success?`+${fmtCash(r.cash_gained)} kr — ${r.message||'Lyckat!'}`:r.message||'Misslyckades';
+    const msg=r.message||(r.success?'Lyckat!':'Misslyckades');
     setMsg('rob-msg',msg,r.success?'ok':'err');
     if(card){
       card.classList.add(r.success?'flash-ok':'flash-err');
@@ -677,6 +762,7 @@ async function doRobbery(target){
     addLog(msg,r.success?'ok':'err');
     const pr=await api('player');
     if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    if(G.player.level>oldLevel) showLevelUp(oldLevel,G.player.level);
     renderTopbar();renderSidebar();renderBrott();
   }
 }
@@ -718,15 +804,17 @@ function updateDrugTotal(){
 
 async function doDrug(action,drug,qty){
   if(G.busy) return;G.busy=true;
+  const oldLevel=G.player?G.player.level:1;
   const r=await post('action/drug-deal',{action,drug,quantity:qty});
   G.busy=false;
   if(r.error){setMsg('drug-msg',r.error,'err');}
   else{
-    const msg=r.message||(action==='buy'?'Köpt!':'Sålt!');
+    const msg=r.message||(action==='buy'?'K\xf6pt!':'S\xe5lt!');
     setMsg('drug-msg',msg,r.success!==false?'ok':'err');
     addLog(msg,r.success!==false?'ok':'err');
     const pr=await api('player');
     if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    if(G.player.level>oldLevel) showLevelUp(oldLevel,G.player.level);
     renderTopbar();renderSidebar();renderDroger();
   }
 }
@@ -755,17 +843,26 @@ function renderStrid(){
 
 async function doAssault(npcId){
   if(G.busy) return;G.busy=true;
+  const msgEl=document.getElementById('strid-msg');
+  if(msgEl){msgEl.className='amsg info';msgEl.textContent='Strid p\xe5g\xe5r\u2026';}
+  const oldLevel=G.player?G.player.level:1;
   const r=await post('action/assault',{target_id:npcId});
   G.busy=false;
   if(r.error){setMsg('strid-msg',r.error,'err');}
   else{
-    const msg=r.message||'Strid avslutad';
-    setMsg('strid-msg',msg,r.success?'ok':'err');
-    addLog(msg,r.success?'ok':'err');
+    // Show combat sequence
+    const lines=r.combat_lines||[r.message||'Strid avslutad'];
+    if(msgEl){
+      msgEl.className='amsg';
+      msgEl.innerHTML='<div class="combat-log">'+lines.map((l,i)=>`<div class="combat-line" style="animation-delay:${i*0.3}s">${esc(l)}</div>`).join('')+'</div>';
+    }
+    addLog(r.message||'Strid avslutad',r.success?'ok':'err');
     const[pr,nr]=await Promise.all([api('player'),api('npcs')]);
     if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
     if(nr.npcs) G.npcs=nr.npcs;
-    renderTopbar();renderSidebar();renderStrid();
+    if(G.player.level>oldLevel) showLevelUp(oldLevel,G.player.level);
+    renderTopbar();renderSidebar();
+    setTimeout(()=>renderStrid(),800);
   }
 }
 
@@ -801,6 +898,7 @@ function renderTraning(){
 
 async function doTrain(stat){
   if(G.busy) return;G.busy=true;
+  const oldLevel=G.player?G.player.level:1;
   const r=await post('action/train',{stat});
   G.busy=false;
   if(r.error){setMsg('train-msg',r.error,'err');}
@@ -810,6 +908,12 @@ async function doTrain(stat){
     addLog(msg,'ok');
     const pr=await api('player');
     if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    // Pulse the stat bar that was trained
+    const statMap={strength:'str',intelligence:'int',charisma:'cha',stealth:'ste'};
+    const barId='b-'+statMap[stat];
+    const barEl=document.getElementById(barId);
+    if(barEl){barEl.style.animation='pulse-green .6s ease';setTimeout(()=>{barEl.style.animation='';},700);}
+    if(G.player.level>oldLevel) showLevelUp(oldLevel,G.player.level);
     renderTopbar();renderSidebar();renderTraning();
   }
 }
@@ -1032,6 +1136,109 @@ async function doCreate(){
     startTimers();
     if(!G._pollTimer) G._pollTimer=setInterval(softReload,30000);
     if(!G._pricePoll) G._pricePoll=setInterval(refreshPrices,60000);
+  }
+}
+
+/* ─── Level-up ───────────────────────────────────────────────────────────── */
+const LEVEL_UNLOCKS={
+  3:'Välj yrke',5:'Köp fordon',8:'Strid mot NPC:er',
+  10:'Fastigheter & Streetrace',15:'Bankrån',20:'Kasinorån',30:'Riksbanken'
+};
+
+function showLevelUp(oldLevel,newLevel){
+  const ov=document.getElementById('lvlup-overlay');
+  const lv=document.getElementById('lvlup-level');
+  const ul=document.getElementById('lvlup-unlocks');
+  if(!ov) return;
+  if(lv) lv.textContent='Level '+newLevel;
+  const unlocks=[];
+  for(let l=oldLevel+1;l<=newLevel;l++) if(LEVEL_UNLOCKS[l]) unlocks.push(LEVEL_UNLOCKS[l]);
+  if(ul) ul.innerHTML=unlocks.length?'Upplåst: '+unlocks.join(', '):'';
+  ov.classList.add('show');
+  setTimeout(()=>ov.classList.remove('show'),4000);
+  ov.onclick=()=>ov.classList.remove('show');
+}
+
+/* ─── Race ───────────────────────────────────────────────────────────────── */
+const VEHICLE_CFGS=[
+  {id:'volvo240',name:'Stulen Volvo 240',cost:2000,bonus:10},
+  {id:'golf_gti',name:'Trimmad Golf GTI',cost:8000,bonus:25},
+  {id:'bmw_m3',name:'BMW M3 E46',cost:25000,bonus:45},
+  {id:'skyline_r34',name:'Nissan Skyline R34',cost:60000,bonus:70},
+  {id:'lambo',name:'Lamborghini Gallardo',cost:200000,bonus:90},
+];
+
+function renderRace(){
+  const p=G.player;
+  const lockEl=document.getElementById('race-lock');
+  const cont=document.getElementById('race-content');
+  if(p&&p.level<10){
+    if(lockEl) lockEl.style.display='';
+    if(cont) cont.style.display='none';
+    return;
+  }
+  if(lockEl) lockEl.style.display='none';
+  if(cont) cont.style.display='';
+  const inv=G.extra.inventory||[];
+  const ownedIds=new Set(inv.filter(i=>i.item_type==='vehicle').map(i=>i.item_name));
+  const vg=document.getElementById('vehicle-grid');
+  if(vg){
+    vg.innerHTML=VEHICLE_CFGS.map(v=>{
+      const owned=ownedIds.has(v.id);
+      return `<div class="vehicle-card${owned?' owned':''}">
+        ${owned?'<div class="vehicle-owned-badge">&#x2713; \xc4ger</div>':''}
+        <div class="vehicle-name">${v.name}</div>
+        <div class="vehicle-cost">${fmtCash(v.cost)} kr</div>
+        <div class="vehicle-bonus">+${v.bonus}% race bonus</div>
+        <button onclick="doBuyVehicle('${v.id}')" ${owned?'disabled':''}>K\xd6P</button>
+      </div>`;
+    }).join('');
+  }
+}
+
+async function doRace(tier){
+  if(G.busy) return;G.busy=true;
+  const logEl=document.getElementById('race-log');
+  if(logEl){logEl.className='race-log show';logEl.innerHTML='<span class="suspense-dots">Motorerna startar</span>';}
+  const r=await post('action/race',{tier});
+  G.busy=false;
+  if(r.error){
+    if(logEl) logEl.classList.remove('show');
+    setMsg('race-msg',r.error,'err');
+    return;
+  }
+  if(logEl&&r.narrative){
+    const lines=r.narrative;
+    logEl.innerHTML='';
+    for(let i=0;i<lines.length;i++){
+      await new Promise(res=>setTimeout(res,i===0?0:600));
+      const d=document.createElement('div');
+      d.className='combat-line';
+      d.textContent=lines[i];
+      logEl.appendChild(d);
+    }
+  }
+  const msg=r.message||'Race avslutat';
+  setMsg('race-msg',msg,r.success?'ok':'err');
+  addLog(msg,r.success?'ok':'err');
+  const oldLevel=G.player?G.player.level:1;
+  const pr=await api('player');
+  if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+  if(G.player.level>oldLevel) showLevelUp(oldLevel,G.player.level);
+  renderTopbar();renderSidebar();renderRace();
+}
+
+async function doBuyVehicle(vehicleId){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/buy-vehicle',{vehicle_id:vehicleId});
+  G.busy=false;
+  if(r.error){setMsg('race-msg',r.error,'err');}
+  else{
+    setMsg('race-msg',r.message||'K\xf6pt!','ok');
+    addLog(r.message||'K\xf6pte fordon','ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderRace();
   }
 }
 
