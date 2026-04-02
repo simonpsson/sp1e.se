@@ -164,6 +164,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'player'           && method === 'GET')  return gameGetPlayer(request, env);
       if (id === 'status'           && method === 'GET')  return gameGetStatus(request, env);
       if (id === 'drug-prices'      && method === 'GET')  return gameGetDrugPrices();
+      if (id === 'npcs'             && method === 'GET')  return gameGetNpcs(env);
+      if (id === 'simulate'         && method === 'GET')  return gameSimulate(env);
+      if (id === 'hall-of-fame'     && method === 'GET')  return gameHallOfFame(env);
+      if (id === 'new-round'        && method === 'POST') return gameNewRound(env);
       if (id === 'action') {
         if (sub === 'robbery'          && method === 'POST') return gameActionRobbery(request, env);
         if (sub === 'train'            && method === 'POST') return gameActionTrain(request, env);
@@ -175,6 +179,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
         if (sub === 'buy-property'     && method === 'POST') return gameActionBuyProperty(request, env);
         if (sub === 'collect-income'   && method === 'POST') return gameActionCollectIncome(request, env);
         if (sub === 'choose-profession'&& method === 'POST') return gameActionChooseProfession(request, env);
+        if (sub === 'buy-vehicle'      && method === 'POST') return gameActionBuyVehicle(request, env);
+        if (sub === 'race'             && method === 'POST') return gameActionRace(request, env);
       }
       return json({ error: 'not found' }, 404);
     }
@@ -1162,6 +1168,81 @@ const PRISON_SENTENCES: Record<string, number> = {
   house: 25, jewelry: 40, bank: 60, casino: 90, federal_reserve: 120,
 };
 
+// ── Flavor text ───────────────────────────────────────────────────────────────
+
+function pickRandom<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
+const ROBBERY_FLAVOR_SUCCESS: Record<string, string[]> = {
+  shoplift:       ['Du stoppade ner en Snickers i fickan. Ingen märkte något.',
+                   'Kassörskan tittade bort precis lagom. Smooth.',
+                   'En hel korg frukt under jackan. Proffsigt.'],
+  pickpocket:     ['Du slog till mot en japansk turist. Snyggt drag.',
+                   'Tre sekunder och 400 kr. Du är bäst.',
+                   'Gamlingen märkte inget. Hans plånbok nu.'],
+  car_breakin:    ['Bildörren öppnades med ett litet verktyg. Som att bre smör.',
+                   'En BMW låg olåst. Tack för gåvan.',
+                   'Handsfacekit och lite kontanter. Inte illa.'],
+  gas_station:    ['Du hotade tonåringen bakom kassan med en banan. Det funkade.',
+                   'Kassetten drogs ur kameran. Professionellt.',
+                   '"Det här är ett rån." "Jaså?" "Ja." Kassainhålltet ditt.'],
+  house:          ['Villaägaren var på jobbet. Du var inte.',
+                   'Säkerhetssystemet var från 1998. Du var inte.',
+                   'Smyckena i lådorna. Smart folk gömmer ingenting.'],
+  jewelry:        ['Glasmontern krossades på 4 sekunder. Nytt rekord.',
+                   'Diamantringen slank ner i fickan. Glittrigt.',
+                   'Butiksägaren låg på golvet och grät. Du sprang.'],
+  bank:           ['Du gick in, sa "det här är ett rån", och gick ut med en väska full.',
+                   'Banktjänstemännen var hjälpsamma. Väldigt hjälpsamma.',
+                   'Valvet stod öppet för lunchservice. Perfekt timing.'],
+  casino:         ['Säkerhetsvakten var upptagen med att äta. Du var inte.',
+                   'Chipsen byttes mot kontanter i bakdörren.',
+                   'VIP-rummet tömt på 90 sekunder. Nytt PB.'],
+  federal_reserve:['Sveriges riksbank. Du gick in. Du gick ut. Historien är skriven.',
+                   'Nationalbanken. Säkerheten var bra. Din planering bättre.',
+                   'Du rånade riksbanken. Nu är du legend.'],
+};
+
+const ROBBERY_FLAVOR_FAIL: Record<string, string[]> = {
+  shoplift:       ['Kassörskan såg dig. "Jag ringer polansen!" Gripen.',
+                   'Du snubblade och tappade allt. Pinsamt.',
+                   'Butiksvakten var exakt bakom dig. Typiskt.'],
+  pickpocket:     ['Turisten kände handen. Skrek på svenska. Gripen.',
+                   'Fel ficka. Där låg bara en gammal kvitto.',
+                   'Polis i civilt. Naturligtvis.'],
+  car_breakin:    ['Larmet gick. Alla hörde det utom du.',
+                   'Grannarna filmade. Lade ut på Facebook.',
+                   'Bilen hade dubbellås. Din dag.'],
+  gas_station:    ['Polisen tankade precis där. Fel timing.',
+                   'Vakten tryckte på larmet med foten.',
+                   'Du sprang fel håll. In i stängslet.'],
+  house:          ['Husägaren var hemmasjuk. Med sin dobermann.',
+                   'Du loggade på grannens WiFi av misstag. Spårad.',
+                   'Polispatrullen körde förbi i precis rätt ögonblick.'],
+  jewelry:        ['Tränglasset aktiverades. Tre lager stål.',
+                   'Smyckena satt fast. Du satt fast.',
+                   'Larm direkt till polisen. 3 minuter. Du sprang inte tillräckligt fort.'],
+  bank:           ['Larmet gick. Tre polisbilar. Du sprang in i en glasdörr. Gripen.',
+                   'Kassan var tom — det var lönedag. Tur att du åkte fast ändå.',
+                   'Undercover-detektiven i kön. Typiskt.'],
+  casino:         ['Kasinoets säkerhet är i en annan liga. Du fick reda på det.',
+                   'Sju kameror. Sju bilder på ditt ansikte.',
+                   'Vakterna var fler än gästerna ikväll.'],
+  federal_reserve:['SÄPO, militären och hundar. Du klarade inte ens entrén.',
+                   'Riksbankens säkerhet är nationell hemlighet. Du förstår varför nu.',
+                   'Det gick inte. Gripen. Länge.'],
+};
+
+const ASSAULT_WIN_LINES = [
+  'Du drog till med en vänsterkrok.',
+  '{name} stumlade bakåt.',
+  '{name} somnade. Du plockade cash.',
+];
+const ASSAULT_LOSE_LINES = [
+  'Du sprang mot {name}.',
+  'Du snubblade på en ölburk.',
+  '{name} skrattade. Pinsamt.',
+];
+
 // ── Drug prices ───────────────────────────────────────────────────────────────
 
 const DRUG_BASE_PRICES: Record<string, number> = {
@@ -1232,10 +1313,11 @@ async function gameGetPlayer(request: Request, env: Env): Promise<Response> {
   const pid     = player.id as string;
   const energy  = calcEnergy(player);
 
-  // Fetch inventory + last 20 actions in parallel
-  const [invRes, logRes] = await Promise.all([
+  // Fetch inventory, actions, and properties in parallel
+  const [invRes, logRes, propRes] = await Promise.all([
     env.DB.prepare('SELECT * FROM game_inventory WHERE player_id = ?').bind(pid).all<Row>(),
     env.DB.prepare('SELECT * FROM game_action_log WHERE player_id = ? ORDER BY created_at DESC LIMIT 20').bind(pid).all<Row>(),
+    env.DB.prepare('SELECT * FROM game_properties WHERE player_id = ?').bind(pid).all<Row>(),
   ]);
 
   // Prison/hospital time remaining
@@ -1247,14 +1329,190 @@ async function gameGetPlayer(request: Request, env: Env): Promise<Response> {
     player: { ...player, energy },
     prison_seconds_left:  prisonUntil   ? Math.max(0, Math.floor((prisonUntil   - now) / 1000)) : 0,
     hospital_seconds_left:hospitalUntil ? Math.max(0, Math.floor((hospitalUntil - now) / 1000)) : 0,
-    inventory: invRes.results,
-    log:       logRes.results,
+    inventory:  invRes.results,
+    log:        logRes.results,
+    properties: propRes.results,
   });
 }
 
+async function gameGetNpcs(env: Env): Promise<Response> {
+  const round = await getActiveRound(env);
+  if (!round) return gameJson({ npcs: [] });
+  const res = await env.DB.prepare(
+    `SELECT id, name, level, respect, strength, cash, side, personality, is_alive, hp
+     FROM game_npcs WHERE round_id = ? AND is_alive = 1 ORDER BY level DESC LIMIT 30`
+  ).bind(round.id as string).all<Row>();
+  return gameJson({ npcs: res.results });
+}
+
+// ── NPC simulation ────────────────────────────────────────────────────────────
+
+async function gameSimulate(env: Env): Promise<Response> {
+  const round = await getActiveRound(env);
+  if (!round) return gameJson({ activity: [] });
+
+  // End round if expired
+  const endDate = new Date(round.end_date as string).getTime();
+  if (Date.now() > endDate) {
+    await endRound(env, round);
+    return gameJson({ round_ended: true, activity: [] });
+  }
+
+  // Pick up to 3 random alive NPCs
+  const res = await env.DB.prepare(
+    `SELECT * FROM game_npcs WHERE round_id = ? AND is_alive = 1 ORDER BY RANDOM() LIMIT 3`
+  ).bind(round.id as string).all<Row>();
+
+  const activity: string[] = [];
+  const stmts: D1PreparedStatement[] = [];
+
+  for (const npc of res.results) {
+    const lvl  = (npc.level    as number) || 1;
+    const roll = Math.random();
+
+    if (roll < 0.50) {
+      // Robbery — target scales with NPC level
+      const target =
+        lvl >= 20 ? 'casino'      :
+        lvl >= 15 ? 'bank'        :
+        lvl >= 10 ? 'jewelry'     :
+        lvl >= 8  ? 'house'       :
+        lvl >= 5  ? 'gas_station' :
+        lvl >= 3  ? 'car_breakin' : 'pickpocket';
+      const cfg = ROBBERY_TARGETS[target];
+      if (cfg && Math.random() < 0.65) {
+        const cash    = Math.round(rand(cfg.minCash, cfg.maxCash) * 0.70);
+        const respect = Math.ceil(cfg.respect * 0.70);
+        const newResp = (npc.respect as number) + respect;
+        const newLvl  = Math.min(50, Math.floor(Math.sqrt(newResp / 5)) + 1);
+        stmts.push(
+          env.DB.prepare(`UPDATE game_npcs SET cash = cash + ?, respect = ?, level = ? WHERE id = ?`)
+            .bind(cash, newResp, newLvl, npc.id as string)
+        );
+        activity.push(`${npc.name as string} rånade ${cfg.label} och tjänade ${svNum(cash)} kr.`);
+      }
+    } else if (roll < 0.70) {
+      // Training — silent
+      const inc    = rand(1, 2);
+      const newStr = Math.min(100, (npc.strength as number) + inc);
+      stmts.push(
+        env.DB.prepare(`UPDATE game_npcs SET strength = ? WHERE id = ?`).bind(newStr, npc.id as string)
+      );
+    } else if (roll < 0.85) {
+      // Drug deal
+      const earnings = Math.round(lvl * rand(200, 600) * 0.70);
+      const respect  = Math.ceil(earnings / 400);
+      stmts.push(
+        env.DB.prepare(`UPDATE game_npcs SET cash = cash + ?, respect = respect + ? WHERE id = ?`)
+          .bind(earnings, respect, npc.id as string)
+      );
+      const drugList = ['marijuana', 'kokain', 'heroin', 'ecstasy'];
+      const drug = drugList[Math.floor(Math.random() * drugList.length)];
+      activity.push(`${npc.name as string} sålde ${drug} och tjänade ${svNum(earnings)} kr.`);
+    } else {
+      // Assault another NPC
+      const victims = res.results.filter(n => n.id !== npc.id && n.is_alive);
+      if (victims.length) {
+        const victim  = victims[Math.floor(Math.random() * victims.length)];
+        const stolen  = Math.round(((victim.cash as number) || 0) * rand(10, 25) / 100);
+        if (stolen > 0) {
+          stmts.push(
+            env.DB.prepare(`UPDATE game_npcs SET cash = cash + ?, respect = respect + 5 WHERE id = ?`).bind(stolen, npc.id as string),
+            env.DB.prepare(`UPDATE game_npcs SET cash = cash - ? WHERE id = ?`).bind(stolen, victim.id as string)
+          );
+          activity.push(`${npc.name as string} slog ner ${victim.name as string} och stal ${svNum(stolen)} kr.`);
+        }
+      }
+    }
+  }
+
+  if (stmts.length) {
+    // D1 batch limit is 100; split just in case
+    for (let i = 0; i < stmts.length; i += 100) {
+      await env.DB.batch(stmts.slice(i, i + 100));
+    }
+  }
+
+  return gameJson({ activity });
+}
+
+function svNum(n: number): string {
+  return n.toLocaleString('sv-SE');
+}
+
+// ── Round management ──────────────────────────────────────────────────────────
+
+async function endRound(env: Env, round: Row): Promise<boolean> {
+  const roundId  = round.id  as string;
+  const roundNum = round.round_number as number;
+
+  // Idempotent — check if already archived
+  const already = await env.DB.prepare(`SELECT id FROM game_leaderboard WHERE round_id = ? LIMIT 1`)
+    .bind(roundId).first();
+  if (already) return false;
+
+  const top = await env.DB.prepare(
+    `SELECT name, respect, level, cash, profession, side
+     FROM game_players WHERE round_id = ? AND is_alive = 1
+     ORDER BY respect DESC LIMIT 10`
+  ).bind(roundId).all<Row>();
+
+  const stmts = top.results.map((p, i) => {
+    const prof = ((p.profession as string) || '').replace('changed:', '') || null;
+    return env.DB.prepare(
+      `INSERT OR IGNORE INTO game_leaderboard
+         (id, round_id, round_number, player_name, final_respect, final_level, final_cash, profession, side, rank)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(crypto.randomUUID(), roundId, roundNum, p.name, p.respect, p.level, p.cash, prof, p.side, i + 1);
+  });
+  stmts.push(env.DB.prepare(`UPDATE game_rounds SET is_active = 0 WHERE id = ?`).bind(roundId));
+  if (stmts.length) await env.DB.batch(stmts);
+  return true;
+}
+
+async function gameNewRound(env: Env): Promise<Response> {
+  // Deactivate any existing active round that has expired
+  await env.DB.prepare(
+    `UPDATE game_rounds SET is_active = 0 WHERE is_active = 1 AND end_date < date('now')`
+  ).run();
+
+  const cur = await env.DB.prepare(`SELECT MAX(round_number) as n FROM game_rounds`).first<{ n: number }>();
+  const next = (cur?.n ?? 0) + 1;
+  const id   = `round-${String(next).padStart(3, '0')}`;
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO game_rounds (id, round_number, start_date, end_date, is_active)
+     VALUES (?, ?, date('now'), date('now', '+30 days'), 1)`
+  ).bind(id, next).run();
+  return gameJson({ round_id: id, round_number: next, message: `Runda ${next} har börjat!` });
+}
+
+async function gameHallOfFame(env: Env): Promise<Response> {
+  const res = await env.DB.prepare(
+    `SELECT round_number, player_name, final_respect, final_level, final_cash, profession, side, rank, created_at
+     FROM game_leaderboard ORDER BY round_number DESC, rank ASC LIMIT 100`
+  ).all<Row>();
+
+  // Group by round_number
+  const rounds: Record<number, Row[]> = {};
+  for (const row of res.results) {
+    const rn = row.round_number as number;
+    if (!rounds[rn]) rounds[rn] = [];
+    rounds[rn].push(row);
+  }
+  return gameJson({ hall_of_fame: rounds });
+}
+
+// ── Also integrate round-end check into getStatus ────────────────────────────
+
 async function gameGetStatus(request: Request, env: Env): Promise<Response> {
   const round = await getActiveRound(env);
-  if (!round) return gameJson({ error: 'No active round.' }, 503);
+  if (!round) return gameJson({ round_ended: true, top10: [], player_count: 0 });
+
+  const endDate    = new Date(round.end_date as string).getTime();
+  const secondsLeft = Math.max(0, Math.floor((endDate - Date.now()) / 1000));
+  const roundEnded  = secondsLeft === 0;
+
+  if (roundEnded) await endRound(env, round);
 
   const [topRes, countRes] = await Promise.all([
     env.DB.prepare(
@@ -1267,17 +1525,15 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
     ).bind(round.id as string).first<{ cnt: number }>(),
   ]);
 
-  const endDate = new Date(round.end_date as string).getTime();
-  const secondsLeft = Math.max(0, Math.floor((endDate - Date.now()) / 1000));
-
   return gameJson({
+    round_ended: roundEnded,
     round: {
-      number: round.round_number,
-      start:  round.start_date,
-      end:    round.end_date,
+      number:       round.round_number,
+      start:        round.start_date,
+      end:          round.end_date,
       seconds_left: secondsLeft,
     },
-    top10: topRes.results,
+    top10:        topRes.results,
     player_count: countRes?.cnt ?? 0,
   });
 }
@@ -1334,19 +1590,21 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
     cashGained    = Math.round(cashGained * (1 + profBonus(profession, 'robbery_cash')));
     respectGained = cfg.respect;
     xpGained      = Math.round(cfg.xp * (1 + profBonus(profession, 'xp_gain')));
-    message       = `\u2713 ${cfg.label}. Du fickar ${cashGained.toLocaleString('sv')} kr.`;
+    const flavorOk = pickRandom(ROBBERY_FLAVOR_SUCCESS[target] ?? [cfg.label + '.']);
+    message       = `\u2713 ${flavorOk} +${cashGained.toLocaleString('sv')} kr.`;
   } else {
     // Missed; chance of getting caught
     const caughtRoll = Math.random() * 100;
     caught = caughtRoll < cfg.prisonChance;
     xpGained = Math.floor(cfg.xp * 0.2 * (1 + profBonus(profession, 'xp_gain')));
+    const flavorBad = pickRandom(ROBBERY_FLAVOR_FAIL[target] ?? [cfg.label + ' misslyckades.']);
     if (caught) {
       let mins = PRISON_SENTENCES[target] ?? 10;
       mins = Math.max(1, Math.round(mins * (1 + profBonus(profession, 'prison_time'))));
       prisonMinutes = mins;
-      message = `\u2717 ${cfg.label} misslyckades. Gripen! ${prisonMinutes} min i f\u00e4ngelse.`;
+      message = `\u2717 ${flavorBad} ${prisonMinutes} min i f\u00e4ngelse.`;
     } else {
-      message = `\u2717 ${cfg.label} misslyckades. Du lyckades fly.`;
+      message = `\u2717 ${flavorBad} Du lyckades fly.`;
     }
   }
 
@@ -1579,11 +1837,14 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   let respectGained= 0;
   let message      = '';
 
+  let combatLines: string[] = [];
   if (success) {
     damageDelt    = rand(10, 40);
     cashStolen    = Math.floor(((target.cash as number) ?? 0) * (rand(10, 30) / 100));
     respectGained = Math.max(1, Math.floor(cashStolen / 200));
     message       = `\u2713 Slog ner ${target.name as string}. Stal ${cashStolen.toLocaleString('sv')} kr.`;
+    combatLines   = ASSAULT_WIN_LINES.map(l => l.replace(/\{name\}/g, target.name as string));
+    combatLines.push(`Du stal ${cashStolen.toLocaleString('sv')} kr.`);
 
     // Reduce target HP
     const targetHp = Math.max(0, ((isNpc ? (target.hp ?? 50) : target.hp) as number) - damageDelt);
@@ -1607,6 +1868,8 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   } else {
     damageTaken = rand(5, 25);
     message     = `\u2717 Attacken mot ${target.name as string} misslyckades. Du fick stryk.`;
+    combatLines = ASSAULT_LOSE_LINES.map(l => l.replace(/\{name\}/g, target.name as string));
+    combatLines.push(`Du fick ${damageTaken} skada.`);
     const newHp = Math.max(0, (player.hp as number) - damageTaken);
     const hospitalized = newHp === 0;
     const hospitalUntil = hospitalized ? new Date(Date.now() + 30 * 60 * 1000).toISOString() : null;
@@ -1625,7 +1888,7 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
 
   await logAction(env, pid, 'assault', message, cashStolen, respectGained, success ? 50 : 0, success);
 
-  return gameJson({ success, message, damage_dealt: damageDelt, damage_taken: damageTaken, cash_stolen: cashStolen });
+  return gameJson({ success, message, combat_lines: combatLines, damage_dealt: damageDelt, damage_taken: damageTaken, cash_stolen: cashStolen });
 }
 
 async function gameActionPrisonEscape(request: Request, env: Env): Promise<Response> {
@@ -1892,6 +2155,122 @@ async function gameActionChooseProfession(request: Request, env: Env): Promise<R
 
   await logAction(env, pid, 'profession', `Valde yrke: ${prof}.`, 0, 0, 0, true);
   return gameJson({ profession: prof, message: `Du \u00e4r nu ${prof}.` });
+}
+
+// ── Vehicles & Race ───────────────────────────────────────────────────────────
+
+const VEHICLE_CONFIGS: Record<string, { name: string; cost: number; bonus: number }> = {
+  volvo240:   { name: 'Stulen Volvo 240',       cost: 2000,   bonus: 10 },
+  golf_gti:   { name: 'Trimmad Golf GTI',       cost: 8000,   bonus: 25 },
+  bmw_m3:     { name: 'BMW M3 E46',             cost: 25000,  bonus: 45 },
+  skyline_r34:{ name: 'Nissan Skyline R34',     cost: 60000,  bonus: 70 },
+  lambo:      { name: 'Lamborghini Gallardo',   cost: 200000, bonus: 90 },
+};
+
+const RACE_TIERS: Record<number, { fee: number; prize: number; xp: number; difficulty: number }> = {
+  1: { fee: 1000,  prize: 3000,  xp: 50,  difficulty: 30 },
+  2: { fee: 5000,  prize: 15000, xp: 150, difficulty: 50 },
+  3: { fee: 25000, prize: 75000, xp: 400, difficulty: 70 },
+};
+
+const RACE_NARRATIVES = [
+  ['Motorerna vrider... 3... 2... 1... GÅ!', 'Du håller bra fart in mot Slussen...', 'Du skär förbi på insidan och tar ledningen!'],
+  ['Motorerna vrider... 3... 2... 1... GÅ!', 'Du ligger tätt bakom vid Gamla Stan...', 'Sista kurvan — du drar ifrån!'],
+  ['Motorerna vrider... 3... 2... 1... GÅ!', 'Ni går jämna hela banan...', 'Målgångsfoto — du vann med näsan!'],
+];
+const RACE_LOSE_NARRATIVES = [
+  ['Motorerna vrider... 3... 2... 1... GÅ!', 'Du tappar fart i kurvan vid Slussen...', 'Rivalen drar ifrån. Inga ursäkter.'],
+  ['Motorerna vrider... 3... 2... 1... GÅ!', 'Växellådan strular lite...', 'Du kom på andraplats. Pengar borta.'],
+];
+
+async function gameActionBuyVehicle(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const body      = await request.json<{ vehicle_id?: string }>();
+  const vehicleId = (body.vehicle_id ?? '').trim();
+  const cfg       = VEHICLE_CONFIGS[vehicleId];
+  if (!cfg) return gameJson({ error: `Okänt fordon "${vehicleId}".` }, 400);
+
+  const playerLevel = (player.level as number) ?? 1;
+  if (playerLevel < 5) return gameJson({ error: 'Fordon låses upp vid level 5.' }, 400);
+
+  const pid = player.id as string;
+  const existing = await env.DB.prepare(
+    `SELECT id FROM game_inventory WHERE player_id = ? AND item_name = ? AND item_type = 'vehicle'`
+  ).bind(pid, vehicleId).first();
+  if (existing) return gameJson({ error: 'Du äger redan det fordonet.' }, 400);
+
+  if ((player.cash as number) < cfg.cost)
+    return gameJson({ error: `Inte tillräckligt med pengar. Behöver ${cfg.cost.toLocaleString('sv')} kr.` }, 400);
+
+  const iid = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(cfg.cost, pid),
+    env.DB.prepare(`INSERT INTO game_inventory (id, player_id, item_name, item_type, quantity, buy_price) VALUES (?,?,?,?,?,?)`)
+      .bind(iid, pid, vehicleId, 'vehicle', 1, cfg.cost),
+  ]);
+
+  await logAction(env, pid, 'buy_vehicle', `Köpte ${cfg.name} för ${cfg.cost.toLocaleString('sv')} kr.`, -cfg.cost, 0, 0, true);
+  return gameJson({ message: `${cfg.name} är nu din. Skön bil.` });
+}
+
+async function gameActionRace(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  if (player.in_prison)   return gameJson({ error: 'Du sitter i fängelse.' }, 400);
+  if (player.in_hospital) return gameJson({ error: 'Du är på sjukhus.' }, 400);
+
+  const playerLevel = (player.level as number) ?? 1;
+  if (playerLevel < 10) return gameJson({ error: 'Streetrace låses upp vid level 10.' }, 400);
+
+  const body = await request.json<{ tier?: number }>();
+  const tier = Number(body.tier ?? 1);
+  const cfg  = RACE_TIERS[tier];
+  if (!cfg) return gameJson({ error: 'Ogiltig tier (1-3).' }, 400);
+
+  const pid  = player.id as string;
+  const cash = (player.cash as number) ?? 0;
+  if (cash < cfg.fee) return gameJson({ error: `Inte tillräckligt. Insats: ${cfg.fee.toLocaleString('sv')} kr.` }, 400);
+
+  const energy = calcEnergy(player);
+  if (energy < 10) return gameJson({ error: 'Inte tillräckligt energi (behöver 10).' }, 400);
+
+  // Find best vehicle
+  const vehicleRow = await env.DB.prepare(
+    `SELECT item_name FROM game_inventory WHERE player_id = ? AND item_type = 'vehicle' ORDER BY buy_price DESC LIMIT 1`
+  ).bind(pid).first<{ item_name: string }>();
+  const vehicleBonus = vehicleRow ? (VEHICLE_CONFIGS[vehicleRow.item_name]?.bonus ?? 0) : 0;
+
+  const stealth   = (player.stealth as number) ?? 10;
+  const winChance = Math.min(90, 30 + vehicleBonus * 0.5 + stealth * 0.3 + playerLevel - cfg.difficulty);
+  const won       = Math.random() * 100 < winChance;
+
+  const cashDelta  = won ? cfg.prize : -cfg.fee;
+  const newCash    = cash + cashDelta;
+  const xpGained   = won ? cfg.xp : Math.floor(cfg.xp * 0.2);
+  const currentXp  = (player.xp as number) + xpGained;
+  const newLevel   = levelFromXp(currentXp);
+  const respectGained = won ? Math.floor(cfg.prize / 500) : 0;
+
+  const newEnergy  = await updateEnergy(env, pid, energy, 10);
+  await env.DB.prepare(
+    `UPDATE game_players SET cash = ?, xp = ?, level = ?, respect = respect + ?, last_action = datetime('now') WHERE id = ?`
+  ).bind(newCash, currentXp, newLevel, respectGained, pid).run();
+
+  const narrative = won
+    ? [...pickRandom(RACE_NARRATIVES), `Vinst! +${cfg.prize.toLocaleString('sv')} kr.`]
+    : [...pickRandom(RACE_LOSE_NARRATIVES), `Förlust. -${cfg.fee.toLocaleString('sv')} kr.`];
+  const message = won
+    ? `\u2713 Du vann! +${cfg.prize.toLocaleString('sv')} kr.`
+    : `\u2717 Du f\u00f6rlorade. -${cfg.fee.toLocaleString('sv')} kr.`;
+
+  await logAction(env, pid, 'race', message, cashDelta, respectGained, xpGained, won);
+  return gameJson({ success: won, message, narrative, cash_delta: cashDelta, xp_gained: xpGained, energy_left: newEnergy });
 }
 
 // ─── DAX measures data (inlined — Cloudflare Pages does not bundle _ helpers) ──
