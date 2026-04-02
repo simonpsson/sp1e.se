@@ -165,13 +165,16 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'status'           && method === 'GET')  return gameGetStatus(request, env);
       if (id === 'drug-prices'      && method === 'GET')  return gameGetDrugPrices();
       if (id === 'action') {
-        if (sub === 'robbery'       && method === 'POST') return gameActionRobbery(request, env);
-        if (sub === 'train'         && method === 'POST') return gameActionTrain(request, env);
-        if (sub === 'drug-deal'     && method === 'POST') return gameActionDrugDeal(request, env);
-        if (sub === 'assault'       && method === 'POST') return gameActionAssault(request, env);
-        if (sub === 'prison-escape' && method === 'POST') return gameActionPrisonEscape(request, env);
-        if (sub === 'hospital'      && method === 'POST') return gameActionHospital(request, env);
-        if (sub === 'bank'          && method === 'POST') return gameActionBank(request, env);
+        if (sub === 'robbery'          && method === 'POST') return gameActionRobbery(request, env);
+        if (sub === 'train'            && method === 'POST') return gameActionTrain(request, env);
+        if (sub === 'drug-deal'        && method === 'POST') return gameActionDrugDeal(request, env);
+        if (sub === 'assault'          && method === 'POST') return gameActionAssault(request, env);
+        if (sub === 'prison-escape'    && method === 'POST') return gameActionPrisonEscape(request, env);
+        if (sub === 'hospital'         && method === 'POST') return gameActionHospital(request, env);
+        if (sub === 'bank'             && method === 'POST') return gameActionBank(request, env);
+        if (sub === 'buy-property'     && method === 'POST') return gameActionBuyProperty(request, env);
+        if (sub === 'collect-income'   && method === 'POST') return gameActionCollectIncome(request, env);
+        if (sub === 'choose-profession'&& method === 'POST') return gameActionChooseProfession(request, env);
       }
       return json({ error: 'not found' }, 404);
     }
@@ -1102,11 +1105,27 @@ function rand(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function xpForLevel(level: number): number { return level * level * 100; }
+/** XP required to advance FROM level N to N+1 = N * 1000. */
 function levelFromXp(xp: number): number {
-  let level = 1;
-  while (xpForLevel(level + 1) <= xp) level++;
-  return Math.min(level, 50);
+  let lvl = 1, needed = 0;
+  while (lvl < 50) { needed += lvl * 1000; if (xp < needed) break; lvl++; }
+  return lvl;
+}
+
+const ROBBERY_LEVEL_REQS: Record<string, number> = {
+  shoplift: 1, pickpocket: 1, car_breakin: 3, gas_station: 5,
+  house: 8, jewelry: 10, bank: 15, casino: 20, federal_reserve: 30,
+};
+
+function profBonus(profession: string, key: string): number {
+  const map: Record<string, Record<string, number>> = {
+    rånare:   { robbery_cash: 0.30, prison_time: -0.20 },
+    langare:  { drug_profit: 0.25 },
+    torped:   { assault_damage: 0.30, hp_max: 0.20 },
+    hallick:  { property_income: 0.40 },
+    bedragare:{ all_stats: 0.20, xp_gain: 0.15 },
+  };
+  return map[profession]?.[key] ?? 0;
 }
 
 async function logAction(
@@ -1285,14 +1304,19 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
   if (player.in_hospital) return gameJson({ error: 'Du är på sjukhus.' }, 400);
   if (!player.is_alive)   return gameJson({ error: 'Du är eliminerad.' }, 400);
 
-  const energy = calcEnergy(player);
-  if (energy < cfg.energy)
-    return gameJson({ error: `Not enough energy. Need ${cfg.energy}, have ${energy}.` }, 400);
-
   const pid          = player.id as string;
   const stealth      = (player.stealth      as number) ?? 10;
   const intelligence = (player.intelligence as number) ?? 10;
   const level        = (player.level        as number) ?? 1;
+  const profession   = (player.profession   as string) ?? 'none';
+
+  const levelReq = ROBBERY_LEVEL_REQS[target] ?? 1;
+  if (level < levelReq)
+    return gameJson({ error: `Kräver level ${levelReq}. Du är level ${level}.` }, 400);
+
+  const energy = calcEnergy(player);
+  if (energy < cfg.energy)
+    return gameJson({ error: `Not enough energy. Need ${cfg.energy}, have ${energy}.` }, 400);
 
   const successChance = Math.min(95, cfg.baseChance + stealth * 0.5 + intelligence * 0.3 + level * 2);
   const roll          = Math.random() * 100;
@@ -1307,17 +1331,20 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
 
   if (success) {
     cashGained    = rand(cfg.minCash, cfg.maxCash);
+    cashGained    = Math.round(cashGained * (1 + profBonus(profession, 'robbery_cash')));
     respectGained = cfg.respect;
-    xpGained      = cfg.xp;
+    xpGained      = Math.round(cfg.xp * (1 + profBonus(profession, 'xp_gain')));
     message       = `\u2713 ${cfg.label}. Du fickar ${cashGained.toLocaleString('sv')} kr.`;
   } else {
     // Missed; chance of getting caught
     const caughtRoll = Math.random() * 100;
     caught = caughtRoll < cfg.prisonChance;
-    xpGained = Math.floor(cfg.xp * 0.2); // partial XP for trying
+    xpGained = Math.floor(cfg.xp * 0.2 * (1 + profBonus(profession, 'xp_gain')));
     if (caught) {
-      prisonMinutes = PRISON_SENTENCES[target] ?? 10;
-      message = `\u2717 ${cfg.label} misslyckades. Gripen! ${prisonMinutes} min i fängelse.`;
+      let mins = PRISON_SENTENCES[target] ?? 10;
+      mins = Math.max(1, Math.round(mins * (1 + profBonus(profession, 'prison_time'))));
+      prisonMinutes = mins;
+      message = `\u2717 ${cfg.label} misslyckades. Gripen! ${prisonMinutes} min i f\u00e4ngelse.`;
     } else {
       message = `\u2717 ${cfg.label} misslyckades. Du lyckades fly.`;
     }
@@ -1404,6 +1431,10 @@ async function gameActionDrugDeal(request: Request, env: Env): Promise<Response>
   if (quantity < 1 || quantity > 100)    return gameJson({ error: 'Quantity must be 1–100.' }, 400);
 
   const pid          = player.id as string;
+  const playerLevel  = (player.level        as number) ?? 1;
+  if (playerLevel < 5) return gameJson({ error: 'Droghandel l\u00e5ses upp vid level 5.' }, 400);
+
+  const profession   = (player.profession   as string) ?? 'none';
   const intelligence = (player.intelligence as number) ?? 10;
   const charisma     = (player.charisma     as number) ?? 10;
   const basePrice    = getDrugPrice(drug);
@@ -1413,7 +1444,7 @@ async function gameActionDrugDeal(request: Request, env: Env): Promise<Response>
     const energy  = calcEnergy(player);
     if (energy < COST) return gameJson({ error: `Not enough energy. Need ${COST}.` }, 400);
 
-    const discount = Math.min(0.2, intelligence * 0.002); // up to 20% discount
+    const discount = Math.min(0.2, intelligence * 0.002 + profBonus(profession, 'drug_profit') * 0.5);
     const unitPrice = Math.round(basePrice * (1 - discount));
     const total     = unitPrice * quantity;
     const cash      = (player.cash as number) ?? 0;
@@ -1452,7 +1483,7 @@ async function gameActionDrugDeal(request: Request, env: Env): Promise<Response>
     if (!existing || (existing.quantity as number) < quantity)
       return gameJson({ error: `You don't have ${quantity}x ${drug}.` }, 400);
 
-    const bonus     = Math.min(0.2, charisma * 0.002); // up to 20% bonus
+    const bonus     = Math.min(0.45, charisma * 0.002 + profBonus(profession, 'drug_profit'));
     const unitPrice = Math.round(basePrice * (1 + bonus));
     const total     = unitPrice * quantity;
     const respectGained = Math.max(1, Math.floor(quantity * 0.5));
@@ -1491,6 +1522,13 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   const targetId  = (body.target_id ?? '').trim();
   if (!targetId)  return gameJson({ error: 'target_id required.' }, 400);
 
+  const isNpc       = targetId.startsWith('npc-');
+  const assaultReq  = isNpc ? 8 : 15;
+  const playerLevel = (player.level as number) ?? 1;
+  if (playerLevel < assaultReq)
+    return gameJson({ error: `Strid mot ${isNpc ? 'NPC' : 'spelare'} l\u00e5ses upp vid level ${assaultReq}.` }, 400);
+
+  const profession = (player.profession as string) ?? 'none';
   const COST  = 15;
   const energy = calcEnergy(player);
   if (energy < COST) return gameJson({ error: `Not enough energy. Need ${COST}.` }, 400);
@@ -1511,7 +1549,6 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
 
   // Fetch target (NPC or player)
   let target: Row | null = null;
-  const isNpc = targetId.startsWith('npc-');
   if (isNpc) {
     target = await env.DB.prepare(`SELECT * FROM game_npcs WHERE id = ?`).bind(targetId).first<Row>();
   } else {
@@ -1531,7 +1568,8 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
 
   const attackerStr = (player.strength  as number) ?? 10;
   const targetStr   = (target.strength  as number) ?? 10;
-  const attackPower = attackerStr + weaponDmg + rand(1, 20);
+  const dmgMult     = 1 + profBonus(profession, 'assault_damage');
+  const attackPower = Math.round((attackerStr + weaponDmg + rand(1, 20)) * dmgMult);
   const defensePower= targetStr + rand(1, 15);
 
   const success = attackPower > defensePower;
@@ -1718,6 +1756,142 @@ async function gameActionBank(request: Request, env: Env): Promise<Response> {
   ).bind(amount, amount, pid).run();
   await logAction(env, pid, 'bank', `Tog ut ${amount} kr fr\u00e5n banken.`, amount, 0, 0, true);
   return gameJson({ withdrawn: amount, new_cash: cash + amount, new_bank: bank - amount });
+}
+
+// ─── Property configs ─────────────────────────────────────────────────────────
+
+const PROPERTY_CONFIGS: Record<string, { label: string; baseCost: number; baseIncome: number }> = {
+  stash_house: { label: 'Stash House', baseCost: 5000,  baseIncome: 100  },
+  nightclub:   { label: 'Nattklubb',   baseCost: 25000, baseIncome: 500  },
+  drug_lab:    { label: 'Droglab',     baseCost: 50000, baseIncome: 1000 },
+  garage:      { label: 'Garage',      baseCost: 15000, baseIncome: 50   },
+  safehouse:   { label: 'Safehouse',   baseCost: 10000, baseIncome: 75   },
+};
+
+function propertyCostAtLevel(type: string, level: number): number {
+  return Math.round((PROPERTY_CONFIGS[type]?.baseCost ?? 0) * Math.pow(2, level - 1));
+}
+function propertyIncomeAtLevel(type: string, level: number): number {
+  return (PROPERTY_CONFIGS[type]?.baseIncome ?? 0) * level;
+}
+function maxProperties(playerLevel: number): number { return 3 + Math.floor(playerLevel / 5); }
+
+async function gameActionBuyProperty(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const playerLevel = (player.level as number) ?? 1;
+  if (playerLevel < 10) return gameJson({ error: 'Fastigheter l\u00e5ses upp vid level 10.' }, 400);
+
+  const body = await request.json<{ type?: string; upgrade_id?: string }>();
+  const pid  = player.id as string;
+  const cash = (player.cash as number) ?? 0;
+  const profession = (player.profession as string) ?? 'none';
+
+  // Upgrade path
+  if (body.upgrade_id) {
+    const prop = await env.DB.prepare(`SELECT * FROM game_properties WHERE id = ? AND player_id = ?`)
+      .bind(body.upgrade_id, pid).first<Row>();
+    if (!prop) return gameJson({ error: 'Property not found.' }, 404);
+    const currentLevel = (prop.level as number) ?? 1;
+    if (currentLevel >= 5) return gameJson({ error: 'Already at max level.' }, 400);
+    const cost = propertyCostAtLevel(prop.property_type as string, currentLevel + 1);
+    if (cash < cost) return gameJson({ error: `Upgrade costs ${cost} kr. Du har ${cash} kr.` }, 400);
+    const newLevel   = currentLevel + 1;
+    const newIncome  = Math.round(propertyIncomeAtLevel(prop.property_type as string, newLevel) * (1 + profBonus(profession, 'property_income')));
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE game_properties SET level = ?, income_per_hour = ? WHERE id = ?`).bind(newLevel, newIncome, body.upgrade_id),
+      env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`).bind(cost, pid),
+    ]);
+    return gameJson({ upgraded: prop.property_type, new_level: newLevel, new_income: newIncome, cost, new_cash: cash - cost });
+  }
+
+  const type = (body.type ?? '').toLowerCase();
+  if (!PROPERTY_CONFIGS[type]) return gameJson({ error: `Unknown property type "${type}".` }, 400);
+
+  const maxProps = maxProperties(playerLevel);
+  const owned = await env.DB.prepare(`SELECT COUNT(*) as cnt FROM game_properties WHERE player_id = ?`).bind(pid).first<{ cnt: number }>();
+  if ((owned?.cnt ?? 0) >= maxProps)
+    return gameJson({ error: `Max ${maxProps} fastigheter vid din level.` }, 400);
+
+  const cost   = propertyCostAtLevel(type, 1);
+  if (cash < cost) return gameJson({ error: `Kostar ${cost} kr. Du har ${cash} kr.` }, 400);
+
+  const income = Math.round(propertyIncomeAtLevel(type, 1) * (1 + profBonus(profession, 'property_income')));
+  const propId = crypto.randomUUID();
+  const cfg    = PROPERTY_CONFIGS[type];
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO game_properties (id, player_id, property_type, property_name, level, income_per_hour)
+       VALUES (?, ?, ?, ?, 1, ?)`
+    ).bind(propId, pid, type, cfg.label, income),
+    env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`).bind(cost, pid),
+  ]);
+
+  await logAction(env, pid, 'property', `K\u00f6pte ${cfg.label} f\u00f6r ${cost} kr.`, -cost, 0, 50, true);
+  return gameJson({ bought: type, income_per_hour: income, cost, new_cash: cash - cost });
+}
+
+async function gameActionCollectIncome(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const pid  = player.id as string;
+  const res  = await env.DB.prepare(`SELECT * FROM game_properties WHERE player_id = ?`).bind(pid).all<Row>();
+  if (!res.results.length) return gameJson({ error: 'Inga fastigheter \u00e4gda.' }, 400);
+
+  let total = 0;
+  const now = Date.now();
+  const stmts = res.results.map(prop => {
+    const lastCollected = new Date((prop.last_collected as string) ?? new Date().toISOString()).getTime();
+    const hours         = Math.max(0, (now - lastCollected) / 3600000);
+    const income        = Math.round((prop.income_per_hour as number) * hours);
+    total += income;
+    return env.DB.prepare(`UPDATE game_properties SET last_collected = datetime('now') WHERE id = ?`)
+      .bind(prop.id as string);
+  });
+
+  if (total === 0) return gameJson({ message: 'Ingen inkomst att h\u00e4mta \u00e4nnu.', collected: 0 });
+
+  stmts.push(
+    env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`).bind(total, pid)
+  );
+  await env.DB.batch(stmts);
+  await logAction(env, pid, 'property', `Samlade in ${total} kr fr\u00e5n fastigheter.`, total, 0, 20, true);
+  return gameJson({ collected: total, properties: res.results.length });
+}
+
+async function gameActionChooseProfession(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const playerLevel = (player.level    as number) ?? 1;
+  const current     = (player.profession as string) ?? 'none';
+
+  if (playerLevel < 3) return gameJson({ error: 'Yrke l\u00e5ses upp vid level 3.' }, 400);
+  if (current !== 'none' && playerLevel < 10)
+    return gameJson({ error: 'Du kan byta yrke en g\u00e5ng vid level 10.' }, 400);
+  if (current !== 'none' && playerLevel >= 10) {
+    // Check already changed once (using a flag stored in profession with prefix 'changed:')
+    if (current.startsWith('changed:'))
+      return gameJson({ error: 'Du har redan bytt yrke. Ingen \u00e5terv\u00e4ndo.' }, 400);
+  }
+
+  const body = await request.json<{ profession?: string }>();
+  const prof = (body.profession ?? '').toLowerCase();
+  const valid = ['r\u00e5nare', 'langare', 'torped', 'hallick', 'bedragare'];
+  if (!valid.includes(prof)) return gameJson({ error: `Ogiltigt yrke. V\u00e4lj: ${valid.join(', ')}.` }, 400);
+
+  const stored = current !== 'none' ? `changed:${prof}` : prof;
+  const pid    = player.id as string;
+  await env.DB.prepare(`UPDATE game_players SET profession = ?, last_action = datetime('now') WHERE id = ?`)
+    .bind(stored, pid).run();
+
+  await logAction(env, pid, 'profession', `Valde yrke: ${prof}.`, 0, 0, 0, true);
+  return gameJson({ profession: prof, message: `Du \u00e4r nu ${prof}.` });
 }
 
 // ─── DAX measures data (inlined — Cloudflare Pages does not bundle _ helpers) ──
