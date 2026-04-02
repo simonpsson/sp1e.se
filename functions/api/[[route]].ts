@@ -1152,14 +1152,24 @@ async function ensureActiveRound(env: Env): Promise<Row> {
   let round = await getActiveRound(env);
   if (round) return round;
 
-  const roundId = 'round-001';
   const startDate = new Date().toISOString();
-  const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const endDate   = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  await env.DB.prepare(
-    `INSERT OR IGNORE INTO game_rounds (id, round_number, start_date, end_date, is_active)
-     VALUES (?, 1, ?, ?, 1)`
-  ).bind(roundId, startDate, endDate).run();
+  // Check if round-001 exists but is inactive (e.g. seeded then ended)
+  const existing = await env.DB
+    .prepare(`SELECT id FROM game_rounds WHERE id = 'round-001'`)
+    .first<Row>();
+
+  if (existing) {
+    // Re-activate the seeded round rather than creating a duplicate
+    await env.DB
+      .prepare(`UPDATE game_rounds SET is_active = 1, start_date = ?, end_date = ? WHERE id = 'round-001'`)
+      .bind(startDate, endDate).run();
+  } else {
+    await env.DB
+      .prepare(`INSERT INTO game_rounds (id, round_number, start_date, end_date, is_active) VALUES ('round-001', 1, ?, ?, 1)`)
+      .bind(startDate, endDate).run();
+  }
 
   round = await getActiveRound(env);
   if (!round) throw new GameError('Could not initialize game round.', 500);

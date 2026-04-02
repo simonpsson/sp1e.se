@@ -241,19 +241,19 @@ select:focus{border-color:var(--red);}
     <div>
       <div class="cr-label">VÄLJ SIDA</div>
       <div class="side-row">
-        <div class="side-card active" data-side="eastside">
+        <div class="side-card active" data-side="eastside" onclick="selectSide('eastside')">
           <div class="s-icon">&#x1F535;</div>
           <div class="s-name">EASTSIDE</div>
           <div class="s-desc">Aggressiv. Stark.</div>
         </div>
-        <div class="side-card" data-side="westside">
+        <div class="side-card" data-side="westside" onclick="selectSide('westside')">
           <div class="s-icon">&#x1F534;</div>
           <div class="s-name">WESTSIDE</div>
           <div class="s-desc">Listig. Snabb.</div>
         </div>
       </div>
     </div>
-    <button id="create-btn" class="primary">SKAPA KARAKTÄR</button>
+    <button id="create-btn" class="primary" onclick="doCreate()">SKAPA KARAKTÄR</button>
     <div id="create-err" class="amsg"></div>
   </div>
 </div>
@@ -556,7 +556,7 @@ async function api(path,opts={}){
 }
 const post=(p,b={})=>api(p,{method:'POST',body:JSON.stringify(b)});
 
-window.addEventListener('load',init);
+document.addEventListener('DOMContentLoaded',init);
 
 async function init(){
   bindCreate();
@@ -1110,13 +1110,16 @@ async function doHospital(action){
 }
 
 /* ─── Create ──────────────────────────────────────────────────────────────── */
+function selectSide(side){
+  document.querySelectorAll('.side-card').forEach(c=>c.classList.remove('active'));
+  const card=document.querySelector('.side-card[data-side="'+side+'"]');
+  if(card) card.classList.add('active');
+  G.selectedSide=side;
+}
+
 function bindCreate(){
   document.querySelectorAll('.side-card').forEach(card=>{
-    card.addEventListener('click',()=>{
-      document.querySelectorAll('.side-card').forEach(c=>c.classList.remove('active'));
-      card.classList.add('active');
-      G.selectedSide=card.dataset.side;
-    });
+    card.addEventListener('click',()=>selectSide(card.dataset.side));
   });
   const inp=document.getElementById('inp-name');
   if(inp) inp.addEventListener('keydown',e=>{if(e.key==='Enter') doCreate();});
@@ -1125,16 +1128,25 @@ function bindCreate(){
 }
 
 async function doCreate(){
+  if(G.busy) return;
   const name=(document.getElementById('inp-name').value||'').trim();
   console.log('Create clicked',name,G.selectedSide);
   if(!name){setMsg('create-err','Ange ett namn','err');return;}
-  setMsg('create-err','','');
-  if(G.busy) return;G.busy=true;
-  const r=await post('create-character',{name,side:G.selectedSide});
+  setMsg('create-err','Skapar karaktär...','info');
+  G.busy=true;
+  let r;
+  try{
+    r=await post('create-character',{name,side:G.selectedSide});
+  }catch(e){
+    setMsg('create-err','Nätverksfel: '+e,'err');
+    G.busy=false;return;
+  }
   console.log('API response',r._status??0,r);
   G.busy=false;
   if(r.error){setMsg('create-err',r.error,'err');}
+  else if(!r.player){setMsg('create-err','Oväntat svar från servern','err');}
   else{
+    setMsg('create-err','','');
     G.player=r.player;G.extra={player:r.player};G._fetchedAt=Date.now();
     await loadAll();
     applyCondition();
