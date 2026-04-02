@@ -1064,33 +1064,53 @@ function setGameCookie(playerId: string): string {
   return `${GAME_COOKIE}=${playerId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${60 * 60 * 24 * 30}`;
 }
 
+async function syncGamePlayerState(env: Env, player: Row): Promise<Row> {
+  const now = Date.now();
+  const prisonUntil = player.prison_until ? new Date(player.prison_until as string).getTime() : null;
+  const hospitalUntil = player.hospital_until ? new Date(player.hospital_until as string).getTime() : null;
+
+  const shouldClearPrison =
+    !!player.in_prison && (!prisonUntil || prisonUntil <= now);
+  const shouldClearHospital =
+    !!player.in_hospital && (!hospitalUntil || hospitalUntil <= now);
+
+  if (!shouldClearPrison && !shouldClearHospital) {
+    return player;
+  }
+
+  const nextPlayer = {
+    ...player,
+    in_prison: shouldClearPrison ? 0 : player.in_prison,
+    prison_until: shouldClearPrison ? null : player.prison_until,
+    in_hospital: shouldClearHospital ? 0 : player.in_hospital,
+    hospital_until: shouldClearHospital ? null : player.hospital_until,
+  };
+
+  await env.DB.prepare(
+    `UPDATE game_players
+     SET in_prison = ?, prison_until = ?, in_hospital = ?, hospital_until = ?
+     WHERE id = ?`
+  ).bind(
+    nextPlayer.in_prison,
+    nextPlayer.prison_until,
+    nextPlayer.in_hospital,
+    nextPlayer.hospital_until,
+    player.id as string
+  ).run();
+
+  return nextPlayer;
+}
+
 async function requireGamePlayer(request: Request, env: Env): Promise<Row> {
   const pid = getGameCookie(request);
   if (!pid) throw new GameError('No active character. Create one first.', 401);
+  const round = await ensureActiveRound(env);
   const player = await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>();
   if (!player) throw new GameError('Character not found.', 404);
-
-  // Round isolation: if the active round changed, the old-round session is dead.
-  // Read-only endpoints (gameGetPlayer) bypass this by not calling requireGamePlayer.
-  const round = await getActiveRound(env);
-  if (round && (player.round_id as string) !== (round.id as string)) {
+  if ((player.round_id as string) !== (round.id as string)) {
     throw new GameError('Rundan har avslutats. Starta en ny karaktär för nästa runda.', 409);
   }
-
-  // Auto-clear expired prison / hospital so players can't get permanently stuck.
-  const now = Date.now();
-  const clearPrison   = player.in_prison   && player.prison_until   && new Date(player.prison_until   as string).getTime() <= now;
-  const clearHospital = player.in_hospital && player.hospital_until && new Date(player.hospital_until as string).getTime() <= now;
-  if (clearPrison || clearHospital) {
-    const setParts: string[] = [];
-    if (clearPrison)   setParts.push('in_prison = 0, prison_until = NULL');
-    if (clearHospital) setParts.push('in_hospital = 0, hospital_until = NULL');
-    await env.DB.prepare(`UPDATE game_players SET ${setParts.join(', ')} WHERE id = ?`).bind(pid).run();
-    // Return fresh copy so callers see the cleared flags.
-    return (await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>())!;
-  }
-
-  return player;
+  return syncGamePlayerState(env, player);
 }
 
 function gameJson(data: unknown, status = 200): Response {
@@ -1126,6 +1146,24 @@ async function updateEnergy(env: Env, playerId: string, currentEnergy: number, c
 
 function getActiveRound(env: Env): Promise<Row | null> {
   return env.DB.prepare(`SELECT * FROM game_rounds WHERE is_active = 1 ORDER BY round_number DESC LIMIT 1`).first<Row>();
+}
+
+async function ensureActiveRound(env: Env): Promise<Row> {
+  let round = await getActiveRound(env);
+  if (round) return round;
+
+  const roundId = 'round-001';
+  const startDate = new Date().toISOString();
+  const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO game_rounds (id, round_number, start_date, end_date, is_active)
+     VALUES (?, 1, ?, ?, 1)`
+  ).bind(roundId, startDate, endDate).run();
+
+  round = await getActiveRound(env);
+  if (!round) throw new GameError('Could not initialize game round.', 500);
+  return round;
 }
 
 function rand(min: number, max: number): number {
@@ -1292,43 +1330,101 @@ function getDrugTrend(drug: string): string {
 // ── Route handlers ────────────────────────────────────────────────────────────
 
 async function gameCreateCharacter(request: Request, env: Env): Promise<Response> {
-  const round = await getActiveRound(env);
-  if (!round) return gameJson({ error: 'No active round. Contact admin.' }, 503);
-
-  const body = await request.json<{ name?: string; side?: string }>().catch(() => ({} as { name?: string; side?: string }));
-  const name = (body.name ?? '').trim().slice(0, 24);
-  const side = body.side === 'westside' ? 'westside' : 'eastside';
-
-  if (!name || name.length < 2)
-    return gameJson({ error: 'Name must be 2–24 characters.' }, 400);
-  if (!/^[\w\s\u00C0-\u024F]+$/u.test(name))
-    return gameJson({ error: 'Name contains invalid characters.' }, 400);
-
-  // Pre-check to return a clean 409 rather than a raw unique-constraint DB error.
-  const existing = await env.DB.prepare(
-    `SELECT id FROM game_players WHERE name = ? AND round_id = ?`
-  ).bind(name, round.id as string).first();
-  if (existing) return gameJson({ error: 'That name is taken. Pick another.' }, 409);
-
-  const pid = crypto.randomUUID();
   try {
-    await env.DB.prepare(`INSERT INTO game_players (id, round_id, name, side) VALUES (?, ?, ?, ?)`)
-      .bind(pid, round.id as string, name, side).run();
+    const round = await ensureActiveRound(env);
+    const currentPid = getGameCookie(request);
+
+    if (currentPid) {
+      const existingSessionPlayer = await env.DB
+        .prepare('SELECT * FROM game_players WHERE id = ? AND round_id = ?')
+        .bind(currentPid, round.id as string)
+        .first<Row>();
+
+      if (existingSessionPlayer) {
+        const player = await syncGamePlayerState(env, existingSessionPlayer);
+        return new Response(JSON.stringify({ player, existing: true }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Set-Cookie': setGameCookie(currentPid),
+            ...cors(),
+          },
+        });
+      }
+    }
+
+    let body: { name?: string; side?: string };
+    try {
+      body = await request.json<{ name?: string; side?: string }>();
+    } catch {
+      return gameJson({ error: 'Invalid JSON body.' }, 400);
+    }
+
+    const name = (body.name ?? '').trim().slice(0, 24);
+    const side = body.side === 'westside' ? 'westside' : 'eastside';
+
+    if (!name || name.length < 2)
+      return gameJson({ error: 'Name must be 2–24 characters.' }, 400);
+    if (!/^[\w\s\u00C0-\u024F]+$/u.test(name))
+      return gameJson({ error: 'Name contains invalid characters.' }, 400);
+
+    const existing = await env.DB.prepare(
+      `SELECT id FROM game_players WHERE name = ? AND round_id = ?`
+    ).bind(name, round.id as string).first();
+    if (existing) {
+      const roundPopulation = await env.DB
+        .prepare('SELECT COUNT(*) AS total FROM game_players WHERE round_id = ?')
+        .bind(round.id as string)
+        .first<{ total: number | string }>();
+
+      if (Number(roundPopulation?.total ?? 0) <= 1) {
+        const existingPlayer = await env.DB
+          .prepare('SELECT * FROM game_players WHERE id = ?')
+          .bind(existing.id as string)
+          .first<Row>();
+
+        if (existingPlayer) {
+          const player = await syncGamePlayerState(env, existingPlayer);
+          return new Response(JSON.stringify({ player, existing: true }), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Set-Cookie': setGameCookie(existing.id as string),
+              ...cors(),
+            },
+          });
+        }
+      }
+
+      return gameJson({ error: 'That name is taken. Pick another.' }, 409);
+    }
+
+    const pid = crypto.randomUUID();
+    try {
+      await env.DB.prepare(`INSERT INTO game_players (id, round_id, name, side) VALUES (?, ?, ?, ?)`)
+        .bind(pid, round.id as string, name, side).run();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('UNIQUE')) return gameJson({ error: 'That name is taken. Pick another.' }, 409);
+      throw e;
+    }
+
+    const player = await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>();
+    return new Response(JSON.stringify({ player }), {
+      status: 201,
+      headers: {
+        'Content-Type': 'application/json',
+        'Set-Cookie': setGameCookie(pid),
+        ...cors(),
+      },
+    });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes('UNIQUE')) return gameJson({ error: 'That name is taken. Pick another.' }, 409);
+    if (msg.includes('no such table')) {
+      return gameJson({ error: 'Game database not initialized. Run game-schema.sql and game-seed.sql.' }, 500);
+    }
     throw e;
   }
-
-  const player = await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>();
-  return new Response(JSON.stringify({ player }), {
-    status: 201,
-    headers: {
-      'Content-Type': 'application/json',
-      'Set-Cookie': setGameCookie(pid),
-      ...cors(),
-    },
-  });
 }
 
 async function gameGetPlayer(request: Request, env: Env): Promise<Response> {

@@ -550,8 +550,9 @@ async function api(path,opts={}){
     const cfg={credentials:'include',...opts};
     if(opts.body) cfg.headers={'Content-Type':'application/json'};
     const r=await fetch('/api/game/'+path,cfg);
-    return r.json();
-  }catch{return{error:'Nätverksfel'};}
+    const data=await r.json().catch(()=>({}));
+    return {...data,_status:r.status};
+  }catch{return{error:'Kunde inte nå servern',_status:0};}
 }
 const post=(p,b={})=>api(p,{method:'POST',body:JSON.stringify(b)});
 
@@ -1125,9 +1126,12 @@ function bindCreate(){
 
 async function doCreate(){
   const name=(document.getElementById('inp-name').value||'').trim();
+  console.log('Create clicked',name,G.selectedSide);
   if(!name){setMsg('create-err','Ange ett namn','err');return;}
+  setMsg('create-err','','');
   if(G.busy) return;G.busy=true;
   const r=await post('create-character',{name,side:G.selectedSide});
+  console.log('API response',r._status??0,r);
   G.busy=false;
   if(r.error){setMsg('create-err',r.error,'err');}
   else{
