@@ -164,6 +164,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'player'           && method === 'GET')  return gameGetPlayer(request, env);
       if (id === 'status'           && method === 'GET')  return gameGetStatus(request, env);
       if (id === 'drug-prices'      && method === 'GET')  return gameGetDrugPrices();
+      if (id === 'npcs'             && method === 'GET')  return gameGetNpcs(env);
+      if (id === 'simulate'         && method === 'GET')  return gameSimulate(env);
+      if (id === 'hall-of-fame'     && method === 'GET')  return gameHallOfFame(env);
+      if (id === 'new-round'        && method === 'POST') return gameNewRound(env);
       if (id === 'action') {
         if (sub === 'robbery'          && method === 'POST') return gameActionRobbery(request, env);
         if (sub === 'train'            && method === 'POST') return gameActionTrain(request, env);
@@ -1232,10 +1236,11 @@ async function gameGetPlayer(request: Request, env: Env): Promise<Response> {
   const pid     = player.id as string;
   const energy  = calcEnergy(player);
 
-  // Fetch inventory + last 20 actions in parallel
-  const [invRes, logRes] = await Promise.all([
+  // Fetch inventory, actions, and properties in parallel
+  const [invRes, logRes, propRes] = await Promise.all([
     env.DB.prepare('SELECT * FROM game_inventory WHERE player_id = ?').bind(pid).all<Row>(),
     env.DB.prepare('SELECT * FROM game_action_log WHERE player_id = ? ORDER BY created_at DESC LIMIT 20').bind(pid).all<Row>(),
+    env.DB.prepare('SELECT * FROM game_properties WHERE player_id = ?').bind(pid).all<Row>(),
   ]);
 
   // Prison/hospital time remaining
@@ -1247,14 +1252,190 @@ async function gameGetPlayer(request: Request, env: Env): Promise<Response> {
     player: { ...player, energy },
     prison_seconds_left:  prisonUntil   ? Math.max(0, Math.floor((prisonUntil   - now) / 1000)) : 0,
     hospital_seconds_left:hospitalUntil ? Math.max(0, Math.floor((hospitalUntil - now) / 1000)) : 0,
-    inventory: invRes.results,
-    log:       logRes.results,
+    inventory:  invRes.results,
+    log:        logRes.results,
+    properties: propRes.results,
   });
 }
 
+async function gameGetNpcs(env: Env): Promise<Response> {
+  const round = await getActiveRound(env);
+  if (!round) return gameJson({ npcs: [] });
+  const res = await env.DB.prepare(
+    `SELECT id, name, level, respect, strength, cash, side, personality, is_alive, hp
+     FROM game_npcs WHERE round_id = ? AND is_alive = 1 ORDER BY level DESC LIMIT 30`
+  ).bind(round.id as string).all<Row>();
+  return gameJson({ npcs: res.results });
+}
+
+// ── NPC simulation ────────────────────────────────────────────────────────────
+
+async function gameSimulate(env: Env): Promise<Response> {
+  const round = await getActiveRound(env);
+  if (!round) return gameJson({ activity: [] });
+
+  // End round if expired
+  const endDate = new Date(round.end_date as string).getTime();
+  if (Date.now() > endDate) {
+    await endRound(env, round);
+    return gameJson({ round_ended: true, activity: [] });
+  }
+
+  // Pick up to 3 random alive NPCs
+  const res = await env.DB.prepare(
+    `SELECT * FROM game_npcs WHERE round_id = ? AND is_alive = 1 ORDER BY RANDOM() LIMIT 3`
+  ).bind(round.id as string).all<Row>();
+
+  const activity: string[] = [];
+  const stmts: D1PreparedStatement[] = [];
+
+  for (const npc of res.results) {
+    const lvl  = (npc.level    as number) || 1;
+    const roll = Math.random();
+
+    if (roll < 0.50) {
+      // Robbery — target scales with NPC level
+      const target =
+        lvl >= 20 ? 'casino'      :
+        lvl >= 15 ? 'bank'        :
+        lvl >= 10 ? 'jewelry'     :
+        lvl >= 8  ? 'house'       :
+        lvl >= 5  ? 'gas_station' :
+        lvl >= 3  ? 'car_breakin' : 'pickpocket';
+      const cfg = ROBBERY_TARGETS[target];
+      if (cfg && Math.random() < 0.65) {
+        const cash    = Math.round(rand(cfg.minCash, cfg.maxCash) * 0.70);
+        const respect = Math.ceil(cfg.respect * 0.70);
+        const newResp = (npc.respect as number) + respect;
+        const newLvl  = Math.min(50, Math.floor(Math.sqrt(newResp / 5)) + 1);
+        stmts.push(
+          env.DB.prepare(`UPDATE game_npcs SET cash = cash + ?, respect = ?, level = ? WHERE id = ?`)
+            .bind(cash, newResp, newLvl, npc.id as string)
+        );
+        activity.push(`${npc.name as string} rånade ${cfg.label} och tjänade ${svNum(cash)} kr.`);
+      }
+    } else if (roll < 0.70) {
+      // Training — silent
+      const inc    = rand(1, 2);
+      const newStr = Math.min(100, (npc.strength as number) + inc);
+      stmts.push(
+        env.DB.prepare(`UPDATE game_npcs SET strength = ? WHERE id = ?`).bind(newStr, npc.id as string)
+      );
+    } else if (roll < 0.85) {
+      // Drug deal
+      const earnings = Math.round(lvl * rand(200, 600) * 0.70);
+      const respect  = Math.ceil(earnings / 400);
+      stmts.push(
+        env.DB.prepare(`UPDATE game_npcs SET cash = cash + ?, respect = respect + ? WHERE id = ?`)
+          .bind(earnings, respect, npc.id as string)
+      );
+      const drugList = ['marijuana', 'kokain', 'heroin', 'ecstasy'];
+      const drug = drugList[Math.floor(Math.random() * drugList.length)];
+      activity.push(`${npc.name as string} sålde ${drug} och tjänade ${svNum(earnings)} kr.`);
+    } else {
+      // Assault another NPC
+      const victims = res.results.filter(n => n.id !== npc.id && n.is_alive);
+      if (victims.length) {
+        const victim  = victims[Math.floor(Math.random() * victims.length)];
+        const stolen  = Math.round(((victim.cash as number) || 0) * rand(10, 25) / 100);
+        if (stolen > 0) {
+          stmts.push(
+            env.DB.prepare(`UPDATE game_npcs SET cash = cash + ?, respect = respect + 5 WHERE id = ?`).bind(stolen, npc.id as string),
+            env.DB.prepare(`UPDATE game_npcs SET cash = cash - ? WHERE id = ?`).bind(stolen, victim.id as string)
+          );
+          activity.push(`${npc.name as string} slog ner ${victim.name as string} och stal ${svNum(stolen)} kr.`);
+        }
+      }
+    }
+  }
+
+  if (stmts.length) {
+    // D1 batch limit is 100; split just in case
+    for (let i = 0; i < stmts.length; i += 100) {
+      await env.DB.batch(stmts.slice(i, i + 100));
+    }
+  }
+
+  return gameJson({ activity });
+}
+
+function svNum(n: number): string {
+  return n.toLocaleString('sv-SE');
+}
+
+// ── Round management ──────────────────────────────────────────────────────────
+
+async function endRound(env: Env, round: Row): Promise<boolean> {
+  const roundId  = round.id  as string;
+  const roundNum = round.round_number as number;
+
+  // Idempotent — check if already archived
+  const already = await env.DB.prepare(`SELECT id FROM game_leaderboard WHERE round_id = ? LIMIT 1`)
+    .bind(roundId).first();
+  if (already) return false;
+
+  const top = await env.DB.prepare(
+    `SELECT name, respect, level, cash, profession, side
+     FROM game_players WHERE round_id = ? AND is_alive = 1
+     ORDER BY respect DESC LIMIT 10`
+  ).bind(roundId).all<Row>();
+
+  const stmts = top.results.map((p, i) => {
+    const prof = ((p.profession as string) || '').replace('changed:', '') || null;
+    return env.DB.prepare(
+      `INSERT OR IGNORE INTO game_leaderboard
+         (id, round_id, round_number, player_name, final_respect, final_level, final_cash, profession, side, rank)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(crypto.randomUUID(), roundId, roundNum, p.name, p.respect, p.level, p.cash, prof, p.side, i + 1);
+  });
+  stmts.push(env.DB.prepare(`UPDATE game_rounds SET is_active = 0 WHERE id = ?`).bind(roundId));
+  if (stmts.length) await env.DB.batch(stmts);
+  return true;
+}
+
+async function gameNewRound(env: Env): Promise<Response> {
+  // Deactivate any existing active round that has expired
+  await env.DB.prepare(
+    `UPDATE game_rounds SET is_active = 0 WHERE is_active = 1 AND end_date < date('now')`
+  ).run();
+
+  const cur = await env.DB.prepare(`SELECT MAX(round_number) as n FROM game_rounds`).first<{ n: number }>();
+  const next = (cur?.n ?? 0) + 1;
+  const id   = `round-${String(next).padStart(3, '0')}`;
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO game_rounds (id, round_number, start_date, end_date, is_active)
+     VALUES (?, ?, date('now'), date('now', '+30 days'), 1)`
+  ).bind(id, next).run();
+  return gameJson({ round_id: id, round_number: next, message: `Runda ${next} har börjat!` });
+}
+
+async function gameHallOfFame(env: Env): Promise<Response> {
+  const res = await env.DB.prepare(
+    `SELECT round_number, player_name, final_respect, final_level, final_cash, profession, side, rank, created_at
+     FROM game_leaderboard ORDER BY round_number DESC, rank ASC LIMIT 100`
+  ).all<Row>();
+
+  // Group by round_number
+  const rounds: Record<number, Row[]> = {};
+  for (const row of res.results) {
+    const rn = row.round_number as number;
+    if (!rounds[rn]) rounds[rn] = [];
+    rounds[rn].push(row);
+  }
+  return gameJson({ hall_of_fame: rounds });
+}
+
+// ── Also integrate round-end check into getStatus ────────────────────────────
+
 async function gameGetStatus(request: Request, env: Env): Promise<Response> {
   const round = await getActiveRound(env);
-  if (!round) return gameJson({ error: 'No active round.' }, 503);
+  if (!round) return gameJson({ round_ended: true, top10: [], player_count: 0 });
+
+  const endDate    = new Date(round.end_date as string).getTime();
+  const secondsLeft = Math.max(0, Math.floor((endDate - Date.now()) / 1000));
+  const roundEnded  = secondsLeft === 0;
+
+  if (roundEnded) await endRound(env, round);
 
   const [topRes, countRes] = await Promise.all([
     env.DB.prepare(
@@ -1267,17 +1448,15 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
     ).bind(round.id as string).first<{ cnt: number }>(),
   ]);
 
-  const endDate = new Date(round.end_date as string).getTime();
-  const secondsLeft = Math.max(0, Math.floor((endDate - Date.now()) / 1000));
-
   return gameJson({
+    round_ended: roundEnded,
     round: {
-      number: round.round_number,
-      start:  round.start_date,
-      end:    round.end_date,
+      number:       round.round_number,
+      start:        round.start_date,
+      end:          round.end_date,
       seconds_left: secondsLeft,
     },
-    top10: topRes.results,
+    top10:        topRes.results,
     player_count: countRes?.cnt ?? 0,
   });
 }

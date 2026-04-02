@@ -2,203 +2,1062 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mosquito — sp1e.se</title>
 <meta name="robots" content="noindex">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26' fill='%234af2c8'>Σ</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#x1F99F;</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300&family=DM+Mono&family=Space+Grotesk:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root{--bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a24;--border:#2a2a3a;--red:#f24a4a;--amber:#f2a54a;--green:#4af24a;--dim:#666;--txt:#c8c8d8;--white:#eeeef8;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;line-height:1.5;}
+a{color:var(--dim);text-decoration:none;}a:hover{color:var(--txt);}
+input{background:var(--bg3);border:1px solid var(--border);color:var(--white);font-family:inherit;font-size:13px;padding:8px 12px;outline:none;border-radius:3px;width:100%;}
+input:focus{border-color:var(--red);}
+button{font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--txt);padding:7px 14px;border-radius:3px;transition:all .15s;}
+button:hover:not(:disabled){border-color:var(--red);color:var(--white);}
+button:disabled{opacity:.35;cursor:not-allowed;}
+button.primary{background:var(--red);border-color:var(--red);color:#fff;}
+button.primary:hover:not(:disabled){background:#d43a3a;}
+.amsg{margin-top:8px;font-size:12px;min-height:18px;}
+.amsg.ok{color:var(--green);}
+.amsg.err{color:var(--red);}
+.amsg.info{color:var(--amber);}
 
-  html, body {
-    min-height: 100%;
-    background: #0a0a0f;
-    color: #fff;
-    font-family: 'Space Grotesk', sans-serif;
-  }
+/* ─── Screens ─────────────────────────────────────────────────────────────── */
+.screen{display:none;min-height:100dvh;}
 
-  body {
-    opacity: 0;
-    animation: fade-in 0.8s ease forwards;
-  }
-  @keyframes fade-in { to { opacity: 1; } }
+/* ─── Create ──────────────────────────────────────────────────────────────── */
+#screen-create{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
+.cr-logo{font-size:32px;font-weight:500;color:var(--red);letter-spacing:4px;}
+.cr-sub{color:var(--dim);font-size:11px;letter-spacing:2px;}
+.cr-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;}
+.cr-label{font-size:11px;color:var(--dim);letter-spacing:1px;margin-bottom:4px;}
+.side-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.side-card{border:2px solid var(--border);border-radius:6px;padding:16px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg3);}
+.side-card:hover{border-color:var(--txt);}
+.side-card.active{border-color:var(--red);background:#1a0d0d;}
+.side-card .s-icon{font-size:24px;}
+.side-card .s-name{font-size:12px;font-weight:500;margin-top:6px;letter-spacing:1px;}
+.side-card .s-desc{font-size:10px;color:var(--dim);margin-top:4px;}
 
-  /* ── Topbar ───────────────────────────────────────── */
-  .topbar {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 2rem;
-    height: 56px;
-    background: rgba(10,10,15,0.90);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-  }
+/* ─── Prison ──────────────────────────────────────────────────────────────── */
+#screen-prison{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
+.pr-logo{font-size:28px;font-weight:500;color:var(--red);letter-spacing:3px;}
+.pr-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;text-align:center;}
+.pr-timer{font-size:40px;font-weight:500;color:var(--red);letter-spacing:4px;}
+.pr-subtitle{font-size:11px;color:var(--dim);letter-spacing:1px;}
+.pr-btns{display:flex;flex-direction:column;gap:10px;}
 
-  .sp1e-logo {
-    display: block;
-    height: 1.05rem;
-    width: auto;
-    overflow: visible;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-    user-select: none;
-  }
-  .logo-link:hover .sp1e-logo { opacity: 1; }
-  .logo-link { text-decoration: none; }
+/* ─── Hospital ────────────────────────────────────────────────────────────── */
+#screen-hospital{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
+.hs-logo{font-size:28px;font-weight:500;color:var(--amber);letter-spacing:3px;}
+.hs-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;}
+.hp-track{height:12px;background:var(--bg3);border-radius:6px;overflow:hidden;border:1px solid var(--border);}
+.hp-fill-wrap{height:100%;background:var(--green);border-radius:6px;transition:width .3s;}
+.hs-btns{display:flex;flex-direction:column;gap:10px;}
 
-  .back-btn {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.06em;
-    color: rgba(255,255,255,0.45);
-    background: none;
-    border: none;
-    cursor: pointer;
-    text-decoration: none;
-    transition: color 0.2s;
-    padding: 0.25rem 0;
-  }
-  .back-btn:hover { color: rgba(255,255,255,0.85); }
+/* ─── Topbar ──────────────────────────────────────────────────────────────── */
+#topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:12px;flex-shrink:0;}
+.tb-brand{font-size:14px;font-weight:500;color:var(--red);letter-spacing:3px;white-space:nowrap;}
+.tb-center{flex:1;display:flex;align-items:center;gap:10px;justify-content:center;overflow:hidden;}
+#tb-name{font-size:13px;color:var(--white);font-weight:500;}
+#tb-level{font-size:11px;color:var(--dim);background:var(--bg3);padding:2px 6px;border-radius:3px;}
+#tb-cash{font-size:13px;color:var(--amber);}
+.nrg-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.nrg-track{width:60px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
+#nrg-fill{height:100%;background:var(--green);border-radius:3px;transition:width .3s;}
+#nrg-txt{font-size:10px;color:var(--dim);white-space:nowrap;}
+#nrg-hint{font-size:10px;color:var(--dim);white-space:nowrap;display:none;}
+@media(min-width:600px){#nrg-hint{display:block;}}
 
-  /* ── Hero ─────────────────────────────────────────── */
-  .hero {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 5rem 2rem 3rem;
-    gap: 0.75rem;
-  }
+/* ─── Game layout ─────────────────────────────────────────────────────────── */
+#screen-game{display:none;flex-direction:column;height:100dvh;}
+#game-layout{display:grid;grid-template-columns:240px 1fr;height:calc(100dvh - 52px);overflow:hidden;}
+@media(max-width:640px){#game-layout{grid-template-columns:1fr;}#sidebar{display:none;}}
 
-  .hero-title {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 300;
-    font-size: clamp(3rem, 8vw, 5.5rem);
-    letter-spacing: 0.08em;
-    color: rgba(255,255,255,0.92);
-    line-height: 1;
-  }
+/* ─── Sidebar ─────────────────────────────────────────────────────────────── */
+#sidebar{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.sb-card{border-bottom:1px solid var(--border);padding:14px;}
+.sb-title{font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:10px;text-transform:uppercase;}
+.stat-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.stat-lbl{font-size:10px;color:var(--dim);width:30px;flex-shrink:0;}
+.stat-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.stat-fill{height:100%;background:var(--red);border-radius:3px;transition:width .3s;}
+.stat-val{font-size:10px;color:var(--dim);width:24px;text-align:right;flex-shrink:0;}
+#sb-prof{font-size:12px;color:var(--white);font-weight:500;}
+#sb-side{font-size:11px;margin-top:4px;}
+#sb-resp{font-size:11px;color:var(--dim);margin-top:4px;}
+.nav-btn{display:block;width:100%;text-align:left;padding:9px 16px;background:none;border:none;border-radius:0;color:var(--dim);font-size:12px;letter-spacing:.5px;border-left:3px solid transparent;cursor:pointer;}
+.nav-btn:hover{color:var(--white);background:var(--bg3);}
+.nav-btn.active{color:var(--red);border-left-color:var(--red);background:var(--bg3);}
+.sb-back{padding:10px 16px;font-size:11px;color:var(--dim);border-top:1px solid var(--border);margin-top:auto;}
 
-  .hero-sub {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.7rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.35);
-    margin-top: 0.25rem;
-  }
+/* ─── Main area ───────────────────────────────────────────────────────────── */
+#main-area{overflow-y:auto;padding:20px;}
+.g-sec{display:none;}
+.sec-title{font-size:16px;font-weight:500;color:var(--white);letter-spacing:2px;margin-bottom:4px;}
+.sec-sub{font-size:11px;color:var(--dim);margin-bottom:18px;}
 
-  /* ── Game grid ────────────────────────────────────── */
-  .grid-section {
-    max-width: 900px;
-    margin: 2rem auto 6rem;
-    padding: 0 2rem;
-  }
+/* ─── Gatan (feed) ────────────────────────────────────────────────────────── */
+.feed{display:flex;flex-direction:column;gap:6px;}
+.feed-item{display:flex;gap:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;font-size:12px;}
+.feed-time{color:var(--dim);flex-shrink:0;font-size:11px;}
+.feed-desc{flex:1;}
+.feed-item.ok .feed-desc{color:var(--green);}
+.feed-item.err .feed-desc{color:var(--red);}
+.feed-item.info .feed-desc{color:var(--amber);}
+.feed-empty{color:var(--dim);font-size:12px;padding:20px 0;text-align:center;}
 
-  .grid-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.25);
-    margin-bottom: 1.5rem;
-  }
+/* ─── Brott (robbery) ─────────────────────────────────────────────────────── */
+.rob-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px;}
+.rob-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;cursor:pointer;transition:all .15s;position:relative;}
+.rob-card:hover:not(.locked){border-color:var(--red);}
+.rob-card.locked{opacity:.45;cursor:not-allowed;}
+.rob-card.flash-ok{border-color:var(--green);background:#0d1a0d;}
+.rob-card.flash-err{border-color:var(--red);background:#1a0d0d;}
+.rob-name{font-size:13px;font-weight:500;color:var(--white);margin-bottom:4px;}
+.rob-stars{color:var(--amber);font-size:11px;letter-spacing:1px;}
+.rob-info{font-size:11px;color:var(--dim);margin-top:6px;}
+.rob-pay{font-size:11px;color:var(--amber);margin-top:2px;}
+.rob-lock{font-size:10px;color:var(--dim);margin-top:6px;}
 
-  .game-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 1rem;
-  }
+/* ─── Droger ──────────────────────────────────────────────────────────────── */
+.drug-table{width:100%;border-collapse:collapse;margin-bottom:18px;font-size:12px;}
+.drug-table th{text-align:left;padding:6px 10px;color:var(--dim);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border);}
+.drug-table td{padding:8px 10px;border-bottom:1px solid var(--bg3);}
+.drug-table tr:hover td{background:var(--bg3);}
+.tu{color:var(--green);}
+.td{color:var(--red);}
+.ts2{color:var(--dim);}
+.drug-form{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:400px;}
+.drug-form-row{display:flex;gap:10px;align-items:center;}
+.drug-form-row label{font-size:11px;color:var(--dim);width:60px;flex-shrink:0;}
+select{background:var(--bg3);border:1px solid var(--border);color:var(--white);font-family:inherit;font-size:12px;padding:7px 10px;border-radius:3px;outline:none;width:100%;}
+select:focus{border-color:var(--red);}
+.drug-total{font-size:12px;color:var(--amber);}
+.drug-btns{display:flex;gap:10px;}
 
-  .empty-state {
-    grid-column: 1 / -1;
-    padding: 4rem 2rem;
-    text-align: center;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
-    color: rgba(255,255,255,0.20);
-    border: 1px dashed rgba(255,255,255,0.07);
-    border-radius: 12px;
-  }
+/* ─── Strid ───────────────────────────────────────────────────────────────── */
+.npc-table{width:100%;border-collapse:collapse;font-size:12px;}
+.npc-table th{text-align:left;padding:6px 10px;color:var(--dim);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border);}
+.npc-table td{padding:8px 10px;border-bottom:1px solid var(--bg3);}
+.npc-table tr:hover td{background:var(--bg3);}
+.lock-notice{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;font-size:12px;color:var(--dim);}
 
-  /*
-   * ── Game card template (ready for future use) ──────
-   *
-   * .game-card {
-   *   display: flex;
-   *   flex-direction: column;
-   *   gap: 0.75rem;
-   *   padding: 1.25rem;
-   *   background: #12121a;
-   *   border: 1px solid rgba(255,255,255,0.07);
-   *   border-radius: 12px;
-   *   cursor: pointer;
-   *   text-decoration: none;
-   *   transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
-   * }
-   * .game-card:hover {
-   *   border-color: rgba(255,255,255,0.18);
-   *   box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-   *   transform: translateY(-2px);
-   * }
-   * .game-card-icon {
-   *   font-size: 2rem;
-   *   line-height: 1;
-   * }
-   * .game-card-title {
-   *   font-family: 'Space Grotesk', sans-serif;
-   *   font-weight: 400;
-   *   font-size: 1rem;
-   *   color: rgba(255,255,255,0.90);
-   *   letter-spacing: 0.02em;
-   * }
-   * .game-card-desc {
-   *   font-family: 'DM Mono', monospace;
-   *   font-size: 0.65rem;
-   *   letter-spacing: 0.04em;
-   *   color: rgba(255,255,255,0.38);
-   *   line-height: 1.6;
-   * }
-   *
-   * Example card markup:
-   * <a class="game-card" href="/mosquito/game-name">
-   *   <div class="game-card-icon">🎮</div>
-   *   <div class="game-card-title">Game Name</div>
-   *   <div class="game-card-desc">Short description of the game.</div>
-   * </a>
-   */
+/* ─── Traning ─────────────────────────────────────────────────────────────── */
+.train-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
+.train-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;}
+.train-icon{font-size:20px;margin-bottom:8px;}
+.train-name{font-size:13px;font-weight:500;color:var(--white);margin-bottom:4px;}
+.train-stat{font-size:11px;color:var(--dim);margin-bottom:8px;}
+.stat-bar-wrap{margin-bottom:10px;}
+.stat-bar-track{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.stat-bar-fill{height:100%;background:var(--red);border-radius:3px;}
+.stat-bar-txt{font-size:10px;color:var(--dim);margin-top:3px;}
+
+/* ─── Fastigheter ─────────────────────────────────────────────────────────── */
+.prop-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+.prop-row{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.prop-info{flex:1;}
+.prop-name{font-size:13px;font-weight:500;color:var(--white);}
+.prop-detail{font-size:11px;color:var(--dim);margin-top:3px;}
+.prop-acc{font-size:12px;color:var(--green);}
+.buy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
+.buy-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;}
+.buy-type{font-size:12px;font-weight:500;color:var(--white);margin-bottom:4px;}
+.buy-cost{font-size:11px;color:var(--amber);margin-bottom:4px;}
+.buy-income{font-size:10px;color:var(--dim);margin-bottom:10px;}
+.collect-all-wrap{margin-bottom:12px;}
+
+/* ─── Ranking ─────────────────────────────────────────────────────────────── */
+.rank-table{width:100%;border-collapse:collapse;font-size:12px;}
+.rank-table th{text-align:left;padding:6px 10px;color:var(--dim);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border);}
+.rank-table td{padding:8px 10px;border-bottom:1px solid var(--bg3);}
+.rank-table tr.me td{background:#1a150a;color:var(--amber);}
+.round-info{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;display:flex;gap:20px;flex-wrap:wrap;}
+.round-info span{color:var(--dim);}
+.round-info strong{color:var(--white);}
+
+/* ─── Mobile nav ──────────────────────────────────────────────────────────── */
+#mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:100;overflow-x:auto;}
+.mb-inner{display:flex;min-width:max-content;width:100%;}
+.mb{flex:1;background:none;border:none;border-radius:0;color:var(--dim);font-size:9px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;min-width:48px;}
+.mb:hover{color:var(--white);background:var(--bg3);}
+.mb.active{color:var(--red);}
+.mb-icon{font-size:14px;}
+@media(max-width:640px){
+  #mob-nav{display:flex;}
+  #main-area{padding:12px;padding-bottom:70px;}
+}
 </style>
 </head>
 <body>
-
-<header class="topbar">
-  <a class="logo-link" href="/" aria-label="SP1E — startsida">
-    <svg class="sp1e-logo" viewBox="0 0 150 52" role="img" xmlns="http://www.w3.org/2000/svg">
-      <text x="2" y="40" font-family="'Cormorant Garamond', serif" font-weight="300" font-size="42" fill="currentColor" letter-spacing="10">SP1E</text>
-    </svg>
-  </a>
-  <a class="back-btn" href="/">← Tillbaka</a>
-</header>
-
-<section class="hero">
-  <h1 class="hero-title">Mosquito</h1>
-  <p class="hero-sub">Spel &amp; experiment</p>
-</section>
-
-<section class="grid-section">
-  <p class="grid-label">Spel</p>
-  <div class="game-grid">
-    <div class="empty-state">Kommer snart...</div>
+<!-- ─── Create Screen ─────────────────────────────────────────────────────── -->
+<div id="screen-create" class="screen" style="display:flex;">
+  <div class="cr-logo">MOSQUITO</div>
+  <div class="cr-sub">CRIME SIMULATOR &mdash; STHLM</div>
+  <div class="cr-box">
+    <div>
+      <div class="cr-label">SPELNAMN</div>
+      <input id="inp-name" type="text" placeholder="Ditt gängsnamn..." maxlength="20" autocomplete="off">
+    </div>
+    <div>
+      <div class="cr-label">VÄLJ SIDA</div>
+      <div class="side-row">
+        <div class="side-card active" data-side="eastside">
+          <div class="s-icon">&#x1F535;</div>
+          <div class="s-name">EASTSIDE</div>
+          <div class="s-desc">Aggressiv. Stark.</div>
+        </div>
+        <div class="side-card" data-side="westside">
+          <div class="s-icon">&#x1F534;</div>
+          <div class="s-name">WESTSIDE</div>
+          <div class="s-desc">Listig. Snabb.</div>
+        </div>
+      </div>
+    </div>
+    <button id="create-btn" class="primary">SKAPA KARAKTÄR</button>
+    <div id="create-err" class="amsg"></div>
   </div>
-</section>
+</div>
 
+<!-- ─── Prison Screen ──────────────────────────────────────────────────────── -->
+<div id="screen-prison" class="screen">
+  <div class="pr-logo">&#x26D3; HÄKTET</div>
+  <div style="font-size:12px;color:var(--dim);">Du sitter inlåst. Vänta eller rymma.</div>
+  <div class="pr-box">
+    <div>
+      <div class="pr-subtitle">TID KVAR</div>
+      <div id="prison-timer" class="pr-timer">--:--</div>
+    </div>
+    <div class="pr-btns">
+      <button id="prison-bribe-btn" onclick="doPrison('bribe')">
+        MUTA VAKTEN &mdash; <span id="prison-bribe-cost">...</span> kr
+      </button>
+      <button id="prison-escape-btn" onclick="doPrison('escape')">
+        RYMNINGSFÖRSÖK (riskabelt)
+      </button>
+    </div>
+    <div id="prison-msg" class="amsg"></div>
+  </div>
+</div>
+
+<!-- ─── Hospital Screen ────────────────────────────────────────────────────── -->
+<div id="screen-hospital" class="screen">
+  <div class="hs-logo">&#x2764; SJUKHUSET</div>
+  <div style="font-size:12px;color:var(--dim);">Du återhämtar dig. Vila eller betala.</div>
+  <div class="hs-box">
+    <div>
+      <div class="cr-label">HÄLSA</div>
+      <div class="hp-track">
+        <div id="hosp-hp-bar" class="hp-fill-wrap" style="width:50%;"></div>
+      </div>
+      <div id="hosp-hp-text" style="font-size:11px;color:var(--dim);margin-top:4px;">50/100 HP</div>
+    </div>
+    <div class="hs-btns">
+      <button id="hosp-heal-btn" class="primary" onclick="doHospital('heal')">
+        BETALA FÖR VÅRD &mdash; <span id="hosp-heal-cost">...</span> kr
+      </button>
+      <button id="hosp-wait-btn" onclick="doHospital('wait')">
+        VÄNTA (gratis, 30 min)
+      </button>
+    </div>
+    <div id="hosp-msg" class="amsg"></div>
+  </div>
+</div>
+
+<!-- ─── Game Screen ────────────────────────────────────────────────────────── -->
+<div id="screen-game" class="screen" style="display:none;flex-direction:column;height:100dvh;">
+  <!-- Topbar -->
+  <div id="topbar">
+    <div class="tb-brand">&#x1F99F;</div>
+    <div class="tb-center">
+      <span id="tb-name">---</span>
+      <span id="tb-level">Lv1</span>
+      <span id="tb-cash">0 kr</span>
+    </div>
+    <div class="nrg-wrap">
+      <div class="nrg-track"><div id="nrg-fill" style="width:100%;"></div></div>
+      <span id="nrg-txt">100/100</span>
+      <span id="nrg-hint"></span>
+    </div>
+  </div>
+
+  <!-- Layout -->
+  <div id="game-layout">
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <!-- Stats -->
+      <div class="sb-card">
+        <div class="sb-title">STATUS</div>
+        <div class="stat-row" style="margin-bottom:10px;">
+          <span class="stat-lbl">HP</span>
+          <div class="stat-track"><div id="hp-fill" class="stat-fill" style="width:100%;background:var(--green);"></div></div>
+          <span class="stat-val" id="hp-val">100</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-lbl">STR</span>
+          <div class="stat-track"><div id="b-str" class="stat-fill" style="width:10%;"></div></div>
+          <span class="stat-val" id="v-str">10</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-lbl">INT</span>
+          <div class="stat-track"><div id="b-int" class="stat-fill" style="width:10%;"></div></div>
+          <span class="stat-val" id="v-int">10</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-lbl">CHA</span>
+          <div class="stat-track"><div id="b-cha" class="stat-fill" style="width:10%;"></div></div>
+          <span class="stat-val" id="v-cha">10</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-lbl">SMY</span>
+          <div class="stat-track"><div id="b-ste" class="stat-fill" style="width:10%;"></div></div>
+          <span class="stat-val" id="v-ste">10</span>
+        </div>
+      </div>
+      <!-- Identity -->
+      <div class="sb-card">
+        <div class="sb-title">IDENTITET</div>
+        <div id="sb-prof">Inget yrke</div>
+        <div id="sb-side">&#x1F535; Eastside</div>
+        <div id="sb-resp">0 respect &middot; Lv1</div>
+      </div>
+      <!-- Nav -->
+      <div style="padding:8px 0;">
+        <button class="nav-btn nv active" data-s="gatan">&#x1F30D; Gatan</button>
+        <button class="nav-btn nv" data-s="brott">&#x1F52B; Brott</button>
+        <button class="nav-btn nv" data-s="droger">&#x1F48A; Droger</button>
+        <button class="nav-btn nv" data-s="strid">&#x1F94A; Strid</button>
+        <button class="nav-btn nv" data-s="traning">&#x1F3CB; Tr&auml;ning</button>
+        <button class="nav-btn nv" data-s="fastigheter">&#x1F3E0; Fastigheter</button>
+        <button class="nav-btn nv" data-s="ranking">&#x1F3C6; Ranking</button>
+      </div>
+      <div class="sb-back"><a href="/">&larr; Tillbaka</a></div>
+    </div>
+
+    <!-- Main area -->
+    <div id="main-area">
+      <!-- Gatan -->
+      <div id="s-gatan" class="g-sec" style="display:block;">
+        <div class="sec-title">GATAN</div>
+        <div class="sec-sub">Dina senaste handlingar</div>
+        <div id="gatan-feed" class="feed">
+          <div class="feed-empty">Inga handlingar &auml;nnu. Dags att g&ouml;ra n&aring;got.</div>
+        </div>
+      </div>
+
+      <!-- Brott -->
+      <div id="s-brott" class="g-sec">
+        <div class="sec-title">BROTT</div>
+        <div class="sec-sub">V&auml;lj ditt n&auml;sta d&aring;d</div>
+        <div id="rob-grid" class="rob-grid"></div>
+        <div id="rob-msg" class="amsg"></div>
+      </div>
+
+      <!-- Droger -->
+      <div id="s-droger" class="g-sec">
+        <div class="sec-title">DROGER</div>
+        <div class="sec-sub">Marknadsf&ouml;r och handla</div>
+        <table class="drug-table" id="drug-tbl">
+          <thead><tr><th>DROG</th><th>PRIS</th><th>TREND</th><th>LAGER</th><th>P/L</th></tr></thead>
+          <tbody id="drug-tbody"></tbody>
+        </table>
+        <div class="drug-form">
+          <div class="drug-form-row">
+            <label>DROG</label>
+            <select id="drug-sel" onchange="G.drugSel=this.value;updateDrugTotal();">
+              <option value="marijuana">Marijuana</option>
+              <option value="cocaine">Kokain</option>
+              <option value="heroin">Heroin</option>
+              <option value="ecstasy">Ecstasy</option>
+              <option value="meth">Meth</option>
+            </select>
+          </div>
+          <div class="drug-form-row">
+            <label>ANTAL</label>
+            <input type="number" id="drug-qty" value="1" min="1" max="100" oninput="G.drugQty=+this.value||1;updateDrugTotal();" style="width:80px;">
+          </div>
+          <div id="drug-total" class="drug-total">Totalt: 0 kr</div>
+          <div class="drug-btns">
+            <button onclick="doDrug('buy',G.drugSel,G.drugQty)">K&Ouml;P</button>
+            <button id="drug-sell-btn" onclick="doDrug('sell',G.drugSel,G.drugQty)">S&Auml;LJ</button>
+          </div>
+        </div>
+        <div id="drug-msg" class="amsg"></div>
+      </div>
+
+      <!-- Strid -->
+      <div id="s-strid" class="g-sec">
+        <div class="sec-title">STRID</div>
+        <div class="sec-sub">Attackera rivals</div>
+        <div id="strid-lock" class="lock-notice" style="display:none;">
+          &#x1F512; L&aring;ses upp vid level 8
+        </div>
+        <table class="npc-table" id="npc-tbl">
+          <thead><tr><th>NAMN</th><th>LV</th><th>STR</th><th>SIDA</th><th>BYTE</th><th></th></tr></thead>
+          <tbody id="npc-tbody"></tbody>
+        </table>
+        <div id="strid-msg" class="amsg"></div>
+      </div>
+
+      <!-- Traning -->
+      <div id="s-traning" class="g-sec">
+        <div class="sec-title">TR&Auml;NING</div>
+        <div class="sec-sub">F&ouml;rb&auml;ttra dina f&auml;rdigheter (10 energi)</div>
+        <div id="train-grid" class="train-grid"></div>
+        <div id="train-msg" class="amsg"></div>
+      </div>
+
+      <!-- Fastigheter -->
+      <div id="s-fastigheter" class="g-sec">
+        <div class="sec-title">FASTIGHETER</div>
+        <div class="sec-sub">Passiv inkomst</div>
+        <div id="prop-lock" class="lock-notice" style="display:none;">
+          &#x1F512; L&aring;ses upp vid level 10
+        </div>
+        <div id="prop-content">
+          <div id="prop-list" class="prop-list"></div>
+          <div class="collect-all-wrap">
+            <button onclick="doCollect()">SAMLA IN ALLA</button>
+          </div>
+          <div class="sec-sub" style="margin-bottom:12px;">K&Ouml;P FASTIGHET</div>
+          <div id="buy-grid" class="buy-grid"></div>
+        </div>
+        <div id="prop-msg" class="amsg"></div>
+      </div>
+
+      <!-- Ranking -->
+      <div id="s-ranking" class="g-sec">
+        <div class="sec-title">RANKING</div>
+        <div class="sec-sub">Vem &auml;r b&auml;st p&aring; gatan?</div>
+        <div id="round-info" class="round-info"></div>
+        <table class="rank-table">
+          <thead><tr><th>#</th><th>NAMN</th><th>LV</th><th>RESPECT</th><th>YRKE</th><th>SIDA</th></tr></thead>
+          <tbody id="rank-tbody"></tbody>
+        </table>
+      </div>
+    </div><!-- /#main-area -->
+  </div><!-- /#game-layout -->
+</div><!-- /#screen-game -->
+
+<!-- Mobile nav -->
+<div id="mob-nav" style="display:none;">
+  <div class="mb-inner">
+    <button class="mb active" data-s="gatan"><span class="mb-icon">&#x1F30D;</span>Gatan</button>
+    <button class="mb" data-s="brott"><span class="mb-icon">&#x1F52B;</span>Brott</button>
+    <button class="mb" data-s="droger"><span class="mb-icon">&#x1F48A;</span>Droger</button>
+    <button class="mb" data-s="strid"><span class="mb-icon">&#x1F94A;</span>Strid</button>
+    <button class="mb" data-s="traning"><span class="mb-icon">&#x1F3CB;</span>Tr&auml;na</button>
+    <button class="mb" data-s="fastigheter"><span class="mb-icon">&#x1F3E0;</span>Fast.</button>
+    <button class="mb" data-s="ranking"><span class="mb-icon">&#x1F3C6;</span>Rank</button>
+  </div>
+</div>
+<script>
+const G={
+  player:null,extra:{},status:null,prices:{},npcs:[],
+  section:'gatan',busy:false,selectedSide:'eastside',
+  drugSel:'marijuana',drugQty:1,
+  _fetchedAt:0,_nrgTick:null,_prisonTick:null,_pollTimer:null,_pricePoll:null,
+  _propTicks:{},log:[]
+};
+
+async function api(path,opts={}){
+  try{
+    const cfg={credentials:'include',...opts};
+    if(opts.body) cfg.headers={'Content-Type':'application/json'};
+    const r=await fetch('/api/game/'+path,cfg);
+    return r.json();
+  }catch{return{error:'Nätverksfel'};}
+}
+const post=(p,b={})=>api(p,{method:'POST',body:JSON.stringify(b)});
+
+window.addEventListener('load',init);
+
+async function init(){
+  bindCreate();
+  showScreen('create');
+  const r=await api('player');
+  if(!r.player) return;
+  G.player=r.player;G.extra=r;G._fetchedAt=Date.now();
+  await loadAll();
+  applyCondition();
+  startTimers();
+  G._pollTimer=setInterval(softReload,30000);
+  G._pricePoll=setInterval(refreshPrices,60000);
+}
+
+async function loadAll(){
+  const[pr,sr,dr,nr]=await Promise.all([api('player'),api('status'),api('drug-prices'),api('npcs')]);
+  if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+  if(sr&&sr.round) G.status=sr;
+  if(dr&&dr.prices) G.prices=dr.prices;
+  if(nr&&nr.npcs) G.npcs=nr.npcs;
+}
+
+async function softReload(){
+  const[pr,sr,dr]=await Promise.all([api('player'),api('status'),api('drug-prices')]);
+  if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+  if(sr&&sr.round) G.status=sr;
+  if(dr&&dr.prices) G.prices=dr.prices;
+  applyCondition();
+  renderTopbar();renderSidebar();
+  if(G.section==='droger') renderDroger();
+  if(G.section==='ranking') renderRanking();
+  if(G.section==='fastigheter') renderFastigheter();
+}
+
+async function refreshPrices(){
+  const dr=await api('drug-prices');
+  if(dr&&dr.prices) G.prices=dr.prices;
+  if(G.section==='droger') renderDroger();
+}
+
+function applyCondition(){
+  const p=G.player;if(!p) return;
+  if(p.in_prison){renderPrisonScreen();showScreen('prison');}
+  else if(p.in_hospital){renderHospitalScreen();showScreen('hospital');}
+  else{showScreen('game');renderAll();}
+}
+
+function showScreen(name){
+  ['create','prison','hospital','game'].forEach(s=>{
+    const el=document.getElementById('screen-'+s);
+    if(el) el.style.display=s===name?(s==='game'?'flex':'flex'):'none';
+  });
+  const mn=document.getElementById('mob-nav');
+  if(mn) mn.style.display=name==='game'?'flex':'none';
+}
+
+function calcEnergy(){
+  const p=G.player;if(!p) return 0;
+  const max=p.energy_max||100,base=p.energy||0;
+  if(base>=max) return max;
+  const elapsed=(Date.now()-G._fetchedAt)/1000;
+  return Math.min(max,base+Math.floor(elapsed/180));
+}
+
+function startTimers(){
+  if(G._nrgTick) clearInterval(G._nrgTick);
+  G._nrgTick=setInterval(tickEnergy,10000);
+  tickEnergy();
+}
+
+function tickEnergy(){
+  if(!G.player) return;
+  const max=G.player.energy_max||100;
+  const cur=calcEnergy();
+  const fill=document.getElementById('nrg-fill');
+  const txt=document.getElementById('nrg-txt');
+  const hint=document.getElementById('nrg-hint');
+  if(fill) fill.style.width=(cur/max*100)+'%';
+  if(txt) txt.textContent=cur+'/'+max;
+  if(hint){
+    if(cur>=max) hint.textContent='Fullt';
+    else{
+      const elapsed=(Date.now()-G._fetchedAt)/1000;
+      const secToNext=Math.ceil(180-(elapsed%180));
+      hint.textContent='+1 om '+fmt(secToNext);
+    }
+  }
+}
+
+function renderAll(){renderTopbar();renderSidebar();renderSection(G.section);}
+
+function renderTopbar(){
+  const p=G.player;if(!p) return;
+  set('tb-name',esc(p.name));
+  set('tb-level','Lv'+p.level);
+  document.getElementById('tb-cash').textContent=fmtCash(p.cash)+' kr';
+  tickEnergy();
+}
+
+function renderSidebar(){
+  const p=G.player;if(!p) return;
+  const hpPct=Math.round(p.hp/(p.hp_max||100)*100);
+  const hpF=document.getElementById('hp-fill');
+  if(hpF){hpF.style.width=hpPct+'%';hpF.style.background=hpPct>60?'var(--green)':hpPct>30?'var(--amber)':'var(--red)';}
+  set('hp-val',p.hp+'/'+(p.hp_max||100));
+  for(const[k,id] of[['strength','str'],['intelligence','int'],['charisma','cha'],['stealth','ste']]){
+    const v=p[k]||10;
+    const b=document.getElementById('b-'+id);
+    const vv=document.getElementById('v-'+id);
+    if(b) b.style.width=v+'%';
+    if(vv) vv.textContent=v;
+  }
+  set('sb-prof',cleanProf(p.profession)||'Inget yrke');
+  set('sb-side',p.side==='westside'?'&#x1F534; Westside':'&#x1F535; Eastside');
+  set('sb-resp',fmtCash(p.respect)+' respect &middot; Lv'+p.level);
+}
+
+function navTo(s){G.section=s;renderSection(s);}
+
+function renderSection(s){
+  document.querySelectorAll('.g-sec').forEach(el=>el.style.display='none');
+  const el=document.getElementById('s-'+s);
+  if(el) el.style.display='';
+  document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
+  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,fastigheter:renderFastigheter,ranking:renderRanking};
+  if(fns[s]) fns[s]();
+}
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-s]');
+  if(b&&(b.classList.contains('nv')||b.classList.contains('mb'))) navTo(b.dataset.s);
+});
+
+/* ─── Gatan ─────────────────────────────────────────────────────────────── */
+function renderGatan(){
+  const srvLog=(G.extra.log||[]).map(l=>({
+    ts:l.created_at,desc:l.description||l.action_type,
+    ok:l.success!==0
+  }));
+  const cliLog=G.log.map(l=>({ts:l.ts,desc:l.desc,ok:l.ok}));
+  const all=[...cliLog,...srvLog];
+  all.sort((a,b)=>b.ts>a.ts?1:-1);
+  const feed=document.getElementById('gatan-feed');
+  if(!feed) return;
+  if(!all.length){feed.innerHTML='<div class="feed-empty">Inga handlingar ännu. Dags att göra något.</div>';return;}
+  feed.innerHTML=all.slice(0,50).map(l=>{
+    const d=new Date(l.ts);
+    const hm=isNaN(d)?'--:--':(d.getHours()+'').padStart(2,'0')+':'+(d.getMinutes()+'').padStart(2,'0');
+    const cls=l.ok===false?'err':'ok';
+    return `<div class="feed-item ${cls}"><span class="feed-time">[${hm}]</span><span class="feed-desc">${esc(l.desc||'')}</span></div>`;
+  }).join('');
+}
+
+/* ─── Brott ──────────────────────────────────────────────────────────────── */
+const ROBS=[
+  {id:'shoplift',name:'Snatteri',stars:1,energy:5,pay:'50–200',lvl:1},
+  {id:'pickpocket',name:'Ficktjuv',stars:1,energy:5,pay:'100–400',lvl:1},
+  {id:'car_breakin',name:'Bilbrott',stars:2,energy:8,pay:'200–800',lvl:3},
+  {id:'gas_station',name:'Bensinmack',stars:2,energy:10,pay:'500–2 000',lvl:5},
+  {id:'house',name:'Villabrott',stars:3,energy:12,pay:'1 000–4 000',lvl:8},
+  {id:'jewelry',name:'Juvelbutik',stars:3,energy:15,pay:'3 000–10 000',lvl:10},
+  {id:'bank',name:'Bankrån',stars:4,energy:20,pay:'10 000–50 000',lvl:15},
+  {id:'casino',name:'Kasinorån',stars:4,energy:25,pay:'50 000–200 000',lvl:20},
+  {id:'federal_reserve',name:'Riksbanken',stars:5,energy:30,pay:'200 000–1 000 000',lvl:30}
+];
+
+function renderBrott(){
+  const p=G.player;
+  const grid=document.getElementById('rob-grid');
+  if(!grid) return;
+  grid.innerHTML=ROBS.map(r=>{
+    const locked=p&&p.level<r.lvl;
+    const stars='&#9733;'.repeat(r.stars)+'&#9734;'.repeat(5-r.stars);
+    return `<div class="rob-card${locked?' locked':''}" id="rc-${r.id}" onclick="${locked?'':'doRobbery(''+r.id+'')'}">
+      <div class="rob-name">${r.name}</div>
+      <div class="rob-stars">${stars}</div>
+      <div class="rob-info">&#x26A1; ${r.energy} energi</div>
+      <div class="rob-pay">${r.pay} kr</div>
+      ${locked?`<div class="rob-lock">Låses upp vid level ${r.lvl}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+async function doRobbery(target){
+  if(G.busy) return;G.busy=true;
+  const card=document.getElementById('rc-'+target);
+  const r=await post('action/robbery',{target});
+  G.busy=false;
+  if(r.error){
+    setMsg('rob-msg',r.error,'err');
+    if(card){card.classList.add('flash-err');setTimeout(()=>card.classList.remove('flash-err'),800);}
+  }else{
+    const msg=r.success?`+${fmtCash(r.cash_gained)} kr — ${r.message||'Lyckat!'}`:r.message||'Misslyckades';
+    setMsg('rob-msg',msg,r.success?'ok':'err');
+    if(card){
+      card.classList.add(r.success?'flash-ok':'flash-err');
+      setTimeout(()=>card.classList.remove('flash-ok','flash-err'),800);
+    }
+    addLog(msg,r.success?'ok':'err');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderBrott();
+  }
+}
+/* ─── Droger ──────────────────────────────────────────────────────────────── */
+const DRUG_NAMES={marijuana:'Marijuana',cocaine:'Kokain',heroin:'Heroin',ecstasy:'Ecstasy',meth:'Meth'};
+
+function renderDroger(){
+  const inv=G.extra.inventory||[];
+  const tbody=document.getElementById('drug-tbody');
+  if(!tbody) return;
+  const drugs=['marijuana','cocaine','heroin','ecstasy','meth'];
+  tbody.innerHTML=drugs.map(d=>{
+    const info=(G.prices[d]||{});
+    const price=info.price||0;
+    const trend=info.trend||0;
+    const owned=inv.filter(i=>i.item_name===d).reduce((s,i)=>s+(i.quantity||0),0);
+    const buyAvg=owned>0?(inv.filter(i=>i.item_name===d).reduce((s,i)=>s+(i.buy_price||0)*(i.quantity||0),0)/owned):0;
+    const pl=owned>0?Math.round(price-buyAvg):0;
+    const tCls=trend>0?'tu':trend<0?'td':'ts2';
+    const tSign=trend>0?'+':'';
+    const plColor=pl>0?'var(--green)':pl<0?'var(--red)':'var(--dim)';
+    return `<tr><td>${DRUG_NAMES[d]}</td><td>${fmtCash(price)} kr</td><td class="${tCls}">${tSign}${trend>0?Math.round(trend*100)+'%':'--'}</td><td>${owned}</td><td style="color:${plColor}">${owned>0?(pl>=0?'+':'')+fmtCash(pl):'-'}</td></tr>`;
+  }).join('');
+  updateDrugTotal();
+  const sel=document.getElementById('drug-sell-btn');
+  if(sel){
+    const owned=inv.filter(i=>i.item_name===G.drugSel).reduce((s,i)=>s+(i.quantity||0),0);
+    sel.disabled=owned===0;
+  }
+}
+
+function updateDrugTotal(){
+  const info=(G.prices[G.drugSel]||{});
+  const price=info.price||0;
+  const qty=G.drugQty||1;
+  const el=document.getElementById('drug-total');
+  if(el) el.textContent='Totalt: '+fmtCash(price*qty)+' kr';
+}
+
+async function doDrug(action,drug,qty){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/drug-deal',{action,drug,quantity:qty});
+  G.busy=false;
+  if(r.error){setMsg('drug-msg',r.error,'err');}
+  else{
+    const msg=r.message||(action==='buy'?'Köpt!':'Sålt!');
+    setMsg('drug-msg',msg,r.success!==false?'ok':'err');
+    addLog(msg,r.success!==false?'ok':'err');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderDroger();
+  }
+}
+
+/* ─── Strid ───────────────────────────────────────────────────────────────── */
+function renderStrid(){
+  const p=G.player;
+  const lockEl=document.getElementById('strid-lock');
+  const tbl=document.getElementById('npc-tbl');
+  if(p&&p.level<8){
+    if(lockEl) lockEl.style.display='';
+    if(tbl) tbl.style.display='none';
+    return;
+  }
+  if(lockEl) lockEl.style.display='none';
+  if(tbl) tbl.style.display='';
+  const tbody=document.getElementById('npc-tbody');
+  if(!tbody) return;
+  if(!G.npcs.length){tbody.innerHTML='<tr><td colspan="6" style="color:var(--dim);text-align:center;padding:16px;">Inga rivals hittade</td></tr>';return;}
+  tbody.innerHTML=G.npcs.map(n=>{
+    const loot=Math.round(n.cash*0.3);
+    const sideIcon=n.side==='westside'?'&#x1F534;':'&#x1F535;';
+    return `<tr><td>${esc(n.name)}</td><td>Lv${n.level}</td><td>${n.strength}</td><td>${sideIcon}</td><td>${fmtCash(loot)} kr</td><td><button onclick="doAssault('${n.id}')" ${p&&p.level<8?'disabled':''}>ATTACKERA</button></td></tr>`;
+  }).join('');
+}
+
+async function doAssault(npcId){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/assault',{target_id:npcId});
+  G.busy=false;
+  if(r.error){setMsg('strid-msg',r.error,'err');}
+  else{
+    const msg=r.message||'Strid avslutad';
+    setMsg('strid-msg',msg,r.success?'ok':'err');
+    addLog(msg,r.success?'ok':'err');
+    const[pr,nr]=await Promise.all([api('player'),api('npcs')]);
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    if(nr.npcs) G.npcs=nr.npcs;
+    renderTopbar();renderSidebar();renderStrid();
+  }
+}
+
+/* ─── Traning ─────────────────────────────────────────────────────────────── */
+const TRAIN_CARDS=[
+  {stat:'strength',icon:'&#x1F3CB;',name:'Gym',label:'STR'},
+  {stat:'intelligence',icon:'&#x1F4DA;',name:'Skola',label:'INT'},
+  {stat:'charisma',icon:'&#x1F5E3;',name:'Gatan',label:'CHA'},
+  {stat:'stealth',icon:'&#x1F576;',name:'Smögträning',label:'SMY'}
+];
+
+function renderTraning(){
+  const p=G.player;
+  const cur=calcEnergy();
+  const grid=document.getElementById('train-grid');
+  if(!grid) return;
+  grid.innerHTML=TRAIN_CARDS.map(c=>{
+    const val=p?p[c.stat]||10:10;
+    const pct=Math.min(100,val);
+    const disabled=cur<10||!p;
+    return `<div class="train-card">
+      <div class="train-icon">${c.icon}</div>
+      <div class="train-name">${c.name}</div>
+      <div class="train-stat">${c.label}</div>
+      <div class="stat-bar-wrap">
+        <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%;"></div></div>
+        <div class="stat-bar-txt">${val}/100</div>
+      </div>
+      <button onclick="doTrain('${c.stat}')" ${disabled?'disabled':''}>TRÄNA</button>
+    </div>`;
+  }).join('');
+}
+
+async function doTrain(stat){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/train',{stat});
+  G.busy=false;
+  if(r.error){setMsg('train-msg',r.error,'err');}
+  else{
+    const msg=r.message||('+'+r.increase+' '+stat);
+    setMsg('train-msg',msg,'ok');
+    addLog(msg,'ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderTraning();
+  }
+}
+/* ─── Fastigheter ─────────────────────────────────────────────────────────── */
+const PROP_CFG={
+  stash_house:{label:'Stash House',cost:5000,income:100},
+  nightclub:{label:'Nattklubb',cost:25000,income:500},
+  drug_lab:{label:'Droglab',cost:50000,income:1000},
+  garage:{label:'Garage',cost:15000,income:50},
+  safehouse:{label:'Safehouse',cost:10000,income:75}
+};
+
+function renderFastigheter(){
+  const p=G.player;
+  const lockEl=document.getElementById('prop-lock');
+  const cont=document.getElementById('prop-content');
+  if(p&&p.level<10){
+    if(lockEl) lockEl.style.display='';
+    if(cont) cont.style.display='none';
+    return;
+  }
+  if(lockEl) lockEl.style.display='none';
+  if(cont) cont.style.display='';
+
+  const props=G.extra.properties||[];
+  const list=document.getElementById('prop-list');
+  if(list){
+    if(!props.length){
+      list.innerHTML='<div style="color:var(--dim);font-size:12px;padding:8px 0;">Inga fastigheter ännu.</div>';
+    }else{
+      // Clear old prop ticks
+      Object.values(G._propTicks).forEach(t=>clearInterval(t));
+      G._propTicks={};
+      list.innerHTML=props.map(prop=>{
+        const cfg=PROP_CFG[prop.property_type]||{label:prop.property_type,income:prop.income_per_hour||0};
+        return `<div class="prop-row" id="pr-${prop.id}">
+          <div class="prop-info">
+            <div class="prop-name">${esc(prop.property_name||cfg.label)} <span style="color:var(--dim);font-size:11px;">Lv${prop.level}</span></div>
+            <div class="prop-detail">${prop.income_per_hour||cfg.income} kr/timme</div>
+            <div class="prop-acc" id="pacc-${prop.id}">+0 kr</div>
+          </div>
+          <button onclick="doCollectOne('${prop.id}')">SAMLA IN</button>
+        </div>`;
+      }).join('');
+      // Start ticking accumulators
+      props.forEach(prop=>{
+        const incomePerMs=(prop.income_per_hour||0)/3600000;
+        const lastCol=new Date(prop.last_collected).getTime();
+        const tick=()=>{
+          const acc=Math.floor((Date.now()-lastCol)*incomePerMs);
+          const el=document.getElementById('pacc-'+prop.id);
+          if(el) el.textContent='+'+fmtCash(acc)+' kr';
+        };
+        tick();
+        G._propTicks[prop.id]=setInterval(tick,1000);
+      });
+    }
+  }
+
+  const buyGrid=document.getElementById('buy-grid');
+  if(buyGrid){
+    buyGrid.innerHTML=Object.entries(PROP_CFG).map(([type,cfg])=>
+      `<div class="buy-card">
+        <div class="buy-type">${cfg.label}</div>
+        <div class="buy-cost">${fmtCash(cfg.cost)} kr</div>
+        <div class="buy-income">${cfg.income} kr/timme</div>
+        <button onclick="doBuyProp('${type}')">KÖP</button>
+      </div>`
+    ).join('');
+  }
+}
+
+async function doBuyProp(type){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/buy-property',{type});
+  G.busy=false;
+  if(r.error){setMsg('prop-msg',r.error,'err');}
+  else{
+    setMsg('prop-msg',r.message||'Köpt!','ok');
+    addLog(r.message||'Köpte fastighet','ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderFastigheter();
+  }
+}
+
+async function doCollect(){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/collect-income',{});
+  G.busy=false;
+  if(r.error){setMsg('prop-msg',r.error,'err');}
+  else{
+    const msg=r.message||'+'+fmtCash(r.collected||0)+' kr insamlat';
+    setMsg('prop-msg',msg,'ok');
+    addLog(msg,'ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderFastigheter();
+  }
+}
+
+async function doCollectOne(propId){
+  // collect-income collects all; show feedback per property
+  await doCollect();
+}
+
+/* ─── Ranking ─────────────────────────────────────────────────────────────── */
+function renderRanking(){
+  const ri=document.getElementById('round-info');
+  if(ri&&G.status&&G.status.round){
+    const s=G.status;
+    const secsLeft=s.seconds_left||0;
+    ri.innerHTML=`<span>Runda <strong>${s.round.round_number}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>Spelare: <strong>${s.total_players||0}</strong></span>`;
+  }
+  const tbody=document.getElementById('rank-tbody');
+  if(!tbody) return;
+  const players=(G.status&&G.status.top10)||[];
+  const npcsRank=G.npcs.slice(0,10).map(n=>({
+    name:n.name,level:n.level,respect:n.respect,profession:'NPC',side:n.side,isNpc:true
+  }));
+  const playerRows=players.map(p=>({
+    name:p.name,level:p.level,respect:p.respect,profession:p.profession||'none',side:p.side,isNpc:false
+  }));
+  const all=[...playerRows,...npcsRank].sort((a,b)=>b.respect-a.respect).slice(0,20);
+  const myName=G.player?G.player.name:'';
+  tbody.innerHTML=all.map((row,i)=>{
+    const isMe=!row.isNpc&&row.name===myName;
+    const sideIcon=row.side==='westside'?'&#x1F534;':'&#x1F535;';
+    const prof=cleanProf(row.profession)||'—';
+    return `<tr${isMe?' class="me"':''}><td>${i+1}</td><td>${esc(row.name)}${row.isNpc?' <span style="color:var(--dim);font-size:10px;">[NPC]</span>':''}</td><td>Lv${row.level}</td><td>${fmtCash(row.respect)}</td><td>${prof}</td><td>${sideIcon}</td></tr>`;
+  }).join('');
+}
+
+/* ─── Prison ─────────────────────────────────────────────────────────────── */
+function renderPrisonScreen(){
+  const p=G.player;if(!p) return;
+  const secsLeft=G.extra.prison_seconds_left||0;
+  const bribeCost=Math.max(500,secsLeft*10);
+  set('prison-bribe-cost',fmtCash(bribeCost));
+  set('prison-timer',fmtFull(secsLeft));
+  if(G._prisonTick) clearInterval(G._prisonTick);
+  let left=secsLeft;
+  G._prisonTick=setInterval(()=>{
+    left--;
+    if(left<=0){clearInterval(G._prisonTick);softReload();return;}
+    set('prison-timer',fmtFull(left));
+    set('prison-bribe-cost',fmtCash(Math.max(500,left*10)));
+  },1000);
+}
+
+async function doPrison(method){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/prison-escape',{method});
+  G.busy=false;
+  if(r.error){setMsg('prison-msg',r.error,'err');}
+  else{
+    setMsg('prison-msg',r.message||'OK','ok');
+    if(r.success){
+      if(G._prisonTick) clearInterval(G._prisonTick);
+      const pr=await api('player');
+      if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+      applyCondition();
+    }
+  }
+}
+
+/* ─── Hospital ────────────────────────────────────────────────────────────── */
+function renderHospitalScreen(){
+  const p=G.player;if(!p) return;
+  const hp=p.hp||0,hpMax=p.hp_max||100;
+  const pct=Math.round(hp/hpMax*100);
+  const healEl=document.getElementById('hosp-hp-bar');
+  if(healEl) healEl.style.width=pct+'%';
+  set('hosp-hp-text',hp+'/'+hpMax+' HP');
+  const healCost=Math.max(100,(hpMax-hp)*10);
+  set('hosp-heal-cost',fmtCash(healCost));
+}
+
+async function doHospital(action){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/hospital',{action});
+  G.busy=false;
+  if(r.error){setMsg('hosp-msg',r.error,'err');}
+  else{
+    setMsg('hosp-msg',r.message||'OK','ok');
+    if(r.success||r.released){
+      const pr=await api('player');
+      if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+      applyCondition();
+    }
+  }
+}
+
+/* ─── Create ──────────────────────────────────────────────────────────────── */
+function bindCreate(){
+  document.querySelectorAll('.side-card').forEach(card=>{
+    card.addEventListener('click',()=>{
+      document.querySelectorAll('.side-card').forEach(c=>c.classList.remove('active'));
+      card.classList.add('active');
+      G.selectedSide=card.dataset.side;
+    });
+  });
+  const inp=document.getElementById('inp-name');
+  if(inp) inp.addEventListener('keydown',e=>{if(e.key==='Enter') doCreate();});
+  const btn=document.getElementById('create-btn');
+  if(btn) btn.addEventListener('click',doCreate);
+}
+
+async function doCreate(){
+  const name=(document.getElementById('inp-name').value||'').trim();
+  if(!name){setMsg('create-err','Ange ett namn','err');return;}
+  if(G.busy) return;G.busy=true;
+  const r=await post('create-character',{name,side:G.selectedSide});
+  G.busy=false;
+  if(r.error){setMsg('create-err',r.error,'err');}
+  else{
+    G.player=r.player;G.extra={player:r.player};G._fetchedAt=Date.now();
+    await loadAll();
+    applyCondition();
+    startTimers();
+    if(!G._pollTimer) G._pollTimer=setInterval(softReload,30000);
+    if(!G._pricePoll) G._pricePoll=setInterval(refreshPrices,60000);
+  }
+}
+
+/* ─── Log ────────────────────────────────────────────────────────────────── */
+function addLog(desc,type='ok'){
+  G.log.unshift({ts:new Date().toISOString(),desc,ok:type!=='err'});
+  if(G.log.length>50) G.log.pop();
+  if(G.section==='gatan') renderGatan();
+}
+
+/* ─── Utilities ──────────────────────────────────────────────────────────── */
+function set(id,html){const el=document.getElementById(id);if(el) el.innerHTML=html;}
+function setMsg(id,msg,type){const el=document.getElementById(id);if(el){el.textContent=msg;el.className='amsg '+(type||'');}}
+function fmtCash(n){return Math.round(n||0).toLocaleString('sv-SE');}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function fmt(sec){const s=Math.max(0,Math.round(sec));return Math.floor(s/60)+':'+(s%60+'').padStart(2,'0');}
+function fmtFull(sec){
+  const s=Math.max(0,Math.round(sec));
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;
+  if(h>0) return h+':'+(m+'').padStart(2,'0')+':'+(ss+'').padStart(2,'0');
+  return m+':'+(ss+'').padStart(2,'0');
+}
+function cleanProf(p){
+  if(!p||p==='none') return '';
+  return p.replace(/^changed:/,'');
+}
+</script>
 </body>
 </html>
