@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS game_rounds (
 CREATE TABLE IF NOT EXISTS game_players (
   id           TEXT    PRIMARY KEY,
   round_id     TEXT    NOT NULL,
-  name         TEXT    NOT NULL UNIQUE,
+  name         TEXT    NOT NULL,
   level        INTEGER DEFAULT 1,
   xp           INTEGER DEFAULT 0,
   cash         INTEGER DEFAULT 500,
@@ -59,8 +59,10 @@ CREATE TABLE IF NOT EXISTS game_players (
   FOREIGN KEY (round_id) REFERENCES game_rounds(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_game_players_round   ON game_players (round_id);
-CREATE INDEX IF NOT EXISTS idx_game_players_respect ON game_players (respect DESC);
+CREATE INDEX        IF NOT EXISTS idx_game_players_round   ON game_players (round_id);
+CREATE INDEX        IF NOT EXISTS idx_game_players_respect ON game_players (respect DESC);
+-- Names unique within a round only (different rounds can reuse the same name)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_game_players_name_round ON game_players (name, round_id);
 
 -- ─── Inventory ───────────────────────────────────────────────────────────────
 
@@ -104,6 +106,7 @@ CREATE TABLE IF NOT EXISTS game_npcs (
   respect     INTEGER DEFAULT 0,
   strength    INTEGER DEFAULT 10,
   cash        INTEGER DEFAULT 100,
+  hp          INTEGER DEFAULT 50,
   side        TEXT    DEFAULT 'eastside',
   personality TEXT,  -- aggressive, defensive, trader, passive
   is_alive    INTEGER DEFAULT 1,
