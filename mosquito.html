@@ -729,12 +729,13 @@ function renderBrott(){
   grid.innerHTML=ROBS.map(r=>{
     const locked=p&&p.level<r.lvl;
     const stars='&#9733;'.repeat(r.stars)+'&#9734;'.repeat(5-r.stars);
-    return `<div class="rob-card${locked?' locked':''}" id="rc-${r.id}" onclick="${locked?'':'doRobbery(''+r.id+'')'}">
+    const onclk=locked?'':' onclick="doRobbery(\''+r.id+'\')"';
+    return `<div class="rob-card${locked?' locked':''}" id="rc-${r.id}"${onclk}>
       <div class="rob-name">${r.name}</div>
       <div class="rob-stars">${stars}</div>
       <div class="rob-info">&#x26A1; ${r.energy} energi</div>
       <div class="rob-pay">${r.pay} kr</div>
-      ${locked?`<div class="rob-lock">Låses upp vid level ${r.lvl}</div>`:''}
+      ${locked?'<div class="rob-lock">L\xe5ses upp vid level '+r.lvl+'</div>':''}
     </div>`;
   }).join('');
 }
