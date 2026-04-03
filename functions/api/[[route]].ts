@@ -1731,6 +1731,35 @@ async function gameGetNpcs(env: Env): Promise<Response> {
 
 // ── NPC simulation ────────────────────────────────────────────────────────────
 
+function npcBehaviorWeights(personality: string): { robbery: number; training: number; drug: number; assault: number } {
+  switch (String(personality || '').toLowerCase()) {
+    case 'aggressive':
+      return { robbery: 0.42, training: 0.12, drug: 0.14, assault: 0.32 };
+    case 'trader':
+      return { robbery: 0.24, training: 0.14, drug: 0.44, assault: 0.18 };
+    case 'defensive':
+      return { robbery: 0.25, training: 0.40, drug: 0.15, assault: 0.20 };
+    case 'passive':
+      return { robbery: 0.18, training: 0.50, drug: 0.22, assault: 0.10 };
+    default:
+      return { robbery: 0.32, training: 0.20, drug: 0.23, assault: 0.25 };
+  }
+}
+
+function npcTrainingLine(npc: Row): string {
+  const name = String(npc.name ?? 'Någon');
+  switch (String(npc.personality || '').toLowerCase()) {
+    case 'aggressive':
+      return `${name} pumpade järn i skymundan och såg hungrigare ut än vanligt.`;
+    case 'trader':
+      return `${name} låg lågt, räknade risker och slipade nästa drag.`;
+    case 'defensive':
+      return `${name} höll låg profil och vässade formen i bakgränden.`;
+    default:
+      return `${name} höll sig undan men byggde upp sig i skuggorna.`;
+  }
+}
+
 async function gameSimulate(env: Env): Promise<Response> {
   const round = await getActiveRound(env);
   if (!round) return gameJson({ activity: [] });
@@ -1748,13 +1777,29 @@ async function gameSimulate(env: Env): Promise<Response> {
   ).bind(round.id as string).all<Row>();
 
   const activity: string[] = [];
+  const events: Record<string, unknown>[] = [];
   const stmts: D1PreparedStatement[] = [];
+  const pushEvent = (npc: Row, type: string, description: string) => {
+    const createdAt = new Date().toISOString();
+    activity.push(description);
+    events.push({
+      id: crypto.randomUUID(),
+      created_at: createdAt,
+      actor: npc.name as string,
+      actor_id: npc.id as string,
+      side: (npc.side as string) || '',
+      personality: (npc.personality as string) || '',
+      type,
+      description,
+    });
+  };
 
   for (const npc of res.results) {
     const lvl  = (npc.level    as number) || 1;
     const roll = Math.random();
+    const weights = npcBehaviorWeights(String(npc.personality ?? ''));
 
-    if (roll < 0.50) {
+    if (roll < weights.robbery) {
       // Robbery — target scales with NPC level
       const target =
         lvl >= 20 ? 'casino'      :
@@ -1773,16 +1818,17 @@ async function gameSimulate(env: Env): Promise<Response> {
           env.DB.prepare(`UPDATE game_npcs SET cash = cash + ?, respect = ?, level = ? WHERE id = ?`)
             .bind(cash, newResp, newLvl, npc.id as string)
         );
-        activity.push(`${npc.name as string} rånade ${cfg.label} och tjänade ${svNum(cash)} kr.`);
+        pushEvent(npc, 'robbery', `${npc.name as string} rånade ${cfg.label} och tjänade ${svNum(cash)} kr.`);
       }
-    } else if (roll < 0.70) {
-      // Training — silent
+    } else if (roll < weights.robbery + weights.training) {
+      // Training
       const inc    = rand(1, 2);
       const newStr = Math.min(100, (npc.strength as number) + inc);
       stmts.push(
         env.DB.prepare(`UPDATE game_npcs SET strength = ? WHERE id = ?`).bind(newStr, npc.id as string)
       );
-    } else if (roll < 0.85) {
+      pushEvent(npc, 'training', npcTrainingLine(npc));
+    } else if (roll < weights.robbery + weights.training + weights.drug) {
       // Drug deal
       const earnings = Math.round(lvl * rand(200, 600) * 0.70);
       const respect  = Math.ceil(earnings / 400);
@@ -1792,7 +1838,7 @@ async function gameSimulate(env: Env): Promise<Response> {
       );
       const drugList = ['marijuana', 'kokain', 'heroin', 'ecstasy'];
       const drug = drugList[Math.floor(Math.random() * drugList.length)];
-      activity.push(`${npc.name as string} sålde ${drug} och tjänade ${svNum(earnings)} kr.`);
+      pushEvent(npc, 'drug', `${npc.name as string} sålde ${drug} och tjänade ${svNum(earnings)} kr.`);
     } else {
       // Assault another NPC
       const victims = res.results.filter(n => n.id !== npc.id && n.is_alive);
@@ -1804,7 +1850,7 @@ async function gameSimulate(env: Env): Promise<Response> {
             env.DB.prepare(`UPDATE game_npcs SET cash = cash + ?, respect = respect + 5 WHERE id = ?`).bind(stolen, npc.id as string),
             env.DB.prepare(`UPDATE game_npcs SET cash = cash - ? WHERE id = ?`).bind(stolen, victim.id as string)
           );
-          activity.push(`${npc.name as string} slog ner ${victim.name as string} och stal ${svNum(stolen)} kr.`);
+          pushEvent(npc, 'assault', `${npc.name as string} slog ner ${victim.name as string} och stal ${svNum(stolen)} kr.`);
         }
       }
     }
@@ -1817,7 +1863,7 @@ async function gameSimulate(env: Env): Promise<Response> {
     }
   }
 
-  return gameJson({ activity });
+  return gameJson({ activity, events });
 }
 
 function svNum(n: number): string {
