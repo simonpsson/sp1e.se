@@ -29,6 +29,11 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 /* ─── Screens ─────────────────────────────────────────────────────────────── */
 .screen{display:none;min-height:100dvh;}
 
+/* ─── Boot/Auth ─────────────────────────────────────────────────────────────── */
+#screen-boot{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:12px;text-align:center;}
+.boot-logo{font-size:26px;font-weight:500;color:var(--red);letter-spacing:4px;}
+.boot-copy{font-size:11px;color:var(--dim);letter-spacing:1px;max-width:320px;}
+
 /* ─── Create ──────────────────────────────────────────────────────────────── */
 #screen-create{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
 .cr-logo{font-size:32px;font-weight:500;color:var(--red);letter-spacing:4px;}
@@ -180,6 +185,31 @@ select:focus{border-color:var(--red);}
 .round-info{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;display:flex;gap:20px;flex-wrap:wrap;}
 .round-info span{color:var(--dim);}
 .round-info strong{color:var(--white);}
+.bank-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;}
+.bank-stat{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:4px;}
+.bank-stat span{font-size:10px;color:var(--dim);letter-spacing:1px;}
+.bank-stat strong{font-size:15px;color:var(--white);}
+.bank-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:440px;}
+.bank-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.bank-row label{font-size:11px;color:var(--dim);width:70px;flex-shrink:0;}
+.bank-row input{max-width:180px;}
+.prof-status{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--dim);}
+.prof-status strong{color:var(--white);}
+.prof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;}
+.prof-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:8px;}
+.prof-card.active{border-color:var(--green);}
+.prof-card.locked{opacity:.6;}
+.prof-name{font-size:13px;font-weight:500;color:var(--white);}
+.prof-bonus{font-size:11px;color:var(--dim);line-height:1.6;}
+.prof-note{font-size:10px;color:var(--amber);letter-spacing:.5px;}
+.dev-tag{display:inline-flex;align-items:center;justify-content:center;padding:2px 6px;border:1px solid var(--red);border-radius:999px;font-size:10px;color:var(--red);letter-spacing:1px;vertical-align:middle;margin-left:8px;}
+.dev-shell{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;}
+.dev-meta{font-size:11px;color:var(--dim);line-height:1.7;}
+.dev-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.dev-row input{flex:1;min-width:220px;}
+.dev-quick{display:flex;flex-wrap:wrap;gap:8px;}
+.dev-quick button{padding:6px 10px;font-size:11px;}
+.dev-output{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:12px;min-height:180px;max-height:320px;overflow:auto;white-space:pre-wrap;font-size:11px;line-height:1.7;color:var(--white);}
 
 /* ─── Mobile nav ──────────────────────────────────────────────────────────── */
 #mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:100;overflow-x:auto;}
@@ -229,8 +259,14 @@ select:focus{border-color:var(--red);}
 </style>
 </head>
 <body>
+<!-- ─── Boot Screen ────────────────────────────────────────────────────────── -->
+<div id="screen-boot" class="screen" style="display:flex;">
+  <div class="boot-logo">MOSQUITO</div>
+  <div class="boot-copy">Kontrollerar adminåtkomst via samma lösenordssession som sp1e-hubben.</div>
+</div>
+
 <!-- ─── Create Screen ─────────────────────────────────────────────────────── -->
-<div id="screen-create" class="screen" style="display:flex;">
+<div id="screen-create" class="screen" style="display:none;">
   <div class="cr-logo">MOSQUITO</div>
   <div class="cr-sub">CRIME SIMULATOR &mdash; STHLM</div>
   <div class="cr-box">
@@ -241,25 +277,25 @@ select:focus{border-color:var(--red);}
     <div>
       <div class="cr-label">VÄLJ SIDA</div>
       <div class="side-row">
-        <div class="side-card active" data-side="eastside" onclick="selectSide('eastside')">
+        <div class="side-card active" data-side="eastside">
           <div class="s-icon">&#x1F535;</div>
           <div class="s-name">EASTSIDE</div>
           <div class="s-desc">Aggressiv. Stark.</div>
         </div>
-        <div class="side-card" data-side="westside" onclick="selectSide('westside')">
+        <div class="side-card" data-side="westside">
           <div class="s-icon">&#x1F534;</div>
           <div class="s-name">WESTSIDE</div>
           <div class="s-desc">Listig. Snabb.</div>
         </div>
       </div>
     </div>
-    <button id="create-btn" class="primary" onclick="doCreate()">SKAPA KARAKTÄR</button>
+    <button id="create-btn" class="primary">SKAPA KARAKTÄR</button>
     <div id="create-err" class="amsg"></div>
   </div>
 </div>
 
 <!-- ─── Prison Screen ──────────────────────────────────────────────────────── -->
-<div id="screen-prison" class="screen">
+<div id="screen-prison" class="screen" style="display:none;">
   <div class="pr-logo">&#x26D3; HÄKTET</div>
   <div style="font-size:12px;color:var(--dim);">Du sitter inlåst. Vänta eller rymma.</div>
   <div class="pr-box">
@@ -280,10 +316,14 @@ select:focus{border-color:var(--red);}
 </div>
 
 <!-- ─── Hospital Screen ────────────────────────────────────────────────────── -->
-<div id="screen-hospital" class="screen">
+<div id="screen-hospital" class="screen" style="display:none;">
   <div class="hs-logo">&#x2764; SJUKHUSET</div>
   <div style="font-size:12px;color:var(--dim);">Du återhämtar dig. Vila eller betala.</div>
   <div class="hs-box">
+    <div>
+      <div class="cr-label">TID KVAR</div>
+      <div id="hosp-timer" style="font-size:18px;color:var(--amber);letter-spacing:2px;">--:--</div>
+    </div>
     <div>
       <div class="cr-label">HÄLSA</div>
       <div class="hp-track">
@@ -296,7 +336,7 @@ select:focus{border-color:var(--red);}
         BETALA FÖR VÅRD &mdash; <span id="hosp-heal-cost">...</span> kr
       </button>
       <button id="hosp-wait-btn" onclick="doHospital('wait')">
-        VÄNTA (gratis, 30 min)
+        UPPDATERA STATUS
       </button>
     </div>
     <div id="hosp-msg" class="amsg"></div>
@@ -359,6 +399,7 @@ select:focus{border-color:var(--red);}
         <div id="sb-prof">Inget yrke</div>
         <div id="sb-side">&#x1F535; Eastside</div>
         <div id="sb-resp">0 respect &middot; Lv1</div>
+        <div id="sb-bank" style="font-size:11px;color:var(--dim);margin-top:4px;">Bank: 0 kr</div>
       </div>
       <!-- Nav -->
       <div style="padding:8px 0;">
@@ -367,6 +408,9 @@ select:focus{border-color:var(--red);}
         <button class="nav-btn nv" data-s="droger">&#x1F48A; Droger</button>
         <button class="nav-btn nv" data-s="strid">&#x1F94A; Strid</button>
         <button class="nav-btn nv" data-s="traning">&#x1F3CB; Tr&auml;ning</button>
+        <button class="nav-btn nv" data-s="profession">&#x2699; Yrke</button>
+        <button class="nav-btn nv" data-s="bank">&#x1F4B0; Bank</button>
+        <button class="nav-btn nv" data-s="dev">&#x1F6E0; Dev</button>
         <button class="nav-btn nv" data-s="fastigheter">&#x1F3E0; Fastigheter</button>
         <button class="nav-btn nv" data-s="race">&#x1F3CE; Streetrace</button>
         <button class="nav-btn nv" data-s="ranking">&#x1F3C6; Ranking</button>
@@ -376,6 +420,7 @@ select:focus{border-color:var(--red);}
 
     <!-- Main area -->
     <div id="main-area">
+      <div id="section-error" class="amsg"></div>
       <!-- Gatan -->
       <div id="s-gatan" class="g-sec" style="display:block;">
         <div class="sec-title">GATAN</div>
@@ -404,7 +449,7 @@ select:focus{border-color:var(--red);}
         <div class="drug-form">
           <div class="drug-form-row">
             <label>DROG</label>
-            <select id="drug-sel" onchange="G.drugSel=this.value;updateDrugTotal();">
+            <select id="drug-sel">
               <option value="marijuana">Marijuana</option>
               <option value="cocaine">Kokain</option>
               <option value="heroin">Heroin</option>
@@ -414,12 +459,12 @@ select:focus{border-color:var(--red);}
           </div>
           <div class="drug-form-row">
             <label>ANTAL</label>
-            <input type="number" id="drug-qty" value="1" min="1" max="100" oninput="G.drugQty=+this.value||1;updateDrugTotal();" style="width:80px;">
+            <input type="number" id="drug-qty" value="1" min="1" max="100" style="width:80px;">
           </div>
           <div id="drug-total" class="drug-total">Totalt: 0 kr</div>
           <div class="drug-btns">
-            <button onclick="doDrug('buy',G.drugSel,G.drugQty)">K&Ouml;P</button>
-            <button id="drug-sell-btn" onclick="doDrug('sell',G.drugSel,G.drugQty)">S&Auml;LJ</button>
+            <button id="drug-buy-btn">K&Ouml;P</button>
+            <button id="drug-sell-btn">S&Auml;LJ</button>
           </div>
         </div>
         <div id="drug-msg" class="amsg"></div>
@@ -445,6 +490,68 @@ select:focus{border-color:var(--red);}
         <div class="sec-sub">F&ouml;rb&auml;ttra dina f&auml;rdigheter (10 energi)</div>
         <div id="train-grid" class="train-grid"></div>
         <div id="train-msg" class="amsg"></div>
+      </div>
+
+      <!-- Profession -->
+      <div id="s-profession" class="g-sec">
+        <div class="sec-title">YRKE</div>
+        <div class="sec-sub">V&auml;lj specialisering fr&aring;n level 3. Ett enda byte till&aring;tet fr&aring;n level 10.</div>
+        <div id="prof-lock" class="lock-notice" style="display:none;">&#x1F512; L&aring;ses upp vid level 3</div>
+        <div id="prof-content">
+          <div id="prof-status" class="prof-status"></div>
+          <div id="prof-grid" class="prof-grid"></div>
+        </div>
+        <div id="prof-msg" class="amsg"></div>
+      </div>
+
+      <!-- Bank -->
+      <div id="s-bank" class="g-sec">
+        <div class="sec-title">BANK</div>
+        <div class="sec-sub">Skydda kontanter, betala avgift vid ins&auml;ttning, ta ut n&auml;r du beh&ouml;ver kapital.</div>
+        <div class="bank-summary">
+          <div class="bank-stat"><span>KASSA</span><strong id="bank-cash">0 kr</strong></div>
+          <div class="bank-stat"><span>BANK</span><strong id="bank-balance">0 kr</strong></div>
+          <div class="bank-stat"><span>AVGIFT</span><strong>5%</strong></div>
+        </div>
+        <div class="bank-card">
+          <div class="bank-row">
+            <label for="bank-amount">BELOPP</label>
+            <input id="bank-amount" type="number" min="1" step="1" value="1000">
+          </div>
+          <div class="bank-row">
+            <button onclick="doBank('deposit')">S&Auml;TT IN</button>
+            <button onclick="doBank('withdraw')">TA UT</button>
+          </div>
+        </div>
+        <div id="bank-msg" class="amsg"></div>
+      </div>
+
+      <!-- Dev -->
+      <div id="s-dev" class="g-sec">
+        <div class="sec-title">DEV CONSOLE <span class="dev-tag">ADMIN</span></div>
+        <div class="sec-sub">Serverstyrda admin-kommandon f&ouml;r den aktuella karakt&auml;ren. Samma site-session som hubben kr&auml;vs.</div>
+        <div class="dev-shell">
+          <div id="dev-meta" class="dev-meta">Ingen karakt&auml;r laddad &auml;nnu.</div>
+          <div class="dev-row">
+            <input id="dev-command" type="text" placeholder='Skriv t.ex. "help", "rich", "profession torped", "cash +50000"' autocomplete="off" spellcheck="false">
+            <button id="dev-run-btn" class="primary">K&Ouml;R</button>
+          </div>
+          <div id="dev-quick" class="dev-quick">
+            <button type="button" data-devcmd="help">help</button>
+            <button type="button" data-devcmd="me">me</button>
+            <button type="button" data-devcmd="rich">rich</button>
+            <button type="button" data-devcmd="maxout">maxout</button>
+            <button type="button" data-devcmd="legend">legend</button>
+            <button type="button" data-devcmd="free">free</button>
+            <button type="button" data-devcmd="chaos">chaos</button>
+            <button type="button" data-devcmd="cash +50000">cash +50000</button>
+            <button type="button" data-devcmd="level 10">level 10</button>
+            <button type="button" data-devcmd="profession bedragare">profession bedragare</button>
+            <button type="button" data-devcmd="profession torped">profession torped</button>
+          </div>
+          <pre id="dev-output" class="dev-output">> help</pre>
+        </div>
+        <div id="dev-msg" class="amsg"></div>
       </div>
 
       <!-- Fastigheter -->
@@ -520,6 +627,9 @@ select:focus{border-color:var(--red);}
     <button class="mb" data-s="droger"><span class="mb-icon">&#x1F48A;</span>Droger</button>
     <button class="mb" data-s="strid"><span class="mb-icon">&#x1F94A;</span>Strid</button>
     <button class="mb" data-s="traning"><span class="mb-icon">&#x1F3CB;</span>Tr&auml;na</button>
+    <button class="mb" data-s="profession"><span class="mb-icon">&#x2699;</span>Yrke</button>
+    <button class="mb" data-s="bank"><span class="mb-icon">&#x1F4B0;</span>Bank</button>
+    <button class="mb" data-s="dev"><span class="mb-icon">&#x1F6E0;</span>Dev</button>
     <button class="mb" data-s="fastigheter"><span class="mb-icon">&#x1F3E0;</span>Fast.</button>
     <button class="mb" data-s="race"><span class="mb-icon">&#x1F3CE;</span>Race</button>
     <button class="mb" data-s="ranking"><span class="mb-icon">&#x1F3C6;</span>Rank</button>
@@ -540,10 +650,15 @@ const G={
   player:null,extra:{},status:null,prices:{},npcs:[],
   section:'gatan',busy:false,selectedSide:'eastside',
   drugSel:'marijuana',drugQty:1,
-  _fetchedAt:0,_nrgTick:null,_prisonTick:null,_pollTimer:null,_pricePoll:null,
+  errors:{player:null,status:null,prices:null,npcs:null},
+  _fetchedAt:0,_nrgTick:null,_prisonTick:null,_hospitalTick:null,_pollTimer:null,_pricePoll:null,
   _propTicks:{},log:[],
-  vehicles:[]
+  vehicles:[],
+  devHistory:['> help'],
+  siteAuthenticated:false
 };
+window.G=G;
+const AUTH_REDIRECT='/?next=%2Fmosquito';
 
 async function api(path,opts={}){
   try{
@@ -551,18 +666,49 @@ async function api(path,opts={}){
     if(opts.body) cfg.headers={'Content-Type':'application/json'};
     const r=await fetch('/api/game/'+path,cfg);
     const data=await r.json().catch(()=>({}));
+    if(r.status===401&&data.error==='Unauthorized'){
+      location.href=AUTH_REDIRECT;
+      return {...data,_status:r.status};
+    }
     return {...data,_status:r.status};
   }catch{return{error:'Kunde inte nå servern',_status:0};}
 }
 const post=(p,b={})=>api(p,{method:'POST',body:JSON.stringify(b)});
 
 document.addEventListener('DOMContentLoaded',init);
+async function ensureSiteAuth(){
+  try{
+    const r=await fetch('/api/auth/check',{credentials:'same-origin'});
+    const d=await r.json().catch(()=>({}));
+    if(r.ok&&d.authenticated){
+      G.siteAuthenticated=true;
+      return true;
+    }
+  }catch{}
+  location.href=AUTH_REDIRECT;
+  return false;
+}
+function apiError(res,fallback){
+  if(!res) return fallback;
+  if(res.error) return res.error;
+  if(res._status&&res._status>=400) return fallback;
+  return '';
+}
 
 async function init(){
+  showScreen('boot');
+  if(!(await ensureSiteAuth())) return;
   bindCreate();
-  showScreen('create');
+  bindDrugForm();
+  bindDevConsole();
   const r=await api('player');
-  if(!r.player) return;
+  if(r.error&&r._status&&r._status!==401){
+    setMsg('create-err',r.error,'err');
+  }
+  if(!r.player){
+    showScreen('create');
+    return;
+  }
   G.player=r.player;G.extra=r;G._fetchedAt=Date.now();
   await loadAll();
   applyCondition();
@@ -573,6 +719,10 @@ async function init(){
 
 async function loadAll(){
   const[pr,sr,dr,nr]=await Promise.all([api('player'),api('status'),api('drug-prices'),api('npcs')]);
+  G.errors.player=apiError(pr,'Kunde inte ladda karaktären.');
+  G.errors.status=apiError(sr,'Kunde inte ladda ranking.');
+  G.errors.prices=apiError(dr,'Kunde inte ladda drogmarknaden.');
+  G.errors.npcs=apiError(nr,'Kunde inte ladda rivals.');
   if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
   if(sr&&sr.round) G.status=sr;
   if(dr&&dr.prices) G.prices=dr.prices;
@@ -581,6 +731,9 @@ async function loadAll(){
 
 async function softReload(){
   const[pr,sr,dr]=await Promise.all([api('player'),api('status'),api('drug-prices')]);
+  G.errors.player=apiError(pr,'Kunde inte uppdatera karaktären.');
+  G.errors.status=apiError(sr,'Kunde inte uppdatera ranking.');
+  G.errors.prices=apiError(dr,'Kunde inte uppdatera drogmarknaden.');
   if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
   if(sr&&sr.round) G.status=sr;
   if(dr&&dr.prices) G.prices=dr.prices;
@@ -588,24 +741,30 @@ async function softReload(){
   renderTopbar();renderSidebar();
   if(G.section==='droger') renderDroger();
   if(G.section==='ranking') renderRanking();
+  if(G.section==='profession') renderProfession();
+  if(G.section==='bank') renderBank();
+  if(G.section==='dev') renderDev();
   if(G.section==='fastigheter') renderFastigheter();
 }
 
 async function refreshPrices(){
   const dr=await api('drug-prices');
+  G.errors.prices=apiError(dr,'Kunde inte uppdatera drogmarknaden.');
   if(dr&&dr.prices) G.prices=dr.prices;
   if(G.section==='droger') renderDroger();
 }
 
 function applyCondition(){
   const p=G.player;if(!p) return;
+  if(!p.in_prison&&G._prisonTick){clearInterval(G._prisonTick);G._prisonTick=null;}
+  if(!p.in_hospital&&G._hospitalTick){clearInterval(G._hospitalTick);G._hospitalTick=null;}
   if(p.in_prison){renderPrisonScreen();showScreen('prison');}
   else if(p.in_hospital){renderHospitalScreen();showScreen('hospital');}
   else{showScreen('game');renderAll();}
 }
 
 function showScreen(name){
-  ['create','prison','hospital','game'].forEach(s=>{
+  ['boot','create','prison','hospital','game'].forEach(s=>{
     const el=document.getElementById('screen-'+s);
     if(el) el.style.display=s===name?(s==='game'?'flex':'flex'):'none';
   });
@@ -669,9 +828,22 @@ function renderSidebar(){
     if(b) b.style.width=v+'%';
     if(vv) vv.textContent=v;
   }
-  set('sb-prof',cleanProf(p.profession)||'Inget yrke');
+  set('sb-prof',professionName(p.profession)||'Inget yrke');
   set('sb-side',p.side==='westside'?'&#x1F534; Westside':'&#x1F535; Eastside');
   set('sb-resp',fmtCash(p.respect)+' respect &middot; Lv'+p.level);
+  set('sb-bank','Bank: '+fmtCash(p.bank||0)+' kr');
+}
+
+function setSectionError(msg=''){
+  setMsg('section-error',msg,msg?'err':'');
+}
+
+function sectionDependencyError(s){
+  if(['gatan','brott','traning','profession','bank','dev','fastigheter','race'].includes(s)) return G.errors.player||'';
+  if(s==='droger') return G.errors.prices||G.errors.player||'';
+  if(s==='strid') return G.errors.npcs||G.errors.player||'';
+  if(s==='ranking') return G.errors.status||G.errors.npcs||'';
+  return '';
 }
 
 function navTo(s){G.section=s;renderSection(s);}
@@ -679,10 +851,22 @@ function navTo(s){G.section=s;renderSection(s);}
 function renderSection(s){
   document.querySelectorAll('.g-sec').forEach(el=>el.style.display='none');
   const el=document.getElementById('s-'+s);
-  if(el) el.style.display='';
   document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
-  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking};
-  if(fns[s]) fns[s]();
+  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,profession:renderProfession,bank:renderBank,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking};
+  setSectionError('');
+  if(!el){
+    setSectionError('Sektionen kunde inte hittas.');
+    return;
+  }
+  el.style.display='block';
+  if(sectionDependencyError(s)) setSectionError(sectionDependencyError(s));
+  try{
+    if(fns[s]) fns[s]();
+    else setSectionError('Sektionen saknar renderer.');
+  }catch(err){
+    console.error(err);
+    setSectionError(err&&err.message?err.message:'Sektionen kunde inte laddas.');
+  }
 }
 
 document.addEventListener('click',e=>{
@@ -779,14 +963,13 @@ function renderDroger(){
   tbody.innerHTML=drugs.map(d=>{
     const info=(G.prices[d]||{});
     const price=info.price||0;
-    const trend=info.trend||0;
+    const trend=String(info.trend||'→ stable');
     const owned=inv.filter(i=>i.item_name===d).reduce((s,i)=>s+(i.quantity||0),0);
     const buyAvg=owned>0?(inv.filter(i=>i.item_name===d).reduce((s,i)=>s+(i.buy_price||0)*(i.quantity||0),0)/owned):0;
     const pl=owned>0?Math.round(price-buyAvg):0;
-    const tCls=trend>0?'tu':trend<0?'td':'ts2';
-    const tSign=trend>0?'+':'';
+    const tCls=trend.startsWith('↑')?'tu':trend.startsWith('↓')?'td':'ts2';
     const plColor=pl>0?'var(--green)':pl<0?'var(--red)':'var(--dim)';
-    return `<tr><td>${DRUG_NAMES[d]}</td><td>${fmtCash(price)} kr</td><td class="${tCls}">${tSign}${trend>0?Math.round(trend*100)+'%':'--'}</td><td>${owned}</td><td style="color:${plColor}">${owned>0?(pl>=0?'+':'')+fmtCash(pl):'-'}</td></tr>`;
+    return `<tr><td>${DRUG_NAMES[d]}</td><td>${fmtCash(price)} kr</td><td class="${tCls}">${esc(trend)}</td><td>${owned}</td><td style="color:${plColor}">${owned>0?(pl>=0?'+':'')+fmtCash(pl):'-'}</td></tr>`;
   }).join('');
   updateDrugTotal();
   const sel=document.getElementById('drug-sell-btn');
@@ -802,6 +985,31 @@ function updateDrugTotal(){
   const qty=G.drugQty||1;
   const el=document.getElementById('drug-total');
   if(el) el.textContent='Totalt: '+fmtCash(price*qty)+' kr';
+}
+
+function bindDrugForm(){
+  const sel=document.getElementById('drug-sel');
+  const qty=document.getElementById('drug-qty');
+  const buy=document.getElementById('drug-buy-btn');
+  const sell=document.getElementById('drug-sell-btn');
+  if(sel){
+    sel.value=G.drugSel;
+    sel.addEventListener('change',()=>{
+      G.drugSel=sel.value;
+      updateDrugTotal();
+      renderDroger();
+    });
+  }
+  if(qty){
+    qty.value=String(G.drugQty);
+    qty.addEventListener('input',()=>{
+      G.drugQty=Math.max(1,Math.min(100,+qty.value||1));
+      qty.value=String(G.drugQty);
+      updateDrugTotal();
+    });
+  }
+  if(buy) buy.addEventListener('click',()=>doDrug('buy',G.drugSel,G.drugQty));
+  if(sell) sell.addEventListener('click',()=>doDrug('sell',G.drugSel,G.drugQty));
 }
 
 async function doDrug(action,drug,qty){
@@ -919,6 +1127,174 @@ async function doTrain(stat){
     renderTopbar();renderSidebar();renderTraning();
   }
 }
+
+/* ─── Yrke ────────────────────────────────────────────────────────────────── */
+const PROFESSION_CFG={
+  'rånare':{icon:'&#x1F52B;',name:'Rånare',bonus:['+30% cash från rån','-20% fängelsetid']},
+  langare:{icon:'&#x1F48A;',name:'Langare',bonus:['Bättre spread på drogmarknaden','Starkare marginaler vid köp/sälj']},
+  torped:{icon:'&#x1F6E1;',name:'Torped',bonus:['+30% assault-skada','+20% max HP']},
+  hallick:{icon:'&#x1F3E0;',name:'Hallick',bonus:['+40% fastighetsinkomst','Bygger passiv ekonomi snabbare']},
+  bedragare:{icon:'&#x1F4BC;',name:'Bedragare',bonus:['+20% på alla stats i spel','+15% XP från aktiviteter']},
+};
+
+function renderProfession(){
+  const p=G.player;
+  const lockEl=document.getElementById('prof-lock');
+  const cont=document.getElementById('prof-content');
+  if(!p) return;
+  if(p.level<3){
+    if(lockEl) lockEl.style.display='';
+    if(cont) cont.style.display='none';
+    return;
+  }
+  if(lockEl) lockEl.style.display='none';
+  if(cont) cont.style.display='';
+  const raw=String(p.profession||'none');
+  const current=cleanProf(raw)||'none';
+  const currentLabel=professionName(current)||'Inget yrke';
+  const hasChanged=raw.startsWith('changed:');
+  const canChoose=current==='none'||(p.level>=10&&!hasChanged);
+  const status=document.getElementById('prof-status');
+  if(status){
+    status.innerHTML=current==='none'
+      ? 'Du har inget yrke ännu. Välj ett för att låsa upp permanenta bonusar.'
+      : `Aktivt yrke: <strong>${esc(currentLabel)}</strong>. ${canChoose?'Du kan göra ett sista byte nu.':'Ditt val är låst för den här rundan.'}`;
+  }
+  const grid=document.getElementById('prof-grid');
+  if(!grid) return;
+  grid.innerHTML=Object.entries(PROFESSION_CFG).map(([key,cfg])=>{
+    const isCurrent=key===current;
+    const disabled=!canChoose||isCurrent;
+    const buttonLabel=isCurrent?'AKTIV':current==='none'?'VÄLJ':(canChoose?'BYT':'LÅST');
+    return `<div class="prof-card${isCurrent?' active':''}${disabled&&!isCurrent?' locked':''}">
+      <div class="prof-name">${cfg.icon} ${cfg.name}</div>
+      <div class="prof-bonus">${cfg.bonus.map(line=>`<div>${esc(line)}</div>`).join('')}</div>
+      <div class="prof-note">${isCurrent?'Nuvarande specialisering':(canChoose?'Permanent val i rundan':'Inga fler byten tillåtna')}</div>
+      <button onclick="doChooseProfession('${key}')" ${disabled?'disabled':''}>${buttonLabel}</button>
+    </div>`;
+  }).join('');
+}
+
+async function doChooseProfession(profession){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/choose-profession',{profession});
+  G.busy=false;
+  if(r.error){setMsg('prof-msg',r.error,'err');}
+  else{
+    setMsg('prof-msg',r.message||'Yrke valt','ok');
+    addLog(r.message||('Valde yrke: '+profession),'ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderProfession();
+  }
+}
+
+/* ─── Bank ────────────────────────────────────────────────────────────────── */
+function renderBank(){
+  const p=G.player;if(!p) return;
+  set('bank-cash',fmtCash(p.cash||0)+' kr');
+  set('bank-balance',fmtCash(p.bank||0)+' kr');
+  const input=document.getElementById('bank-amount');
+  if(input&&!input.value) input.value='1000';
+}
+
+async function doBank(action){
+  if(G.busy) return;
+  const input=document.getElementById('bank-amount');
+  const amount=Math.max(0,Math.floor(+(input&&input.value)||0));
+  if(amount<=0){setMsg('bank-msg','Ange ett giltigt belopp.','err');return;}
+  G.busy=true;
+  const r=await post('action/bank',{action,amount});
+  G.busy=false;
+  if(r.error){setMsg('bank-msg',r.error,'err');}
+  else{
+    const msg=action==='deposit'
+      ? `Satte in ${fmtCash(amount)} kr${r.fee?` (avgift ${fmtCash(r.fee)} kr)`:''}.`
+      : `Tog ut ${fmtCash(amount)} kr från banken.`;
+    setMsg('bank-msg',msg,'ok');
+    addLog(msg,'ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderBank();
+  }
+}
+
+/* ─── Dev console ─────────────────────────────────────────────────────────── */
+function bindDevConsole(){
+  const input=document.getElementById('dev-command');
+  const runBtn=document.getElementById('dev-run-btn');
+  const quick=document.getElementById('dev-quick');
+  if(input){
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        runDevCommand(input.value);
+      }
+    });
+  }
+  if(runBtn) runBtn.addEventListener('click',()=>runDevCommand(input&&input.value||''));
+  if(quick){
+    quick.addEventListener('click',e=>{
+      const btn=e.target.closest('[data-devcmd]');
+      if(!btn) return;
+      const cmd=btn.dataset.devcmd||'';
+      if(input) input.value=cmd;
+      runDevCommand(cmd);
+    });
+  }
+}
+
+function renderDev(){
+  const p=G.player;
+  if(!p) return;
+  const meta=document.getElementById('dev-meta');
+  if(meta){
+    meta.innerHTML=`Adminstatus: <strong>${esc(p.name)}</strong> · Lv${p.level} · ${fmtCash(p.cash||0)} kr cash · ${fmtCash(p.bank||0)} kr bank · ${professionName(p.profession)||'Inget yrke'} · ${p.side==='westside'?'Westside':'Eastside'}`;
+  }
+  const out=document.getElementById('dev-output');
+  if(out) out.textContent=G.devHistory.join('\n\n');
+}
+
+async function runDevCommand(raw){
+  const command=(raw||'').trim();
+  if(!command){setMsg('dev-msg','Skriv ett kommando först.','err');return;}
+  if(G.busy) return;
+  G.busy=true;
+  setMsg('dev-msg','Kör adminkommando...','info');
+  const r=await post('admin',{command});
+  G.busy=false;
+  if(r.error){
+    G.devHistory.unshift(`> ${command}\nERROR: ${r.error}`);
+    G.devHistory=G.devHistory.slice(0,24);
+    setMsg('dev-msg',r.error,'err');
+    renderDev();
+    return;
+  }
+
+  G.devHistory.unshift(formatDevResult(command,r));
+  G.devHistory=G.devHistory.slice(0,24);
+  setMsg('dev-msg',r.message||'Kommandot kördes.','ok');
+
+  await loadAll();
+  applyCondition();
+  renderTopbar();
+  renderSidebar();
+  renderDev();
+}
+
+function formatDevResult(command,res){
+  const lines=[`> ${command}`,res.message||'OK'];
+  if(Array.isArray(res.commands)&&res.commands.length){
+    lines.push('',res.commands.join('\n'));
+  }
+  if(res.player){
+    const p=res.player;
+    lines.push('',`LV ${p.level} · cash ${fmtCash(p.cash||0)} · bank ${fmtCash(p.bank||0)} · respect ${fmtCash(p.respect||0)}`);
+    lines.push(`HP ${p.hp}/${p.hp_max} · EN ${p.energy}/${p.energy_max} · yrke ${professionName(p.profession)||'none'}`);
+  }
+  return lines.join('\n');
+}
+
 /* ─── Fastigheter ─────────────────────────────────────────────────────────── */
 const PROP_CFG={
   stash_house:{label:'Stash House',cost:5000,income:100},
@@ -977,14 +1353,15 @@ function renderFastigheter(){
 
   const buyGrid=document.getElementById('buy-grid');
   if(buyGrid){
-    buyGrid.innerHTML=Object.entries(PROP_CFG).map(([type,cfg])=>
-      `<div class="buy-card">
+    buyGrid.innerHTML=Object.entries(PROP_CFG).map(([type,cfg])=>{
+      const income=propertyIncomePreview(cfg.income);
+      return `<div class="buy-card">
         <div class="buy-type">${cfg.label}</div>
         <div class="buy-cost">${fmtCash(cfg.cost)} kr</div>
-        <div class="buy-income">${cfg.income} kr/timme</div>
+        <div class="buy-income">${income} kr/timme${income!==cfg.income?' <span style="color:var(--amber);">(yrkesbonus)</span>':''}</div>
         <button onclick="doBuyProp('${type}')">KÖP</button>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
   }
 }
 
@@ -1018,8 +1395,18 @@ async function doCollect(){
 }
 
 async function doCollectOne(propId){
-  // collect-income collects all; show feedback per property
-  await doCollect();
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/collect-income',{property_id:propId});
+  G.busy=false;
+  if(r.error){setMsg('prop-msg',r.error,'err');}
+  else{
+    const msg=r.message||'Inkomst insamlad';
+    setMsg('prop-msg',msg,'ok');
+    addLog(msg,'ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderFastigheter();
+  }
 }
 
 /* ─── Ranking ─────────────────────────────────────────────────────────────── */
@@ -1027,8 +1414,10 @@ function renderRanking(){
   const ri=document.getElementById('round-info');
   if(ri&&G.status&&G.status.round){
     const s=G.status;
-    const secsLeft=s.seconds_left||0;
-    ri.innerHTML=`<span>Runda <strong>${s.round.round_number}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>Spelare: <strong>${s.total_players||0}</strong></span>`;
+    const secsLeft=(s.round&&s.round.seconds_left)||s.seconds_left||0;
+    const playerCount=s.player_count??s.total_players??0;
+    const roundNumber=(s.round&&s.round.number)||s.round_number||'—';
+    ri.innerHTML=`<span>Runda <strong>${roundNumber}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>Spelare: <strong>${playerCount}</strong></span>`;
   }
   const tbody=document.getElementById('rank-tbody');
   if(!tbody) return;
@@ -1044,7 +1433,7 @@ function renderRanking(){
   tbody.innerHTML=all.map((row,i)=>{
     const isMe=!row.isNpc&&row.name===myName;
     const sideIcon=row.side==='westside'?'&#x1F534;':'&#x1F535;';
-    const prof=cleanProf(row.profession)||'—';
+    const prof=professionName(row.profession)||'—';
     return `<tr${isMe?' class="me"':''}><td>${i+1}</td><td>${esc(row.name)}${row.isNpc?' <span style="color:var(--dim);font-size:10px;">[NPC]</span>':''}</td><td>Lv${row.level}</td><td>${fmtCash(row.respect)}</td><td>${prof}</td><td>${sideIcon}</td></tr>`;
   }).join('');
 }
@@ -1087,11 +1476,28 @@ function renderHospitalScreen(){
   const p=G.player;if(!p) return;
   const hp=p.hp||0,hpMax=p.hp_max||100;
   const pct=Math.round(hp/hpMax*100);
+  const secsLeft=G.extra.hospital_seconds_left||0;
   const healEl=document.getElementById('hosp-hp-bar');
   if(healEl) healEl.style.width=pct+'%';
   set('hosp-hp-text',hp+'/'+hpMax+' HP');
   const healCost=Math.max(100,(hpMax-hp)*10);
   set('hosp-heal-cost',fmtCash(healCost));
+  set('hosp-timer',fmtFull(secsLeft));
+  const waitBtn=document.getElementById('hosp-wait-btn');
+  if(waitBtn) waitBtn.textContent=secsLeft>0?'UPPDATERA STATUS':'LÄMNA SJUKHUSET';
+  if(G._hospitalTick) clearInterval(G._hospitalTick);
+  let left=secsLeft;
+  if(left>0){
+    G._hospitalTick=setInterval(()=>{
+      left--;
+      set('hosp-timer',fmtFull(left));
+      if(left<=0){
+        clearInterval(G._hospitalTick);
+        G._hospitalTick=null;
+        softReload();
+      }
+    },1000);
+  }
 }
 
 async function doHospital(action){
@@ -1101,11 +1507,10 @@ async function doHospital(action){
   if(r.error){setMsg('hosp-msg',r.error,'err');}
   else{
     setMsg('hosp-msg',r.message||'OK','ok');
-    if(r.success||r.released){
-      const pr=await api('player');
-      if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
-      applyCondition();
-    }
+    if(typeof r.seconds_left==='number') G.extra.hospital_seconds_left=r.seconds_left;
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    applyCondition();
   }
 }
 
@@ -1281,6 +1686,14 @@ function fmtFull(sec){
 function cleanProf(p){
   if(!p||p==='none') return '';
   return p.replace(/^changed:/,'');
+}
+function professionName(value){
+  const key=cleanProf(value);
+  return key ? (PROFESSION_CFG[key]?.name||key) : '';
+}
+function propertyIncomePreview(base){
+  const prof=cleanProf(G.player&&G.player.profession);
+  return Math.round(base*(prof==='hallick'?1.4:1));
 }
 </script>
 </body>

@@ -526,7 +526,7 @@
   </svg>
   <div class="rule"></div>
   <nav class="cards">
-    <a class="card" href="/mosquito">Mosquito</a>
+    <a class="card" id="mosquito-btn" href="/mosquito">Mosquito</a>
     <button class="card" id="hub-btn">Σ.Π.</button>
   </nav>
 </main>
@@ -601,12 +601,19 @@
 const modal  = document.getElementById('modal');
 const input  = document.getElementById('pw-input');
 const hubBtn = document.getElementById('hub-btn');
+const mosquitoBtn = document.getElementById('mosquito-btn');
 const stage  = document.querySelector('.stage');
 
 let submitting = false;
 let errorTimer = null;
+let loginTarget = '/hub';
 
-function openModal() {
+function sanitizeTarget(target) {
+  return target === '/mosquito' ? '/mosquito' : '/hub';
+}
+
+function openModal(target = '/hub') {
+  loginTarget = sanitizeTarget(target);
   modal.classList.add('open');
   input.value = '';
   input.classList.remove('error');
@@ -637,18 +644,32 @@ async function attemptLogin() {
       credentials: 'same-origin',
       body: JSON.stringify({ password }),
     });
-    if (res.ok) window.location.href = '/hub';
+    if (res.ok) window.location.href = loginTarget;
     else flashError();
   } catch { flashError(); }
   finally { submitting = false; input.disabled = false; }
 }
 
-hubBtn.addEventListener('click', openModal);
+hubBtn.addEventListener('click', () => openModal('/hub'));
+mosquitoBtn.addEventListener('click', e => { e.preventDefault(); openModal('/mosquito'); });
 input.addEventListener('keydown', e => {
   if (e.key === 'Enter')  attemptLogin();
   if (e.key === 'Escape') closeModal();
 });
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+(async () => {
+  const next = sanitizeTarget(new URLSearchParams(location.search).get('next'));
+  if (!location.search.includes('next=')) return;
+  try {
+    const res = await fetch('/api/auth/check', { credentials: 'same-origin' });
+    const data = await res.json();
+    if (data.authenticated) location.href = next;
+    else openModal(next);
+  } catch {
+    openModal(next);
+  }
+})();
 
 // ── Immersion ─────────────────────────────────────────────────────────────────
 const immBtn     = document.getElementById('immersion-btn');
