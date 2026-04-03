@@ -168,7 +168,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'npcs'             && method === 'GET')  return gameGetNpcs(env);
       if (id === 'simulate'         && method === 'GET')  return gameSimulate(env);
       if (id === 'hall-of-fame'     && method === 'GET')  return gameHallOfFame(env);
-      if (id === 'new-round'        && method === 'POST') return gameNewRound(env);
+      if (id === 'new-round'        && method === 'POST') return gameNewRound(request, env);
+      if (id === 'admin-auth'       && method === 'POST') return gameAdminAuth(request, env);
+      if (id === 'admin-status'     && method === 'GET')  return gameAdminStatus(request, env);
+      if (id === 'admin-logout'     && method === 'POST') return gameAdminLogout(request, env);
       if (id === 'admin'            && method === 'POST') return gameAdminCommand(request, env);
       if (id === 'action') {
         if (sub === 'robbery'          && method === 'POST') return gameActionRobbery(request, env);
@@ -1053,6 +1056,8 @@ async function getArtworks(env: Env): Promise<Response> {
 // ─── Game (Mosquito) ─────────────────────────────────────────────────────────
 
 const GAME_COOKIE = 'game_session';
+const GAME_ADMIN_COOKIE = 'game_admin_session';
+const GAME_ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -1064,6 +1069,20 @@ function getGameCookie(request: Request): string | null {
 
 function setGameCookie(playerId: string): string {
   return `${GAME_COOKIE}=${playerId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${60 * 60 * 24 * 30}`;
+}
+
+function getGameAdminCookie(request: Request): string | null {
+  const cookie = request.headers.get('Cookie') ?? '';
+  const match = cookie.match(/(?:^|;\s*)game_admin_session=([^;]+)/);
+  return match ? match[1] : null;
+}
+
+function setGameAdminCookie(token: string, expires: Date): string {
+  return `${GAME_ADMIN_COOKIE}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Expires=${expires.toUTCString()}`;
+}
+
+function clearGameAdminCookie(): string {
+  return `${GAME_ADMIN_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
 }
 
 async function syncGamePlayerState(env: Env, player: Row): Promise<Row> {
@@ -1112,7 +1131,7 @@ async function syncGamePlayerState(env: Env, player: Row): Promise<Row> {
 async function requireGamePlayer(request: Request, env: Env): Promise<Row> {
   const pid = getGameCookie(request);
   if (!pid) throw new GameError('No active character. Create one first.', 401);
-  const round = await ensureActiveRound(env);
+  const round = await ensureActiveRound(env, { createIfMissing: false });
   const player = await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>();
   if (!player) throw new GameError('Character not found.', 404);
   if ((player.round_id as string) !== (round.id as string)) {
@@ -1156,32 +1175,40 @@ function getActiveRound(env: Env): Promise<Row | null> {
   return env.DB.prepare(`SELECT * FROM game_rounds WHERE is_active = 1 ORDER BY round_number DESC LIMIT 1`).first<Row>();
 }
 
-async function ensureActiveRound(env: Env): Promise<Row> {
-  let round = await getActiveRound(env);
-  if (round) return round;
+async function nextRoundNumber(env: Env): Promise<number> {
+  const row = await env.DB.prepare(`SELECT MAX(round_number) as n FROM game_rounds`).first<{ n: number | string | null }>();
+  return Number(row?.n ?? 0) + 1;
+}
 
-  const startDate = new Date().toISOString();
-  const endDate   = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-  // Check if round-001 exists but is inactive (e.g. seeded then ended)
-  const existing = await env.DB
-    .prepare(`SELECT id FROM game_rounds WHERE id = 'round-001'`)
-    .first<Row>();
-
-  if (existing) {
-    // Re-activate the seeded round rather than creating a duplicate
-    await env.DB
-      .prepare(`UPDATE game_rounds SET is_active = 1, start_date = ?, end_date = ? WHERE id = 'round-001'`)
-      .bind(startDate, endDate).run();
-  } else {
-    await env.DB
-      .prepare(`INSERT INTO game_rounds (id, round_number, start_date, end_date, is_active) VALUES ('round-001', 1, ?, ?, 1)`)
-      .bind(startDate, endDate).run();
-  }
-
-  round = await getActiveRound(env);
+async function createGameRound(env: Env, roundNumber: number): Promise<Row> {
+  const id = `round-${String(roundNumber).padStart(3, '0')}`;
+  const startDate = new Date();
+  const endDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+  await env.DB.prepare(
+    `INSERT INTO game_rounds (id, round_number, start_date, end_date, is_active)
+     VALUES (?, ?, ?, ?, 1)`
+  ).bind(id, roundNumber, startDate.toISOString(), endDate.toISOString()).run();
+  const round = await env.DB.prepare(`SELECT * FROM game_rounds WHERE id = ?`).bind(id).first<Row>();
   if (!round) throw new GameError('Could not initialize game round.', 500);
   return round;
+}
+
+async function ensureActiveRound(env: Env, options: { createIfMissing?: boolean } = {}): Promise<Row> {
+  const createIfMissing = options.createIfMissing !== false;
+  let round = await getActiveRound(env);
+  if (round) {
+    const ended = new Date(round.end_date as string).getTime() <= Date.now();
+    if (!ended) return round;
+    await endRound(env, round);
+    if (!createIfMissing) throw new GameError('Rundan har avslutats. Starta nästa runda för att fortsätta.', 409);
+    round = null;
+  }
+
+  if (!createIfMissing) {
+    throw new GameError('Ingen aktiv runda. Starta nästa runda för att fortsätta.', 409);
+  }
+
+  return createGameRound(env, await nextRoundNumber(env));
 }
 
 function rand(min: number, max: number): number {
@@ -1327,6 +1354,67 @@ async function loadGamePlayerById(env: Env, playerId: string): Promise<Row> {
   const row = await env.DB.prepare(`SELECT * FROM game_players WHERE id = ?`).bind(playerId).first<Row>();
   if (!row) throw new GameError('Character not found.', 404);
   return syncGamePlayerState(env, row);
+}
+
+async function ensureGameAdminTables(env: Env): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare(
+      `CREATE TABLE IF NOT EXISTS game_admin_sessions (
+         token TEXT PRIMARY KEY,
+         expires_at TEXT NOT NULL,
+         created_at TEXT DEFAULT (datetime('now'))
+       )`
+    ),
+    env.DB.prepare(
+      `CREATE TABLE IF NOT EXISTS game_admin_audit (
+         id TEXT PRIMARY KEY,
+         player_id TEXT,
+         player_name TEXT,
+         command TEXT NOT NULL,
+         outcome TEXT NOT NULL,
+         details TEXT,
+         created_at TEXT DEFAULT (datetime('now'))
+       )`
+    ),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_admin_sessions_expires ON game_admin_sessions (expires_at)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_admin_audit_created ON game_admin_audit (created_at DESC)`),
+  ]);
+}
+
+async function getGameAdminSession(request: Request, env: Env): Promise<{ token: string; expires_at: string } | null> {
+  await ensureGameAdminTables(env);
+  await env.DB.prepare(`DELETE FROM game_admin_sessions WHERE expires_at <= datetime('now')`).run().catch(() => {});
+  const token = getGameAdminCookie(request);
+  if (!token) return null;
+  const row = await env.DB
+    .prepare(`SELECT token, expires_at FROM game_admin_sessions WHERE token = ? AND expires_at > datetime('now')`)
+    .bind(token)
+    .first<{ token: string; expires_at: string }>();
+  return row ?? null;
+}
+
+async function requireGameAdmin(request: Request, env: Env): Promise<{ token: string; expires_at: string }> {
+  const session = await getGameAdminSession(request, env);
+  if (!session) throw new GameError('Admin unlock required.', 403);
+  return session;
+}
+
+async function logGameAdminAudit(
+  env: Env,
+  payload: { player?: Row | null; command: string; outcome: 'ok' | 'error' | 'auth' | 'logout'; details: string }
+): Promise<void> {
+  await ensureGameAdminTables(env);
+  await env.DB.prepare(
+    `INSERT INTO game_admin_audit (id, player_id, player_name, command, outcome, details)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(
+    crypto.randomUUID(),
+    payload.player?.id ? String(payload.player.id) : null,
+    payload.player?.name ? String(payload.player.name) : null,
+    payload.command,
+    payload.outcome,
+    payload.details
+  ).run().catch(() => {});
 }
 
 function adminHelp(): { message: string; commands: string[] } {
@@ -1757,20 +1845,25 @@ async function endRound(env: Env, round: Row): Promise<boolean> {
   return true;
 }
 
-async function gameNewRound(env: Env): Promise<Response> {
-  // Deactivate any existing active round that has expired
-  await env.DB.prepare(
-    `UPDATE game_rounds SET is_active = 0 WHERE is_active = 1 AND end_date < date('now')`
-  ).run();
+async function gameNewRound(request: Request, env: Env): Promise<Response> {
+  const active = await getActiveRound(env);
+  if (active) {
+    const secondsLeft = Math.max(0, Math.floor((new Date(active.end_date as string).getTime() - Date.now()) / 1000));
+    if (secondsLeft > 0) {
+      return gameJson({ error: `Runda ${active.round_number} är fortfarande aktiv.` }, 400);
+    }
+    await endRound(env, active);
+  }
 
-  const cur = await env.DB.prepare(`SELECT MAX(round_number) as n FROM game_rounds`).first<{ n: number }>();
-  const next = (cur?.n ?? 0) + 1;
-  const id   = `round-${String(next).padStart(3, '0')}`;
-  await env.DB.prepare(
-    `INSERT OR IGNORE INTO game_rounds (id, round_number, start_date, end_date, is_active)
-     VALUES (?, ?, date('now'), date('now', '+30 days'), 1)`
-  ).bind(id, next).run();
-  return gameJson({ round_id: id, round_number: next, message: `Runda ${next} har börjat!` });
+  const round = await createGameRound(env, await nextRoundNumber(env));
+  const staleGameCookie = getGameCookie(request);
+  const headers = new Headers({ 'Content-Type': 'application/json', ...cors() });
+  if (staleGameCookie) headers.append('Set-Cookie', `${GAME_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`);
+  return new Response(JSON.stringify({
+    round_id: round.id,
+    round_number: round.round_number,
+    message: `Runda ${round.round_number} har börjat!`,
+  }), { status: 200, headers });
 }
 
 async function gameHallOfFame(env: Env): Promise<Response> {
@@ -2520,10 +2613,71 @@ const VEHICLE_CONFIGS: Record<string, { name: string; cost: number; bonus: numbe
   lambo:      { name: 'Lamborghini Gallardo',   cost: 200000, bonus: 90 },
 };
 
+async function gameAdminAuth(request: Request, env: Env): Promise<Response> {
+  await ensureGameAdminTables(env);
+  const body = await request.json<{ password?: string }>().catch(() => ({} as { password?: string }));
+  if (!body.password || typeof body.password !== 'string') {
+    return gameJson({ error: 'password required.' }, 400);
+  }
+  const hashConfig = inspectPasswordHash(env.AUTH_PASSWORD_HASH);
+  if (!hashConfig.isUsable) {
+    return gameJson({ error: 'Admin auth not configured.' }, 500);
+  }
+  const valid = await verifyPassword(body.password, hashConfig.value);
+  if (!valid) {
+    await sleep(150 + Math.random() * 150);
+    await logGameAdminAudit(env, { command: 'unlock', outcome: 'error', details: 'Wrong admin password.' });
+    return gameJson({ error: 'Wrong password.' }, 401);
+  }
+
+  const token = crypto.randomUUID();
+  const expires = new Date(Date.now() + GAME_ADMIN_SESSION_TTL_MS);
+  await env.DB.prepare(`INSERT INTO game_admin_sessions (token, expires_at) VALUES (?, ?)`)
+    .bind(token, expires.toISOString())
+    .run();
+  await logGameAdminAudit(env, { command: 'unlock', outcome: 'auth', details: 'Admin console unlocked.' });
+
+  return new Response(JSON.stringify({ authenticated: true, expires_at: expires.toISOString() }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Set-Cookie': setGameAdminCookie(token, expires),
+      ...cors(),
+    },
+  });
+}
+
+async function gameAdminStatus(request: Request, env: Env): Promise<Response> {
+  const session = await getGameAdminSession(request, env);
+  return gameJson({
+    authenticated: !!session,
+    expires_at: session?.expires_at ?? null,
+  });
+}
+
+async function gameAdminLogout(request: Request, env: Env): Promise<Response> {
+  await ensureGameAdminTables(env);
+  const token = getGameAdminCookie(request);
+  if (token) {
+    await env.DB.prepare(`DELETE FROM game_admin_sessions WHERE token = ?`).bind(token).run().catch(() => {});
+  }
+  await logGameAdminAudit(env, { command: 'logout', outcome: 'logout', details: 'Admin console locked.' });
+  return new Response(JSON.stringify({ authenticated: false }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Set-Cookie': clearGameAdminCookie(),
+      ...cors(),
+    },
+  });
+}
+
 async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
   let player: Row;
   try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+  try { await requireGameAdmin(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 403); }
 
   const body = await request.json<{ command?: string }>().catch(() => ({} as { command?: string }));
   const command = String(body.command ?? '').trim();
@@ -2534,11 +2688,17 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
   const pid = player.id as string;
   const ok = async (message: string, extra: Record<string, unknown> = {}) => {
     const fresh = effectivePlayerView(await loadGamePlayerById(env, pid));
+    await logGameAdminAudit(env, { player: fresh, command, outcome: 'ok', details: message });
     return gameJson({ ok: true, message, player: fresh, ...extra });
+  };
+  const err = async (message: string, status = 400) => {
+    await logGameAdminAudit(env, { player, command, outcome: 'error', details: message });
+    return gameJson({ error: message }, status);
   };
 
   if (cmd === 'help') {
     const payload = adminHelp();
+    await logGameAdminAudit(env, { player, command, outcome: 'ok', details: payload.message });
     return gameJson({ ok: true, ...payload, player: effectivePlayerView(player) });
   }
   if (cmd === 'me') {
@@ -2549,7 +2709,7 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
     const field = cmd as 'cash' | 'bank' | 'respect' | 'xp';
     const current = Number(player[field] ?? 0);
     const next = resolveNumericCommand(current, args[1] ?? '', { min: 0, max: 99_999_999 });
-    if (next === null) return gameJson({ error: `Usage: ${field} <n|+n|-n>` }, 400);
+    if (next === null) return err(`Usage: ${field} <n|+n|-n>`);
 
     if (field === 'xp') {
       const nextLevel = levelFromXp(next);
@@ -2569,7 +2729,7 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
 
   if (cmd === 'level') {
     const target = resolveNumericCommand(Number(player.level ?? 1), args[1] ?? '', { min: 1, max: 50 });
-    if (target === null) return gameJson({ error: 'Usage: level <n>' }, 400);
+    if (target === null) return err('Usage: level <n>');
     const xp = xpFloorForLevel(target);
     await env.DB.prepare(`UPDATE game_players SET level = ?, xp = ?, last_action = datetime('now') WHERE id = ?`)
       .bind(target, xp, pid).run();
@@ -2583,7 +2743,7 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
     const current = Number(player[field] ?? 0);
     const hardMax = cmd === 'hp' ? effectiveHpMax(player) : Number(player[maxField] ?? 100);
     const next = resolveNumericCommand(current, args[1] ?? '', { min: 0, max: hardMax, allowMaxKeyword: true });
-    if (next === null) return gameJson({ error: `Usage: ${field} <n|+n|-n|max>` }, 400);
+    if (next === null) return err(`Usage: ${field} <n|+n|-n|max>`);
 
     if (field === 'energy') {
       await env.DB.prepare(`UPDATE game_players SET energy = ?, energy_last_regen = datetime('now'), last_action = datetime('now') WHERE id = ?`)
@@ -2600,10 +2760,10 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
     const target = (args[1] ?? '').toLowerCase();
     const spec = args[2] ?? '';
     const valid = ['strength', 'intelligence', 'charisma', 'stealth'] as const;
-    if (!target || !spec) return gameJson({ error: 'Usage: stat <strength|intelligence|charisma|stealth|all> <n|+n|-n>' }, 400);
+    if (!target || !spec) return err('Usage: stat <strength|intelligence|charisma|stealth|all> <n|+n|-n>');
 
     const columns = target === 'all' ? [...valid] : valid.filter(v => v === target);
-    if (!columns.length) return gameJson({ error: 'Ogiltig stat.' }, 400);
+    if (!columns.length) return err('Ogiltig stat.');
 
     const nextValues = columns.map(column => {
       const current = Number(player[column] ?? 10);
@@ -2611,7 +2771,7 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
       return { column, current, next };
     });
     if (nextValues.some(entry => entry.next === null)) {
-      return gameJson({ error: 'Ogiltigt stat-värde.' }, 400);
+      return err('Ogiltigt stat-värde.');
     }
 
     const setSql = nextValues.map(entry => `${entry.column} = ?`).join(', ');
@@ -2624,7 +2784,7 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
 
   if (cmd === 'profession') {
     const profession = normalizeProfessionInput(args[1] ?? '');
-    if (!profession) return gameJson({ error: 'Usage: profession <none|ranare|langare|torped|hallick|bedragare>' }, 400);
+    if (!profession) return err('Usage: profession <none|ranare|langare|torped|hallick|bedragare>');
     await env.DB.prepare(`UPDATE game_players SET profession = ?, last_action = datetime('now') WHERE id = ?`)
       .bind(profession, pid).run();
     await logAction(env, pid, 'admin', `Admin satte yrke till ${profession}.`, 0, 0, 0, true);
@@ -2633,7 +2793,7 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
 
   if (cmd === 'side') {
     const side = normalizeSideInput(args[1] ?? '');
-    if (!side) return gameJson({ error: 'Usage: side <east|west>' }, 400);
+    if (!side) return err('Usage: side <east|west>');
     await env.DB.prepare(`UPDATE game_players SET side = ?, last_action = datetime('now') WHERE id = ?`)
       .bind(side, pid).run();
     await logAction(env, pid, 'admin', `Admin bytte sida till ${side}.`, 0, 0, 0, true);
@@ -2643,7 +2803,7 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
   if (cmd === 'prison' || cmd === 'hospital') {
     const target = cmd;
     const arg = (args[1] ?? '').toLowerCase();
-    if (!arg) return gameJson({ error: `Usage: ${target} <minutes|off>` }, 400);
+    if (!arg) return err(`Usage: ${target} <minutes|off>`);
 
     if (['off', 'clear', '0'].includes(arg)) {
       const clearSql = target === 'prison'
@@ -2656,7 +2816,7 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
 
     const minutes = parseIntegerSpec(arg);
     if (minutes === null || minutes < 1 || minutes > 1440) {
-      return gameJson({ error: `Usage: ${target} <minutes|off>` }, 400);
+      return err(`Usage: ${target} <minutes|off>`);
     }
     const until = new Date(Date.now() + minutes * 60 * 1000).toISOString();
     if (target === 'prison') {
@@ -2695,12 +2855,12 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
   if (cmd === 'vehicle') {
     const vehicleId = (args[1] ?? '').trim();
     const cfg = VEHICLE_CONFIGS[vehicleId];
-    if (!cfg) return gameJson({ error: 'Usage: vehicle <volvo240|golf_gti|bmw_m3|skyline_r34|lambo>' }, 400);
+    if (!cfg) return err('Usage: vehicle <volvo240|golf_gti|bmw_m3|skyline_r34|lambo>');
 
     const existing = await env.DB.prepare(
       `SELECT id FROM game_inventory WHERE player_id = ? AND item_type = 'vehicle' AND item_name = ? LIMIT 1`
     ).bind(pid, vehicleId).first();
-    if (existing) return gameJson({ error: 'Du äger redan det fordonet.' }, 400);
+    if (existing) return err('Du äger redan det fordonet.');
 
     await env.DB.prepare(
       `INSERT INTO game_inventory (id, player_id, item_type, item_name, quantity, buy_price)
@@ -2713,7 +2873,7 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
   if (cmd === 'property') {
     const type = (args[1] ?? '').trim().toLowerCase();
     const cfg = PROPERTY_CONFIGS[type];
-    if (!cfg) return gameJson({ error: 'Usage: property <stash_house|nightclub|drug_lab|garage|safehouse> [level]' }, 400);
+    if (!cfg) return err('Usage: property <stash_house|nightclub|drug_lab|garage|safehouse> [level]');
     const level = Math.max(1, Math.min(5, parseIntegerSpec(args[2] ?? '1') ?? 1));
     const income = propertyIncomeForPlayer(player, type, level, cfg.baseIncome);
     await env.DB.prepare(
@@ -2790,7 +2950,7 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
     return ok(message);
   }
 
-  return gameJson({ error: 'Unknown command. Run "help" for available commands.' }, 400);
+  return err('Unknown command. Run "help" for available commands.');
 }
 
 const RACE_TIERS: Record<number, { fee: number; prize: number; xp: number; difficulty: number }> = {

@@ -159,3 +159,25 @@ CREATE TABLE IF NOT EXISTS game_assault_cooldowns (
   attacked_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (attacker_id, target_id)
 );
+
+-- ─── Admin sessions & audit ──────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_admin_sessions (
+  token      TEXT PRIMARY KEY,
+  expires_at TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_admin_sessions_expires ON game_admin_sessions (expires_at);
+
+CREATE TABLE IF NOT EXISTS game_admin_audit (
+  id         TEXT PRIMARY KEY,
+  player_id  TEXT,
+  player_name TEXT,
+  command    TEXT NOT NULL,
+  outcome    TEXT NOT NULL,
+  details    TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_admin_audit_created ON game_admin_audit (created_at DESC);

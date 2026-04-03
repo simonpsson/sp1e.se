@@ -14,3 +14,24 @@ ALTER TABLE game_npcs ADD COLUMN hp INTEGER DEFAULT 50;
 -- Safest path: rebuild the table.  Only needed if you want cross-round name reuse.
 -- The composite unique index below is additive and safe to run any time:
 CREATE UNIQUE INDEX IF NOT EXISTS idx_game_players_name_round ON game_players (name, round_id);
+
+-- ─── Migration 3: Add admin session + audit tables ───────────────────────────
+CREATE TABLE IF NOT EXISTS game_admin_sessions (
+  token      TEXT PRIMARY KEY,
+  expires_at TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_admin_sessions_expires ON game_admin_sessions (expires_at);
+
+CREATE TABLE IF NOT EXISTS game_admin_audit (
+  id          TEXT PRIMARY KEY,
+  player_id   TEXT,
+  player_name TEXT,
+  command     TEXT NOT NULL,
+  outcome     TEXT NOT NULL,
+  details     TEXT,
+  created_at  TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_admin_audit_created ON game_admin_audit (created_at DESC);
