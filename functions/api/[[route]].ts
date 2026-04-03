@@ -2026,7 +2026,7 @@ async function gameActionBlackjackStart(request: Request, env: Env): Promise<Res
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes('no such table')) {
-        return gameJson({ error: 'Blackjack-tabellen saknas. Kör game-schema.sql och game-migrations.sql.' }, 500);
+        return gameJson({ error: 'Blackjack-tabellen saknas. Kör game-migration-blackjack.sql mot D1.' }, 500);
       }
       throw e;
     }
@@ -2984,7 +2984,7 @@ async function getBlackjackHandForPlayer(env: Env, player: Row): Promise<Blackja
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
-      throw new GameError('Blackjack-tabellen saknas. Kör game-schema.sql och game-migrations.sql.', 500);
+      throw new GameError('Blackjack-tabellen saknas. Kör game-migration-blackjack.sql mot D1.', 500);
     }
     throw e;
   }
@@ -3023,7 +3023,7 @@ async function saveBlackjackHand(env: Env, hand: BlackjackRuntimeHand): Promise<
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
-      throw new GameError('Blackjack-tabellen saknas. Kör game-schema.sql och game-migrations.sql.', 500);
+      throw new GameError('Blackjack-tabellen saknas. Kör game-migration-blackjack.sql mot D1.', 500);
     }
     throw e;
   }
