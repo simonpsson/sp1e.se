@@ -116,6 +116,9 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 .g-sec{display:none;}
 .sec-title{font-size:16px;font-weight:500;color:var(--white);letter-spacing:2px;margin-bottom:4px;}
 .sec-sub{font-size:11px;color:var(--dim);margin-bottom:18px;}
+.world-strip{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;display:flex;gap:16px;flex-wrap:wrap;line-height:1.7;}
+.world-strip span{color:var(--dim);}
+.world-strip strong{color:var(--white);}
 
 /* ─── Gatan (feed) ────────────────────────────────────────────────────────── */
 .feed{display:flex;flex-direction:column;gap:6px;}
@@ -193,6 +196,7 @@ select:focus{border-color:var(--red);}
 .rank-table th{text-align:left;padding:6px 10px;color:var(--dim);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border);}
 .rank-table td{padding:8px 10px;border-bottom:1px solid var(--bg3);}
 .rank-table tr.me td{background:#1a150a;color:var(--amber);}
+.rank-table tr.rank-gap td{padding-top:14px;color:var(--dim);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border);}
 .round-info{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;display:flex;gap:20px;flex-wrap:wrap;}
 .round-info span{color:var(--dim);}
 .round-info strong{color:var(--white);}
@@ -494,6 +498,7 @@ select:focus{border-color:var(--red);}
       <div id="s-gatan" class="g-sec" style="display:block;">
         <div class="sec-title">GATAN</div>
         <div class="sec-sub">Dina senaste handlingar</div>
+        <div id="gatan-world" class="world-strip"></div>
         <div id="gatan-feed" class="feed">
           <div class="feed-empty">Inga handlingar &auml;nnu. Dags att g&ouml;ra n&aring;got.</div>
         </div>
@@ -745,6 +750,7 @@ select:focus{border-color:var(--red);}
         <div class="sec-title">RANKING</div>
         <div class="sec-sub">Vem &auml;r b&auml;st p&aring; gatan?</div>
         <div id="round-info" class="round-info"></div>
+        <div id="rank-meta" class="world-strip"></div>
         <table class="rank-table">
           <thead><tr><th>#</th><th>NAMN</th><th>LV</th><th>RESPECT</th><th>YRKE</th><th>SIDA</th></tr></thead>
           <tbody id="rank-tbody"></tbody>
@@ -1175,7 +1181,26 @@ document.addEventListener('click',e=>{
 });
 
 /* ─── Gatan ─────────────────────────────────────────────────────────────── */
+function renderWorldStrip(id){
+  const el=document.getElementById(id);
+  if(!el) return;
+  if(!G.status||!G.status.round){
+    el.innerHTML='<span>Världen laddar fortfarande. Håll låg profil tills siffrorna är på plats.</span>';
+    return;
+  }
+  const leader=(G.status.top10||[])[0];
+  const rival=leader?`${leader.name} leder med ${fmtCash(leader.respect||0)} respect`:'Ingen ledare ännu';
+  const selfRank=G.status.self_rank?`#${G.status.self_rank}`:'Oplacerad';
+  el.innerHTML=[
+    `<span><strong>Runda ${esc(String(G.status.round.number||'—'))}</strong> pågår</span>`,
+    `<span>Tid kvar: <strong>${fmtFull(G.status.round.seconds_left||0)}</strong></span>`,
+    `<span>Din plats: <strong>${esc(selfRank)}</strong></span>`,
+    `<span>${esc(rival)}</span>`
+  ].join('');
+}
+
 function renderGatan(){
+  renderWorldStrip('gatan-world');
   const srvLog=(G.extra.log||[]).map(l=>({
     ts:l.created_at,desc:l.description||l.action_type,
     ok:l.success!==0
@@ -1185,7 +1210,7 @@ function renderGatan(){
   all.sort((a,b)=>b.ts>a.ts?1:-1);
   const feed=document.getElementById('gatan-feed');
   if(!feed) return;
-  if(!all.length){feed.innerHTML='<div class="feed-empty">Inga handlingar ännu. Dags att göra något.</div>';return;}
+  if(!all.length){feed.innerHTML='<div class="feed-empty">Inga handlingar ännu. Första stöten avgör tonen för hela rundan.</div>';return;}
   feed.innerHTML=all.slice(0,50).map(l=>{
     const d=new Date(l.ts);
     const hm=isNaN(d)?'--:--':(d.getHours()+'').padStart(2,'0')+':'+(d.getMinutes()+'').padStart(2,'0');
@@ -1239,17 +1264,24 @@ async function doRobbery(target){
     setMsg('rob-msg',r.error,'err');
     if(card){card.classList.add('flash-err');setTimeout(()=>card.classList.remove('flash-err'),800);}
   }else{
-    const msg=r.message||(r.success?'Lyckat!':'Misslyckades');
+    const detail=[];
+    if(r.cash_gained) detail.push(`+${fmtCash(r.cash_gained)} kr`);
+    if(r.respect_gained) detail.push(`+${fmtCash(r.respect_gained)} respect`);
+    if(r.xp_gained) detail.push(`+${fmtCash(r.xp_gained)} XP`);
+    if(r.caught) detail.push('Gripen');
+    const msg=[r.message||(r.success?'Lyckat!':'Misslyckades'),detail.join(' · ')].filter(Boolean).join(' · ');
     setMsg('rob-msg',msg,r.success?'ok':'err');
     if(card){
       card.classList.add(r.success?'flash-ok':'flash-err');
       setTimeout(()=>card.classList.remove('flash-ok','flash-err'),800);
     }
     addLog(msg,r.success?'ok':'err');
-    const pr=await api('player');
+    const [pr,sr]=await Promise.all([api('player'),api('status')]);
     if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    if(G.player&&typeof r.energy_left==='number') G.player.energy=r.energy_left;
+    if(sr&&!sr.error) G.status=sr;
     if(G.player.level>oldLevel) showLevelUp(oldLevel,G.player.level);
-    renderTopbar();renderSidebar();renderBrott();
+    applyCondition();
   }
 }
 /* ─── Droger ──────────────────────────────────────────────────────────────── */
@@ -1947,10 +1979,25 @@ function renderRanking(){
     const roundNumber=(s.round&&s.round.number)||s.round_number||'—';
     ri.innerHTML=`<span>Runda <strong>${roundNumber}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>Spelare: <strong>${playerCount}</strong></span>`;
   }
+  const meta=document.getElementById('rank-meta');
+  if(meta){
+    if(G.status&&G.status.round){
+      const self=G.status.self||null;
+      const selfRank=G.status.self_rank?`#${G.status.self_rank}`:'Oplacerad';
+      const leader=(G.status.top10||[])[0];
+      meta.innerHTML=[
+        `<span>30 dagar att bli kung. <strong>Din plats: ${esc(selfRank)}</strong></span>`,
+        leader?`<span>Toppen hålls av <strong>${esc(leader.name)}</strong> på ${fmtCash(leader.respect||0)} respect</span>`:'<span>Ingen ledare ännu. Perfekt läge att ta första platsen.</span>',
+        self?`<span>Du spelar som <strong>${esc(self.name)}</strong></span>`:'<span>Skapa en karaktär för att kliva in i tabellen.</span>'
+      ].join('');
+    }else{
+      meta.innerHTML='<span>Rundan laddar fortfarande.</span>';
+    }
+  }
   const tbody=document.getElementById('rank-tbody');
   if(!tbody) return;
   const players=(G.status&&G.status.top10)||[];
-  const npcsRank=G.npcs.slice(0,10).map(n=>({
+  const npcsRank=[...G.npcs].sort((a,b)=>(b.respect||0)-(a.respect||0)).slice(0,10).map(n=>({
     name:n.name,level:n.level,respect:n.respect,profession:'NPC',side:n.side,isNpc:true
   }));
   const playerRows=players.map(p=>({
@@ -1958,12 +2005,18 @@ function renderRanking(){
   }));
   const all=[...playerRows,...npcsRank].sort((a,b)=>b.respect-a.respect).slice(0,20);
   const myName=G.player?G.player.name:'';
-  tbody.innerHTML=all.map((row,i)=>{
+  const self=G.status&&G.status.self;
+  const hasSelf=!!myName&&all.some(row=>!row.isNpc&&row.name===myName);
+  const rowsHtml=all.map((row,i)=>{
     const isMe=!row.isNpc&&row.name===myName;
     const sideIcon=row.side==='westside'?'&#x1F534;':'&#x1F535;';
     const prof=professionName(row.profession)||'—';
     return `<tr${isMe?' class="me"':''}><td>${i+1}</td><td>${esc(row.name)}${row.isNpc?' <span style="color:var(--dim);font-size:10px;">[NPC]</span>':''}</td><td>Lv${row.level}</td><td>${fmtCash(row.respect)}</td><td>${prof}</td><td>${sideIcon}</td></tr>`;
   }).join('');
+  const selfHtml=(!hasSelf&&self&&G.status.self_rank)
+    ? `<tr class="rank-gap"><td colspan="6">DIN PLACERING</td></tr><tr class="me"><td>${G.status.self_rank}</td><td>${esc(self.name)}</td><td>Lv${self.level}</td><td>${fmtCash(self.respect)}</td><td>${professionName(self.profession)||'—'}</td><td>${self.side==='westside'?'&#x1F534;':'&#x1F535;'}</td></tr>`
+    : '';
+  tbody.innerHTML=rowsHtml+selfHtml;
 }
 
 /* ─── Prison ─────────────────────────────────────────────────────────────── */
@@ -1990,12 +2043,11 @@ async function doPrison(method){
   if(r.error){setMsg('prison-msg',r.error,'err');}
   else{
     setMsg('prison-msg',r.message||'OK','ok');
-    if(r.success){
-      if(G._prisonTick) clearInterval(G._prisonTick);
-      const pr=await api('player');
-      if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
-      applyCondition();
-    }
+    if(G._prisonTick&&r.success) clearInterval(G._prisonTick);
+    const [pr,sr]=await Promise.all([api('player'),api('status')]);
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    if(sr&&!sr.error) G.status=sr;
+    applyCondition();
   }
 }
 
@@ -2063,7 +2115,6 @@ function bindCreate(){
 async function doCreate(){
   if(G.busy) return;
   const name=(document.getElementById('inp-name').value||'').trim();
-  console.log('Create clicked',name,G.selectedSide);
   if(!name){setMsg('create-err','Ange ett namn','err');return;}
   setMsg('create-err','Skapar karaktär...','info');
   G.busy=true;
@@ -2074,7 +2125,6 @@ async function doCreate(){
     setMsg('create-err','Nätverksfel: '+e,'err');
     G.busy=false;return;
   }
-  console.log('API response',r._status??0,r);
   G.busy=false;
   if(r.error){setMsg('create-err',r.error,'err');}
   else if(!r.player){setMsg('create-err','Oväntat svar från servern','err');}

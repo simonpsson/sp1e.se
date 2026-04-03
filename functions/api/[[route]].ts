@@ -1139,10 +1139,10 @@ async function syncGamePlayerState(env: Env, player: Row): Promise<Row> {
 
 async function requireGamePlayer(request: Request, env: Env): Promise<Row> {
   const pid = getGameCookie(request);
-  if (!pid) throw new GameError('No active character. Create one first.', 401);
+  if (!pid) throw new GameError('Ingen aktiv karaktär. Skapa en först.', 401);
   const round = await ensureActiveRound(env, { createIfMissing: false });
   const player = await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>();
-  if (!player) throw new GameError('Character not found.', 404);
+  if (!player) throw new GameError('Karaktären hittades inte.', 404);
   if ((player.round_id as string) !== (round.id as string)) {
     throw new GameError('Rundan har avslutats. Starta en ny karaktär för nästa runda.', 409);
   }
@@ -1162,8 +1162,8 @@ class GameError extends Error {
 
 /** Recalculate energy based on time elapsed since last_regen. */
 function calcEnergy(player: Row): number {
-  const max       = (player.energy_max as number) ?? 100;
-  const stored    = (player.energy as number) ?? 0;
+  const max       = Number(player.energy_max ?? 100);
+  const stored    = Number(player.energy ?? 0);
   if (stored >= max) return max;
   const lastRegen = new Date((player.energy_last_regen as string) ?? new Date().toISOString());
   const elapsed   = (Date.now() - lastRegen.getTime()) / 1000 / 60; // minutes
@@ -1609,16 +1609,16 @@ async function gameCreateCharacter(request: Request, env: Env): Promise<Response
     try {
       body = await request.json<{ name?: string; side?: string }>();
     } catch {
-      return gameJson({ error: 'Invalid JSON body.' }, 400);
+      return gameJson({ error: 'Ogiltig förfrågan.' }, 400);
     }
 
     const name = (body.name ?? '').trim().slice(0, 24);
     const side = body.side === 'westside' ? 'westside' : 'eastside';
-
     if (!name || name.length < 2)
-      return gameJson({ error: 'Name must be 2–24 characters.' }, 400);
+      return gameJson({ error: 'Namnet måste vara 2–24 tecken.' }, 400);
+
     if (!/^[\w\s\u00C0-\u024F]+$/u.test(name))
-      return gameJson({ error: 'Name contains invalid characters.' }, 400);
+      return gameJson({ error: 'Namnet innehåller otillåtna tecken.' }, 400);
 
     const existing = await env.DB.prepare(
       `SELECT id FROM game_players WHERE name = ? AND round_id = ?`
@@ -1648,7 +1648,7 @@ async function gameCreateCharacter(request: Request, env: Env): Promise<Response
         }
       }
 
-      return gameJson({ error: 'That name is taken. Pick another.' }, 409);
+      return gameJson({ error: 'Det namnet är upptaget. Välj ett annat.' }, 409);
     }
 
     const pid = crypto.randomUUID();
@@ -1657,7 +1657,7 @@ async function gameCreateCharacter(request: Request, env: Env): Promise<Response
         .bind(pid, round.id as string, name, side).run();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes('UNIQUE')) return gameJson({ error: 'That name is taken. Pick another.' }, 409);
+      if (msg.includes('UNIQUE')) return gameJson({ error: 'Det namnet är upptaget. Välj ett annat.' }, 409);
       throw e;
     }
 
@@ -1673,7 +1673,7 @@ async function gameCreateCharacter(request: Request, env: Env): Promise<Response
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
-      return gameJson({ error: 'Game database not initialized. Run game-schema.sql and game-seed.sql.' }, 500);
+      return gameJson({ error: 'Speldatabasen är inte initierad. Kör game-schema.sql och game-seed.sql.' }, 500);
     }
     throw e;
   }
@@ -1895,7 +1895,7 @@ async function gameHallOfFame(env: Env): Promise<Response> {
 
 async function gameGetStatus(request: Request, env: Env): Promise<Response> {
   const round = await getActiveRound(env);
-  if (!round) return gameJson({ round_ended: true, top10: [], player_count: 0 });
+  if (!round) return gameJson({ round_ended: true, top10: [], player_count: 0, self_rank: null, self: null });
 
   const endDate    = new Date(round.end_date as string).getTime();
   const secondsLeft = Math.max(0, Math.floor((endDate - Date.now()) / 1000));
@@ -1914,6 +1914,34 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
     ).bind(round.id as string).first<{ cnt: number }>(),
   ]);
 
+  let self: Record<string, unknown> | null = null;
+  let selfRank: number | null = null;
+  const currentPid = getGameCookie(request);
+  if (currentPid) {
+    const selfRow = await env.DB.prepare(
+      `SELECT name, level, respect, side, profession
+       FROM game_players WHERE id = ? AND round_id = ? AND is_alive = 1
+       LIMIT 1`
+    ).bind(currentPid, round.id as string).first<Row>();
+
+    if (selfRow) {
+      const ahead = await env.DB.prepare(
+        `SELECT COUNT(*) as cnt
+         FROM game_players
+         WHERE round_id = ? AND is_alive = 1 AND respect > ?`
+      ).bind(round.id as string, selfRow.respect as number).first<{ cnt: number | string }>();
+
+      selfRank = Number(ahead?.cnt ?? 0) + 1;
+      self = {
+        name: selfRow.name,
+        level: selfRow.level,
+        respect: selfRow.respect,
+        side: selfRow.side,
+        profession: selfRow.profession,
+      };
+    }
+  }
+
   return gameJson({
     round_ended: roundEnded,
     round: {
@@ -1924,6 +1952,8 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
     },
     top10:        topRes.results,
     player_count: countRes?.cnt ?? 0,
+    self_rank:    selfRank,
+    self,
   });
 }
 
@@ -2122,7 +2152,7 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
   const body   = await request.json<{ target?: string }>().catch(() => ({} as { target?: string }));
   const target = body.target ?? '';
   const cfg    = ROBBERY_TARGETS[target];
-  if (!cfg) return gameJson({ error: `Unknown target "${target}".` }, 400);
+  if (!cfg) return gameJson({ error: 'Okänt brottsmål.' }, 400);
 
   if (player.in_prison)   return gameJson({ error: 'Du sitter i fängelse.' }, 400);
   if (player.in_hospital) return gameJson({ error: 'Du är på sjukhus.' }, 400);
@@ -2137,10 +2167,9 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
   const levelReq = ROBBERY_LEVEL_REQS[target] ?? 1;
   if (level < levelReq)
     return gameJson({ error: `Kräver level ${levelReq}. Du är level ${level}.` }, 400);
-
   const energy = calcEnergy(player);
   if (energy < cfg.energy)
-    return gameJson({ error: `Not enough energy. Need ${cfg.energy}, have ${energy}.` }, 400);
+    return gameJson({ error: `Inte tillräckligt med energi. Behöver ${cfg.energy}, har ${energy}.` }, 400);
 
   const successChance = Math.min(95, cfg.baseChance + stealth * 0.5 + intelligence * 0.3 + level * 2);
   const roll          = Math.random() * 100;
@@ -2506,7 +2535,13 @@ async function gameActionPrisonEscape(request: Request, env: Env): Promise<Respo
        last_action = datetime('now') WHERE id = ?`
     ).bind(bribeCost, pid).run();
     await logAction(env, pid, 'prison', `Mutade sig ut ur f\u00e4ngelset f\u00f6r ${bribeCost} kr.`, -bribeCost, 0, 0, true);
-    return gameJson({ success: true, method: 'bribe', cost: bribeCost, message: `Mutade vakten. Frihet k\u00f6star ${bribeCost} kr.` });
+    return gameJson({
+      success: true,
+      method: 'bribe',
+      cost: bribeCost,
+      seconds_left: 0,
+      message: `Mutade vakten. Frihet kostar ${bribeCost} kr.`,
+    });
   }
 
   // Escape attempt
@@ -2522,15 +2557,29 @@ async function gameActionPrisonEscape(request: Request, env: Env): Promise<Respo
        WHERE id = ?`
     ).bind(currentXp, newLevel, pid).run();
     await logAction(env, pid, 'prison', 'R\u00f6mde fr\u00e5n f\u00e4ngelset.', 0, 5, xpGained, true);
-    return gameJson({ success: true, method: 'escape', xp_gained: xpGained, new_level: newLevel, message: 'Du lyckades r\u00f6mma! +5 respect.' });
+    return gameJson({
+      success: true,
+      method: 'escape',
+      xp_gained: xpGained,
+      new_level: newLevel,
+      seconds_left: 0,
+      message: 'Du lyckades rymma! +5 respect.',
+    });
   } else {
     // Add 10 min penalty
     const newRelease = new Date(Math.max(prisonUntil, Date.now()) + 10 * 60 * 1000).toISOString();
+    const secondsLeft = Math.max(0, Math.floor((new Date(newRelease).getTime() - Date.now()) / 1000));
     await env.DB.prepare(
       `UPDATE game_players SET prison_until = ? WHERE id = ?`
     ).bind(newRelease, pid).run();
     await logAction(env, pid, 'prison', 'R\u00f6mningsf\u00f6rs\u00f6k misslyckades. +10 min.', 0, 0, 0, false);
-    return gameJson({ success: false, method: 'escape', message: 'Misslyckades. +10 min till domen.', bribe_cost: bribeCost });
+    return gameJson({
+      success: false,
+      method: 'escape',
+      message: 'Misslyckades. +10 min till domen.',
+      bribe_cost: Math.max(500, secondsLeft * 10),
+      seconds_left: secondsLeft,
+    });
   }
 }
 
