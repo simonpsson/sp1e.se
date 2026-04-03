@@ -180,6 +180,23 @@ select:focus{border-color:var(--red);}
 .round-info{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;display:flex;gap:20px;flex-wrap:wrap;}
 .round-info span{color:var(--dim);}
 .round-info strong{color:var(--white);}
+.bank-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;}
+.bank-stat{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:4px;}
+.bank-stat span{font-size:10px;color:var(--dim);letter-spacing:1px;}
+.bank-stat strong{font-size:15px;color:var(--white);}
+.bank-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:440px;}
+.bank-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.bank-row label{font-size:11px;color:var(--dim);width:70px;flex-shrink:0;}
+.bank-row input{max-width:180px;}
+.prof-status{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--dim);}
+.prof-status strong{color:var(--white);}
+.prof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;}
+.prof-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:8px;}
+.prof-card.active{border-color:var(--green);}
+.prof-card.locked{opacity:.6;}
+.prof-name{font-size:13px;font-weight:500;color:var(--white);}
+.prof-bonus{font-size:11px;color:var(--dim);line-height:1.6;}
+.prof-note{font-size:10px;color:var(--amber);letter-spacing:.5px;}
 
 /* ─── Mobile nav ──────────────────────────────────────────────────────────── */
 #mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:100;overflow-x:auto;}
@@ -363,6 +380,7 @@ select:focus{border-color:var(--red);}
         <div id="sb-prof">Inget yrke</div>
         <div id="sb-side">&#x1F535; Eastside</div>
         <div id="sb-resp">0 respect &middot; Lv1</div>
+        <div id="sb-bank" style="font-size:11px;color:var(--dim);margin-top:4px;">Bank: 0 kr</div>
       </div>
       <!-- Nav -->
       <div style="padding:8px 0;">
@@ -371,6 +389,8 @@ select:focus{border-color:var(--red);}
         <button class="nav-btn nv" data-s="droger">&#x1F48A; Droger</button>
         <button class="nav-btn nv" data-s="strid">&#x1F94A; Strid</button>
         <button class="nav-btn nv" data-s="traning">&#x1F3CB; Tr&auml;ning</button>
+        <button class="nav-btn nv" data-s="profession">&#x2699; Yrke</button>
+        <button class="nav-btn nv" data-s="bank">&#x1F4B0; Bank</button>
         <button class="nav-btn nv" data-s="fastigheter">&#x1F3E0; Fastigheter</button>
         <button class="nav-btn nv" data-s="race">&#x1F3CE; Streetrace</button>
         <button class="nav-btn nv" data-s="ranking">&#x1F3C6; Ranking</button>
@@ -452,6 +472,40 @@ select:focus{border-color:var(--red);}
         <div id="train-msg" class="amsg"></div>
       </div>
 
+      <!-- Profession -->
+      <div id="s-profession" class="g-sec">
+        <div class="sec-title">YRKE</div>
+        <div class="sec-sub">V&auml;lj specialisering fr&aring;n level 3. Ett enda byte till&aring;tet fr&aring;n level 10.</div>
+        <div id="prof-lock" class="lock-notice" style="display:none;">&#x1F512; L&aring;ses upp vid level 3</div>
+        <div id="prof-content">
+          <div id="prof-status" class="prof-status"></div>
+          <div id="prof-grid" class="prof-grid"></div>
+        </div>
+        <div id="prof-msg" class="amsg"></div>
+      </div>
+
+      <!-- Bank -->
+      <div id="s-bank" class="g-sec">
+        <div class="sec-title">BANK</div>
+        <div class="sec-sub">Skydda kontanter, betala avgift vid ins&auml;ttning, ta ut n&auml;r du beh&ouml;ver kapital.</div>
+        <div class="bank-summary">
+          <div class="bank-stat"><span>KASSA</span><strong id="bank-cash">0 kr</strong></div>
+          <div class="bank-stat"><span>BANK</span><strong id="bank-balance">0 kr</strong></div>
+          <div class="bank-stat"><span>AVGIFT</span><strong>5%</strong></div>
+        </div>
+        <div class="bank-card">
+          <div class="bank-row">
+            <label for="bank-amount">BELOPP</label>
+            <input id="bank-amount" type="number" min="1" step="1" value="1000">
+          </div>
+          <div class="bank-row">
+            <button onclick="doBank('deposit')">S&Auml;TT IN</button>
+            <button onclick="doBank('withdraw')">TA UT</button>
+          </div>
+        </div>
+        <div id="bank-msg" class="amsg"></div>
+      </div>
+
       <!-- Fastigheter -->
       <div id="s-fastigheter" class="g-sec">
         <div class="sec-title">FASTIGHETER</div>
@@ -525,6 +579,8 @@ select:focus{border-color:var(--red);}
     <button class="mb" data-s="droger"><span class="mb-icon">&#x1F48A;</span>Droger</button>
     <button class="mb" data-s="strid"><span class="mb-icon">&#x1F94A;</span>Strid</button>
     <button class="mb" data-s="traning"><span class="mb-icon">&#x1F3CB;</span>Tr&auml;na</button>
+    <button class="mb" data-s="profession"><span class="mb-icon">&#x2699;</span>Yrke</button>
+    <button class="mb" data-s="bank"><span class="mb-icon">&#x1F4B0;</span>Bank</button>
     <button class="mb" data-s="fastigheter"><span class="mb-icon">&#x1F3E0;</span>Fast.</button>
     <button class="mb" data-s="race"><span class="mb-icon">&#x1F3CE;</span>Race</button>
     <button class="mb" data-s="ranking"><span class="mb-icon">&#x1F3C6;</span>Rank</button>
@@ -612,6 +668,8 @@ async function softReload(){
   renderTopbar();renderSidebar();
   if(G.section==='droger') renderDroger();
   if(G.section==='ranking') renderRanking();
+  if(G.section==='profession') renderProfession();
+  if(G.section==='bank') renderBank();
   if(G.section==='fastigheter') renderFastigheter();
 }
 
@@ -696,9 +754,10 @@ function renderSidebar(){
     if(b) b.style.width=v+'%';
     if(vv) vv.textContent=v;
   }
-  set('sb-prof',cleanProf(p.profession)||'Inget yrke');
+  set('sb-prof',professionName(p.profession)||'Inget yrke');
   set('sb-side',p.side==='westside'?'&#x1F534; Westside':'&#x1F535; Eastside');
   set('sb-resp',fmtCash(p.respect)+' respect &middot; Lv'+p.level);
+  set('sb-bank','Bank: '+fmtCash(p.bank||0)+' kr');
 }
 
 function setSectionError(msg=''){
@@ -706,7 +765,7 @@ function setSectionError(msg=''){
 }
 
 function sectionDependencyError(s){
-  if(['gatan','brott','traning','fastigheter','race'].includes(s)) return G.errors.player||'';
+  if(['gatan','brott','traning','profession','bank','fastigheter','race'].includes(s)) return G.errors.player||'';
   if(s==='droger') return G.errors.prices||G.errors.player||'';
   if(s==='strid') return G.errors.npcs||G.errors.player||'';
   if(s==='ranking') return G.errors.status||G.errors.npcs||'';
@@ -719,7 +778,7 @@ function renderSection(s){
   document.querySelectorAll('.g-sec').forEach(el=>el.style.display='none');
   const el=document.getElementById('s-'+s);
   document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
-  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking};
+  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,profession:renderProfession,bank:renderBank,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking};
   setSectionError('');
   if(!el){
     setSectionError('Sektionen kunde inte hittas.');
@@ -994,6 +1053,98 @@ async function doTrain(stat){
     renderTopbar();renderSidebar();renderTraning();
   }
 }
+
+/* ─── Yrke ────────────────────────────────────────────────────────────────── */
+const PROFESSION_CFG={
+  'rånare':{icon:'&#x1F52B;',name:'Rånare',bonus:['+30% cash från rån','-20% fängelsetid']},
+  langare:{icon:'&#x1F48A;',name:'Langare',bonus:['Bättre spread på drogmarknaden','Starkare marginaler vid köp/sälj']},
+  torped:{icon:'&#x1F6E1;',name:'Torped',bonus:['+30% assault-skada','+20% max HP']},
+  hallick:{icon:'&#x1F3E0;',name:'Hallick',bonus:['+40% fastighetsinkomst','Bygger passiv ekonomi snabbare']},
+  bedragare:{icon:'&#x1F4BC;',name:'Bedragare',bonus:['+20% på alla stats i spel','+15% XP från aktiviteter']},
+};
+
+function renderProfession(){
+  const p=G.player;
+  const lockEl=document.getElementById('prof-lock');
+  const cont=document.getElementById('prof-content');
+  if(!p) return;
+  if(p.level<3){
+    if(lockEl) lockEl.style.display='';
+    if(cont) cont.style.display='none';
+    return;
+  }
+  if(lockEl) lockEl.style.display='none';
+  if(cont) cont.style.display='';
+  const raw=String(p.profession||'none');
+  const current=cleanProf(raw)||'none';
+  const currentLabel=professionName(current)||'Inget yrke';
+  const hasChanged=raw.startsWith('changed:');
+  const canChoose=current==='none'||(p.level>=10&&!hasChanged);
+  const status=document.getElementById('prof-status');
+  if(status){
+    status.innerHTML=current==='none'
+      ? 'Du har inget yrke ännu. Välj ett för att låsa upp permanenta bonusar.'
+      : `Aktivt yrke: <strong>${esc(currentLabel)}</strong>. ${canChoose?'Du kan göra ett sista byte nu.':'Ditt val är låst för den här rundan.'}`;
+  }
+  const grid=document.getElementById('prof-grid');
+  if(!grid) return;
+  grid.innerHTML=Object.entries(PROFESSION_CFG).map(([key,cfg])=>{
+    const isCurrent=key===current;
+    const disabled=!canChoose||isCurrent;
+    const buttonLabel=isCurrent?'AKTIV':current==='none'?'VÄLJ':(canChoose?'BYT':'LÅST');
+    return `<div class="prof-card${isCurrent?' active':''}${disabled&&!isCurrent?' locked':''}">
+      <div class="prof-name">${cfg.icon} ${cfg.name}</div>
+      <div class="prof-bonus">${cfg.bonus.map(line=>`<div>${esc(line)}</div>`).join('')}</div>
+      <div class="prof-note">${isCurrent?'Nuvarande specialisering':(canChoose?'Permanent val i rundan':'Inga fler byten tillåtna')}</div>
+      <button onclick="doChooseProfession('${key}')" ${disabled?'disabled':''}>${buttonLabel}</button>
+    </div>`;
+  }).join('');
+}
+
+async function doChooseProfession(profession){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/choose-profession',{profession});
+  G.busy=false;
+  if(r.error){setMsg('prof-msg',r.error,'err');}
+  else{
+    setMsg('prof-msg',r.message||'Yrke valt','ok');
+    addLog(r.message||('Valde yrke: '+profession),'ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderProfession();
+  }
+}
+
+/* ─── Bank ────────────────────────────────────────────────────────────────── */
+function renderBank(){
+  const p=G.player;if(!p) return;
+  set('bank-cash',fmtCash(p.cash||0)+' kr');
+  set('bank-balance',fmtCash(p.bank||0)+' kr');
+  const input=document.getElementById('bank-amount');
+  if(input&&!input.value) input.value='1000';
+}
+
+async function doBank(action){
+  if(G.busy) return;
+  const input=document.getElementById('bank-amount');
+  const amount=Math.max(0,Math.floor(+(input&&input.value)||0));
+  if(amount<=0){setMsg('bank-msg','Ange ett giltigt belopp.','err');return;}
+  G.busy=true;
+  const r=await post('action/bank',{action,amount});
+  G.busy=false;
+  if(r.error){setMsg('bank-msg',r.error,'err');}
+  else{
+    const msg=action==='deposit'
+      ? `Satte in ${fmtCash(amount)} kr${r.fee?` (avgift ${fmtCash(r.fee)} kr)`:''}.`
+      : `Tog ut ${fmtCash(amount)} kr från banken.`;
+    setMsg('bank-msg',msg,'ok');
+    addLog(msg,'ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderBank();
+  }
+}
+
 /* ─── Fastigheter ─────────────────────────────────────────────────────────── */
 const PROP_CFG={
   stash_house:{label:'Stash House',cost:5000,income:100},
@@ -1052,14 +1203,15 @@ function renderFastigheter(){
 
   const buyGrid=document.getElementById('buy-grid');
   if(buyGrid){
-    buyGrid.innerHTML=Object.entries(PROP_CFG).map(([type,cfg])=>
-      `<div class="buy-card">
+    buyGrid.innerHTML=Object.entries(PROP_CFG).map(([type,cfg])=>{
+      const income=propertyIncomePreview(cfg.income);
+      return `<div class="buy-card">
         <div class="buy-type">${cfg.label}</div>
         <div class="buy-cost">${fmtCash(cfg.cost)} kr</div>
-        <div class="buy-income">${cfg.income} kr/timme</div>
+        <div class="buy-income">${income} kr/timme${income!==cfg.income?' <span style="color:var(--amber);">(yrkesbonus)</span>':''}</div>
         <button onclick="doBuyProp('${type}')">KÖP</button>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
   }
 }
 
@@ -1131,7 +1283,7 @@ function renderRanking(){
   tbody.innerHTML=all.map((row,i)=>{
     const isMe=!row.isNpc&&row.name===myName;
     const sideIcon=row.side==='westside'?'&#x1F534;':'&#x1F535;';
-    const prof=cleanProf(row.profession)||'—';
+    const prof=professionName(row.profession)||'—';
     return `<tr${isMe?' class="me"':''}><td>${i+1}</td><td>${esc(row.name)}${row.isNpc?' <span style="color:var(--dim);font-size:10px;">[NPC]</span>':''}</td><td>Lv${row.level}</td><td>${fmtCash(row.respect)}</td><td>${prof}</td><td>${sideIcon}</td></tr>`;
   }).join('');
 }
@@ -1384,6 +1536,14 @@ function fmtFull(sec){
 function cleanProf(p){
   if(!p||p==='none') return '';
   return p.replace(/^changed:/,'');
+}
+function professionName(value){
+  const key=cleanProf(value);
+  return key ? (PROFESSION_CFG[key]?.name||key) : '';
+}
+function propertyIncomePreview(base){
+  const prof=cleanProf(G.player&&G.player.profession);
+  return Math.round(base*(prof==='hallick'?1.4:1));
 }
 </script>
 </body>
