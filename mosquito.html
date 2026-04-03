@@ -33,6 +33,17 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 #screen-boot{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:12px;text-align:center;}
 .boot-logo{font-size:26px;font-weight:500;color:var(--red);letter-spacing:4px;}
 .boot-copy{font-size:11px;color:var(--dim);letter-spacing:1px;max-width:320px;}
+.boot-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+
+/* ─── Round end ─────────────────────────────────────────────────────────────── */
+#screen-round{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
+.round-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:24px;width:100%;max-width:760px;display:flex;flex-direction:column;gap:16px;}
+.round-hero{font-size:12px;color:var(--amber);letter-spacing:1px;}
+.round-copy{font-size:11px;color:var(--dim);line-height:1.8;}
+.round-list{display:flex;flex-direction:column;gap:10px;}
+.round-entry{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;}
+.round-entry strong{color:var(--white);}
+.round-entry span{font-size:11px;color:var(--dim);}
 
 /* ─── Create ──────────────────────────────────────────────────────────────── */
 #screen-create{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
@@ -207,6 +218,7 @@ select:focus{border-color:var(--red);}
 .dev-meta{font-size:11px;color:var(--dim);line-height:1.7;}
 .dev-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
 .dev-row input{flex:1;min-width:220px;}
+.dev-lock{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:460px;}
 .dev-quick{display:flex;flex-wrap:wrap;gap:8px;}
 .dev-quick button{padding:6px 10px;font-size:11px;}
 .dev-output{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:12px;min-height:180px;max-height:320px;overflow:auto;white-space:pre-wrap;font-size:11px;line-height:1.7;color:var(--white);}
@@ -262,7 +274,28 @@ select:focus{border-color:var(--red);}
 <!-- ─── Boot Screen ────────────────────────────────────────────────────────── -->
 <div id="screen-boot" class="screen" style="display:flex;">
   <div class="boot-logo">MOSQUITO</div>
-  <div class="boot-copy">Kontrollerar adminåtkomst via samma lösenordssession som sp1e-hubben.</div>
+  <div id="boot-copy" class="boot-copy">Kontrollerar samma lösenordssession som sp1e-hubben.</div>
+  <div class="boot-actions">
+    <button id="boot-login-btn" class="primary" style="display:none;">LÅS UPP MOSQUITO</button>
+    <button id="boot-refresh-btn">FÖRSÖK IGEN</button>
+  </div>
+  <div id="boot-msg" class="amsg"></div>
+</div>
+
+<!-- ─── Round End Screen ───────────────────────────────────────────────────── -->
+<div id="screen-round" class="screen" style="display:none;">
+  <div class="cr-logo">MOSQUITO</div>
+  <div class="cr-sub">RUNDAN ÄR AVSLUTAD</div>
+  <div class="round-box">
+    <div class="round-hero">Hall of Fame</div>
+    <div id="round-copy" class="round-copy">Den senaste rundan är avslutad. Läs topplistan och starta nästa runda när du är redo.</div>
+    <div id="round-list" class="round-list"></div>
+    <div class="boot-actions">
+      <button id="round-next-btn" class="primary">STARTA NÄSTA RUNDA</button>
+      <button id="round-refresh-btn">UPPDATERA HALL OF FAME</button>
+    </div>
+    <div id="round-msg" class="amsg"></div>
+  </div>
 </div>
 
 <!-- ─── Create Screen ─────────────────────────────────────────────────────── -->
@@ -304,10 +337,10 @@ select:focus{border-color:var(--red);}
       <div id="prison-timer" class="pr-timer">--:--</div>
     </div>
     <div class="pr-btns">
-      <button id="prison-bribe-btn" onclick="doPrison('bribe')">
+      <button id="prison-bribe-btn" data-prison="bribe">
         MUTA VAKTEN &mdash; <span id="prison-bribe-cost">...</span> kr
       </button>
-      <button id="prison-escape-btn" onclick="doPrison('escape')">
+      <button id="prison-escape-btn" data-prison="escape">
         RYMNINGSFÖRSÖK (riskabelt)
       </button>
     </div>
@@ -332,10 +365,10 @@ select:focus{border-color:var(--red);}
       <div id="hosp-hp-text" style="font-size:11px;color:var(--dim);margin-top:4px;">50/100 HP</div>
     </div>
     <div class="hs-btns">
-      <button id="hosp-heal-btn" class="primary" onclick="doHospital('heal')">
+      <button id="hosp-heal-btn" class="primary" data-hospital="heal">
         BETALA FÖR VÅRD &mdash; <span id="hosp-heal-cost">...</span> kr
       </button>
-      <button id="hosp-wait-btn" onclick="doHospital('wait')">
+      <button id="hosp-wait-btn" data-hospital="wait">
         UPPDATERA STATUS
       </button>
     </div>
@@ -519,8 +552,8 @@ select:focus{border-color:var(--red);}
             <input id="bank-amount" type="number" min="1" step="1" value="1000">
           </div>
           <div class="bank-row">
-            <button onclick="doBank('deposit')">S&Auml;TT IN</button>
-            <button onclick="doBank('withdraw')">TA UT</button>
+            <button data-bank="deposit">S&Auml;TT IN</button>
+            <button data-bank="withdraw">TA UT</button>
           </div>
         </div>
         <div id="bank-msg" class="amsg"></div>
@@ -529,8 +562,17 @@ select:focus{border-color:var(--red);}
       <!-- Dev -->
       <div id="s-dev" class="g-sec">
         <div class="sec-title">DEV CONSOLE <span class="dev-tag">ADMIN</span></div>
-        <div class="sec-sub">Serverstyrda admin-kommandon f&ouml;r den aktuella karakt&auml;ren. Samma site-session som hubben kr&auml;vs.</div>
-        <div class="dev-shell">
+        <div class="sec-sub">Serverstyrda admin-kommandon f&ouml;r den aktuella karakt&auml;ren. Dev console kr&auml;ver en kort admin-uppl&aring;sning ovanp&aring; hubb-sessionen.</div>
+        <div id="dev-lock" class="dev-lock">
+          <div class="dev-meta">Lås upp adminläget med samma lösenord som resten av sp1e. Sessionen lever i 2 timmar och kan låsas manuellt.</div>
+          <div class="dev-row">
+            <input id="dev-password" type="password" placeholder="Adminlösenord" autocomplete="current-password" spellcheck="false">
+            <button id="dev-unlock-btn" class="primary">LÅS UPP</button>
+            <button id="dev-logout-btn" style="display:none;">LÅS</button>
+          </div>
+          <div id="dev-auth-msg" class="amsg"></div>
+        </div>
+        <div id="dev-shell" class="dev-shell" style="display:none;">
           <div id="dev-meta" class="dev-meta">Ingen karakt&auml;r laddad &auml;nnu.</div>
           <div class="dev-row">
             <input id="dev-command" type="text" placeholder='Skriv t.ex. "help", "rich", "profession torped", "cash +50000"' autocomplete="off" spellcheck="false">
@@ -564,7 +606,7 @@ select:focus{border-color:var(--red);}
         <div id="prop-content">
           <div id="prop-list" class="prop-list"></div>
           <div class="collect-all-wrap">
-            <button onclick="doCollect()">SAMLA IN ALLA</button>
+            <button data-collect="all">SAMLA IN ALLA</button>
           </div>
           <div class="sec-sub" style="margin-bottom:12px;">K&Ouml;P FASTIGHET</div>
           <div id="buy-grid" class="buy-grid"></div>
@@ -584,19 +626,19 @@ select:focus{border-color:var(--red);}
               <div class="race-tier-name">&#x1F7E2; GRÖN TIER</div>
               <div class="race-tier-fee">Insats: 1&nbsp;000 kr</div>
               <div class="race-tier-prize">Vinst: 3&nbsp;000 kr + 50 XP</div>
-              <button onclick="doRace(1)">STARTA RACE</button>
+              <button data-race="1">STARTA RACE</button>
             </div>
             <div class="race-tier">
               <div class="race-tier-name">&#x1F7E1; GUL TIER</div>
               <div class="race-tier-fee">Insats: 5&nbsp;000 kr</div>
               <div class="race-tier-prize">Vinst: 15&nbsp;000 kr + 150 XP</div>
-              <button onclick="doRace(2)">STARTA RACE</button>
+              <button data-race="2">STARTA RACE</button>
             </div>
             <div class="race-tier">
               <div class="race-tier-name">&#x1F534; R&Ouml;D TIER</div>
               <div class="race-tier-fee">Insats: 25&nbsp;000 kr</div>
               <div class="race-tier-prize">Vinst: 75&nbsp;000 kr + 400 XP</div>
-              <button onclick="doRace(3)">STARTA RACE</button>
+              <button data-race="3">STARTA RACE</button>
             </div>
           </div>
           <div id="race-msg" class="amsg"></div>
@@ -641,7 +683,7 @@ select:focus{border-color:var(--red);}
   <div class="lvlup-text">LEVEL UP!</div>
   <div class="lvlup-level" id="lvlup-level">Level 2</div>
   <div class="lvlup-unlocks" id="lvlup-unlocks"></div>
-  <div class="lvlup-close" onclick="document.getElementById('lvlup-overlay').classList.remove('show')">
+  <div id="lvlup-close" class="lvlup-close">
     [tryck var som helst f&ouml;r att st&auml;nga]
   </div>
 </div>
@@ -655,9 +697,10 @@ const G={
   _propTicks:{},log:[],
   vehicles:[],
   devHistory:['> help'],
-  siteAuthenticated:false
+  siteAuthenticated:false,
+  hallOfFame:null,
+  admin:{authenticated:false,expiresAt:null}
 };
-window.G=G;
 const AUTH_REDIRECT='/?next=%2Fmosquito';
 
 async function api(path,opts={}){
@@ -667,7 +710,8 @@ async function api(path,opts={}){
     const r=await fetch('/api/game/'+path,cfg);
     const data=await r.json().catch(()=>({}));
     if(r.status===401&&data.error==='Unauthorized'){
-      location.href=AUTH_REDIRECT;
+      G.siteAuthenticated=false;
+      showLockedState('Mosquito är låst. Logga in med samma lösenord som sp1e-hubben för att spela vidare.');
       return {...data,_status:r.status};
     }
     return {...data,_status:r.status};
@@ -676,16 +720,29 @@ async function api(path,opts={}){
 const post=(p,b={})=>api(p,{method:'POST',body:JSON.stringify(b)});
 
 document.addEventListener('DOMContentLoaded',init);
+function showLockedState(msg){
+  const copy=document.getElementById('boot-copy');
+  if(copy) copy.textContent=msg||'Logga in med samma lösenordssession som sp1e-hubben för att öppna Mosquito.';
+  setMsg('boot-msg',msg?'':'Kontrollerar åtkomst...',msg?'':'info');
+  const loginBtn=document.getElementById('boot-login-btn');
+  if(loginBtn) loginBtn.style.display='inline-flex';
+  showScreen('boot');
+}
+
 async function ensureSiteAuth(){
+  setMsg('boot-msg','Kontrollerar åtkomst...','info');
   try{
     const r=await fetch('/api/auth/check',{credentials:'same-origin'});
     const d=await r.json().catch(()=>({}));
     if(r.ok&&d.authenticated){
       G.siteAuthenticated=true;
+      setMsg('boot-msg','','');
+      const loginBtn=document.getElementById('boot-login-btn');
+      if(loginBtn) loginBtn.style.display='none';
       return true;
     }
   }catch{}
-  location.href=AUTH_REDIRECT;
+  showLockedState('Mosquito kräver samma lösenord som sp1e-hubben. Fortsätt till låsskärmen och kom tillbaka hit när sessionen är öppen.');
   return false;
 }
 function apiError(res,fallback){
@@ -697,19 +754,30 @@ function apiError(res,fallback){
 
 async function init(){
   showScreen('boot');
+  bindShellControls();
   if(!(await ensureSiteAuth())) return;
   bindCreate();
   bindDrugForm();
   bindDevConsole();
-  const r=await api('player');
-  if(r.error&&r._status&&r._status!==401){
+  await syncAdminStatus();
+  const [r,sr]=await Promise.all([api('player'),api('status')]);
+  G.errors.player=apiError(r,'Kunde inte ladda karaktären.');
+  G.errors.status=apiError(sr,'Kunde inte ladda ranking.');
+  if(sr&&!sr.error) G.status=sr;
+  if(r.player){
+    G.player=r.player;G.extra=r;G._fetchedAt=Date.now();
+  }else if(r._status===409||sr.round_ended){
+    await loadHallOfFame();
+    renderRoundScreen();
+    showScreen('round');
+    return;
+  }else if(r.error&&r._status&&r._status!==401){
     setMsg('create-err',r.error,'err');
   }
-  if(!r.player){
+  if(!G.player){
     showScreen('create');
     return;
   }
-  G.player=r.player;G.extra=r;G._fetchedAt=Date.now();
   await loadAll();
   applyCondition();
   startTimers();
@@ -724,7 +792,7 @@ async function loadAll(){
   G.errors.prices=apiError(dr,'Kunde inte ladda drogmarknaden.');
   G.errors.npcs=apiError(nr,'Kunde inte ladda rivals.');
   if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
-  if(sr&&sr.round) G.status=sr;
+  if(sr&&!sr.error) G.status=sr;
   if(dr&&dr.prices) G.prices=dr.prices;
   if(nr&&nr.npcs) G.npcs=nr.npcs;
 }
@@ -734,8 +802,16 @@ async function softReload(){
   G.errors.player=apiError(pr,'Kunde inte uppdatera karaktären.');
   G.errors.status=apiError(sr,'Kunde inte uppdatera ranking.');
   G.errors.prices=apiError(dr,'Kunde inte uppdatera drogmarknaden.');
+  if(pr._status===409||sr.round_ended){
+    G.player=null;
+    G.extra={};
+    if(sr&&!sr.error) G.status=sr;
+    await loadHallOfFame();
+    applyCondition();
+    return;
+  }
   if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
-  if(sr&&sr.round) G.status=sr;
+  if(sr&&!sr.error) G.status=sr;
   if(dr&&dr.prices) G.prices=dr.prices;
   applyCondition();
   renderTopbar();renderSidebar();
@@ -754,7 +830,27 @@ async function refreshPrices(){
   if(G.section==='droger') renderDroger();
 }
 
+async function loadHallOfFame(){
+  const hof=await api('hall-of-fame');
+  if(hof&&!hof.error&&hof.hall_of_fame) G.hallOfFame=hof.hall_of_fame;
+  return hof;
+}
+
+async function syncAdminStatus(){
+  const res=await api('admin-status');
+  G.admin={
+    authenticated: !!res.authenticated,
+    expiresAt: res.expires_at||null
+  };
+  return G.admin.authenticated;
+}
+
 function applyCondition(){
+  if(G.status&&G.status.round_ended){
+    renderRoundScreen();
+    showScreen('round');
+    return;
+  }
   const p=G.player;if(!p) return;
   if(!p.in_prison&&G._prisonTick){clearInterval(G._prisonTick);G._prisonTick=null;}
   if(!p.in_hospital&&G._hospitalTick){clearInterval(G._hospitalTick);G._hospitalTick=null;}
@@ -764,12 +860,88 @@ function applyCondition(){
 }
 
 function showScreen(name){
-  ['boot','create','prison','hospital','game'].forEach(s=>{
+  if(name!=='game') clearPropertyTicks();
+  ['boot','round','create','prison','hospital','game'].forEach(s=>{
     const el=document.getElementById('screen-'+s);
     if(el) el.style.display=s===name?(s==='game'?'flex':'flex'):'none';
   });
   const mn=document.getElementById('mob-nav');
   if(mn) mn.style.display=name==='game'?'flex':'none';
+}
+
+function bindShellControls(){
+  const loginBtn=document.getElementById('boot-login-btn');
+  if(loginBtn) loginBtn.addEventListener('click',()=>{location.href=AUTH_REDIRECT;});
+  const refreshBtn=document.getElementById('boot-refresh-btn');
+  if(refreshBtn) refreshBtn.addEventListener('click',async()=>{
+    if(await ensureSiteAuth()) location.reload();
+  });
+  const roundRefresh=document.getElementById('round-refresh-btn');
+  if(roundRefresh) roundRefresh.addEventListener('click',async()=>{
+    setMsg('round-msg','Uppdaterar hall of fame...','info');
+    await loadHallOfFame();
+    renderRoundScreen();
+    setMsg('round-msg','Hall of fame uppdaterad.','ok');
+  });
+  const roundNext=document.getElementById('round-next-btn');
+  if(roundNext) roundNext.addEventListener('click',startNextRound);
+  const lvlClose=document.getElementById('lvlup-close');
+  if(lvlClose) lvlClose.addEventListener('click',()=>document.getElementById('lvlup-overlay').classList.remove('show'));
+}
+
+function latestHallRound(){
+  if(!G.hallOfFame) return null;
+  const keys=Object.keys(G.hallOfFame).map(Number).filter(Number.isFinite).sort((a,b)=>b-a);
+  if(!keys.length) return null;
+  return { number: keys[0], entries: G.hallOfFame[String(keys[0])]||G.hallOfFame[keys[0]]||[] };
+}
+
+function renderRoundScreen(){
+  const list=document.getElementById('round-list');
+  const copy=document.getElementById('round-copy');
+  const latest=latestHallRound();
+  if(copy){
+    if(latest){
+      copy.textContent=`Runda ${latest.number} är över. Här är de tyngsta namnen från den senaste körningen.`;
+    }else{
+      copy.textContent='Ingen aktiv runda just nu. Starta nästa runda när du vill spela igen.';
+    }
+  }
+  if(!list) return;
+  if(!latest||!latest.entries.length){
+    list.innerHTML='<div class="round-entry"><strong>Ingen hall of fame ännu.</strong><span>När första rundan avslutas visas topplistan här.</span></div>';
+    return;
+  }
+  list.innerHTML=latest.entries.slice(0,10).map(entry=>{
+    const side=entry.side==='westside'?'Westside':'Eastside';
+    const profession=professionName(entry.profession)||'Inget yrke';
+    return `<div class="round-entry">
+      <strong>#${entry.rank} ${esc(entry.player_name)}</strong>
+      <span>${fmtCash(entry.final_respect)} respect · Lv${entry.final_level||1} · ${profession} · ${side}</span>
+    </div>`;
+  }).join('');
+}
+
+async function startNextRound(){
+  if(G.busy) return;
+  G.busy=true;
+  setMsg('round-msg','Startar nästa runda...','info');
+  const res=await post('new-round',{});
+  G.busy=false;
+  if(res.error){
+    setMsg('round-msg',res.error,'err');
+    return;
+  }
+  G.status=null;
+  G.player=null;
+  G.extra={};
+  G.hallOfFame=null;
+  G.selectedSide='eastside';
+  const nameInput=document.getElementById('inp-name');
+  if(nameInput) nameInput.value='';
+  selectSide('eastside');
+  setMsg('create-err',res.message||'Ny runda startad. Skapa din karaktär.','info');
+  showScreen('create');
 }
 
 function calcEnergy(){
@@ -806,6 +978,11 @@ function tickEnergy(){
 }
 
 function renderAll(){renderTopbar();renderSidebar();renderSection(G.section);}
+
+function clearPropertyTicks(){
+  Object.values(G._propTicks).forEach(t=>clearInterval(t));
+  G._propTicks={};
+}
 
 function renderTopbar(){
   const p=G.player;if(!p) return;
@@ -849,6 +1026,7 @@ function sectionDependencyError(s){
 function navTo(s){G.section=s;renderSection(s);}
 
 function renderSection(s){
+  if(s!=='fastigheter') clearPropertyTicks();
   document.querySelectorAll('.g-sec').forEach(el=>el.style.display='none');
   const el=document.getElementById('s-'+s);
   document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
@@ -872,6 +1050,23 @@ function renderSection(s){
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-s]');
   if(b&&(b.classList.contains('nv')||b.classList.contains('mb'))) navTo(b.dataset.s);
+});
+
+document.addEventListener('click',e=>{
+  const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-buy-vehicle]');
+  if(!target) return;
+  if(target.dataset.prison) return void doPrison(target.dataset.prison);
+  if(target.dataset.hospital) return void doHospital(target.dataset.hospital);
+  if(target.dataset.bank) return void doBank(target.dataset.bank);
+  if(target.dataset.collect==='all') return void doCollect();
+  if(target.dataset.collectOne) return void doCollectOne(target.dataset.collectOne);
+  if(target.dataset.race) return void doRace(Number(target.dataset.race));
+  if(target.dataset.robbery) return void doRobbery(target.dataset.robbery);
+  if(target.dataset.assault) return void doAssault(target.dataset.assault);
+  if(target.dataset.train) return void doTrain(target.dataset.train);
+  if(target.dataset.profession) return void doChooseProfession(target.dataset.profession);
+  if(target.dataset.buyProp) return void doBuyProp(target.dataset.buyProp);
+  if(target.dataset.buyVehicle) return void doBuyVehicle(target.dataset.buyVehicle);
 });
 
 /* ─── Gatan ─────────────────────────────────────────────────────────────── */
@@ -914,8 +1109,8 @@ function renderBrott(){
   grid.innerHTML=ROBS.map(r=>{
     const locked=p&&p.level<r.lvl;
     const stars='&#9733;'.repeat(r.stars)+'&#9734;'.repeat(5-r.stars);
-    const onclk=locked?'':' onclick="doRobbery(\''+r.id+'\')"';
-    return `<div class="rob-card${locked?' locked':''}" id="rc-${r.id}"${onclk}>
+    const action=locked?'':` data-robbery="${r.id}"`;
+    return `<div class="rob-card${locked?' locked':''}" id="rc-${r.id}"${action}>
       <div class="rob-name">${r.name}</div>
       <div class="rob-stars">${stars}</div>
       <div class="rob-info">&#x26A1; ${r.energy} energi</div>
@@ -1047,7 +1242,7 @@ function renderStrid(){
   tbody.innerHTML=G.npcs.map(n=>{
     const loot=Math.round(n.cash*0.3);
     const sideIcon=n.side==='westside'?'&#x1F534;':'&#x1F535;';
-    return `<tr><td>${esc(n.name)}</td><td>Lv${n.level}</td><td>${n.strength}</td><td>${sideIcon}</td><td>${fmtCash(loot)} kr</td><td><button onclick="doAssault('${n.id}')" ${p&&p.level<8?'disabled':''}>ATTACKERA</button></td></tr>`;
+    return `<tr><td>${esc(n.name)}</td><td>Lv${n.level}</td><td>${n.strength}</td><td>${sideIcon}</td><td>${fmtCash(loot)} kr</td><td><button data-assault="${n.id}" ${p&&p.level<8?'disabled':''}>ATTACKERA</button></td></tr>`;
   }).join('');
 }
 
@@ -1101,7 +1296,7 @@ function renderTraning(){
         <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%;"></div></div>
         <div class="stat-bar-txt">${val}/100</div>
       </div>
-      <button onclick="doTrain('${c.stat}')" ${disabled?'disabled':''}>TRÄNA</button>
+      <button data-train="${c.stat}" ${disabled?'disabled':''}>TRÄNA</button>
     </div>`;
   }).join('');
 }
@@ -1170,7 +1365,7 @@ function renderProfession(){
       <div class="prof-name">${cfg.icon} ${cfg.name}</div>
       <div class="prof-bonus">${cfg.bonus.map(line=>`<div>${esc(line)}</div>`).join('')}</div>
       <div class="prof-note">${isCurrent?'Nuvarande specialisering':(canChoose?'Permanent val i rundan':'Inga fler byten tillåtna')}</div>
-      <button onclick="doChooseProfession('${key}')" ${disabled?'disabled':''}>${buttonLabel}</button>
+      <button data-profession="${key}" ${disabled?'disabled':''}>${buttonLabel}</button>
     </div>`;
   }).join('');
 }
@@ -1221,9 +1416,22 @@ async function doBank(action){
 
 /* ─── Dev console ─────────────────────────────────────────────────────────── */
 function bindDevConsole(){
+  const unlockInput=document.getElementById('dev-password');
+  const unlockBtn=document.getElementById('dev-unlock-btn');
+  const logoutBtn=document.getElementById('dev-logout-btn');
   const input=document.getElementById('dev-command');
   const runBtn=document.getElementById('dev-run-btn');
   const quick=document.getElementById('dev-quick');
+  if(unlockInput){
+    unlockInput.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        unlockAdmin();
+      }
+    });
+  }
+  if(unlockBtn) unlockBtn.addEventListener('click',unlockAdmin);
+  if(logoutBtn) logoutBtn.addEventListener('click',lockAdmin);
   if(input){
     input.addEventListener('keydown',e=>{
       if(e.key==='Enter'){
@@ -1246,24 +1454,79 @@ function bindDevConsole(){
 
 function renderDev(){
   const p=G.player;
+  const lock=document.getElementById('dev-lock');
+  const shell=document.getElementById('dev-shell');
+  const logoutBtn=document.getElementById('dev-logout-btn');
+  if(lock) lock.style.display=G.admin.authenticated?'none':'flex';
+  if(shell) shell.style.display=G.admin.authenticated?'flex':'none';
+  if(logoutBtn) logoutBtn.style.display=G.admin.authenticated?'inline-flex':'none';
   if(!p) return;
+  if(!G.admin.authenticated) return;
   const meta=document.getElementById('dev-meta');
   if(meta){
-    meta.innerHTML=`Adminstatus: <strong>${esc(p.name)}</strong> · Lv${p.level} · ${fmtCash(p.cash||0)} kr cash · ${fmtCash(p.bank||0)} kr bank · ${professionName(p.profession)||'Inget yrke'} · ${p.side==='westside'?'Westside':'Eastside'}`;
+    const expires=G.admin.expiresAt?new Date(G.admin.expiresAt):null;
+    const expiresLabel=expires&&!isNaN(expires)?expires.toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'}):'okänt';
+    meta.innerHTML=`Adminstatus: <strong>${esc(p.name)}</strong> · Lv${p.level} · ${fmtCash(p.cash||0)} kr cash · ${fmtCash(p.bank||0)} kr bank · ${professionName(p.profession)||'Inget yrke'} · ${p.side==='westside'?'Westside':'Eastside'} · upplåst till ${expiresLabel}`;
   }
   const out=document.getElementById('dev-output');
   if(out) out.textContent=G.devHistory.join('\n\n');
 }
 
+async function unlockAdmin(){
+  const input=document.getElementById('dev-password');
+  const password=(input&&input.value||'').trim();
+  if(!password){
+    setMsg('dev-auth-msg','Ange lösenordet först.','err');
+    return;
+  }
+  if(G.busy) return;
+  G.busy=true;
+  setMsg('dev-auth-msg','Låser upp adminläget...','info');
+  const res=await post('admin-auth',{password});
+  G.busy=false;
+  if(res.error){
+    setMsg('dev-auth-msg',res.error,'err');
+    return;
+  }
+  if(input) input.value='';
+  G.admin={authenticated:true,expiresAt:res.expires_at||null};
+  setMsg('dev-auth-msg','Adminläget är upplåst.','ok');
+  setMsg('dev-msg','','');
+  renderDev();
+}
+
+async function lockAdmin(){
+  if(G.busy) return;
+  G.busy=true;
+  const res=await post('admin-logout',{});
+  G.busy=false;
+  if(res.error){
+    setMsg('dev-auth-msg',res.error,'err');
+    return;
+  }
+  G.admin={authenticated:false,expiresAt:null};
+  setMsg('dev-auth-msg','Adminläget låstes.','ok');
+  renderDev();
+}
+
 async function runDevCommand(raw){
   const command=(raw||'').trim();
   if(!command){setMsg('dev-msg','Skriv ett kommando först.','err');return;}
+  if(!G.admin.authenticated){
+    setMsg('dev-msg','Lås upp adminläget först.','err');
+    renderDev();
+    return;
+  }
   if(G.busy) return;
   G.busy=true;
   setMsg('dev-msg','Kör adminkommando...','info');
   const r=await post('admin',{command});
   G.busy=false;
   if(r.error){
+    if(r._status===403){
+      G.admin={authenticated:false,expiresAt:null};
+      setMsg('dev-auth-msg',r.error,'err');
+    }
     G.devHistory.unshift(`> ${command}\nERROR: ${r.error}`);
     G.devHistory=G.devHistory.slice(0,24);
     setMsg('dev-msg',r.error,'err');
@@ -1323,8 +1586,7 @@ function renderFastigheter(){
       list.innerHTML='<div style="color:var(--dim);font-size:12px;padding:8px 0;">Inga fastigheter ännu.</div>';
     }else{
       // Clear old prop ticks
-      Object.values(G._propTicks).forEach(t=>clearInterval(t));
-      G._propTicks={};
+      clearPropertyTicks();
       list.innerHTML=props.map(prop=>{
         const cfg=PROP_CFG[prop.property_type]||{label:prop.property_type,income:prop.income_per_hour||0};
         return `<div class="prop-row" id="pr-${prop.id}">
@@ -1333,7 +1595,7 @@ function renderFastigheter(){
             <div class="prop-detail">${prop.income_per_hour||cfg.income} kr/timme</div>
             <div class="prop-acc" id="pacc-${prop.id}">+0 kr</div>
           </div>
-          <button onclick="doCollectOne('${prop.id}')">SAMLA IN</button>
+          <button data-collect-one="${prop.id}">SAMLA IN</button>
         </div>`;
       }).join('');
       // Start ticking accumulators
@@ -1359,7 +1621,7 @@ function renderFastigheter(){
         <div class="buy-type">${cfg.label}</div>
         <div class="buy-cost">${fmtCash(cfg.cost)} kr</div>
         <div class="buy-income">${income} kr/timme${income!==cfg.income?' <span style="color:var(--amber);">(yrkesbonus)</span>':''}</div>
-        <button onclick="doBuyProp('${type}')">KÖP</button>
+        <button data-buy-prop="${type}">KÖP</button>
       </div>`;
     }).join('');
   }
@@ -1612,7 +1874,7 @@ function renderRace(){
         <div class="vehicle-name">${v.name}</div>
         <div class="vehicle-cost">${fmtCash(v.cost)} kr</div>
         <div class="vehicle-bonus">+${v.bonus}% race bonus</div>
-        <button onclick="doBuyVehicle('${v.id}')" ${owned?'disabled':''}>K\xd6P</button>
+        <button data-buy-vehicle="${v.id}" ${owned?'disabled':''}>K\xd6P</button>
       </div>`;
     }).join('');
   }
