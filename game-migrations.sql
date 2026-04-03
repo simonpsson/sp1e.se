@@ -1,6 +1,10 @@
 -- sp1e.se Mosquito — schema migrations
 -- Run AFTER game-schema.sql when upgrading an existing database.
 -- Each statement is safe to re-run ONLY if the described state is not yet present.
+-- Some early statements are intentionally one-time migrations and will fail if rerun
+-- against a database that already contains those changes.
+-- For the Blackjack rollout on an existing DB, prefer the dedicated file:
+--   npx wrangler d1 execute sp1e-db --remote --file=game-migration-blackjack.sql
 -- Check current schema first:
 --   npx wrangler d1 execute sp1e-db --remote --command="PRAGMA table_info(game_npcs);"
 
@@ -35,3 +39,24 @@ CREATE TABLE IF NOT EXISTS game_admin_audit (
 );
 
 CREATE INDEX IF NOT EXISTS idx_game_admin_audit_created ON game_admin_audit (created_at DESC);
+
+-- ─── Migration 4: Add blackjack hand persistence ───────────────────────────
+CREATE TABLE IF NOT EXISTS game_blackjack_hands (
+  id          TEXT PRIMARY KEY,
+  player_id   TEXT NOT NULL UNIQUE,
+  round_id    TEXT NOT NULL,
+  bet         INTEGER NOT NULL,
+  deck_state  TEXT NOT NULL,
+  player_hand TEXT NOT NULL,
+  dealer_hand TEXT NOT NULL,
+  state       TEXT NOT NULL DEFAULT 'player_turn',
+  result      TEXT,
+  message     TEXT,
+  doubled     INTEGER DEFAULT 0,
+  created_at  TEXT DEFAULT (datetime('now')),
+  updated_at  TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (player_id) REFERENCES game_players(id),
+  FOREIGN KEY (round_id) REFERENCES game_rounds(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_blackjack_round ON game_blackjack_hands (round_id);

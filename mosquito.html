@@ -204,6 +204,40 @@ select:focus{border-color:var(--red);}
 .bank-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
 .bank-row label{font-size:11px;color:var(--dim);width:70px;flex-shrink:0;}
 .bank-row input{max-width:180px;}
+.casino-shell{display:flex;flex-direction:column;gap:16px;}
+.casino-top{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;}
+.casino-stat{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:4px;}
+.casino-stat span{font-size:10px;color:var(--dim);letter-spacing:1px;}
+.casino-stat strong{font-size:15px;color:var(--white);}
+.casino-table{background:linear-gradient(180deg,#13181d,#0f1317);border:1px solid var(--border);border-radius:10px;padding:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);}
+.casino-decknote{font-size:10px;color:var(--dim);letter-spacing:1px;}
+.casino-bet{display:flex;flex-direction:column;gap:12px;}
+.casino-bet-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.casino-bet-row label{font-size:11px;color:var(--dim);width:84px;flex-shrink:0;}
+.casino-bet-row input{max-width:160px;}
+.casino-chipbar{display:flex;gap:8px;flex-wrap:wrap;}
+.casino-chip{border-radius:999px;padding:7px 12px;background:#17131b;}
+.casino-chip.active{border-color:var(--amber);color:var(--white);background:#221811;}
+.bj-hand{display:flex;flex-direction:column;gap:10px;}
+.bj-head{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;}
+.bj-name{font-size:11px;color:var(--dim);letter-spacing:1px;}
+.bj-total{font-size:13px;color:var(--white);}
+.bj-cards{display:flex;gap:10px;flex-wrap:wrap;}
+.bj-card{width:72px;min-height:102px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;padding:10px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 24px rgba(0,0,0,.25);}
+.bj-card.red{color:#b32025;}
+.bj-card.hidden{background:linear-gradient(180deg,#17151e,#0f0c12);color:var(--dim);border-color:#3a2c39;}
+.bj-rank{font-size:17px;font-weight:500;line-height:1;}
+.bj-suit{font-size:15px;align-self:flex-end;}
+.bj-actions{display:flex;gap:10px;flex-wrap:wrap;}
+.bj-banner{min-height:42px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.bj-banner strong{font-size:13px;color:var(--white);}
+.bj-banner span{font-size:11px;color:var(--dim);}
+.bj-banner.win{border-color:rgba(74,242,74,.35);}
+.bj-banner.lose{border-color:rgba(242,74,74,.35);}
+.bj-banner.push{border-color:rgba(242,165,74,.35);}
+.bj-empty{font-size:12px;color:var(--dim);line-height:1.7;max-width:560px;}
+.bj-meta{font-size:11px;color:var(--dim);}
+.bj-divider{height:1px;background:var(--border);margin:6px 0;}
 .prof-status{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--dim);}
 .prof-status strong{color:var(--white);}
 .prof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;}
@@ -234,6 +268,7 @@ select:focus{border-color:var(--red);}
   #mob-nav{display:flex;}
   #main-area{padding:12px;padding-bottom:70px;}
   button{min-height:44px;}
+  .bj-card{width:64px;min-height:94px;}
 }
 
 /* ─── Animations ──────────────────────────────────────────────────────────── */
@@ -443,6 +478,7 @@ select:focus{border-color:var(--red);}
         <button class="nav-btn nv" data-s="traning">&#x1F3CB; Tr&auml;ning</button>
         <button class="nav-btn nv" data-s="profession">&#x2699; Yrke</button>
         <button class="nav-btn nv" data-s="bank">&#x1F4B0; Bank</button>
+        <button class="nav-btn nv" data-s="casino">&#x1F0CF; Casino</button>
         <button class="nav-btn nv" data-s="dev">&#x1F6E0; Dev</button>
         <button class="nav-btn nv" data-s="fastigheter">&#x1F3E0; Fastigheter</button>
         <button class="nav-btn nv" data-s="race">&#x1F3CE; Streetrace</button>
@@ -559,6 +595,63 @@ select:focus{border-color:var(--red);}
         <div id="bank-msg" class="amsg"></div>
       </div>
 
+      <!-- Casino -->
+      <div id="s-casino" class="g-sec">
+        <div class="sec-title">CASINO</div>
+        <div class="sec-sub">Bakom sammetsdraperiet st&aring;r blackjackbordet upplyst. Snabbt, kallt och alltid lite farligt.</div>
+        <div class="casino-shell">
+          <div class="casino-top">
+            <div class="casino-stat"><span>KASSA</span><strong id="casino-cash">0 kr</strong></div>
+            <div class="casino-stat"><span>INSATS</span><strong id="casino-bet-display">500 kr</strong></div>
+            <div class="casino-stat"><span>REGLER</span><strong>Blackjack 3:2</strong></div>
+          </div>
+          <div class="casino-table">
+            <div class="casino-bet">
+              <div class="casino-bet-row">
+                <label for="casino-bet-input">INSATS</label>
+                <input id="casino-bet-input" type="number" min="100" step="100" value="500">
+                <button class="primary" data-casino="start">DELA KORT</button>
+              </div>
+              <div id="casino-chipbar" class="casino-chipbar">
+                <button type="button" class="casino-chip" data-casino-bet="100">100 kr</button>
+                <button type="button" class="casino-chip" data-casino-bet="250">250 kr</button>
+                <button type="button" class="casino-chip" data-casino-bet="500">500 kr</button>
+                <button type="button" class="casino-chip" data-casino-bet="1000">1 000 kr</button>
+                <button type="button" class="casino-chip" data-casino-bet="2500">2 500 kr</button>
+                <button type="button" class="casino-chip" data-casino-bet="5000">5 000 kr</button>
+              </div>
+              <div class="casino-decknote">Min 100 kr. Max 5 000 kr. Ingen split eller insurance i den h&auml;r versionen.</div>
+            </div>
+            <div id="casino-banner" class="bj-banner"><strong>Bordet är öppet.</strong><span>Välj insats och spela en hand.</span></div>
+            <div class="bj-divider"></div>
+            <div class="bj-hand">
+              <div class="bj-head">
+                <div class="bj-name">DEALER</div>
+                <div id="casino-dealer-total" class="bj-total">Totalt: —</div>
+              </div>
+              <div id="casino-dealer-cards" class="bj-cards"></div>
+            </div>
+            <div class="bj-divider"></div>
+            <div class="bj-hand">
+              <div class="bj-head">
+                <div class="bj-name">DU</div>
+                <div id="casino-player-total" class="bj-total">Totalt: —</div>
+              </div>
+              <div id="casino-player-cards" class="bj-cards"></div>
+            </div>
+            <div class="bj-divider"></div>
+            <div class="bj-actions">
+              <button data-casino="hit">KORT</button>
+              <button data-casino="stand">STANNA</button>
+              <button data-casino="double">DUBBLA</button>
+              <button data-casino="reset">SPELA IGEN</button>
+            </div>
+            <div id="casino-empty" class="bj-empty">Ingen hand pågår. Sätt en modest insats, spela snyggt och låt huset blinka först när du redan lämnat lokalen.</div>
+          </div>
+        </div>
+        <div id="casino-msg" class="amsg"></div>
+      </div>
+
       <!-- Dev -->
       <div id="s-dev" class="g-sec">
         <div class="sec-title">DEV CONSOLE <span class="dev-tag">ADMIN</span></div>
@@ -671,6 +764,7 @@ select:focus{border-color:var(--red);}
     <button class="mb" data-s="traning"><span class="mb-icon">&#x1F3CB;</span>Tr&auml;na</button>
     <button class="mb" data-s="profession"><span class="mb-icon">&#x2699;</span>Yrke</button>
     <button class="mb" data-s="bank"><span class="mb-icon">&#x1F4B0;</span>Bank</button>
+    <button class="mb" data-s="casino"><span class="mb-icon">&#x1F0CF;</span>Casino</button>
     <button class="mb" data-s="dev"><span class="mb-icon">&#x1F6E0;</span>Dev</button>
     <button class="mb" data-s="fastigheter"><span class="mb-icon">&#x1F3E0;</span>Fast.</button>
     <button class="mb" data-s="race"><span class="mb-icon">&#x1F3CE;</span>Race</button>
@@ -691,11 +785,12 @@ select:focus{border-color:var(--red);}
 const G={
   player:null,extra:{},status:null,prices:{},npcs:[],
   section:'gatan',busy:false,selectedSide:'eastside',
-  drugSel:'marijuana',drugQty:1,
-  errors:{player:null,status:null,prices:null,npcs:null},
+  drugSel:'marijuana',drugQty:1,casinoBet:500,
+  errors:{player:null,status:null,prices:null,npcs:null,casino:null},
   _fetchedAt:0,_nrgTick:null,_prisonTick:null,_hospitalTick:null,_pollTimer:null,_pricePoll:null,
   _propTicks:{},log:[],
   vehicles:[],
+  casino:{loaded:false,loading:false,state:null},
   devHistory:['> help'],
   siteAuthenticated:false,
   hallOfFame:null,
@@ -816,6 +911,7 @@ async function softReload(){
   applyCondition();
   renderTopbar();renderSidebar();
   if(G.section==='droger') renderDroger();
+  if(G.section==='casino') renderCasino();
   if(G.section==='ranking') renderRanking();
   if(G.section==='profession') renderProfession();
   if(G.section==='bank') renderBank();
@@ -935,6 +1031,7 @@ async function startNextRound(){
   G.status=null;
   G.player=null;
   G.extra={};
+  G.casino={loaded:false,loading:false,state:null};
   G.hallOfFame=null;
   G.selectedSide='eastside';
   const nameInput=document.getElementById('inp-name');
@@ -1017,6 +1114,7 @@ function setSectionError(msg=''){
 
 function sectionDependencyError(s){
   if(['gatan','brott','traning','profession','bank','dev','fastigheter','race'].includes(s)) return G.errors.player||'';
+  if(s==='casino') return G.errors.casino||G.errors.player||'';
   if(s==='droger') return G.errors.prices||G.errors.player||'';
   if(s==='strid') return G.errors.npcs||G.errors.player||'';
   if(s==='ranking') return G.errors.status||G.errors.npcs||'';
@@ -1030,7 +1128,7 @@ function renderSection(s){
   document.querySelectorAll('.g-sec').forEach(el=>el.style.display='none');
   const el=document.getElementById('s-'+s);
   document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
-  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,profession:renderProfession,bank:renderBank,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking};
+  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,profession:renderProfession,bank:renderBank,casino:renderCasino,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking};
   setSectionError('');
   if(!el){
     setSectionError('Sektionen kunde inte hittas.');
@@ -1053,11 +1151,18 @@ document.addEventListener('click',e=>{
 });
 
 document.addEventListener('click',e=>{
-  const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-buy-vehicle]');
+  const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-casino],[data-casino-bet],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-buy-vehicle]');
   if(!target) return;
   if(target.dataset.prison) return void doPrison(target.dataset.prison);
   if(target.dataset.hospital) return void doHospital(target.dataset.hospital);
   if(target.dataset.bank) return void doBank(target.dataset.bank);
+  if(target.dataset.casinoBet) return void setCasinoBet(Number(target.dataset.casinoBet));
+  if(target.dataset.casino){
+    if(target.dataset.casino==='start' || target.dataset.casino==='reset') return void doBlackjackStart();
+    if(target.dataset.casino==='hit') return void doBlackjackAction('hit');
+    if(target.dataset.casino==='stand') return void doBlackjackAction('stand');
+    if(target.dataset.casino==='double') return void doBlackjackAction('double');
+  }
   if(target.dataset.collect==='all') return void doCollect();
   if(target.dataset.collectOne) return void doCollectOne(target.dataset.collectOne);
   if(target.dataset.race) return void doRace(Number(target.dataset.race));
@@ -1415,6 +1520,167 @@ async function doBank(action){
 }
 
 /* ─── Dev console ─────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Casino / Blackjack â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function setCasinoBet(value){
+  const next=Math.max(100,Math.min(5000,Math.floor(Number(value)||0)));
+  G.casinoBet=next||500;
+  const input=document.getElementById('casino-bet-input');
+  if(input) input.value=String(G.casinoBet);
+  set('casino-bet-display',fmtCash(G.casinoBet)+' kr');
+  document.querySelectorAll('[data-casino-bet]').forEach(btn=>{
+    btn.classList.toggle('active',Number(btn.dataset.casinoBet)===G.casinoBet);
+  });
+}
+
+async function loadCasinoState(force=false){
+  if(G.casino.loading||(!force&&G.casino.loaded)) return;
+  G.casino.loading=true;
+  const res=await api('casino/blackjack/state');
+  G.casino.loading=false;
+  G.casino.loaded=true;
+  G.errors.casino=apiError(res,'Kunde inte ladda blackjackbordet.');
+  if(!res.error){
+    G.casino.state=res;
+    if(res.hand&&res.hand.bet) G.casinoBet=res.hand.bet;
+  }else if(force){
+    G.casino.state=null;
+  }
+  renderCasino();
+}
+
+function renderBlackjackCards(id,cards){
+  const el=document.getElementById(id);
+  if(!el) return;
+  if(!cards||!cards.length){
+    el.innerHTML='<div class="bj-empty">Inga kort p&aring; bordet &auml;n.</div>';
+    return;
+  }
+  el.innerHTML=cards.map(card=>`<div class="bj-card${card.hidden?' hidden':''}${card.color==='red'?' red':''}">
+      <div class="bj-rank">${card.hidden?'?':esc(card.rank||'')}</div>
+      <div class="bj-suit">${card.hidden?'✦':esc(card.suit||'')}</div>
+    </div>`).join('');
+}
+
+function blackjackBannerClass(result){
+  if(result==='blackjack'||result==='win') return 'bj-banner win';
+  if(result==='push') return 'bj-banner push';
+  if(result==='lose'||result==='bust'||result==='dealer_blackjack') return 'bj-banner lose';
+  return 'bj-banner';
+}
+
+function renderCasino(){
+  const p=G.player;
+  if(!p) return;
+  set('casino-cash',fmtCash(p.cash||0)+' kr');
+  setCasinoBet(G.casinoBet);
+  const input=document.getElementById('casino-bet-input');
+  if(input) input.oninput=()=>setCasinoBet(input.value);
+
+  if(!G.casino.loaded&&!G.casino.loading){
+    const banner=document.getElementById('casino-banner');
+    if(banner){
+      banner.className='bj-banner';
+      banner.innerHTML='<strong>Bordet värms upp.</strong><span>Laddar kortleken från huset...</span>';
+    }
+    set('casino-player-total','Totalt: —');
+    set('casino-dealer-total','Totalt: —');
+    renderBlackjackCards('casino-player-cards',[]);
+    renderBlackjackCards('casino-dealer-cards',[]);
+    loadCasinoState();
+    return;
+  }
+
+  const state=G.casino.state;
+  const hand=state&&state.hand?state.hand:null;
+  const banner=document.getElementById('casino-banner');
+  const empty=document.getElementById('casino-empty');
+  const startBtn=document.querySelector('[data-casino="start"]');
+  const hitBtn=document.querySelector('[data-casino="hit"]');
+  const standBtn=document.querySelector('[data-casino="stand"]');
+  const doubleBtn=document.querySelector('[data-casino="double"]');
+  const resetBtn=document.querySelector('[data-casino="reset"]');
+
+  if(startBtn) startBtn.disabled=!!(hand&&!hand.finished)||G.busy;
+  if(hitBtn) hitBtn.disabled=!hand||hand.finished||!hand.can_hit||G.busy;
+  if(standBtn) standBtn.disabled=!hand||hand.finished||!hand.can_stand||G.busy;
+  if(doubleBtn) doubleBtn.disabled=!hand||hand.finished||!hand.can_double||G.busy;
+  if(resetBtn) resetBtn.disabled=!!(hand&&!hand.finished)||G.busy;
+
+  if(!hand){
+    if(empty) empty.style.display='block';
+    set('casino-player-total','Totalt: —');
+    set('casino-dealer-total','Totalt: —');
+    renderBlackjackCards('casino-player-cards',[]);
+    renderBlackjackCards('casino-dealer-cards',[]);
+    if(banner){
+      banner.className='bj-banner';
+      banner.innerHTML='<strong>Bordet är öppet.</strong><span>Välj insats och spela en hand.</span>';
+    }
+    setMsg('casino-msg',G.errors.casino||'',G.errors.casino?'err':'');
+    return;
+  }
+
+  if(empty) empty.style.display='none';
+  renderBlackjackCards('casino-player-cards',hand.player_cards||[]);
+  renderBlackjackCards('casino-dealer-cards',hand.dealer_cards||[]);
+  set('casino-player-total',`Totalt: ${hand.player_total||0}`);
+  const dealerLabel=hand.dealer_total===null
+    ? `Totalt: ${hand.dealer_visible_total||0} + ?`
+    : `Totalt: ${hand.dealer_total||0}`;
+  set('casino-dealer-total',dealerLabel);
+  if(banner){
+    banner.className=blackjackBannerClass(hand.result);
+    banner.innerHTML=`<strong>${esc(hand.message||'Hand pågår.')}</strong><span>Insats: ${fmtCash(hand.bet||0)} kr${hand.doubled?' · Double aktiv':''}</span>`;
+  }
+  setMsg('casino-msg',G.errors.casino||'',G.errors.casino?'err':'');
+}
+
+async function syncCasinoAfterAction(res){
+  if(res.hand&&res.hand.bet) G.casinoBet=res.hand.bet;
+  if(res.hand||res.idle!==undefined){
+    G.casino.loaded=true;
+    G.casino.state=res;
+  }
+  G.errors.casino=res.error||'';
+  if(res.error){
+    setMsg('casino-msg',res.error,'err');
+    renderCasino();
+    return false;
+  }
+  const pr=await api('player');
+  G.errors.player=apiError(pr,'Kunde inte uppdatera karaktären.');
+  if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+  renderTopbar();renderSidebar();renderCasino();
+  if(res.hand&&res.hand.finished&&res.hand.message){
+    const isBad=['lose','bust','dealer_blackjack'].includes(res.hand.result||'');
+    addLog(res.hand.message,isBad?'err':'ok');
+  }
+  setMsg('casino-msg',res.hand&&res.hand.message?res.hand.message:'Bordet uppdaterat.','ok');
+  return true;
+}
+
+async function doBlackjackStart(){
+  if(G.busy) return;
+  const input=document.getElementById('casino-bet-input');
+  const bet=Math.max(100,Math.min(5000,Math.floor(+(input&&input.value)||0)));
+  if(!bet){setMsg('casino-msg','Ange en giltig insats.','err');return;}
+  setCasinoBet(bet);
+  G.busy=true;
+  setMsg('casino-msg','Dealern blandar korten...','info');
+  const res=await post('action/blackjack/start',{bet});
+  G.busy=false;
+  await syncCasinoAfterAction(res);
+}
+
+async function doBlackjackAction(action){
+  if(G.busy) return;
+  G.busy=true;
+  setMsg('casino-msg',action==='hit'?'Du ber om ett kort...':action==='stand'?'Dealern spelar ut handen...':'Dubblar ner...','info');
+  const res=await post(`action/blackjack/${action}`,{});
+  G.busy=false;
+  await syncCasinoAfterAction(res);
+}
+
 function bindDevConsole(){
   const unlockInput=document.getElementById('dev-password');
   const unlockBtn=document.getElementById('dev-unlock-btn');
@@ -1815,6 +2081,7 @@ async function doCreate(){
   else{
     setMsg('create-err','','');
     G.player=r.player;G.extra={player:r.player};G._fetchedAt=Date.now();
+    G.casino={loaded:false,loading:false,state:null};
     await loadAll();
     applyCondition();
     startTimers();

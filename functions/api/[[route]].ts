@@ -70,7 +70,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
 
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: cors() });
 
-  const [resource = '', id = '', sub = ''] = route.split('/');
+  const [resource = '', id = '', sub = '', action = ''] = route.split('/');
 
   try {
     // ── Unprotected ──────────────────────────────────────────────────────────
@@ -169,11 +169,20 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'simulate'         && method === 'GET')  return gameSimulate(env);
       if (id === 'hall-of-fame'     && method === 'GET')  return gameHallOfFame(env);
       if (id === 'new-round'        && method === 'POST') return gameNewRound(request, env);
+      if (id === 'casino' && sub === 'blackjack' && action === 'state' && method === 'GET') {
+        return gameGetBlackjackState(request, env);
+      }
       if (id === 'admin-auth'       && method === 'POST') return gameAdminAuth(request, env);
       if (id === 'admin-status'     && method === 'GET')  return gameAdminStatus(request, env);
       if (id === 'admin-logout'     && method === 'POST') return gameAdminLogout(request, env);
       if (id === 'admin'            && method === 'POST') return gameAdminCommand(request, env);
       if (id === 'action') {
+        if (sub === 'blackjack') {
+          if (action === 'start'  && method === 'POST') return gameActionBlackjackStart(request, env);
+          if (action === 'hit'    && method === 'POST') return gameActionBlackjackHit(request, env);
+          if (action === 'stand'  && method === 'POST') return gameActionBlackjackStand(request, env);
+          if (action === 'double' && method === 'POST') return gameActionBlackjackDouble(request, env);
+        }
         if (sub === 'robbery'          && method === 'POST') return gameActionRobbery(request, env);
         if (sub === 'train'            && method === 'POST') return gameActionTrain(request, env);
         if (sub === 'drug-deal'        && method === 'POST') return gameActionDrugDeal(request, env);
@@ -1926,6 +1935,185 @@ function gameGetDrugPrices(): Response {
   return gameJson({ prices });
 }
 
+async function gameGetBlackjackState(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    const hand = await getBlackjackHandForPlayer(env, player);
+    return gameJson(buildBlackjackState(hand, player));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+function settleBlackjack(hand: BlackjackRuntimeHand): Exclude<BlackjackOutcome, null> {
+  const playerStats = blackjackTotals(hand.playerCards);
+  const dealerStats = blackjackTotals(hand.dealerCards);
+  if (playerStats.busted) return 'bust';
+  if (dealerStats.busted) return 'win';
+  if (playerStats.total > dealerStats.total) return 'win';
+  if (playerStats.total < dealerStats.total) return 'lose';
+  return 'push';
+}
+
+async function requireActiveBlackjackHand(env: Env, player: Row): Promise<BlackjackRuntimeHand> {
+  const hand = await getBlackjackHandForPlayer(env, player);
+  if (!hand) throw new GameError('Ingen blackjack-hand pågår.', 400);
+  if (hand.state !== 'player_turn') throw new GameError('Den här handen är redan avgjord. Starta en ny.', 409);
+  return hand;
+}
+
+async function gameActionBlackjackStart(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    if (player.in_prison) return gameJson({ error: 'Kasinoet släpper inte in folk från kåken.' }, 400);
+    if (player.in_hospital) return gameJson({ error: 'Du är fortfarande på sjukhuset.' }, 400);
+
+    const body = await request.json<{ bet?: number }>().catch(() => ({} as { bet?: number }));
+    const bet = Math.floor(Number(body.bet ?? 0));
+    if (bet < BLACKJACK_MIN_BET) {
+      return gameJson({ error: `Minsta insats är ${BLACKJACK_MIN_BET} kr.` }, 400);
+    }
+    if (bet > BLACKJACK_MAX_BET) {
+      return gameJson({ error: `Maxinsats är ${BLACKJACK_MAX_BET} kr per hand.` }, 400);
+    }
+
+    const cash = Number(player.cash ?? 0);
+    if (cash < bet) return gameJson({ error: `Du har bara ${fmtCurrency(cash)} kr i fickan.` }, 400);
+
+    const existing = await getBlackjackHandForPlayer(env, player);
+    if (existing && existing.state !== 'finished') {
+      return gameJson({ error: 'En hand pågår redan.', ...buildBlackjackState(existing, player) }, 409);
+    }
+
+    try {
+      await env.DB.prepare(`DELETE FROM game_blackjack_hands WHERE player_id = ?`).bind(player.id as string).run();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('no such table')) {
+        return gameJson({ error: 'Blackjack-tabellen saknas. Kör game-schema.sql och game-migrations.sql.' }, 500);
+      }
+      throw e;
+    }
+    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(bet, player.id as string).run();
+
+    const deck = shuffleBlackjackDeck(buildBlackjackDeck());
+    const hand: BlackjackRuntimeHand = {
+      id: crypto.randomUUID(),
+      playerId: String(player.id),
+      roundId: String(player.round_id),
+      bet,
+      deck,
+      playerCards: [drawBlackjackCard(deck), drawBlackjackCard(deck)],
+      dealerCards: [drawBlackjackCard(deck), drawBlackjackCard(deck)],
+      state: 'player_turn',
+      result: null,
+      message: 'Kort utdelade. Din tur.',
+      doubled: false,
+    };
+
+    await saveBlackjackHand(env, hand);
+
+    const playerStats = blackjackTotals(hand.playerCards);
+    const dealerStats = blackjackTotals(hand.dealerCards);
+    if (playerStats.blackjack || dealerStats.blackjack) {
+      let outcome: Exclude<BlackjackOutcome, null>;
+      if (playerStats.blackjack && dealerStats.blackjack) outcome = 'push';
+      else if (playerStats.blackjack) outcome = 'blackjack';
+      else outcome = 'dealer_blackjack';
+      return finalizeBlackjackHand(env, player, hand, outcome);
+    }
+
+    const freshPlayer = await loadGamePlayerById(env, player.id as string);
+    return gameJson(buildBlackjackState(hand, freshPlayer));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+async function gameActionBlackjackHit(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    let hand: BlackjackRuntimeHand;
+    try { hand = await requireActiveBlackjackHand(env, player); }
+    catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 400); }
+
+    hand.playerCards.push(drawBlackjackCard(hand.deck));
+    const playerStats = blackjackTotals(hand.playerCards);
+    if (playerStats.busted) {
+      return finalizeBlackjackHand(env, player, hand, 'bust');
+    }
+
+    hand.message = 'Du tog ett kort. Din tur fortsätter.';
+    await saveBlackjackHand(env, hand);
+    const freshPlayer = await loadGamePlayerById(env, player.id as string);
+    return gameJson(buildBlackjackState(hand, freshPlayer));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+async function gameActionBlackjackStand(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    let hand: BlackjackRuntimeHand;
+    try { hand = await requireActiveBlackjackHand(env, player); }
+    catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 400); }
+
+    finishDealerHand(hand);
+    return finalizeBlackjackHand(env, player, hand, settleBlackjack(hand));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    let hand: BlackjackRuntimeHand;
+    try { hand = await requireActiveBlackjackHand(env, player); }
+    catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 400); }
+
+    if (hand.doubled || hand.playerCards.length !== 2) {
+      return gameJson({ error: 'Du kan bara dubbla direkt efter given.' }, 400);
+    }
+    if (Number(player.cash ?? 0) < hand.bet) {
+      return gameJson({ error: 'Du har inte råd att dubbla den här handen.' }, 400);
+    }
+
+    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(hand.bet, player.id as string).run();
+
+    hand.bet *= 2;
+    hand.doubled = true;
+    hand.playerCards.push(drawBlackjackCard(hand.deck));
+    const playerStats = blackjackTotals(hand.playerCards);
+    if (playerStats.busted) {
+      return finalizeBlackjackHand(env, player, hand, 'bust');
+    }
+
+    finishDealerHand(hand);
+    return finalizeBlackjackHand(env, player, hand, settleBlackjack(hand));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
 async function gameActionRobbery(request: Request, env: Env): Promise<Response> {
   let player: Row;
   try { player = await requireGamePlayer(request, env); }
@@ -2612,6 +2800,301 @@ const VEHICLE_CONFIGS: Record<string, { name: string; cost: number; bonus: numbe
   skyline_r34:{ name: 'Nissan Skyline R34',     cost: 60000,  bonus: 70 },
   lambo:      { name: 'Lamborghini Gallardo',   cost: 200000, bonus: 90 },
 };
+
+const BLACKJACK_MIN_BET = 100;
+const BLACKJACK_MAX_BET = 5000;
+const BLACKJACK_SUITS = ['S', 'H', 'D', 'C'] as const;
+const BLACKJACK_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as const;
+
+type BlackjackPhase = 'player_turn' | 'finished';
+type BlackjackOutcome = 'blackjack' | 'win' | 'lose' | 'push' | 'bust' | 'dealer_blackjack' | null;
+
+interface BlackjackRuntimeHand {
+  id: string;
+  playerId: string;
+  roundId: string;
+  bet: number;
+  deck: string[];
+  playerCards: string[];
+  dealerCards: string[];
+  state: BlackjackPhase;
+  result: BlackjackOutcome;
+  message: string | null;
+  doubled: boolean;
+}
+
+function buildBlackjackDeck(): string[] {
+  const deck: string[] = [];
+  for (const suit of BLACKJACK_SUITS) {
+    for (const rank of BLACKJACK_RANKS) deck.push(`${rank}${suit}`);
+  }
+  return deck;
+}
+
+function shuffleBlackjackDeck(cards: string[]): string[] {
+  const deck = [...cards];
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function drawBlackjackCard(deck: string[]): string {
+  const card = deck.pop();
+  if (!card) throw new GameError('Kortleken är tom.', 500);
+  return card;
+}
+
+function blackjackRank(card: string): string {
+  return card.slice(0, -1);
+}
+
+function blackjackSuit(card: string): string {
+  return card.slice(-1);
+}
+
+function blackjackCardValue(card: string): number {
+  const rank = blackjackRank(card);
+  if (rank === 'A') return 11;
+  if (rank === 'K' || rank === 'Q' || rank === 'J') return 10;
+  return Number(rank);
+}
+
+function blackjackTotals(cards: string[]): { total: number; soft: boolean; blackjack: boolean; busted: boolean } {
+  let total = 0;
+  let aces = 0;
+  for (const card of cards) {
+    const rank = blackjackRank(card);
+    if (rank === 'A') aces += 1;
+    total += blackjackCardValue(card);
+  }
+  while (total > 21 && aces > 0) {
+    total -= 10;
+    aces -= 1;
+  }
+  return {
+    total,
+    soft: aces > 0,
+    blackjack: cards.length === 2 && total === 21,
+    busted: total > 21,
+  };
+}
+
+function parseBlackjackCards(raw: unknown, field: string): string[] {
+  if (typeof raw !== 'string' || !raw.trim()) throw new GameError(`Blackjack state missing ${field}.`, 500);
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed) || parsed.some(card => typeof card !== 'string')) {
+      throw new Error('invalid card array');
+    }
+    return parsed as string[];
+  } catch {
+    throw new GameError(`Blackjack state for ${field} is invalid.`, 500);
+  }
+}
+
+function blackjackCardView(card: string, hidden = false): Record<string, unknown> {
+  if (hidden) {
+    return { hidden: true, code: null, label: '•', rank: null, suit: null, color: 'hidden' };
+  }
+  const suit = blackjackSuit(card);
+  const symbol = suit === 'H' ? '♥' : suit === 'D' ? '♦' : suit === 'S' ? '♠' : '♣';
+  return {
+    hidden: false,
+    code: card,
+    label: `${blackjackRank(card)}${symbol}`,
+    rank: blackjackRank(card),
+    suit: symbol,
+    color: suit === 'H' || suit === 'D' ? 'red' : 'black',
+  };
+}
+
+function rowToBlackjackHand(row: Row): BlackjackRuntimeHand {
+  return {
+    id: String(row.id),
+    playerId: String(row.player_id),
+    roundId: String(row.round_id),
+    bet: Number(row.bet ?? 0),
+    deck: parseBlackjackCards(row.deck_state, 'deck_state'),
+    playerCards: parseBlackjackCards(row.player_hand, 'player_hand'),
+    dealerCards: parseBlackjackCards(row.dealer_hand, 'dealer_hand'),
+    state: String(row.state ?? 'player_turn') === 'finished' ? 'finished' : 'player_turn',
+    result: (row.result as BlackjackOutcome) ?? null,
+    message: row.message ? String(row.message) : null,
+    doubled: Number(row.doubled ?? 0) === 1,
+  };
+}
+
+async function getBlackjackHandForPlayer(env: Env, player: Row): Promise<BlackjackRuntimeHand | null> {
+  try {
+    const row = await env.DB.prepare(
+      `SELECT * FROM game_blackjack_hands WHERE player_id = ? AND round_id = ? LIMIT 1`
+    ).bind(player.id as string, player.round_id as string).first<Row>();
+    return row ? rowToBlackjackHand(row) : null;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      throw new GameError('Blackjack-tabellen saknas. Kör game-schema.sql och game-migrations.sql.', 500);
+    }
+    throw e;
+  }
+}
+
+async function saveBlackjackHand(env: Env, hand: BlackjackRuntimeHand): Promise<void> {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO game_blackjack_hands
+         (id, player_id, round_id, bet, deck_state, player_hand, dealer_hand, state, result, message, doubled, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+       ON CONFLICT(player_id) DO UPDATE SET
+         round_id = excluded.round_id,
+         bet = excluded.bet,
+         deck_state = excluded.deck_state,
+         player_hand = excluded.player_hand,
+         dealer_hand = excluded.dealer_hand,
+         state = excluded.state,
+         result = excluded.result,
+         message = excluded.message,
+         doubled = excluded.doubled,
+         updated_at = datetime('now')`
+    ).bind(
+      hand.id,
+      hand.playerId,
+      hand.roundId,
+      hand.bet,
+      JSON.stringify(hand.deck),
+      JSON.stringify(hand.playerCards),
+      JSON.stringify(hand.dealerCards),
+      hand.state,
+      hand.result,
+      hand.message,
+      hand.doubled ? 1 : 0
+    ).run();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      throw new GameError('Blackjack-tabellen saknas. Kör game-schema.sql och game-migrations.sql.', 500);
+    }
+    throw e;
+  }
+}
+
+function blackjackPayout(outcome: Exclude<BlackjackOutcome, null>, bet: number): number {
+  if (outcome === 'blackjack') return Math.round(bet * 2.5);
+  if (outcome === 'win') return bet * 2;
+  if (outcome === 'push') return bet;
+  return 0;
+}
+
+function blackjackNet(outcome: Exclude<BlackjackOutcome, null>, bet: number): number {
+  if (outcome === 'blackjack') return Math.round(bet * 1.5);
+  if (outcome === 'win') return bet;
+  if (outcome === 'push') return 0;
+  return -bet;
+}
+
+function blackjackResultMessage(outcome: Exclude<BlackjackOutcome, null>, bet: number, doubled: boolean): string {
+  const net = blackjackNet(outcome, bet);
+  const amount = fmtCurrency(Math.abs(net));
+  if (outcome === 'blackjack') return `Blackjack. Bordet hostade upp ${amount} kr.`;
+  if (outcome === 'win') return doubled
+    ? `Dubblade ner och tog hem ${amount} kr vid bordet.`
+    : `Tog hem ${amount} kr vid blackjackbordet.`;
+  if (outcome === 'push') return `Push vid bordet. Fick tillbaka ${fmtCurrency(bet)} kr.`;
+  if (outcome === 'bust') return doubled
+    ? `Dubblade ner, sprack och brände ${amount} kr.`
+    : `Sprack vid blackjackbordet och tappade ${amount} kr.`;
+  if (outcome === 'dealer_blackjack') return `Dealern visade blackjack. ${amount} kr försvann.`;
+  return `Förlorade ${amount} kr vid blackjackbordet.`;
+}
+
+function finishDealerHand(hand: BlackjackRuntimeHand): void {
+  while (blackjackTotals(hand.dealerCards).total < 17) {
+    hand.dealerCards.push(drawBlackjackCard(hand.deck));
+  }
+}
+
+function buildBlackjackState(hand: BlackjackRuntimeHand | null, player: Row): Record<string, unknown> {
+  if (!hand) {
+    return {
+      idle: true,
+      min_bet: BLACKJACK_MIN_BET,
+      max_bet: BLACKJACK_MAX_BET,
+      player_cash: Number(player.cash ?? 0),
+    };
+  }
+
+  const playerStats = blackjackTotals(hand.playerCards);
+  const dealerStats = blackjackTotals(hand.dealerCards);
+  const dealerHidden = hand.state !== 'finished';
+  return {
+    idle: false,
+    min_bet: BLACKJACK_MIN_BET,
+    max_bet: BLACKJACK_MAX_BET,
+    player_cash: Number(player.cash ?? 0),
+    hand: {
+      id: hand.id,
+      bet: hand.bet,
+      state: hand.state,
+      result: hand.result,
+      message: hand.message,
+      doubled: hand.doubled,
+      finished: hand.state === 'finished',
+      can_hit: hand.state === 'player_turn',
+      can_stand: hand.state === 'player_turn',
+      can_double: hand.state === 'player_turn'
+        && !hand.doubled
+        && hand.playerCards.length === 2
+        && Number(player.cash ?? 0) >= hand.bet,
+      player_cards: hand.playerCards.map(card => blackjackCardView(card)),
+      dealer_cards: hand.dealerCards.map((card, index) => blackjackCardView(card, dealerHidden && index === 1)),
+      player_total: playerStats.total,
+      player_soft: playerStats.soft,
+      dealer_total: dealerHidden ? null : dealerStats.total,
+      dealer_visible_total: dealerHidden ? blackjackTotals(hand.dealerCards.slice(0, 1)).total : dealerStats.total,
+    },
+  };
+}
+
+async function finalizeBlackjackHand(
+  env: Env,
+  player: Row,
+  hand: BlackjackRuntimeHand,
+  outcome: Exclude<BlackjackOutcome, null>
+): Promise<Response> {
+  hand.state = 'finished';
+  hand.result = outcome;
+  hand.message = blackjackResultMessage(outcome, hand.bet, hand.doubled);
+  await saveBlackjackHand(env, hand);
+
+  const payout = blackjackPayout(outcome, hand.bet);
+  if (payout > 0) {
+    await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(payout, player.id as string).run();
+  } else {
+    await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
+      .bind(player.id as string).run();
+  }
+
+  await logAction(
+    env,
+    player.id as string,
+    'casino',
+    hand.message,
+    blackjackNet(outcome, hand.bet),
+    0,
+    0,
+    outcome === 'blackjack' || outcome === 'win' || outcome === 'push'
+  );
+
+  const freshPlayer = await loadGamePlayerById(env, player.id as string);
+  return gameJson(buildBlackjackState(hand, freshPlayer));
+}
+
+function fmtCurrency(amount: number): string {
+  return amount.toLocaleString('sv-SE');
+}
 
 async function gameAdminAuth(request: Request, env: Env): Promise<Response> {
   await ensureGameAdminTables(env);
