@@ -29,6 +29,11 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 /* ─── Screens ─────────────────────────────────────────────────────────────── */
 .screen{display:none;min-height:100dvh;}
 
+/* ─── Boot/Auth ─────────────────────────────────────────────────────────────── */
+#screen-boot{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:12px;text-align:center;}
+.boot-logo{font-size:26px;font-weight:500;color:var(--red);letter-spacing:4px;}
+.boot-copy{font-size:11px;color:var(--dim);letter-spacing:1px;max-width:320px;}
+
 /* ─── Create ──────────────────────────────────────────────────────────────── */
 #screen-create{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
 .cr-logo{font-size:32px;font-weight:500;color:var(--red);letter-spacing:4px;}
@@ -197,6 +202,14 @@ select:focus{border-color:var(--red);}
 .prof-name{font-size:13px;font-weight:500;color:var(--white);}
 .prof-bonus{font-size:11px;color:var(--dim);line-height:1.6;}
 .prof-note{font-size:10px;color:var(--amber);letter-spacing:.5px;}
+.dev-tag{display:inline-flex;align-items:center;justify-content:center;padding:2px 6px;border:1px solid var(--red);border-radius:999px;font-size:10px;color:var(--red);letter-spacing:1px;vertical-align:middle;margin-left:8px;}
+.dev-shell{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;}
+.dev-meta{font-size:11px;color:var(--dim);line-height:1.7;}
+.dev-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.dev-row input{flex:1;min-width:220px;}
+.dev-quick{display:flex;flex-wrap:wrap;gap:8px;}
+.dev-quick button{padding:6px 10px;font-size:11px;}
+.dev-output{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:12px;min-height:180px;max-height:320px;overflow:auto;white-space:pre-wrap;font-size:11px;line-height:1.7;color:var(--white);}
 
 /* ─── Mobile nav ──────────────────────────────────────────────────────────── */
 #mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:100;overflow-x:auto;}
@@ -246,8 +259,14 @@ select:focus{border-color:var(--red);}
 </style>
 </head>
 <body>
+<!-- ─── Boot Screen ────────────────────────────────────────────────────────── -->
+<div id="screen-boot" class="screen" style="display:flex;">
+  <div class="boot-logo">MOSQUITO</div>
+  <div class="boot-copy">Kontrollerar adminåtkomst via samma lösenordssession som sp1e-hubben.</div>
+</div>
+
 <!-- ─── Create Screen ─────────────────────────────────────────────────────── -->
-<div id="screen-create" class="screen" style="display:flex;">
+<div id="screen-create" class="screen" style="display:none;">
   <div class="cr-logo">MOSQUITO</div>
   <div class="cr-sub">CRIME SIMULATOR &mdash; STHLM</div>
   <div class="cr-box">
@@ -276,7 +295,7 @@ select:focus{border-color:var(--red);}
 </div>
 
 <!-- ─── Prison Screen ──────────────────────────────────────────────────────── -->
-<div id="screen-prison" class="screen">
+<div id="screen-prison" class="screen" style="display:none;">
   <div class="pr-logo">&#x26D3; HÄKTET</div>
   <div style="font-size:12px;color:var(--dim);">Du sitter inlåst. Vänta eller rymma.</div>
   <div class="pr-box">
@@ -297,7 +316,7 @@ select:focus{border-color:var(--red);}
 </div>
 
 <!-- ─── Hospital Screen ────────────────────────────────────────────────────── -->
-<div id="screen-hospital" class="screen">
+<div id="screen-hospital" class="screen" style="display:none;">
   <div class="hs-logo">&#x2764; SJUKHUSET</div>
   <div style="font-size:12px;color:var(--dim);">Du återhämtar dig. Vila eller betala.</div>
   <div class="hs-box">
@@ -391,6 +410,7 @@ select:focus{border-color:var(--red);}
         <button class="nav-btn nv" data-s="traning">&#x1F3CB; Tr&auml;ning</button>
         <button class="nav-btn nv" data-s="profession">&#x2699; Yrke</button>
         <button class="nav-btn nv" data-s="bank">&#x1F4B0; Bank</button>
+        <button class="nav-btn nv" data-s="dev">&#x1F6E0; Dev</button>
         <button class="nav-btn nv" data-s="fastigheter">&#x1F3E0; Fastigheter</button>
         <button class="nav-btn nv" data-s="race">&#x1F3CE; Streetrace</button>
         <button class="nav-btn nv" data-s="ranking">&#x1F3C6; Ranking</button>
@@ -506,6 +526,34 @@ select:focus{border-color:var(--red);}
         <div id="bank-msg" class="amsg"></div>
       </div>
 
+      <!-- Dev -->
+      <div id="s-dev" class="g-sec">
+        <div class="sec-title">DEV CONSOLE <span class="dev-tag">ADMIN</span></div>
+        <div class="sec-sub">Serverstyrda admin-kommandon f&ouml;r den aktuella karakt&auml;ren. Samma site-session som hubben kr&auml;vs.</div>
+        <div class="dev-shell">
+          <div id="dev-meta" class="dev-meta">Ingen karakt&auml;r laddad &auml;nnu.</div>
+          <div class="dev-row">
+            <input id="dev-command" type="text" placeholder='Skriv t.ex. "help", "rich", "profession torped", "cash +50000"' autocomplete="off" spellcheck="false">
+            <button id="dev-run-btn" class="primary">K&Ouml;R</button>
+          </div>
+          <div id="dev-quick" class="dev-quick">
+            <button type="button" data-devcmd="help">help</button>
+            <button type="button" data-devcmd="me">me</button>
+            <button type="button" data-devcmd="rich">rich</button>
+            <button type="button" data-devcmd="maxout">maxout</button>
+            <button type="button" data-devcmd="legend">legend</button>
+            <button type="button" data-devcmd="free">free</button>
+            <button type="button" data-devcmd="chaos">chaos</button>
+            <button type="button" data-devcmd="cash +50000">cash +50000</button>
+            <button type="button" data-devcmd="level 10">level 10</button>
+            <button type="button" data-devcmd="profession bedragare">profession bedragare</button>
+            <button type="button" data-devcmd="profession torped">profession torped</button>
+          </div>
+          <pre id="dev-output" class="dev-output">> help</pre>
+        </div>
+        <div id="dev-msg" class="amsg"></div>
+      </div>
+
       <!-- Fastigheter -->
       <div id="s-fastigheter" class="g-sec">
         <div class="sec-title">FASTIGHETER</div>
@@ -581,6 +629,7 @@ select:focus{border-color:var(--red);}
     <button class="mb" data-s="traning"><span class="mb-icon">&#x1F3CB;</span>Tr&auml;na</button>
     <button class="mb" data-s="profession"><span class="mb-icon">&#x2699;</span>Yrke</button>
     <button class="mb" data-s="bank"><span class="mb-icon">&#x1F4B0;</span>Bank</button>
+    <button class="mb" data-s="dev"><span class="mb-icon">&#x1F6E0;</span>Dev</button>
     <button class="mb" data-s="fastigheter"><span class="mb-icon">&#x1F3E0;</span>Fast.</button>
     <button class="mb" data-s="race"><span class="mb-icon">&#x1F3CE;</span>Race</button>
     <button class="mb" data-s="ranking"><span class="mb-icon">&#x1F3C6;</span>Rank</button>
@@ -604,9 +653,12 @@ const G={
   errors:{player:null,status:null,prices:null,npcs:null},
   _fetchedAt:0,_nrgTick:null,_prisonTick:null,_hospitalTick:null,_pollTimer:null,_pricePoll:null,
   _propTicks:{},log:[],
-  vehicles:[]
+  vehicles:[],
+  devHistory:['> help'],
+  siteAuthenticated:false
 };
 window.G=G;
+const AUTH_REDIRECT='/?next=%2Fmosquito';
 
 async function api(path,opts={}){
   try{
@@ -614,12 +666,28 @@ async function api(path,opts={}){
     if(opts.body) cfg.headers={'Content-Type':'application/json'};
     const r=await fetch('/api/game/'+path,cfg);
     const data=await r.json().catch(()=>({}));
+    if(r.status===401&&data.error==='Unauthorized'){
+      location.href=AUTH_REDIRECT;
+      return {...data,_status:r.status};
+    }
     return {...data,_status:r.status};
   }catch{return{error:'Kunde inte nå servern',_status:0};}
 }
 const post=(p,b={})=>api(p,{method:'POST',body:JSON.stringify(b)});
 
 document.addEventListener('DOMContentLoaded',init);
+async function ensureSiteAuth(){
+  try{
+    const r=await fetch('/api/auth/check',{credentials:'same-origin'});
+    const d=await r.json().catch(()=>({}));
+    if(r.ok&&d.authenticated){
+      G.siteAuthenticated=true;
+      return true;
+    }
+  }catch{}
+  location.href=AUTH_REDIRECT;
+  return false;
+}
 function apiError(res,fallback){
   if(!res) return fallback;
   if(res.error) return res.error;
@@ -628,14 +696,19 @@ function apiError(res,fallback){
 }
 
 async function init(){
+  showScreen('boot');
+  if(!(await ensureSiteAuth())) return;
   bindCreate();
   bindDrugForm();
-  showScreen('create');
+  bindDevConsole();
   const r=await api('player');
   if(r.error&&r._status&&r._status!==401){
     setMsg('create-err',r.error,'err');
   }
-  if(!r.player) return;
+  if(!r.player){
+    showScreen('create');
+    return;
+  }
   G.player=r.player;G.extra=r;G._fetchedAt=Date.now();
   await loadAll();
   applyCondition();
@@ -670,6 +743,7 @@ async function softReload(){
   if(G.section==='ranking') renderRanking();
   if(G.section==='profession') renderProfession();
   if(G.section==='bank') renderBank();
+  if(G.section==='dev') renderDev();
   if(G.section==='fastigheter') renderFastigheter();
 }
 
@@ -690,7 +764,7 @@ function applyCondition(){
 }
 
 function showScreen(name){
-  ['create','prison','hospital','game'].forEach(s=>{
+  ['boot','create','prison','hospital','game'].forEach(s=>{
     const el=document.getElementById('screen-'+s);
     if(el) el.style.display=s===name?(s==='game'?'flex':'flex'):'none';
   });
@@ -765,7 +839,7 @@ function setSectionError(msg=''){
 }
 
 function sectionDependencyError(s){
-  if(['gatan','brott','traning','profession','bank','fastigheter','race'].includes(s)) return G.errors.player||'';
+  if(['gatan','brott','traning','profession','bank','dev','fastigheter','race'].includes(s)) return G.errors.player||'';
   if(s==='droger') return G.errors.prices||G.errors.player||'';
   if(s==='strid') return G.errors.npcs||G.errors.player||'';
   if(s==='ranking') return G.errors.status||G.errors.npcs||'';
@@ -778,7 +852,7 @@ function renderSection(s){
   document.querySelectorAll('.g-sec').forEach(el=>el.style.display='none');
   const el=document.getElementById('s-'+s);
   document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
-  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,profession:renderProfession,bank:renderBank,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking};
+  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,profession:renderProfession,bank:renderBank,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking};
   setSectionError('');
   if(!el){
     setSectionError('Sektionen kunde inte hittas.');
@@ -1143,6 +1217,82 @@ async function doBank(action){
     if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
     renderTopbar();renderSidebar();renderBank();
   }
+}
+
+/* ─── Dev console ─────────────────────────────────────────────────────────── */
+function bindDevConsole(){
+  const input=document.getElementById('dev-command');
+  const runBtn=document.getElementById('dev-run-btn');
+  const quick=document.getElementById('dev-quick');
+  if(input){
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        runDevCommand(input.value);
+      }
+    });
+  }
+  if(runBtn) runBtn.addEventListener('click',()=>runDevCommand(input&&input.value||''));
+  if(quick){
+    quick.addEventListener('click',e=>{
+      const btn=e.target.closest('[data-devcmd]');
+      if(!btn) return;
+      const cmd=btn.dataset.devcmd||'';
+      if(input) input.value=cmd;
+      runDevCommand(cmd);
+    });
+  }
+}
+
+function renderDev(){
+  const p=G.player;
+  if(!p) return;
+  const meta=document.getElementById('dev-meta');
+  if(meta){
+    meta.innerHTML=`Adminstatus: <strong>${esc(p.name)}</strong> · Lv${p.level} · ${fmtCash(p.cash||0)} kr cash · ${fmtCash(p.bank||0)} kr bank · ${professionName(p.profession)||'Inget yrke'} · ${p.side==='westside'?'Westside':'Eastside'}`;
+  }
+  const out=document.getElementById('dev-output');
+  if(out) out.textContent=G.devHistory.join('\n\n');
+}
+
+async function runDevCommand(raw){
+  const command=(raw||'').trim();
+  if(!command){setMsg('dev-msg','Skriv ett kommando först.','err');return;}
+  if(G.busy) return;
+  G.busy=true;
+  setMsg('dev-msg','Kör adminkommando...','info');
+  const r=await post('admin',{command});
+  G.busy=false;
+  if(r.error){
+    G.devHistory.unshift(`> ${command}\nERROR: ${r.error}`);
+    G.devHistory=G.devHistory.slice(0,24);
+    setMsg('dev-msg',r.error,'err');
+    renderDev();
+    return;
+  }
+
+  G.devHistory.unshift(formatDevResult(command,r));
+  G.devHistory=G.devHistory.slice(0,24);
+  setMsg('dev-msg',r.message||'Kommandot kördes.','ok');
+
+  await loadAll();
+  applyCondition();
+  renderTopbar();
+  renderSidebar();
+  renderDev();
+}
+
+function formatDevResult(command,res){
+  const lines=[`> ${command}`,res.message||'OK'];
+  if(Array.isArray(res.commands)&&res.commands.length){
+    lines.push('',res.commands.join('\n'));
+  }
+  if(res.player){
+    const p=res.player;
+    lines.push('',`LV ${p.level} · cash ${fmtCash(p.cash||0)} · bank ${fmtCash(p.bank||0)} · respect ${fmtCash(p.respect||0)}`);
+    lines.push(`HP ${p.hp}/${p.hp_max} · EN ${p.energy}/${p.energy_max} · yrke ${professionName(p.profession)||'none'}`);
+  }
+  return lines.join('\n');
 }
 
 /* ─── Fastigheter ─────────────────────────────────────────────────────────── */
