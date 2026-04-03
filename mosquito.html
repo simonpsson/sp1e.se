@@ -124,10 +124,16 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 .feed{display:flex;flex-direction:column;gap:6px;}
 .feed-item{display:flex;gap:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;font-size:12px;}
 .feed-time{color:var(--dim);flex-shrink:0;font-size:11px;}
-.feed-desc{flex:1;}
+.feed-desc{flex:1;display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;}
+.feed-text{flex:1;min-width:0;}
 .feed-item.ok .feed-desc{color:var(--green);}
 .feed-item.err .feed-desc{color:var(--red);}
 .feed-item.info .feed-desc{color:var(--amber);}
+.feed-item.world{border-color:#2b3240;background:#111820;}
+.feed-item.world .feed-desc{color:#c7d4ff;}
+.feed-badge{display:inline-flex;align-items:center;justify-content:center;padding:2px 7px;border-radius:999px;border:1px solid #2f3949;background:#141b24;color:#d5deee;font-size:10px;letter-spacing:1px;flex-shrink:0;}
+.feed-badge.east{border-color:#1f4f7a;color:#8ecbff;background:#101a24;}
+.feed-badge.west{border-color:#6b2330;color:#ff9cab;background:#1f1014;}
 .feed-empty{color:var(--dim);font-size:12px;padding:20px 0;text-align:center;}
 
 /* ─── Brott (robbery) ─────────────────────────────────────────────────────── */
@@ -164,6 +170,9 @@ select:focus{border-color:var(--red);}
 .npc-table th{text-align:left;padding:6px 10px;color:var(--dim);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border);}
 .npc-table td{padding:8px 10px;border-bottom:1px solid var(--bg3);}
 .npc-table tr:hover td{background:var(--bg3);}
+.npc-namecell{display:flex;flex-direction:column;gap:4px;}
+.npc-meta{font-size:10px;color:var(--dim);letter-spacing:.7px;}
+.npc-stance{display:inline-flex;align-items:center;justify-content:center;padding:2px 6px;border-radius:999px;border:1px solid var(--border);font-size:10px;letter-spacing:.8px;background:#14161c;color:var(--dim);}
 .lock-notice{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;font-size:12px;color:var(--dim);}
 
 /* ─── Traning ─────────────────────────────────────────────────────────────── */
@@ -227,9 +236,28 @@ select:focus{border-color:var(--red);}
 .bj-name{font-size:11px;color:var(--dim);letter-spacing:1px;}
 .bj-total{font-size:13px;color:var(--white);}
 .bj-cards{display:flex;gap:10px;flex-wrap:wrap;}
-.bj-card{width:72px;min-height:102px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;padding:10px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 24px rgba(0,0,0,.25);}
-.bj-card.red{color:#b32025;}
-.bj-card.hidden{background:linear-gradient(180deg,#17151e,#0f0c12);color:var(--dim);border-color:#3a2c39;}
+.bj-card{width:74px;aspect-ratio:5/7;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);}
+.bj-card img{width:100%;height:100%;display:block;object-fit:cover;background:#fff;}
+.bj-card.hidden{background:
+  radial-gradient(circle at 30% 30%,rgba(255,255,255,.08),transparent 30%),
+  linear-gradient(160deg,#211824,#15101a 55%,#0d0a10);
+  border-color:#3a2c39;
+  box-shadow:0 10px 24px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.04);
+}
+.bj-card.hidden::before{
+  content:'MOSQ';
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:rgba(255,255,255,.55);
+  font-size:12px;
+  letter-spacing:4px;
+}
+.bj-card-fallback{display:none;width:100%;height:100%;padding:10px;background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;flex-direction:column;justify-content:space-between;}
+.bj-card.fallback .bj-card-fallback{display:flex;}
+.bj-card-fallback.red{color:#b32025;}
 .bj-rank{font-size:17px;font-weight:500;line-height:1;}
 .bj-suit{font-size:15px;align-self:flex-end;}
 .bj-actions{display:flex;gap:10px;flex-wrap:wrap;}
@@ -272,7 +300,7 @@ select:focus{border-color:var(--red);}
   #mob-nav{display:flex;}
   #main-area{padding:12px;padding-bottom:70px;}
   button{min-height:44px;}
-  .bj-card{width:64px;min-height:94px;}
+  .bj-card{width:64px;}
 }
 
 /* ─── Animations ──────────────────────────────────────────────────────────── */
@@ -797,12 +825,15 @@ const G={
   _propTicks:{},log:[],
   vehicles:[],
   casino:{loaded:false,loading:false,state:null},
+  world:{events:[],loading:false,lastLoaded:0},
   devHistory:['> help'],
   siteAuthenticated:false,
   hallOfFame:null,
   admin:{authenticated:false,expiresAt:null}
 };
 const AUTH_REDIRECT='/?next=%2Fmosquito';
+const WORLD_PULSE_CACHE_KEY='mosquito-world-pulse-v1';
+const WORLD_PULSE_TTL_MS=90*1000;
 
 async function api(path,opts={}){
   try{
@@ -819,6 +850,52 @@ async function api(path,opts={}){
   }catch{return{error:'Kunde inte nå servern',_status:0};}
 }
 const post=(p,b={})=>api(p,{method:'POST',body:JSON.stringify(b)});
+
+function restoreWorldPulseCache(){
+  try{
+    const raw=sessionStorage.getItem(WORLD_PULSE_CACHE_KEY);
+    if(!raw) return;
+    const parsed=JSON.parse(raw);
+    if(Array.isArray(parsed.events)) G.world.events=parsed.events;
+    if(Number.isFinite(parsed.lastLoaded)) G.world.lastLoaded=Number(parsed.lastLoaded);
+  }catch{}
+}
+
+function cacheWorldPulse(){
+  try{
+    sessionStorage.setItem(WORLD_PULSE_CACHE_KEY,JSON.stringify({
+      lastLoaded:G.world.lastLoaded,
+      events:G.world.events
+    }));
+  }catch{}
+}
+
+function normalizeWorldEvents(res){
+  if(Array.isArray(res&&res.events)){
+    return res.events.map((evt,idx)=>({
+      id:evt.id||('world-'+idx),
+      created_at:evt.created_at||new Date().toISOString(),
+      actor:evt.actor||'Stan',
+      side:evt.side||'',
+      personality:evt.personality||'',
+      type:evt.type||'world',
+      description:evt.description||''
+    }));
+  }
+  if(Array.isArray(res&&res.activity)){
+    const stamp=new Date().toISOString();
+    return res.activity.map((desc,idx)=>({
+      id:'world-'+idx,
+      created_at:stamp,
+      actor:'Stan',
+      side:'',
+      personality:'',
+      type:'world',
+      description:String(desc||'')
+    }));
+  }
+  return [];
+}
 
 document.addEventListener('DOMContentLoaded',init);
 function showLockedState(msg){
@@ -855,6 +932,7 @@ function apiError(res,fallback){
 
 async function init(){
   showScreen('boot');
+  restoreWorldPulseCache();
   bindShellControls();
   if(!(await ensureSiteAuth())) return;
   bindCreate();
@@ -882,6 +960,7 @@ async function init(){
   await loadAll();
   applyCondition();
   startTimers();
+  void loadWorldPulse();
   G._pollTimer=setInterval(softReload,30000);
   G._pricePoll=setInterval(refreshPrices,60000);
 }
@@ -923,6 +1002,7 @@ async function softReload(){
   if(G.section==='bank') renderBank();
   if(G.section==='dev') renderDev();
   if(G.section==='fastigheter') renderFastigheter();
+  if(G.section==='gatan') void loadWorldPulse();
 }
 
 async function refreshPrices(){
@@ -930,6 +1010,37 @@ async function refreshPrices(){
   G.errors.prices=apiError(dr,'Kunde inte uppdatera drogmarknaden.');
   if(dr&&dr.prices) G.prices=dr.prices;
   if(G.section==='droger') renderDroger();
+}
+
+async function loadWorldPulse(force=false){
+  const fresh=!force&&G.world.lastLoaded&&(Date.now()-G.world.lastLoaded)<WORLD_PULSE_TTL_MS&&G.world.events.length;
+  if(G.world.loading||fresh) return;
+  G.world.loading=true;
+  const res=await api('simulate');
+  G.world.loading=false;
+  if(res&&res.round_ended){
+    await softReload();
+    return;
+  }
+  if(res&&!res.error){
+    G.world.events=normalizeWorldEvents(res);
+    G.world.lastLoaded=Date.now();
+    cacheWorldPulse();
+    if(G.section==='gatan'){
+      renderWorldStrip('gatan-world');
+      renderGatan();
+    }
+  }
+}
+
+function personalityLabel(value){
+  const map={
+    aggressive:'Aggro',
+    defensive:'Defensiv',
+    trader:'Fixare',
+    passive:'Låg profil'
+  };
+  return map[String(value||'').toLowerCase()]||'Okänd stil';
 }
 
 async function loadHallOfFame(){
@@ -1191,22 +1302,39 @@ function renderWorldStrip(id){
   const leader=(G.status.top10||[])[0];
   const rival=leader?`${leader.name} leder med ${fmtCash(leader.respect||0)} respect`:'Ingen ledare ännu';
   const selfRank=G.status.self_rank?`#${G.status.self_rank}`:'Oplacerad';
-  el.innerHTML=[
+  const latestWorld=(G.world.events||[])[0];
+  const bits=[
     `<span><strong>Runda ${esc(String(G.status.round.number||'—'))}</strong> pågår</span>`,
     `<span>Tid kvar: <strong>${fmtFull(G.status.round.seconds_left||0)}</strong></span>`,
     `<span>Din plats: <strong>${esc(selfRank)}</strong></span>`,
     `<span>${esc(rival)}</span>`
-  ].join('');
+  ];
+  if(id==='gatan-world'){
+    bits.push(latestWorld
+      ? `<span>Senast p&aring; gatan: <strong>${esc(latestWorld.actor||'Stan')}</strong></span>`
+      : '<span>Stan r&ouml;r sig i skuggorna. V&auml;nta in n&auml;sta drag.</span>');
+  }
+  el.innerHTML=bits.join('');
 }
 
 function renderGatan(){
   renderWorldStrip('gatan-world');
+  void loadWorldPulse();
   const srvLog=(G.extra.log||[]).map(l=>({
     ts:l.created_at,desc:l.description||l.action_type,
-    ok:l.success!==0
+    ok:l.success!==0,kind:'player'
   }));
-  const cliLog=G.log.map(l=>({ts:l.ts,desc:l.desc,ok:l.ok}));
-  const all=[...cliLog,...srvLog];
+  const cliLog=G.log.map(l=>({ts:l.ts,desc:l.desc,ok:l.ok,kind:'player'}));
+  const worldLog=(G.world.events||[]).map(evt=>({
+    ts:evt.created_at,
+    desc:evt.description||'Stan rÃ¶rde pÃ¥ sig.',
+    ok:null,
+    kind:'world',
+    actor:evt.actor||'Stan',
+    side:evt.side||'',
+    personality:evt.personality||''
+  }));
+  const all=[...cliLog,...srvLog,...worldLog];
   all.sort((a,b)=>b.ts>a.ts?1:-1);
   const feed=document.getElementById('gatan-feed');
   if(!feed) return;
@@ -1214,8 +1342,11 @@ function renderGatan(){
   feed.innerHTML=all.slice(0,50).map(l=>{
     const d=new Date(l.ts);
     const hm=isNaN(d)?'--:--':(d.getHours()+'').padStart(2,'0')+':'+(d.getMinutes()+'').padStart(2,'0');
-    const cls=l.ok===false?'err':'ok';
-    return `<div class="feed-item ${cls}"><span class="feed-time">[${hm}]</span><span class="feed-desc">${esc(l.desc||'')}</span></div>`;
+    const cls=l.kind==='world'?'world':(l.ok===false?'err':'ok');
+    const badge=l.kind==='world'
+      ? `<span class="feed-badge ${l.side==='westside'?'west':(l.side==='eastside'?'east':'')}">${esc(l.actor||'Stan')}</span>`
+      : '';
+    return `<div class="feed-item ${cls}"><span class="feed-time">[${hm}]</span><span class="feed-desc">${badge}<span class="feed-text">${esc(l.desc||'')}</span></span></div>`;
   }).join('');
 }
 
@@ -1379,7 +1510,7 @@ function renderStrid(){
   tbody.innerHTML=G.npcs.map(n=>{
     const loot=Math.round(n.cash*0.3);
     const sideIcon=n.side==='westside'?'&#x1F534;':'&#x1F535;';
-    return `<tr><td>${esc(n.name)}</td><td>Lv${n.level}</td><td>${n.strength}</td><td>${sideIcon}</td><td>${fmtCash(loot)} kr</td><td><button data-assault="${n.id}" ${p&&p.level<8?'disabled':''}>ATTACKERA</button></td></tr>`;
+    return `<tr><td><div class="npc-namecell"><strong>${esc(n.name)}</strong><div class="npc-meta"><span class="npc-stance">${esc(personalityLabel(n.personality))}</span></div></div></td><td>Lv${n.level}</td><td>${n.strength}</td><td>${sideIcon}</td><td>${fmtCash(loot)} kr</td><td><button data-assault="${n.id}" ${p&&p.level<8?'disabled':''}>ATTACKERA</button></td></tr>`;
   }).join('');
 }
 
@@ -1580,7 +1711,14 @@ async function loadCasinoState(force=false){
   renderCasino();
 }
 
-function renderBlackjackCards(id,cards){
+const BLACKJACK_CARD_ASSET_BASE='/assets/blackjack/cards';
+const BLACKJACK_FALLBACK_CODES=new Set(['10H','JH']);
+
+function blackjackCardAsset(code){
+  return `${BLACKJACK_CARD_ASSET_BASE}/${encodeURIComponent(code)}.jpg`;
+}
+
+function renderBlackjackCardsLegacy(id,cards){
   const el=document.getElementById(id);
   if(!el) return;
   if(!cards||!cards.length){
@@ -1598,6 +1736,33 @@ function blackjackBannerClass(result){
   if(result==='push') return 'bj-banner push';
   if(result==='lose'||result==='bust'||result==='dealer_blackjack') return 'bj-banner lose';
   return 'bj-banner';
+}
+
+function renderBlackjackCards(id,cards){
+  const el=document.getElementById(id);
+  if(!el) return;
+  if(!cards||!cards.length){
+    el.innerHTML='<div class="bj-empty">Inga kort p&aring; bordet &auml;n.</div>';
+    return;
+  }
+  el.innerHTML=cards.map(card=>{
+    if(card.hidden){
+      return '<div class="bj-card hidden" aria-label="Dolt kort"></div>';
+    }
+    const code=String(card.code||'');
+    const label=esc(card.label||code||'Kort');
+    const fallback=`<div class="bj-card-fallback${card.color==='red'?' red':''}">
+        <div class="bj-rank">${esc(card.rank||'')}</div>
+        <div class="bj-suit">${esc(card.suit||'')}</div>
+      </div>`;
+    if(!code||BLACKJACK_FALLBACK_CODES.has(code)){
+      return `<div class="bj-card fallback" aria-label="${label}">${fallback}</div>`;
+    }
+    return `<div class="bj-card" aria-label="${label}">
+        ${fallback}
+        <img src="${blackjackCardAsset(code)}" alt="${label}" decoding="async" onerror="this.remove();this.parentElement.classList.add('fallback')">
+      </div>`;
+  }).join('');
 }
 
 function renderCasino(){
