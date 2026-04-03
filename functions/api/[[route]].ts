@@ -1850,13 +1850,17 @@ async function gameActionDrugDeal(request: Request, env: Env): Promise<Response>
 
     // Upsert inventory — store actual buy price so sell side can reference it
     const existing = await env.DB.prepare(
-      `SELECT id, quantity FROM game_inventory WHERE player_id = ? AND item_type = 'drug' AND item_name = ?`
+      `SELECT id, quantity, buy_price FROM game_inventory WHERE player_id = ? AND item_type = 'drug' AND item_name = ?`
     ).bind(pid, drug).first<Row>();
 
     if (existing) {
+      const existingQty = Number(existing.quantity ?? 0);
+      const existingBuyPrice = Number(existing.buy_price ?? unitPrice);
+      const newQty = existingQty + quantity;
+      const avgBuyPrice = Math.round(((existingQty * existingBuyPrice) + (quantity * unitPrice)) / Math.max(1, newQty));
       await env.DB.prepare(
         `UPDATE game_inventory SET quantity = quantity + ?, buy_price = ? WHERE id = ?`
-      ).bind(quantity, unitPrice, existing.id as string).run();
+      ).bind(quantity, avgBuyPrice, existing.id as string).run();
     } else {
       await env.DB.prepare(
         `INSERT INTO game_inventory (id, player_id, item_type, item_name, quantity, buy_price)
@@ -2097,6 +2101,20 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
   const hpMax  = (player.hp_max as number) ?? 100;
   const cash   = (player.cash   as number) ?? 0;
 
+  if (action === 'wait') {
+    if (!player.in_hospital) {
+      return gameJson({ released: true, seconds_left: 0, message: 'Du är redo att lämna sjukhuset.' });
+    }
+    const hospitalUntil = player.hospital_until ? new Date(player.hospital_until as string).getTime() : null;
+    const secondsLeft = hospitalUntil ? Math.max(0, Math.floor((hospitalUntil - Date.now()) / 1000)) : 0;
+    return gameJson({
+      waiting: true,
+      released: secondsLeft === 0,
+      seconds_left: secondsLeft,
+      message: secondsLeft > 0 ? `Du återhämtar dig. ${secondsLeft} sek kvar.` : 'Du är redo att lämna sjukhuset.',
+    });
+  }
+
   if (action === 'heal') {
     if (hp >= hpMax) return gameJson({ message: 'Du har fullt HP.', hp, hp_max: hpMax });
     const missing  = hpMax - hp;
@@ -2126,7 +2144,7 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
     return gameJson({ boosted: stat, new_value: newVal, cost: BOOST_COST, new_cash: cash - BOOST_COST });
   }
 
-  return gameJson({ error: 'action must be "heal" or "boost".' }, 400);
+  return gameJson({ error: 'action must be "heal", "boost" or "wait".' }, 400);
 }
 
 async function gameActionBank(request: Request, env: Env): Promise<Response> {
@@ -2245,9 +2263,15 @@ async function gameActionCollectIncome(request: Request, env: Env): Promise<Resp
   try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
+  const body = await request.json<{ property_id?: string }>().catch(() => ({} as { property_id?: string }));
   const pid  = player.id as string;
-  const res  = await env.DB.prepare(`SELECT * FROM game_properties WHERE player_id = ?`).bind(pid).all<Row>();
-  if (!res.results.length) return gameJson({ error: 'Inga fastigheter \u00e4gda.' }, 400);
+  const propertyId = (body.property_id ?? '').trim();
+  const res  = propertyId
+    ? await env.DB.prepare(`SELECT * FROM game_properties WHERE player_id = ? AND id = ?`).bind(pid, propertyId).all<Row>()
+    : await env.DB.prepare(`SELECT * FROM game_properties WHERE player_id = ?`).bind(pid).all<Row>();
+  if (!res.results.length) {
+    return gameJson({ error: propertyId ? 'Fastigheten hittades inte.' : 'Inga fastigheter \u00e4gda.' }, 400);
+  }
 
   let total = 0;
   const now = Date.now();
@@ -2266,8 +2290,14 @@ async function gameActionCollectIncome(request: Request, env: Env): Promise<Resp
     env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`).bind(total, pid)
   );
   await env.DB.batch(stmts);
-  await logAction(env, pid, 'property', `Samlade in ${total} kr fr\u00e5n fastigheter.`, total, 0, 20, true);
-  return gameJson({ collected: total, properties: res.results.length });
+  const propertyLabel = propertyId
+    ? (res.results[0].property_name as string) || (res.results[0].property_type as string) || 'fastigheten'
+    : 'fastigheter';
+  const message = propertyId
+    ? `Samlade in ${total} kr fr\u00e5n ${propertyLabel}.`
+    : `Samlade in ${total} kr fr\u00e5n fastigheter.`;
+  await logAction(env, pid, 'property', message, total, 0, 20, true);
+  return gameJson({ collected: total, properties: res.results.length, property_id: propertyId || null, message });
 }
 
 async function gameActionChooseProfession(request: Request, env: Env): Promise<Response> {
