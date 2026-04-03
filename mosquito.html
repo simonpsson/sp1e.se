@@ -376,6 +376,7 @@ select:focus{border-color:var(--red);}
 
     <!-- Main area -->
     <div id="main-area">
+      <div id="section-error" class="amsg"></div>
       <!-- Gatan -->
       <div id="s-gatan" class="g-sec" style="display:block;">
         <div class="sec-title">GATAN</div>
@@ -540,6 +541,7 @@ const G={
   player:null,extra:{},status:null,prices:{},npcs:[],
   section:'gatan',busy:false,selectedSide:'eastside',
   drugSel:'marijuana',drugQty:1,
+  errors:{player:null,status:null,prices:null,npcs:null},
   _fetchedAt:0,_nrgTick:null,_prisonTick:null,_pollTimer:null,_pricePoll:null,
   _propTicks:{},log:[],
   vehicles:[]
@@ -557,6 +559,12 @@ async function api(path,opts={}){
 const post=(p,b={})=>api(p,{method:'POST',body:JSON.stringify(b)});
 
 document.addEventListener('DOMContentLoaded',init);
+function apiError(res,fallback){
+  if(!res) return fallback;
+  if(res.error) return res.error;
+  if(res._status&&res._status>=400) return fallback;
+  return '';
+}
 
 async function init(){
   bindCreate();
@@ -573,6 +581,10 @@ async function init(){
 
 async function loadAll(){
   const[pr,sr,dr,nr]=await Promise.all([api('player'),api('status'),api('drug-prices'),api('npcs')]);
+  G.errors.player=apiError(pr,'Kunde inte ladda karaktären.');
+  G.errors.status=apiError(sr,'Kunde inte ladda ranking.');
+  G.errors.prices=apiError(dr,'Kunde inte ladda drogmarknaden.');
+  G.errors.npcs=apiError(nr,'Kunde inte ladda rivals.');
   if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
   if(sr&&sr.round) G.status=sr;
   if(dr&&dr.prices) G.prices=dr.prices;
@@ -581,6 +593,9 @@ async function loadAll(){
 
 async function softReload(){
   const[pr,sr,dr]=await Promise.all([api('player'),api('status'),api('drug-prices')]);
+  G.errors.player=apiError(pr,'Kunde inte uppdatera karaktären.');
+  G.errors.status=apiError(sr,'Kunde inte uppdatera ranking.');
+  G.errors.prices=apiError(dr,'Kunde inte uppdatera drogmarknaden.');
   if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
   if(sr&&sr.round) G.status=sr;
   if(dr&&dr.prices) G.prices=dr.prices;
@@ -593,6 +608,7 @@ async function softReload(){
 
 async function refreshPrices(){
   const dr=await api('drug-prices');
+  G.errors.prices=apiError(dr,'Kunde inte uppdatera drogmarknaden.');
   if(dr&&dr.prices) G.prices=dr.prices;
   if(G.section==='droger') renderDroger();
 }
@@ -674,15 +690,39 @@ function renderSidebar(){
   set('sb-resp',fmtCash(p.respect)+' respect &middot; Lv'+p.level);
 }
 
+function setSectionError(msg=''){
+  setMsg('section-error',msg,msg?'err':'');
+}
+
+function sectionDependencyError(s){
+  if(['gatan','brott','traning','fastigheter','race'].includes(s)) return G.errors.player||'';
+  if(s==='droger') return G.errors.prices||G.errors.player||'';
+  if(s==='strid') return G.errors.npcs||G.errors.player||'';
+  if(s==='ranking') return G.errors.status||G.errors.npcs||'';
+  return '';
+}
+
 function navTo(s){G.section=s;renderSection(s);}
 
 function renderSection(s){
   document.querySelectorAll('.g-sec').forEach(el=>el.style.display='none');
   const el=document.getElementById('s-'+s);
-  if(el) el.style.display='';
   document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
   const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking};
-  if(fns[s]) fns[s]();
+  setSectionError('');
+  if(!el){
+    setSectionError('Sektionen kunde inte hittas.');
+    return;
+  }
+  el.style.display='block';
+  if(sectionDependencyError(s)) setSectionError(sectionDependencyError(s));
+  try{
+    if(fns[s]) fns[s]();
+    else setSectionError('Sektionen saknar renderer.');
+  }catch(err){
+    console.error(err);
+    setSectionError(err&&err.message?err.message:'Sektionen kunde inte laddas.');
+  }
 }
 
 document.addEventListener('click',e=>{
@@ -1027,8 +1067,9 @@ function renderRanking(){
   const ri=document.getElementById('round-info');
   if(ri&&G.status&&G.status.round){
     const s=G.status;
-    const secsLeft=s.seconds_left||0;
-    ri.innerHTML=`<span>Runda <strong>${s.round.round_number}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>Spelare: <strong>${s.total_players||0}</strong></span>`;
+    const secsLeft=(s.round&&s.round.seconds_left)||s.seconds_left||0;
+    const playerCount=s.player_count??s.total_players??0;
+    ri.innerHTML=`<span>Runda <strong>${s.round.round_number}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>Spelare: <strong>${playerCount}</strong></span>`;
   }
   const tbody=document.getElementById('rank-tbody');
   if(!tbody) return;
