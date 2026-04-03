@@ -546,6 +546,7 @@ const G={
   _propTicks:{},log:[],
   vehicles:[]
 };
+window.G=G;
 
 async function api(path,opts={}){
   try{
@@ -570,6 +571,9 @@ async function init(){
   bindCreate();
   showScreen('create');
   const r=await api('player');
+  if(r.error&&r._status&&r._status!==401){
+    setMsg('create-err',r.error,'err');
+  }
   if(!r.player) return;
   G.player=r.player;G.extra=r;G._fetchedAt=Date.now();
   await loadAll();
@@ -819,14 +823,13 @@ function renderDroger(){
   tbody.innerHTML=drugs.map(d=>{
     const info=(G.prices[d]||{});
     const price=info.price||0;
-    const trend=info.trend||0;
+    const trend=String(info.trend||'→ stable');
     const owned=inv.filter(i=>i.item_name===d).reduce((s,i)=>s+(i.quantity||0),0);
     const buyAvg=owned>0?(inv.filter(i=>i.item_name===d).reduce((s,i)=>s+(i.buy_price||0)*(i.quantity||0),0)/owned):0;
     const pl=owned>0?Math.round(price-buyAvg):0;
-    const tCls=trend>0?'tu':trend<0?'td':'ts2';
-    const tSign=trend>0?'+':'';
+    const tCls=trend.startsWith('↑')?'tu':trend.startsWith('↓')?'td':'ts2';
     const plColor=pl>0?'var(--green)':pl<0?'var(--red)':'var(--dim)';
-    return `<tr><td>${DRUG_NAMES[d]}</td><td>${fmtCash(price)} kr</td><td class="${tCls}">${tSign}${trend>0?Math.round(trend*100)+'%':'--'}</td><td>${owned}</td><td style="color:${plColor}">${owned>0?(pl>=0?'+':'')+fmtCash(pl):'-'}</td></tr>`;
+    return `<tr><td>${DRUG_NAMES[d]}</td><td>${fmtCash(price)} kr</td><td class="${tCls}">${esc(trend)}</td><td>${owned}</td><td style="color:${plColor}">${owned>0?(pl>=0?'+':'')+fmtCash(pl):'-'}</td></tr>`;
   }).join('');
   updateDrugTotal();
   const sel=document.getElementById('drug-sell-btn');
@@ -1069,7 +1072,8 @@ function renderRanking(){
     const s=G.status;
     const secsLeft=(s.round&&s.round.seconds_left)||s.seconds_left||0;
     const playerCount=s.player_count??s.total_players??0;
-    ri.innerHTML=`<span>Runda <strong>${s.round.round_number}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>Spelare: <strong>${playerCount}</strong></span>`;
+    const roundNumber=(s.round&&s.round.number)||s.round_number||'—';
+    ri.innerHTML=`<span>Runda <strong>${roundNumber}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>Spelare: <strong>${playerCount}</strong></span>`;
   }
   const tbody=document.getElementById('rank-tbody');
   if(!tbody) return;
