@@ -500,6 +500,14 @@ select:focus{border-color:var(--red);}
         <div id="sb-side">&#x1F535; Eastside</div>
         <div id="sb-resp">0 respect &middot; Lv1</div>
         <div id="sb-bank" style="font-size:11px;color:var(--dim);margin-top:4px;">Bank: 0 kr</div>
+        <div id="sb-xp-wrap" style="margin-top:8px;">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-bottom:3px;">
+            <span>XP</span><span id="sb-xp-txt">0 / 1 000</span>
+          </div>
+          <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;border:1px solid var(--border);">
+            <div id="sb-xp-fill" style="height:100%;background:var(--amber);border-radius:2px;width:0%;transition:width .4s;"></div>
+          </div>
+        </div>
       </div>
       <!-- Nav -->
       <div style="padding:8px 0;">
@@ -1223,6 +1231,12 @@ function renderSidebar(){
   set('sb-side',p.side==='westside'?'&#x1F534; Westside':'&#x1F535; Eastside');
   set('sb-resp',fmtCash(p.respect)+' respect &middot; Lv'+p.level);
   set('sb-bank','Bank: '+fmtCash(p.bank||0)+' kr');
+  const xp=p.xp||0;const lvl=p.level||1;
+  const xpForNext=lvl*1000;const xpPct=Math.min(100,Math.round(xp/xpForNext*100));
+  const xpFill=document.getElementById('sb-xp-fill');
+  const xpTxt=document.getElementById('sb-xp-txt');
+  if(xpFill) xpFill.style.width=xpPct+'%';
+  if(xpTxt) xpTxt.textContent=fmtCash(xp)+' / '+fmtCash(xpForNext);
 }
 
 function setSectionError(msg=''){
