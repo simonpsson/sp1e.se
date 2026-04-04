@@ -1182,7 +1182,7 @@ function suggestPlayerNames(count: number, side?: string): string[] {
   return results;
 }
 
-
+const GAME_COOKIE = 'game_session';
 const GAME_ADMIN_COOKIE = 'game_admin_session';
 const GAME_ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
@@ -1196,6 +1196,10 @@ function getGameCookie(request: Request): string | null {
 
 function setGameCookie(playerId: string): string {
   return `${GAME_COOKIE}=${playerId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${60 * 60 * 24 * 30}`;
+}
+
+function clearGameCookie(): string {
+  return `${GAME_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
 }
 
 function getGameAdminCookie(request: Request): string | null {
@@ -2484,7 +2488,7 @@ async function gameNewRound(request: Request, env: Env): Promise<Response> {
   const round = await createGameRound(env, await nextRoundNumber(env));
   const staleGameCookie = getGameCookie(request);
   const headers = new Headers({ 'Content-Type': 'application/json', ...cors() });
-  if (staleGameCookie) headers.append('Set-Cookie', `${GAME_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`);
+  if (staleGameCookie) headers.append('Set-Cookie', clearGameCookie());
   return new Response(JSON.stringify({
     round_id: round.id,
     round_number: round.round_number,
