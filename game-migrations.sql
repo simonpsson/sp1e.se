@@ -78,3 +78,13 @@ CREATE TABLE IF NOT EXISTS game_holdem_tables (
 );
 
 CREATE INDEX IF NOT EXISTS idx_game_holdem_round ON game_holdem_tables (round_id);
+
+-- ─── Migration 6: Loot system — extend game_inventory ─────────────────────
+ALTER TABLE game_inventory ADD COLUMN item_tier    INTEGER DEFAULT 1;
+ALTER TABLE game_inventory ADD COLUMN equipped     INTEGER DEFAULT 0;
+ALTER TABLE game_inventory ADD COLUMN slot         TEXT;
+ALTER TABLE game_inventory ADD COLUMN sell_price   INTEGER DEFAULT 0;
+ALTER TABLE game_inventory ADD COLUMN effects      TEXT;
+ALTER TABLE game_inventory ADD COLUMN source       TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_game_inventory_player_slot ON game_inventory (player_id, slot);

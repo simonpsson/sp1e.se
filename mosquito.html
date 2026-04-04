@@ -367,6 +367,23 @@ select:focus{border-color:var(--red);}
 .vehicle-cost{font-size:11px;color:var(--amber);margin-bottom:2px;}
 .vehicle-bonus{font-size:10px;color:var(--dim);margin-bottom:8px;}
 .vehicle-owned-badge{font-size:10px;color:var(--green);margin-bottom:6px;}
+/* Loot / inventory */
+.loot-tier-1{color:#7a7986;}
+.loot-tier-2{color:#e8e6e3;}
+.loot-tier-3{color:#4af24a;}
+.loot-tier-4{color:#4a8ef2;}
+.loot-tier-5{color:#f2a54a;}
+.inv-item{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.inv-item.equipped{border-color:var(--green);background:#0d1a0d;}
+.inv-name{flex:1;font-size:12px;}
+.inv-tier{font-size:10px;font-weight:600;letter-spacing:.5px;}
+.inv-slot{font-size:10px;color:var(--dim);margin-left:4px;}
+.inv-actions{display:flex;gap:6px;}
+.inv-actions button{font-size:10px;padding:3px 8px;}
+.inv-slot-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:10px;text-align:center;}
+.inv-slot-card .slot-label{color:var(--dim);margin-bottom:4px;}
+.inv-slot-card .slot-item{color:var(--white);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.inv-slot-card .slot-empty{color:var(--bg3);}
 </style>
 </head>
 <body>
@@ -405,6 +422,11 @@ select:focus{border-color:var(--red);}
     <div>
       <div class="cr-label">SPELNAMN</div>
       <input id="inp-name" type="text" placeholder="Ditt gängsnamn..." maxlength="20" autocomplete="off">
+      <div id="name-suggestions" style="margin-top:6px;display:none;">
+        <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">FÖRSLAG &mdash; klicka för att välja</div>
+        <div id="name-sugg-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+      <button id="sugg-btn" style="margin-top:6px;font-size:10px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--dim);" type="button">Namnf&ouml;rslag</button>
     </div>
     <div>
       <div class="cr-label">VÄLJ SIDA</div>
@@ -552,6 +574,7 @@ select:focus{border-color:var(--red);}
         <button class="nav-btn nv" data-s="bank">&#x1F4B0; Bank</button>
         <button class="nav-btn nv" data-s="casino">&#x1F0CF; Casino</button>
         <button class="nav-btn nv" data-s="dev">&#x1F6E0; Dev</button>
+        <button class="nav-btn nv" data-s="forrad">&#x1F392; F&ouml;rr&aring;d</button>
         <button class="nav-btn nv" data-s="fastigheter">&#x1F3E0; Fastigheter</button>
         <button class="nav-btn nv" data-s="race">&#x1F3CE; Streetrace</button>
         <button class="nav-btn nv" data-s="ranking">&#x1F3C6; Ranking</button>
@@ -824,6 +847,15 @@ select:focus{border-color:var(--red);}
       </div>
 
       <!-- Fastigheter -->
+      <!-- Förråd (Inventory) -->
+      <div id="s-forrad" class="g-sec">
+        <div class="sec-title">FÖRRÅD</div>
+        <div class="sec-sub">Dina föremål, vapen och utrustning.</div>
+        <div id="forrad-slots" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:16px;"></div>
+        <div id="forrad-list"></div>
+        <div id="forrad-msg" class="amsg" style="margin-top:8px;"></div>
+      </div>
+
       <div id="s-fastigheter" class="g-sec">
         <div class="sec-title">FASTIGHETER</div>
         <div class="sec-sub">Passiv inkomst</div>
@@ -901,6 +933,7 @@ select:focus{border-color:var(--red);}
     <button class="mb" data-s="bank"><span class="mb-icon">&#x1F4B0;</span>Bank</button>
     <button class="mb" data-s="casino"><span class="mb-icon">&#x1F0CF;</span>Casino</button>
     <button class="mb" data-s="dev"><span class="mb-icon">&#x1F6E0;</span>Dev</button>
+    <button class="mb" data-s="forrad"><span class="mb-icon">&#x1F392;</span>Förråd</button>
     <button class="mb" data-s="fastigheter"><span class="mb-icon">&#x1F3E0;</span>Fast.</button>
     <button class="mb" data-s="race"><span class="mb-icon">&#x1F3CE;</span>Race</button>
     <button class="mb" data-s="ranking"><span class="mb-icon">&#x1F3C6;</span>Rank</button>
@@ -1361,7 +1394,7 @@ function renderSection(s){
   document.querySelectorAll('.g-sec').forEach(el=>el.style.display='none');
   const el=document.getElementById('s-'+s);
   document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
-  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,profession:renderProfession,bank:renderBank,casino:renderCasino,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking};
+  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,profession:renderProfession,bank:renderBank,casino:renderCasino,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking,forrad:renderForrad};
   setSectionError('');
   if(!el){
     setSectionError('Sektionen kunde inte hittas.');
@@ -2797,6 +2830,22 @@ function bindCreate(){
   if(inp) inp.addEventListener('keydown',e=>{if(e.key==='Enter') doCreate();});
   const btn=document.getElementById('create-btn');
   if(btn) btn.addEventListener('click',doCreate);
+  const suggBtn=document.getElementById('sugg-btn');
+  if(suggBtn) suggBtn.addEventListener('click',loadNameSuggestions);
+}
+
+async function loadNameSuggestions(){
+  const wrap=document.getElementById('name-suggestions');
+  const list=document.getElementById('name-sugg-list');
+  if(!wrap||!list) return;
+  list.innerHTML='<span style="color:var(--dim);font-size:10px;">Laddar...</span>';
+  wrap.style.display='block';
+  const r=await api('suggest-names?count=5&side='+encodeURIComponent(G.selectedSide));
+  if(r.names&&r.names.length){
+    list.innerHTML=r.names.map(n=>`<button type="button" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--border);color:var(--txt);cursor:pointer;border-radius:3px;" onclick="document.getElementById('inp-name').value=${JSON.stringify(n)};document.getElementById('name-suggestions').style.display='none';">${esc(n)}</button>`).join('');
+  }else{
+    list.innerHTML='<span style="color:var(--dim);font-size:10px;">Inga förslag tillgängliga.</span>';
+  }
 }
 
 async function doCreate(){
@@ -2928,6 +2977,95 @@ async function doBuyVehicle(vehicleId){
     const pr=await api('player');
     if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
     renderTopbar();renderSidebar();renderRace();
+  }
+}
+
+/* ─── Förråd (Inventory) ─────────────────────────────────────────────────── */
+const TIER_LABELS=['','SKRÄP','VANLIG','OVANLIG','SÄLLSYNT','LEGENDARISK'];
+const TIER_CSS=['','loot-tier-1','loot-tier-2','loot-tier-3','loot-tier-4','loot-tier-5'];
+const SLOT_LABELS={weapon:'Vapen',armor:'Rustning',vehicle:'Fordon',tool:'Verktyg',accessory:'Accessoar'};
+
+async function renderForrad(){
+  const list=document.getElementById('forrad-list');
+  const slotsEl=document.getElementById('forrad-slots');
+  if(!list||!slotsEl) return;
+  list.innerHTML='<div style="color:var(--dim);font-size:12px;">Laddar...</div>';
+
+  const r=await api('inventory');
+  const items=(r.inventory||[]);
+  if(!items.length){
+    slotsEl.innerHTML='';
+    list.innerHTML='<div style="color:var(--dim);font-size:12px;padding:8px 0;">Inga föremål ännu. Utför brott för att hitta saker.</div>';
+    return;
+  }
+
+  // Slot overview
+  const equippedBySlot={};
+  items.forEach(it=>{if(it.equipped&&it.slot) equippedBySlot[it.slot]=it.item_name;});
+  const slots=['weapon','armor','vehicle','tool','accessory'];
+  slotsEl.innerHTML=slots.map(s=>`<div class="inv-slot-card">
+    <div class="slot-label">${SLOT_LABELS[s]||s}</div>
+    ${equippedBySlot[s]
+      ?`<div class="slot-item">${esc(equippedBySlot[s])}</div>`
+      :`<div class="slot-empty">— Tomt —</div>`}
+  </div>`).join('');
+
+  // Item list
+  list.innerHTML=items.map(it=>{
+    const tier=it.item_tier||1;
+    const tierCls=TIER_CSS[tier]||'loot-tier-1';
+    const tierLbl=TIER_LABELS[tier]||'';
+    const isEquipped=it.equipped===1||it.equipped===true;
+    const canEquip=!!it.slot;
+    const sellPrice=it.sell_price||0;
+    return `<div class="inv-item${isEquipped?' equipped':''}">
+      <div style="flex:1;">
+        <div class="inv-name"><span class="${tierCls} inv-tier">[${tierLbl}]</span> ${esc(it.item_name||'')}${it.slot?`<span class="inv-slot">${SLOT_LABELS[it.slot]||it.slot}</span>`:''}</div>
+        ${it.effects?`<div style="font-size:10px;color:var(--dim);">${esc(formatEffects(it.effects))}</div>`:''}
+        <div style="font-size:10px;color:var(--dim);">Sälj: ${fmtCash(sellPrice)} kr</div>
+      </div>
+      <div class="inv-actions">
+        ${canEquip?`<button data-equip="${it.id}">${isEquipped?'Av':'På'}</button>`:''}
+        <button data-sell-item="${it.id}" ${isEquipped?'disabled':''}>Sälj</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function formatEffects(effects){
+  if(!effects) return '';
+  try{
+    const obj=typeof effects==='string'?JSON.parse(effects):effects;
+    return Object.entries(obj).map(([k,v])=>`${k}:${v}`).join(' · ');
+  }catch{return '';}
+}
+
+document.addEventListener('click',e=>{
+  const equip=e.target.closest('[data-equip]');
+  if(equip) return void doInventoryEquip(equip.dataset.equip);
+  const sell=e.target.closest('[data-sell-item]');
+  if(sell) return void doInventorySell(sell.dataset.sellItem);
+});
+
+async function doInventoryEquip(itemId){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/inventory/equip',{item_id:itemId});
+  G.busy=false;
+  if(r.error){setMsg('forrad-msg',r.error,'err');}
+  else{setMsg('forrad-msg',r.message||'OK','ok');renderForrad();}
+}
+
+async function doInventorySell(itemId){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/inventory/sell',{item_id:itemId});
+  G.busy=false;
+  if(r.error){setMsg('forrad-msg',r.error,'err');}
+  else{
+    setMsg('forrad-msg',r.message||'Såld!','ok');
+    addLog(r.message||'Sålde föremål','ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderForrad();
   }
 }
 
