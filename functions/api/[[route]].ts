@@ -2291,11 +2291,11 @@ async function gameActionTrain(request: Request, env: Env): Promise<Response> {
   const body = await request.json<{ stat?: string }>().catch(() => ({} as { stat?: string }));
   const stat = body.stat ?? '';
   if (!['strength', 'intelligence', 'charisma', 'stealth'].includes(stat))
-    return gameJson({ error: 'Invalid stat. Choose: strength, intelligence, charisma, stealth.' }, 400);
+    return gameJson({ error: 'Ogiltigt stat. Välj: strength, intelligence, charisma eller stealth.' }, 400);
 
   const COST = 10;
   const energy = calcEnergy(player);
-  if (energy < COST) return gameJson({ error: `Not enough energy. Need ${COST}, have ${energy}.` }, 400);
+  if (energy < COST) return gameJson({ error: `Inte tillräckligt med energi. Behöver ${COST}, har ${energy}.` }, 400);
 
   const increase  = rand(1, 3);
   const newVal    = Math.min(100, ((player[stat] as number) ?? 10) + increase);
@@ -2308,10 +2308,11 @@ async function gameActionTrain(request: Request, env: Env): Promise<Response> {
     `UPDATE game_players SET ${stat} = ?, xp = ?, level = ?, last_action = datetime('now') WHERE id = ?`
   ).bind(newVal, currentXp, newLevel, player.id as string).run();
 
-  const msg = `Tränar ${stat}. +${increase} (nu ${newVal}).`;
+  const statSv: Record<string, string> = { strength: 'Styrka', intelligence: 'Intelligens', charisma: 'Karisma', stealth: 'Smygande' };
+  const msg = `${statSv[stat] ?? stat} tränad. +${increase} (nu ${newVal}).`;
   await logAction(env, player.id as string, 'training', msg, 0, 0, xpGained, true);
 
-  return gameJson({ stat, increase, new_value: newVal, xp_gained: xpGained, new_level: newLevel });
+  return gameJson({ stat, increase, new_value: newVal, xp_gained: xpGained, new_level: newLevel, message: msg });
 }
 
 async function gameActionDrugDeal(request: Request, env: Env): Promise<Response> {
@@ -2327,9 +2328,9 @@ async function gameActionDrugDeal(request: Request, env: Env): Promise<Response>
   const drug     = (body.drug ?? '').toLowerCase();
   const quantity = Math.max(1, Math.floor(body.quantity ?? 1));
 
-  if (!['buy', 'sell'].includes(action)) return gameJson({ error: 'action must be "buy" or "sell".' }, 400);
-  if (!DRUG_NAMES.includes(drug))        return gameJson({ error: `Unknown drug "${drug}".` }, 400);
-  if (quantity < 1 || quantity > 100)    return gameJson({ error: 'Quantity must be 1–100.' }, 400);
+  if (!['buy', 'sell'].includes(action)) return gameJson({ error: 'Ogiltig åtgärd.' }, 400);
+  if (!DRUG_NAMES.includes(drug))        return gameJson({ error: `Okänd drog "${drug}".` }, 400);
+  if (quantity < 1 || quantity > 100)    return gameJson({ error: 'Antal måste vara 1–100.' }, 400);
 
   const pid          = player.id as string;
   const playerLevel  = (player.level        as number) ?? 1;
@@ -2352,12 +2353,12 @@ async function gameActionDrugDeal(request: Request, env: Env): Promise<Response>
   if (action === 'buy') {
     const COST    = 5;
     const energy  = calcEnergy(player);
-    if (energy < COST) return gameJson({ error: `Not enough energy. Need ${COST}.` }, 400);
+    if (energy < COST) return gameJson({ error: `Inte tillräckligt med energi. Behöver ${COST}.` }, 400);
 
     const unitPrice = Math.round(midPrice * (1 + buyMarkup));
     const total     = unitPrice * quantity;
     const cash      = (player.cash as number) ?? 0;
-    if (cash < total) return gameJson({ error: `Not enough cash. Need ${total}, have ${cash}.` }, 400);
+    if (cash < total) return gameJson({ error: `Inte tillräckligt med kontanter. Behöver ${total} kr.` }, 400);
 
     // Upsert inventory — store actual buy price so sell side can reference it
     const existing = await env.DB.prepare(
@@ -2398,7 +2399,7 @@ async function gameActionDrugDeal(request: Request, env: Env): Promise<Response>
       `SELECT id, quantity FROM game_inventory WHERE player_id = ? AND item_type = 'drug' AND item_name = ?`
     ).bind(pid, drug).first<Row>();
     if (!existing || (existing.quantity as number) < quantity)
-      return gameJson({ error: `You don't have ${quantity}x ${drug}.` }, 400);
+      return gameJson({ error: `Du har inte ${quantity}x ${drug}.` }, 400);
 
     // Sell price uses current market minus markdown.
     // Holding pays off: if mid has risen above buy_price, seller profits.
@@ -2451,7 +2452,7 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   const profession = activeProfession(player);
   const COST  = 15;
   const energy = calcEnergy(player);
-  if (energy < COST) return gameJson({ error: `Not enough energy. Need ${COST}.` }, 400);
+  if (energy < COST) return gameJson({ error: `Inte tillräckligt med energi. Behöver ${COST}.` }, 400);
 
   const pid = player.id as string;
 
@@ -2673,7 +2674,7 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
   if (action === 'boost') {
     const stat = body.stat ?? '';
     if (!['strength', 'intelligence', 'charisma', 'stealth'].includes(stat))
-      return gameJson({ error: 'stat must be strength/intelligence/charisma/stealth.' }, 400);
+      return gameJson({ error: 'Ogiltigt stat för boost.' }, 400);
     const BOOST_COST = 5000;
     if (cash < BOOST_COST) return gameJson({ error: `Boost kostar ${BOOST_COST} kr.` }, 400);
     const newVal = Math.min(100, ((player[stat] as number) ?? 10) + 1);
@@ -2684,7 +2685,7 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
     return gameJson({ boosted: stat, new_value: newVal, cost: BOOST_COST, new_cash: cash - BOOST_COST });
   }
 
-  return gameJson({ error: 'action must be "heal", "boost" or "wait".' }, 400);
+  return gameJson({ error: 'Ogiltig sjukhusåtgärd.' }, 400);
 }
 
 async function gameActionBank(request: Request, env: Env): Promise<Response> {
@@ -2695,8 +2696,8 @@ async function gameActionBank(request: Request, env: Env): Promise<Response> {
   const body   = await request.json<{ action?: string; amount?: number }>().catch(() => ({} as { action?: string; amount?: number }));
   const action = body.action ?? '';
   const amount = Math.floor(body.amount ?? 0);
-  if (amount <= 0) return gameJson({ error: 'amount must be positive.' }, 400);
-  if (!['deposit', 'withdraw'].includes(action)) return gameJson({ error: 'action must be "deposit" or "withdraw".' }, 400);
+  if (amount <= 0) return gameJson({ error: 'Beloppet måste vara positivt.' }, 400);
+  if (!['deposit', 'withdraw'].includes(action)) return gameJson({ error: 'Ogiltig bankåtgärd.' }, 400);
 
   const pid  = player.id as string;
   const cash = (player.cash as number) ?? 0;
@@ -2833,8 +2834,8 @@ async function gameActionCollectIncome(request: Request, env: Env): Promise<Resp
     );
     const income        = Math.round(hourlyIncome * hours);
     total += income;
-    return env.DB.prepare(`UPDATE game_properties SET last_collected = datetime('now') WHERE id = ?`)
-      .bind(prop.id as string);
+    return env.DB.prepare(`UPDATE game_properties SET last_collected = datetime('now') WHERE id = ? AND last_collected = ?`)
+      .bind(prop.id as string, prop.last_collected as string);
   });
 
   if (total === 0) return gameJson({ message: 'Ingen inkomst att h\u00e4mta \u00e4nnu.', collected: 0 });
