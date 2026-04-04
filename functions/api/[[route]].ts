@@ -4205,33 +4205,91 @@ function rowToBlackjackHand(row: Row): BlackjackRuntimeHand {
   };
 }
 
-// Auto-add missing blackjack columns when Migration 9 hasn't been applied yet.
-// Uses individual try/catch per statement because D1 throws on duplicate columns.
-let _bjColsChecked = false;
-async function ensureBlackjackColumns(env: Env): Promise<void> {
-  if (_bjColsChecked) return;
-  _bjColsChecked = true;
-  const cols = [
-    `ALTER TABLE game_blackjack_hands ADD COLUMN base_bet      INTEGER DEFAULT 0`,
-    `ALTER TABLE game_blackjack_hands ADD COLUMN split_hand    TEXT`,
-    `ALTER TABLE game_blackjack_hands ADD COLUMN split_bet     INTEGER DEFAULT 0`,
-    `ALTER TABLE game_blackjack_hands ADD COLUMN split_result  TEXT`,
-    `ALTER TABLE game_blackjack_hands ADD COLUMN split_doubled INTEGER DEFAULT 0`,
-    `ALTER TABLE game_blackjack_hands ADD COLUMN insurance_bet INTEGER DEFAULT 0`,
-  ];
-  for (const sql of cols) {
-    try { await env.DB.prepare(sql).run(); } catch { /* column already exists */ }
+const CASINO_STORAGE_SQL: Record<'blackjack' | 'holdem' | 'roulette', string[]> = {
+  blackjack: [
+    `CREATE TABLE IF NOT EXISTS game_blackjack_hands (
+      id            TEXT PRIMARY KEY,
+      player_id     TEXT NOT NULL UNIQUE,
+      round_id      TEXT NOT NULL,
+      bet           INTEGER NOT NULL,
+      base_bet      INTEGER DEFAULT 0,
+      deck_state    TEXT NOT NULL,
+      player_hand   TEXT NOT NULL,
+      dealer_hand   TEXT NOT NULL,
+      state         TEXT NOT NULL DEFAULT 'player_turn',
+      result        TEXT,
+      message       TEXT,
+      doubled       INTEGER DEFAULT 0,
+      split_hand    TEXT,
+      split_bet     INTEGER DEFAULT 0,
+      split_result  TEXT,
+      split_doubled INTEGER DEFAULT 0,
+      insurance_bet INTEGER DEFAULT 0,
+      created_at    TEXT DEFAULT (datetime('now')),
+      updated_at    TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (player_id) REFERENCES game_players(id),
+      FOREIGN KEY (round_id) REFERENCES game_rounds(id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_game_blackjack_round ON game_blackjack_hands (round_id)`,
+  ],
+  holdem: [
+    `CREATE TABLE IF NOT EXISTS game_holdem_tables (
+      id          TEXT PRIMARY KEY,
+      player_id   TEXT NOT NULL UNIQUE,
+      round_id    TEXT NOT NULL,
+      buy_in      INTEGER NOT NULL,
+      small_blind INTEGER NOT NULL DEFAULT 50,
+      big_blind   INTEGER NOT NULL DEFAULT 100,
+      status      TEXT NOT NULL DEFAULT 'active',
+      state_json  TEXT NOT NULL,
+      created_at  TEXT DEFAULT (datetime('now')),
+      updated_at  TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (player_id) REFERENCES game_players(id),
+      FOREIGN KEY (round_id) REFERENCES game_rounds(id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_game_holdem_round ON game_holdem_tables (round_id)`,
+  ],
+  roulette: [
+    `CREATE TABLE IF NOT EXISTS game_roulette_spins (
+      id             TEXT PRIMARY KEY,
+      player_id      TEXT NOT NULL,
+      round_id       TEXT NOT NULL,
+      winning_number INTEGER NOT NULL,
+      color          TEXT NOT NULL,
+      total_stake    INTEGER NOT NULL,
+      total_payout   INTEGER NOT NULL,
+      net_result     INTEGER NOT NULL,
+      bets_json      TEXT NOT NULL,
+      created_at     TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (player_id) REFERENCES game_players(id),
+      FOREIGN KEY (round_id) REFERENCES game_rounds(id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_game_roulette_player_created ON game_roulette_spins (player_id, created_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_game_roulette_round ON game_roulette_spins (round_id)`,
+  ],
+};
+
+async function ensureCasinoStorage(env: Env, kind: 'blackjack' | 'holdem' | 'roulette'): Promise<void> {
+  for (const sql of CASINO_STORAGE_SQL[kind]) {
+    await env.DB.prepare(sql).run();
   }
 }
 
 async function getBlackjackHandForPlayer(env: Env, player: Row): Promise<BlackjackRuntimeHand | null> {
-  try {
+  const run = async (): Promise<BlackjackRuntimeHand | null> => {
     const row = await env.DB.prepare(
       `SELECT * FROM game_blackjack_hands WHERE player_id = ? AND round_id = ? LIMIT 1`
     ).bind(player.id as string, player.round_id as string).first<Row>();
     return row ? rowToBlackjackHand(row) : null;
+  };
+  try {
+    return await run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      await ensureCasinoStorage(env, 'blackjack');
+      return await run();
+    }
     if (msg.includes('no such table')) {
       throw new GameError('Blackjack-tabellen saknas. Kör game-migration-blackjack.sql mot D1.', 500);
     }
@@ -4285,6 +4343,52 @@ async function saveBlackjackHand(env: Env, hand: BlackjackRuntimeHand): Promise<
     ).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      await ensureCasinoStorage(env, 'blackjack');
+      await env.DB.prepare(
+        `INSERT INTO game_blackjack_hands
+           (id, player_id, round_id, bet, base_bet, deck_state, player_hand, dealer_hand, state, result,
+            message, doubled, split_hand, split_bet, split_result, split_doubled, insurance_bet,
+            created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+         ON CONFLICT(player_id) DO UPDATE SET
+           round_id = excluded.round_id,
+           bet = excluded.bet,
+           base_bet = excluded.base_bet,
+           deck_state = excluded.deck_state,
+           player_hand = excluded.player_hand,
+           dealer_hand = excluded.dealer_hand,
+           state = excluded.state,
+           result = excluded.result,
+           message = excluded.message,
+           doubled = excluded.doubled,
+           split_hand = excluded.split_hand,
+           split_bet = excluded.split_bet,
+           split_result = excluded.split_result,
+           split_doubled = excluded.split_doubled,
+           insurance_bet = excluded.insurance_bet,
+           updated_at = datetime('now')`
+      ).bind(
+        hand.id,
+        hand.playerId,
+        hand.roundId,
+        hand.bet,
+        hand.baseBet,
+        JSON.stringify(hand.deck),
+        JSON.stringify(hand.playerCards),
+        JSON.stringify(hand.dealerCards),
+        hand.state,
+        hand.result,
+        hand.message,
+        hand.doubled ? 1 : 0,
+        hand.splitCards.length ? JSON.stringify(hand.splitCards) : null,
+        hand.splitBet,
+        hand.splitResult,
+        hand.splitDoubled ? 1 : 0,
+        hand.insuranceBet,
+      ).run();
+      return;
+    }
     if (msg.includes('no such table')) {
       throw new GameError('Blackjack-tabellen saknas. Kör game-migration-blackjack.sql mot D1.', 500);
     }
@@ -4693,6 +4797,13 @@ async function getRouletteHistory(env: Env, player: Row): Promise<RouletteSpinRe
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
+      await ensureCasinoStorage(env, 'roulette');
+      const result = await env.DB.prepare(
+        `SELECT * FROM game_roulette_spins WHERE player_id = ? AND round_id = ? ORDER BY created_at DESC LIMIT 12`
+      ).bind(player.id as string, player.round_id as string).all<Row>();
+      return result.results.map(rowToRouletteSpin);
+    }
+    if (msg.includes('no such table')) {
       throw new GameError('Roulette-tabellen saknas. Kör game-migration-roulette.sql mot D1.', 500);
     }
     throw e;
@@ -4718,6 +4829,25 @@ async function saveRouletteSpin(env: Env, player: Row, record: RouletteSpinRecor
     ).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      await ensureCasinoStorage(env, 'roulette');
+      await env.DB.prepare(
+        `INSERT INTO game_roulette_spins
+          (id, player_id, round_id, winning_number, color, total_stake, total_payout, net_result, bets_json, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+      ).bind(
+        record.id,
+        player.id as string,
+        player.round_id as string,
+        record.winning_number,
+        record.color,
+        record.total_stake,
+        record.total_payout,
+        record.net_result,
+        JSON.stringify(record.bets)
+      ).run();
+      return;
+    }
     if (msg.includes('no such table')) {
       throw new GameError('Roulette-tabellen saknas. Kör game-migration-roulette.sql mot D1.', 500);
     }
@@ -5526,6 +5656,13 @@ async function getHoldemTableForPlayer(env: Env, player: Row): Promise<HoldemRun
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
+      await ensureCasinoStorage(env, 'holdem');
+      const row = await env.DB.prepare(
+        `SELECT * FROM game_holdem_tables WHERE player_id = ? AND round_id = ? LIMIT 1`
+      ).bind(player.id as string, player.round_id as string).first<Row>();
+      return row ? rowToHoldemTable(row) : null;
+    }
+    if (msg.includes('no such table')) {
       throw new GameError('Hold’em-tabellen saknas. Kör game-migration-holdem.sql mot D1.', 500);
     }
     throw e;
@@ -5559,6 +5696,32 @@ async function saveHoldemTable(env: Env, table: HoldemRuntimeTable): Promise<voi
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
+      await ensureCasinoStorage(env, 'holdem');
+      await env.DB.prepare(
+        `INSERT INTO game_holdem_tables
+           (id, player_id, round_id, buy_in, small_blind, big_blind, status, state_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+         ON CONFLICT(player_id) DO UPDATE SET
+           round_id = excluded.round_id,
+           buy_in = excluded.buy_in,
+           small_blind = excluded.small_blind,
+           big_blind = excluded.big_blind,
+           status = excluded.status,
+           state_json = excluded.state_json,
+           updated_at = datetime('now')`
+      ).bind(
+        table.id,
+        table.playerId,
+        table.roundId,
+        table.buyIn,
+        table.smallBlind,
+        table.bigBlind,
+        table.street === 'table_over' ? 'finished' : 'active',
+        JSON.stringify(table)
+      ).run();
+      return;
+    }
+    if (msg.includes('no such table')) {
       throw new GameError('Hold’em-tabellen saknas. Kör game-migration-holdem.sql mot D1.', 500);
     }
     throw e;
@@ -5570,6 +5733,11 @@ async function deleteHoldemTable(env: Env, playerId: string): Promise<void> {
     await env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ?`).bind(playerId).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      await ensureCasinoStorage(env, 'holdem');
+      await env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ?`).bind(playerId).run();
+      return;
+    }
     if (msg.includes('no such table')) {
       throw new GameError('Hold’em-tabellen saknas. Kör game-migration-holdem.sql mot D1.', 500);
     }
@@ -7353,7 +7521,29 @@ async function importDaxMeasures(env: Env): Promise<Response> {
   const measures = DAX_MEASURES;
   if (!measures.length) {
     return json({
-      error: 'dax-measures.json is empty. Run: node scripts/parse-dax-measures.js, then redeploy.',
+      error: 'inlined DAX_MEASURES is empty. Redeploy a build that includes the inlined data block in functions/api/[[route]].ts.',
+    }, 400);
+  }
+
+  const requiredSubcategoryIds = [...new Set(
+    measures.map(m => m.subcategory_id).filter(Boolean)
+  )];
+
+  const placeholders = requiredSubcategoryIds.map(() => '?').join(', ');
+  const existing = await env.DB.prepare(`
+    SELECT id
+    FROM subcategories
+    WHERE id IN (${placeholders})
+  `).bind(...requiredSubcategoryIds).all<{ id: string }>();
+
+  const existingIds = new Set(existing.results.map(row => row.id));
+  const missingSubcategories = requiredSubcategoryIds.filter(id => !existingIds.has(id));
+
+  if (missingSubcategories.length) {
+    return json({
+      error: 'missing dax subcategories',
+      missing_subcategories: missingSubcategories,
+      hint: 'Run: npx wrangler d1 execute sp1e-db --remote --file=seed-dax-categories.sql',
     }, 400);
   }
 
