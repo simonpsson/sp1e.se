@@ -168,6 +168,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'npcs'             && method === 'GET')  return gameGetNpcs(env);
       if (id === 'simulate'         && method === 'GET')  return gameSimulate(env);
       if (id === 'hall-of-fame'     && method === 'GET')  return gameHallOfFame(env);
+      if (id === 'suggest-names'    && method === 'GET')  return gameSuggestNames(request);
+      if (id === 'inventory'        && method === 'GET')  return gameGetInventory(request, env);
       if (id === 'new-round'        && method === 'POST') return gameNewRound(request, env);
       if (id === 'casino' && sub === 'blackjack' && action === 'state' && method === 'GET') {
         return gameGetBlackjackState(request, env);
@@ -204,6 +206,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
         if (sub === 'choose-profession'&& method === 'POST') return gameActionChooseProfession(request, env);
         if (sub === 'buy-vehicle'      && method === 'POST') return gameActionBuyVehicle(request, env);
         if (sub === 'race'             && method === 'POST') return gameActionRace(request, env);
+        if (sub === 'inventory' && action === 'equip' && method === 'POST') return gameActionInventoryEquip(request, env);
+        if (sub === 'inventory' && action === 'sell'  && method === 'POST') return gameActionInventorySell(request, env);
       }
       return json({ error: 'not found' }, 404);
     }
@@ -1073,7 +1077,102 @@ async function getArtworks(env: Env): Promise<Response> {
 
 // ─── Game (Mosquito) ─────────────────────────────────────────────────────────
 
-const GAME_COOKIE = 'game_session';
+// ── Name generation ──────────────────────────────────────────────────────────
+
+const MALE_FIRST_CLASSIC = [
+  'Ronny','Conny','Tommy','Mange','Bengan','Patrik','Robban',
+  'Niklas','Fredde','Macke','Sigge','Rolle','Stefan','Kenneth',
+  'Glenn','Roger','Jonny','Micke','Henke','Bosse','Pelle',
+  'Kurre','Lasse','Hasse','Leif','Christer','Kent','Jocke',
+  'Ante','Matte','Tobbe','Kenta','Putte','Roffe','Lennie',
+];
+
+const MALE_FIRST_URBAN = [
+  'Alex','Marcus','Viktor','Felix','Eddie','Dennis','Martin',
+  'Joel','Tony','Carlo','Rico','Bruno','Milan','Amir','Hassan',
+  'Samir','Adnan','Nico','Diego','Kevin','Robin','Marko',
+  'Leon','Dino','Ivan','Adis','Nermin','Armin','Tarik','Yousef',
+];
+
+const FEMALE_FIRST = [
+  'Bella','Maggan','Sussan','Jenny','Sandra','Jessica','Linda',
+  'Mia','Nilla','Anki','Nettan','Kicki','Bettan','Carro',
+  'Fia','Sara','Lena','Anna','Sofia','Nadia','Leila',
+  'Amina','Yasmin','Mona','Frida','Elin','Julia','Lotta',
+  'Malin','Emma','Lina','Tessan','Tanja','Veronica','Nina',
+];
+
+const ALIASES_EASTSIDE = [
+  'Kobran','Skuggan','Kniven','Turbo','Kranen','Pantern','Baxarn',
+  'Röken','Kedjan','Raketen','Spiken','Stålet','Hajen','Masken',
+  'Betongen','Iskall','Tjacket','Sotarn','Muren','Lodjuret',
+];
+
+const ALIASES_WESTSIDE = [
+  'Vargen','Räven','Kulan','Blixten','Järnet','Smilen','Fimpen',
+  'Falken','Duvan','Kungen','Boxarn','Slaktarn','Kocken',
+  'Zäta','Kexet','Mörkret','Tassen','Hårda','Tunnan','Krossarn',
+];
+
+const PREFIXES_MALE   = ['Lille','Store','Gamle','Unga','Norr','Söder','Dumme','Fule'];
+const PREFIXES_FEMALE = ['Lilla','Stora','Gamla','Unga','Norr','Söder'];
+
+const SURNAMES = [
+  'Andersson','Johansson','Karlsson','Nilsson','Eriksson',
+  'Larsson','Olsson','Persson','Svensson','Gustafsson',
+  'Pettersson','Jonsson','Jansson','Hansson','Bengtsson',
+  'Jönsson','Lindberg','Jakobsson','Magnusson','Olofsson',
+  'Lindström','Lindqvist','Lundberg','Berglund','Bergman',
+  'Holm','Holmberg','Nyström','Dahlberg','Söderberg',
+  'Sundberg','Forsberg','Ekström','Wallin','Berg',
+  'Lundqvist','Blomqvist','Eklund','Malmberg','Åberg',
+];
+
+function generateNpcName(side: string): string {
+  const eastside = side === 'eastside';
+  const female   = Math.random() < 0.20;
+
+  let firstName: string;
+  if (female) {
+    firstName = pickRandom(FEMALE_FIRST);
+  } else if (eastside) {
+    firstName = Math.random() < 0.65 ? pickRandom(MALE_FIRST_URBAN) : pickRandom(MALE_FIRST_CLASSIC);
+  } else {
+    firstName = Math.random() < 0.65 ? pickRandom(MALE_FIRST_CLASSIC) : pickRandom(MALE_FIRST_URBAN);
+  }
+
+  const aliases  = eastside ? ALIASES_EASTSIDE : ALIASES_WESTSIDE;
+  const prefixes = female ? PREFIXES_FEMALE : PREFIXES_MALE;
+  const alias    = pickRandom(aliases);
+  const surname  = pickRandom(SURNAMES);
+
+  // Format weights: 25% first, 10% surname, 35% first+alias+surname, 20% alias+surname, 10% prefix+first
+  const roll = Math.random();
+  if (roll < 0.25) return firstName;
+  if (roll < 0.35) return surname;
+  if (roll < 0.70) return `${firstName} "${alias}" ${surname}`;
+  if (roll < 0.90) return `${alias} ${surname}`;
+  // prefix + first — hyphen for ≤5-char names (Mange → Lill-Mange), space otherwise
+  const prefix = pickRandom(prefixes);
+  return firstName.length <= 5
+    ? `${prefix}-${firstName}`
+    : `${prefix} ${firstName}`;
+}
+
+function suggestPlayerNames(count: number, side?: string): string[] {
+  const seen = new Set<string>();
+  const results: string[] = [];
+  let attempts = 0;
+  while (results.length < count && attempts < count * 10) {
+    attempts++;
+    const s = side ?? (Math.random() < 0.5 ? 'eastside' : 'westside');
+    const name = generateNpcName(s);
+    if (!seen.has(name)) { seen.add(name); results.push(name); }
+  }
+  return results;
+}
+
+
 const GAME_ADMIN_COOKIE = 'game_admin_session';
 const GAME_ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
@@ -1198,6 +1297,24 @@ async function nextRoundNumber(env: Env): Promise<number> {
   return Number(row?.n ?? 0) + 1;
 }
 
+// NPC stat templates: [level, respect, strength, cash, hp]
+const NPC_TIERS = [
+  [1,   25,  11,  150,   15],  // street rookie
+  [2,   60,  14,  350,   20],
+  [3,  110,  20,  750,   30],
+  [4,  190,  26, 1100,   40],
+  [5,  290,  33, 1900,   50],
+  [6,  430,  38, 2900,   60],
+  [7,  580,  44, 4200,   70],
+  [8,  780,  50, 5800,   80],
+  [9, 1000,  56, 7200,   90],
+  [10,1200,  62, 9000,  100],
+  [12,1900,  70,13000,  120],
+  [15,3400,  83,26000,  150],
+] as const;
+
+const NPC_PERSONALITIES = ['aggressive','passive','defensive','trader'] as const;
+
 async function createGameRound(env: Env, roundNumber: number): Promise<Row> {
   const id = `round-${String(roundNumber).padStart(3, '0')}`;
   const startDate = new Date();
@@ -1206,6 +1323,22 @@ async function createGameRound(env: Env, roundNumber: number): Promise<Row> {
     `INSERT INTO game_rounds (id, round_number, start_date, end_date, is_active)
      VALUES (?, ?, ?, ?, 1)`
   ).bind(id, roundNumber, startDate.toISOString(), endDate.toISOString()).run();
+
+  // Seed 20 NPCs with generated names across tiers
+  const npcStmts = Array.from({ length: 20 }, (_, i) => {
+    const side  = i < 10 ? 'eastside' : 'westside';
+    const tier  = NPC_TIERS[Math.min(i % NPC_TIERS.length, NPC_TIERS.length - 1)];
+    const [lvl, resp, str, cash, hp] = tier;
+    const name  = generateNpcName(side);
+    const pers  = pickRandom([...NPC_PERSONALITIES]);
+    const npcId = `${id}-npc-${String(i + 1).padStart(2, '0')}`;
+    return env.DB.prepare(
+      `INSERT OR IGNORE INTO game_npcs (id, round_id, name, level, respect, strength, cash, hp, side, personality, is_alive)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+    ).bind(npcId, id, name, lvl, resp, str, cash, hp, side, pers);
+  });
+  try { await env.DB.batch(npcStmts); } catch { /* ignore if already seeded */ }
+
   const round = await env.DB.prepare(`SELECT * FROM game_rounds WHERE id = ?`).bind(id).first<Row>();
   if (!round) throw new GameError('Could not initialize game round.', 500);
   return round;
@@ -1551,6 +1684,194 @@ const ROBBERY_FLAVOR_FAIL: Record<string, string[]> = {
                    'Riksbankens säkerhet är nationell hemlighet. Du förstår varför nu.',
                    'Det gick inte. Gripen. Länge.'],
 };
+
+// ── Loot system ──────────────────────────────────────────────────────────────
+
+interface LootItem {
+  id: string;
+  name: string;
+  tier: 1|2|3|4|5;
+  type: 'junk'|'cash_bonus'|'weapon'|'armor'|'tool'|'vehicle'|'component';
+  weight: number;
+  sell_price: number;
+  slot?: string;
+  effects?: Record<string, number>;
+  cash_value?: [number, number]; // [min, max] for cash_bonus type
+}
+
+interface LootTable {
+  drop_chance: number; // 0–1: base probability that ANY loot drops
+  items: LootItem[];
+}
+
+const LOOT_TABLES: Record<string, LootTable> = {
+  shoplift: {
+    drop_chance: 0.40,
+    items: [
+      { id:'godis',      name:'Stulet godis',        tier:1, type:'junk',       weight:40, sell_price:10  },
+      { id:'plånbok_tom',name:'Tom plånbok',          tier:1, type:'junk',       weight:30, sell_price:5   },
+      { id:'mynt',       name:'Lösmynt',              tier:2, type:'cash_bonus', weight:20, sell_price:0,  cash_value:[20,80]   },
+      { id:'present',    name:'Stulen gåva (oöppnad)',tier:2, type:'component',  weight:10, sell_price:150 },
+    ],
+  },
+  pickpocket: {
+    drop_chance: 0.55,
+    items: [
+      { id:'bilhyra_kvitto',name:'Kvitto utan värde',  tier:1, type:'junk',       weight:30, sell_price:0  },
+      { id:'kontanter',     name:'Kontantrull',        tier:2, type:'cash_bonus', weight:30, sell_price:0,  cash_value:[80,300] },
+      { id:'mobiltelefon',  name:'Mobiltelefon',       tier:2, type:'component',  weight:25, sell_price:400 },
+      { id:'kreditkort',    name:'Kreditkort (spärrat)',tier:2,type:'junk',       weight:15, sell_price:30  },
+    ],
+  },
+  car_breakin: {
+    drop_chance: 0.65,
+    items: [
+      { id:'gps_trasig',  name:'Trasig GPS',          tier:1, type:'junk',       weight:30, sell_price:50  },
+      { id:'stereo',      name:'Bilstereo',            tier:2, type:'component',  weight:25, sell_price:300 },
+      { id:'plånbok_bil', name:'Glömd plånbok',        tier:2, type:'cash_bonus', weight:20, sell_price:0,  cash_value:[200,800] },
+      { id:'baseballträ', name:'Basebollträ',          tier:2, type:'weapon',     weight:15, sell_price:120, slot:'weapon', effects:{damage:8}  },
+      { id:'pistol_m57',  name:'Zastava M57',          tier:3, type:'weapon',     weight:8,  sell_price:800, slot:'weapon', effects:{damage:25,accuracy:65} },
+      { id:'bilnycklar',  name:'Bilnycklar (Volvo V70)',tier:5,type:'vehicle',    weight:2,  sell_price:15000, slot:'vehicle', effects:{speed:60} },
+    ],
+  },
+  gas_station: {
+    drop_chance: 0.60,
+    items: [
+      { id:'tomt_kassafack',name:'Tomt kassafack',     tier:1, type:'junk',       weight:25, sell_price:0   },
+      { id:'cigaretter',    name:'Karolong cigg',      tier:2, type:'component',  weight:25, sell_price:80  },
+      { id:'verktygssats',  name:'Verktygssats',       tier:3, type:'tool',       weight:20, sell_price:350, slot:'tool', effects:{lockpick:10}  },
+      { id:'reservkanna',   name:'Reservkanna bensin', tier:2, type:'component',  weight:20, sell_price:200 },
+      { id:'dold_pistol',   name:'Dold Glock 17',      tier:3, type:'weapon',     weight:10, sell_price:1200, slot:'weapon', effects:{damage:30,accuracy:70} },
+    ],
+  },
+  house: {
+    drop_chance: 0.70,
+    items: [
+      { id:'smycken_billiga',name:'Billiga smycken',   tier:2, type:'component',  weight:30, sell_price:200 },
+      { id:'elektronik',    name:'Bärbar dator',       tier:2, type:'component',  weight:25, sell_price:600 },
+      { id:'kontanter_kassafack',name:'Kontanter i byrålåda',tier:2,type:'cash_bonus',weight:20,sell_price:0,cash_value:[500,2000] },
+      { id:'guldkedja',     name:'Guldkedja 18k',      tier:3, type:'component',  weight:15, sell_price:1800, slot:'accessory', effects:{charisma:2} },
+      { id:'diamantring',   name:'Diamantring',        tier:4, type:'component',  weight:7,  sell_price:8000, slot:'accessory' },
+      { id:'automatvapen',  name:'AK-style halvautomatisk',tier:4,type:'weapon',  weight:3,  sell_price:4500, slot:'weapon', effects:{damage:50,accuracy:55} },
+    ],
+  },
+  jewelry: {
+    drop_chance: 0.65,
+    items: [
+      { id:'smyckeskrin_tomt',name:'Tomt smyckeskrin', tier:1, type:'junk',       weight:20, sell_price:20  },
+      { id:'halsband',        name:'Stulna halsband',  tier:3, type:'component',  weight:30, sell_price:1200 },
+      { id:'armband_guld',    name:'Guldarmband',      tier:3, type:'component',  weight:25, sell_price:2500, slot:'accessory', effects:{respect_bonus:5} },
+      { id:'diamanter',       name:'Lösa diamanter',   tier:4, type:'component',  weight:15, sell_price:12000 },
+      { id:'kula_ute',        name:'Skyltskärmsutrustning',tier:5,type:'component',weight:5, sell_price:30000 },
+      { id:'smyckes_pistol',  name:'Juvelerad pistol', tier:5, type:'weapon',     weight:5,  sell_price:20000, slot:'weapon', effects:{damage:35,accuracy:80} },
+    ],
+  },
+  bank: {
+    drop_chance: 0.75,
+    items: [
+      { id:'rånryggsäck',    name:'Rånryggsäck',       tier:2, type:'tool',       weight:30, sell_price:300,  slot:'tool', effects:{cash_bonus:5} },
+      { id:'nyckelknippe',   name:'Nyckelknippe till labb',tier:4,type:'tool',    weight:20, sell_price:5000, slot:'tool', effects:{lockpick:30} },
+      { id:'kontanter_väska',name:'Kontantväska',      tier:3, type:'cash_bonus', weight:25, sell_price:0,  cash_value:[5000,20000] },
+      { id:'skottsäker_väst',name:'Skottsäker väst',   tier:4, type:'armor',      weight:15, sell_price:3000, slot:'armor', effects:{defense:30} },
+      { id:'hemlig_nyckel',  name:'Hemlig bankvalvsnyckel',tier:5,type:'tool',    weight:10, sell_price:50000, slot:'tool', effects:{lockpick:50} },
+    ],
+  },
+  casino: {
+    drop_chance: 0.70,
+    items: [
+      { id:'kasino_marker',  name:'Kasino-marker',     tier:2, type:'component',  weight:30, sell_price:500  },
+      { id:'kontanter_kasino',name:'Kontantpåse',      tier:3, type:'cash_bonus', weight:25, sell_price:0,  cash_value:[10000,50000] },
+      { id:'kasinochip_guld',name:'Guldchips (10 000)',tier:4, type:'component',  weight:20, sell_price:8000 },
+      { id:'vip_kort',       name:'VIP-lounge-kort',   tier:4, type:'component',  weight:15, sell_price:15000, slot:'accessory', effects:{charisma:5} },
+      { id:'kasinoägarens_pistol',name:'Ägarens pistol',tier:5,type:'weapon',     weight:10, sell_price:35000, slot:'weapon', effects:{damage:45,accuracy:85} },
+    ],
+  },
+  federal_reserve: {
+    drop_chance: 0.80,
+    items: [
+      { id:'riksbanksbricka', name:'Riksbanksbricka',  tier:4, type:'component',  weight:25, sell_price:20000 },
+      { id:'guldbullar',      name:'Guldtacka (500g)', tier:5, type:'component',  weight:20, sell_price:200000 },
+      { id:'hemlig_blueprint',name:'Hemlig ritning',   tier:5, type:'tool',       weight:20, sell_price:100000, slot:'tool', effects:{lockpick:100} },
+      { id:'riksbanksgevär',  name:'Beväpnad vakt-AR',  tier:5, type:'weapon',    weight:15, sell_price:80000, slot:'weapon', effects:{damage:65,accuracy:75} },
+      { id:'riksbank_kontanter',name:'Riksbanksslinga', tier:5,type:'cash_bonus', weight:20, sell_price:0, cash_value:[50000,300000] },
+    ],
+  },
+};
+
+function rollLoot(
+  target: string,
+  player: Row,
+): { item: LootItem; cashBonus: number } | null {
+  const table = LOOT_TABLES[target];
+  if (!table) return null;
+
+  const stealth = effectiveStat(player, 'stealth');
+  const intel   = effectiveStat(player, 'intelligence');
+  const charisma = effectiveStat(player, 'charisma');
+  const profession = activeProfession(player);
+
+  // Base drop chance adjusted by stealth
+  let dropChance = table.drop_chance + (stealth - 10) * 0.005;
+  if (profession === 'rånare') dropChance += 0.15;
+  dropChance = Math.min(0.95, Math.max(0.05, dropChance));
+
+  if (Math.random() > dropChance) return null;
+
+  // Build weighted pool; intelligence shifts weight toward higher tiers
+  const intelBonus = Math.floor((intel - 10) / 5); // +1 per 5 intel above 10
+  const pool: { item: LootItem; w: number }[] = table.items.map(item => ({
+    item,
+    w: Math.max(1, item.weight + intelBonus * (item.tier - 2)),
+  }));
+
+  const totalWeight = pool.reduce((s, e) => s + e.w, 0);
+  let r = Math.random() * totalWeight;
+  let chosen: LootItem | null = null;
+  for (const entry of pool) {
+    r -= entry.w;
+    if (r <= 0) { chosen = entry.item; break; }
+  }
+  if (!chosen) chosen = pool[pool.length - 1].item;
+
+  if (chosen.type === 'junk') return null; // junk means nothing worth keeping
+
+  let cashBonus = 0;
+  if (chosen.type === 'cash_bonus' && chosen.cash_value) {
+    const [lo, hi] = chosen.cash_value;
+    cashBonus = rand(lo, hi);
+    // charisma boosts cash_bonus items slightly
+    cashBonus = Math.round(cashBonus * (1 + (charisma - 10) * 0.01));
+    return { item: chosen, cashBonus };
+  }
+
+  return { item: chosen, cashBonus: 0 };
+}
+
+async function grantLoot(
+  env: Env,
+  pid: string,
+  roundId: string,
+  item: LootItem,
+  source: string,
+): Promise<void> {
+  const id = crypto.randomUUID();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO game_inventory (id, player_id, round_id, item_type, item_name, quantity,
+         item_tier, equipped, slot, sell_price, effects, source)
+       VALUES (?, ?, ?, ?, ?, 1, ?, 0, ?, ?, ?, ?)`
+    ).bind(
+      id, pid, roundId,
+      item.type,
+      item.name,
+      item.tier,
+      item.slot ?? null,
+      item.sell_price,
+      item.effects ? JSON.stringify(item.effects) : null,
+      source,
+    ).run();
+  } catch { /* ignore duplicate or schema mismatch */ }
+}
 
 const ASSAULT_WIN_LINES = [
   'Du drog till med en vänsterkrok.',
@@ -1930,6 +2251,14 @@ async function gameNewRound(request: Request, env: Env): Promise<Response> {
   }), { status: 200, headers });
 }
 
+function gameSuggestNames(request: Request): Response {
+  const url   = new URL(request.url);
+  const count = Math.min(10, Math.max(1, parseInt(url.searchParams.get('count') ?? '5')));
+  const side  = url.searchParams.get('side') ?? undefined;
+  const names = suggestPlayerNames(count, side);
+  return gameJson({ names });
+}
+
 async function gameHallOfFame(env: Env): Promise<Response> {
   const res = await env.DB.prepare(
     `SELECT round_number, player_name, final_respect, final_level, final_cash, profession, side, rank, created_at
@@ -2280,12 +2609,33 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
     ).bind(currentCash, respectGained, currentXp, newLevel, pid).run();
   }
 
-  await logAction(env, pid, 'robbery', message, cashGained, respectGained, xpGained, success);
+  // Loot drop (only on success)
+  let lootItem: LootItem | null = null;
+  let lootMessage = '';
+  if (success) {
+    const loot = rollLoot(target, player);
+    if (loot) {
+      lootItem = loot.item;
+      if (loot.cashBonus > 0) {
+        cashGained += loot.cashBonus;
+        lootMessage = `Du hittade ${loot.item.name} (+${loot.cashBonus.toLocaleString('sv')} kr).`;
+        await env.DB.prepare(`UPDATE game_players SET cash = cash + ? WHERE id = ?`).bind(loot.cashBonus, pid).run();
+      } else {
+        lootMessage = `Du hittade: ${loot.item.name}.`;
+        const roundRow = await env.DB.prepare(`SELECT id FROM game_rounds WHERE is_active = 1 LIMIT 1`).first<Row>();
+        if (roundRow) await grantLoot(env, pid, roundRow.id as string, loot.item, target);
+      }
+    }
+  }
+
+  const fullMessage = lootMessage ? `${message} ${lootMessage}` : message;
+  await logAction(env, pid, 'robbery', fullMessage, cashGained, respectGained, xpGained, success);
 
   return gameJson({
-    success, caught, message,
+    success, caught, message: fullMessage,
     cash_gained: cashGained, respect_gained: respectGained, xp_gained: xpGained,
     new_cash: currentCash, new_level: newLevel, energy_left: newEnergy,
+    loot: lootItem ? { name: lootItem.name, tier: lootItem.tier, type: lootItem.type } : null,
   });
 }
 
@@ -4796,6 +5146,108 @@ async function gameActionRace(request: Request, env: Env): Promise<Response> {
 
   await logAction(env, pid, 'race', message, cashDelta, respectGained, xpGained, won);
   return gameJson({ success: won, message, narrative, cash_delta: cashDelta, xp_gained: xpGained, new_level: newLevel, energy_left: newEnergy });
+}
+
+// ── Inventory ────────────────────────────────────────────────────────────────
+
+async function gameGetInventory(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const pid = player.id as string;
+  try {
+    const res = await env.DB.prepare(
+      `SELECT id, item_type, item_name, quantity, buy_price,
+              item_tier, equipped, slot, sell_price, effects, source, created_at
+       FROM game_inventory WHERE player_id = ? ORDER BY item_tier DESC, created_at DESC`
+    ).bind(pid).all<Row>();
+    return gameJson({ inventory: res.results });
+  } catch {
+    return gameJson({ inventory: [] });
+  }
+}
+
+const EQUIPPABLE_SLOTS = new Set(['weapon', 'armor', 'vehicle', 'tool', 'accessory']);
+
+async function gameActionInventoryEquip(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const body = await request.json<{ item_id?: string }>().catch(() => ({} as { item_id?: string }));
+  const itemId = (body.item_id ?? '').trim();
+  if (!itemId) return gameJson({ error: 'item_id krävs.' }, 400);
+
+  const pid = player.id as string;
+  try {
+    const item = await env.DB.prepare(
+      `SELECT * FROM game_inventory WHERE id = ? AND player_id = ?`
+    ).bind(itemId, pid).first<Row>();
+    if (!item) return gameJson({ error: 'Föremålet hittades inte.' }, 404);
+
+    const slot = item.slot as string | null;
+    if (!slot || !EQUIPPABLE_SLOTS.has(slot))
+      return gameJson({ error: 'Det föremålet kan inte utrustas.' }, 400);
+
+    const nowEquipped = (item.equipped as number) === 1;
+    if (nowEquipped) {
+      await env.DB.prepare(`UPDATE game_inventory SET equipped = 0 WHERE id = ?`).bind(itemId).run();
+      return gameJson({ equipped: false, slot, message: `${item.item_name as string} plockat av.` });
+    }
+
+    // Unequip any existing item in that slot (except accessory which allows 2)
+    if (slot !== 'accessory') {
+      await env.DB.prepare(
+        `UPDATE game_inventory SET equipped = 0 WHERE player_id = ? AND slot = ? AND equipped = 1`
+      ).bind(pid, slot).run();
+    }
+    await env.DB.prepare(`UPDATE game_inventory SET equipped = 1 WHERE id = ?`).bind(itemId).run();
+    return gameJson({ equipped: true, slot, message: `${item.item_name as string} utrustad.` });
+  } catch {
+    return gameJson({ error: 'Databasfel vid utrustning.' }, 500);
+  }
+}
+
+async function gameActionInventorySell(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  if (player.in_prison)   return gameJson({ error: 'Du sitter i fängelse.' }, 400);
+  if (player.in_hospital) return gameJson({ error: 'Du är på sjukhus.' }, 400);
+
+  const body = await request.json<{ item_id?: string }>().catch(() => ({} as { item_id?: string }));
+  const itemId = (body.item_id ?? '').trim();
+  if (!itemId) return gameJson({ error: 'item_id krävs.' }, 400);
+
+  const pid = player.id as string;
+  try {
+    const item = await env.DB.prepare(
+      `SELECT * FROM game_inventory WHERE id = ? AND player_id = ?`
+    ).bind(itemId, pid).first<Row>();
+    if (!item) return gameJson({ error: 'Föremålet hittades inte.' }, 404);
+    if ((item.equipped as number) === 1)
+      return gameJson({ error: 'Ta av föremålet innan du säljer det.' }, 400);
+
+    const charisma   = effectiveStat(player, 'charisma');
+    const basePrice  = (item.sell_price as number) ?? 0;
+    const chaBonus   = 1 + Math.max(0, (charisma - 10)) * 0.01; // +1% per charisma above 10
+    const sellFor    = Math.round(basePrice * Math.min(1.2, chaBonus));
+
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM game_inventory WHERE id = ?`).bind(itemId),
+      env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`).bind(sellFor, pid),
+    ]);
+
+    await logAction(env, pid, 'sell_item', `Sålde ${item.item_name as string} för ${sellFor.toLocaleString('sv')} kr.`, sellFor, 0, 0, true);
+
+    const newCash = (player.cash as number) + sellFor;
+    return gameJson({ sold: true, item_name: item.item_name, price: sellFor, new_cash: newCash,
+      message: `${item.item_name as string} såld för ${sellFor.toLocaleString('sv')} kr.` });
+  } catch {
+    return gameJson({ error: 'Databasfel vid försäljning.' }, 500);
+  }
 }
 
 // ─── DAX measures data (inlined — Cloudflare Pages does not bundle _ helpers) ──
