@@ -172,6 +172,9 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'casino' && sub === 'blackjack' && action === 'state' && method === 'GET') {
         return gameGetBlackjackState(request, env);
       }
+      if (id === 'casino' && sub === 'holdem' && action === 'state' && method === 'GET') {
+        return gameGetHoldemState(request, env);
+      }
       if (id === 'admin-auth'       && method === 'POST') return gameAdminAuth(request, env);
       if (id === 'admin-status'     && method === 'GET')  return gameAdminStatus(request, env);
       if (id === 'admin-logout'     && method === 'POST') return gameAdminLogout(request, env);
@@ -182,6 +185,12 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
           if (action === 'hit'    && method === 'POST') return gameActionBlackjackHit(request, env);
           if (action === 'stand'  && method === 'POST') return gameActionBlackjackStand(request, env);
           if (action === 'double' && method === 'POST') return gameActionBlackjackDouble(request, env);
+        }
+        if (sub === 'holdem') {
+          if (action === 'start' && method === 'POST') return gameActionHoldemStart(request, env);
+          if (action === 'act'   && method === 'POST') return gameActionHoldemAct(request, env);
+          if (action === 'next'  && method === 'POST') return gameActionHoldemNextHand(request, env);
+          if (action === 'leave' && method === 'POST') return gameActionHoldemLeave(request, env);
         }
         if (sub === 'robbery'          && method === 'POST') return gameActionRobbery(request, env);
         if (sub === 'train'            && method === 'POST') return gameActionTrain(request, env);
@@ -2901,9 +2910,21 @@ const BLACKJACK_MIN_BET = 100;
 const BLACKJACK_MAX_BET = 5000;
 const BLACKJACK_SUITS = ['S', 'H', 'D', 'C'] as const;
 const BLACKJACK_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as const;
+const HOLDEM_SMALL_BLIND = 50;
+const HOLDEM_BIG_BLIND = 100;
+const HOLDEM_MIN_BUYIN = 2000;
+const HOLDEM_MAX_BUYIN = 10000;
+const HOLDEM_MAX_AGGRESSIVE_ACTIONS = 4;
+const HOLDEM_NPC_COUNT = 3;
+const HOLDEM_ARCHETYPES = ['tight', 'loose', 'aggressive', 'passive', 'gambler', 'shark'] as const;
 
 type BlackjackPhase = 'player_turn' | 'finished';
 type BlackjackOutcome = 'blackjack' | 'win' | 'lose' | 'push' | 'bust' | 'dealer_blackjack' | null;
+type HoldemStreet = 'preflop' | 'flop' | 'turn' | 'river' | 'hand_over' | 'table_over';
+type HoldemActionKind = 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'all-in';
+type HoldemSeatKind = 'player' | 'npc';
+type HoldemArchetype = typeof HOLDEM_ARCHETYPES[number];
+type HoldemResult = 'win' | 'lose' | 'split' | 'table_clear' | 'busted' | null;
 
 interface BlackjackRuntimeHand {
   id: string;
@@ -2917,6 +2938,58 @@ interface BlackjackRuntimeHand {
   result: BlackjackOutcome;
   message: string | null;
   doubled: boolean;
+}
+
+interface HoldemSeatState {
+  seat: number;
+  id: string;
+  kind: HoldemSeatKind;
+  playerId: string | null;
+  npcId: string | null;
+  name: string;
+  side: string | null;
+  personality: string | null;
+  archetype: HoldemArchetype;
+  stack: number;
+  hole: string[];
+  folded: boolean;
+  allIn: boolean;
+  streetBet: number;
+  totalBet: number;
+  acted: boolean;
+  lastAction: string | null;
+}
+
+interface HoldemRuntimeTable {
+  id: string;
+  playerId: string;
+  roundId: string;
+  buyIn: number;
+  smallBlind: number;
+  bigBlind: number;
+  button: number;
+  playerSeat: number;
+  handNumber: number;
+  street: HoldemStreet;
+  actionIndex: number | null;
+  currentBet: number;
+  minRaise: number;
+  aggressiveActions: number;
+  raiseLocked: number[];
+  community: string[];
+  deck: string[];
+  message: string | null;
+  result: HoldemResult;
+  seats: HoldemSeatState[];
+  handStartStacks: number[];
+}
+
+interface HoldemHandValue {
+  category: number;
+  tiebreak: number[];
+  label: string;
+  name: string;
+  cards: string[];
 }
 
 function buildBlackjackDeck(): string[] {
@@ -3190,6 +3263,1093 @@ async function finalizeBlackjackHand(
 
 function fmtCurrency(amount: number): string {
   return amount.toLocaleString('sv-SE');
+}
+
+function normalizeHoldemBuyIn(value: unknown): number {
+  const amount = Math.floor(Number(value ?? 0));
+  if (!Number.isFinite(amount)) return 0;
+  return Math.max(HOLDEM_MIN_BUYIN, Math.min(HOLDEM_MAX_BUYIN, amount));
+}
+
+function holdemBetUnit(street: HoldemStreet): number {
+  return street === 'turn' || street === 'river' ? HOLDEM_BIG_BLIND * 2 : HOLDEM_BIG_BLIND;
+}
+
+function holdemCanSeatAct(seat: HoldemSeatState): boolean {
+  return !seat.folded && !seat.allIn && seat.stack > 0 && seat.hole.length === 2;
+}
+
+function holdemLiveSeats(table: HoldemRuntimeTable): HoldemSeatState[] {
+  return table.seats.filter(seat => !seat.folded && seat.hole.length === 2);
+}
+
+function holdemActionableSeats(table: HoldemRuntimeTable): HoldemSeatState[] {
+  return table.seats.filter(holdemCanSeatAct);
+}
+
+function holdemTotalPot(table: HoldemRuntimeTable): number {
+  return table.seats.reduce((sum, seat) => sum + Number(seat.totalBet ?? 0), 0);
+}
+
+function holdemToCall(table: HoldemRuntimeTable, seat: HoldemSeatState): number {
+  return Math.max(0, table.currentBet - seat.streetBet);
+}
+
+function holdemNextSeat(
+  table: HoldemRuntimeTable,
+  fromIndex: number,
+  predicate: (seat: HoldemSeatState) => boolean
+): number | null {
+  for (let step = 1; step <= table.seats.length; step += 1) {
+    const idx = (fromIndex + step) % table.seats.length;
+    if (predicate(table.seats[idx])) return idx;
+  }
+  return null;
+}
+
+function holdemBlindPositions(table: HoldemRuntimeTable): { sb: number; bb: number } {
+  const active = table.seats.filter(seat => seat.stack > 0);
+  if (active.length <= 1) return { sb: table.button, bb: table.button };
+  if (active.length === 2) {
+    const bb = holdemNextSeat(table, table.button, seat => seat.stack > 0);
+    return { sb: table.button, bb: bb ?? table.button };
+  }
+  const sb = holdemNextSeat(table, table.button, seat => seat.stack > 0) ?? table.button;
+  const bb = holdemNextSeat(table, sb, seat => seat.stack > 0) ?? sb;
+  return { sb, bb };
+}
+
+function holdemActionStartIndex(table: HoldemRuntimeTable): number | null {
+  const { bb } = holdemBlindPositions(table);
+  if (table.street === 'preflop') {
+    return holdemNextSeat(table, bb, holdemCanSeatAct);
+  }
+  return holdemNextSeat(table, table.button, holdemCanSeatAct);
+}
+
+function holdemApplyContribution(seat: HoldemSeatState, amount: number): number {
+  const applied = Math.max(0, Math.min(seat.stack, Math.floor(amount)));
+  seat.stack -= applied;
+  seat.streetBet += applied;
+  seat.totalBet += applied;
+  if (seat.stack === 0) seat.allIn = true;
+  return applied;
+}
+
+function holdemResetStreet(table: HoldemRuntimeTable, street: HoldemStreet): void {
+  table.street = street;
+  table.currentBet = 0;
+  table.minRaise = holdemBetUnit(street);
+  table.aggressiveActions = 0;
+  table.raiseLocked = [];
+  for (const seat of table.seats) {
+    seat.streetBet = 0;
+    seat.acted = !holdemCanSeatAct(seat);
+  }
+  table.actionIndex = holdemActionStartIndex(table);
+}
+
+function holdemRankValue(rank: string): number {
+  if (rank === 'A') return 14;
+  if (rank === 'K') return 13;
+  if (rank === 'Q') return 12;
+  if (rank === 'J') return 11;
+  return Number(rank);
+}
+
+function holdemStraightHigh(values: number[]): number {
+  const uniq = [...new Set(values)].sort((a, b) => b - a);
+  if (uniq.includes(14)) uniq.push(1);
+  for (let i = 0; i <= uniq.length - 5; i += 1) {
+    const window = uniq.slice(i, i + 5);
+    if (window[0] - window[4] === 4 && new Set(window).size === 5) {
+      return window[0] === 1 ? 5 : window[0];
+    }
+  }
+  return 0;
+}
+
+function evaluateHoldemFive(cards: string[]): HoldemHandValue {
+  const ranks = cards.map(card => holdemRankValue(blackjackRank(card))).sort((a, b) => b - a);
+  const suits = cards.map(card => blackjackSuit(card));
+  const flush = suits.every(suit => suit === suits[0]);
+  const straightHigh = holdemStraightHigh(ranks);
+  const counts = new Map<number, number>();
+  for (const rank of ranks) counts.set(rank, (counts.get(rank) ?? 0) + 1);
+  const groups = [...counts.entries()].sort((a, b) => {
+    if (b[1] !== a[1]) return b[1] - a[1];
+    return b[0] - a[0];
+  });
+
+  if (flush && straightHigh) {
+    const royal = straightHigh === 14;
+    return { category: royal ? 9 : 8, tiebreak: [straightHigh], label: royal ? 'royal_flush' : 'straight_flush', name: royal ? 'Royal flush' : 'Straight flush', cards };
+  }
+  if (groups[0][1] === 4) return { category: 7, tiebreak: [groups[0][0], groups[1][0]], label: 'four_kind', name: 'Fyrtal', cards };
+  if (groups[0][1] === 3 && groups[1][1] === 2) return { category: 6, tiebreak: [groups[0][0], groups[1][0]], label: 'full_house', name: 'Kåk', cards };
+  if (flush) return { category: 5, tiebreak: [...ranks], label: 'flush', name: 'Färg', cards };
+  if (straightHigh) return { category: 4, tiebreak: [straightHigh], label: 'straight', name: 'Stege', cards };
+  if (groups[0][1] === 3) {
+    const kickers = groups.slice(1).map(group => group[0]).sort((a, b) => b - a);
+    return { category: 3, tiebreak: [groups[0][0], ...kickers], label: 'three_kind', name: 'Triss', cards };
+  }
+  if (groups[0][1] === 2 && groups[1][1] === 2) {
+    const pairs = groups.filter(group => group[1] === 2).map(group => group[0]).sort((a, b) => b - a);
+    const kicker = groups.find(group => group[1] === 1)?.[0] ?? 0;
+    return { category: 2, tiebreak: [pairs[0], pairs[1], kicker], label: 'two_pair', name: 'Tvåpar', cards };
+  }
+  if (groups[0][1] === 2) {
+    const kickers = groups.filter(group => group[1] === 1).map(group => group[0]).sort((a, b) => b - a);
+    return { category: 1, tiebreak: [groups[0][0], ...kickers], label: 'one_pair', name: 'Par', cards };
+  }
+  return { category: 0, tiebreak: [...ranks], label: 'high_card', name: 'Högt kort', cards };
+}
+
+function compareHoldemHands(a: HoldemHandValue, b: HoldemHandValue): number {
+  if (a.category !== b.category) return a.category > b.category ? 1 : -1;
+  const len = Math.max(a.tiebreak.length, b.tiebreak.length);
+  for (let i = 0; i < len; i += 1) {
+    const av = a.tiebreak[i] ?? 0;
+    const bv = b.tiebreak[i] ?? 0;
+    if (av !== bv) return av > bv ? 1 : -1;
+  }
+  return 0;
+}
+
+function bestHoldemHand(cards: string[]): HoldemHandValue {
+  if (cards.length < 5) throw new GameError('För få kort för att utvärdera handen.', 500);
+  let best: HoldemHandValue | null = null;
+  for (let a = 0; a < cards.length - 4; a += 1) {
+    for (let b = a + 1; b < cards.length - 3; b += 1) {
+      for (let c = b + 1; c < cards.length - 2; c += 1) {
+        for (let d = c + 1; d < cards.length - 1; d += 1) {
+          for (let e = d + 1; e < cards.length; e += 1) {
+            const candidate = evaluateHoldemFive([cards[a], cards[b], cards[c], cards[d], cards[e]]);
+            if (!best || compareHoldemHands(candidate, best) > 0) best = candidate;
+          }
+        }
+      }
+    }
+  }
+  if (!best) throw new GameError('Kunde inte utvärdera pokerhanden.', 500);
+  return best;
+}
+
+function holdemHasFlushDraw(cards: string[]): boolean {
+  const counts = new Map<string, number>();
+  for (const card of cards) {
+    const suit = blackjackSuit(card);
+    counts.set(suit, (counts.get(suit) ?? 0) + 1);
+  }
+  return [...counts.values()].some(count => count >= 4);
+}
+
+function holdemHasStraightDraw(cards: string[]): 'open' | 'gutshot' | null {
+  const values = [...new Set(cards.map(card => holdemRankValue(blackjackRank(card))))];
+  if (values.includes(14)) values.push(1);
+  for (let start = 1; start <= 10; start += 1) {
+    const needed = [start, start + 1, start + 2, start + 3, start + 4];
+    const hits = needed.filter(value => values.includes(value));
+    if (hits.length >= 4) {
+      const missing = needed.filter(value => !values.includes(value));
+      if (missing.length === 1) return missing[0] === start || missing[0] === start + 4 ? 'open' : 'gutshot';
+    }
+  }
+  return null;
+}
+
+function holdemPreflopStrength(hole: string[]): number {
+  const values = hole.map(card => holdemRankValue(blackjackRank(card))).sort((a, b) => b - a);
+  const suited = blackjackSuit(hole[0]) === blackjackSuit(hole[1]);
+  const pair = values[0] === values[1];
+  const gap = Math.abs(values[0] - values[1]);
+  let score = (values[0] + values[1]) / 40;
+  if (pair) score = 0.45 + values[0] / 20;
+  if (suited) score += 0.05;
+  if (gap === 0) score += 0.12;
+  else if (gap === 1) score += 0.06;
+  else if (gap === 2) score += 0.03;
+  if (values[0] >= 13 && values[1] >= 10) score += 0.06;
+  if (values[0] === 14) score += 0.03;
+  return Math.max(0.05, Math.min(0.99, score));
+}
+
+function holdemStrengthScore(seat: HoldemSeatState, table: HoldemRuntimeTable): number {
+  const cards = [...seat.hole, ...table.community];
+  if (table.community.length === 0) return holdemPreflopStrength(seat.hole);
+  const best = bestHoldemHand(cards);
+  const baseMap: Record<string, number> = {
+    high_card: 0.18,
+    one_pair: 0.40,
+    two_pair: 0.58,
+    three_kind: 0.68,
+    straight: 0.78,
+    flush: 0.82,
+    full_house: 0.9,
+    four_kind: 0.96,
+    straight_flush: 0.985,
+    royal_flush: 0.995,
+  };
+  let score = baseMap[best.label] ?? 0.15;
+  if (best.label === 'high_card') score += (best.tiebreak[0] ?? 0) / 100;
+  else if (best.label === 'one_pair') score += (best.tiebreak[0] ?? 0) / 80;
+  if (holdemHasFlushDraw(cards)) score += 0.05;
+  const straightDraw = holdemHasStraightDraw(cards);
+  if (straightDraw === 'open') score += 0.05;
+  else if (straightDraw === 'gutshot') score += 0.025;
+  return Math.max(0.05, Math.min(0.995, score));
+}
+
+function holdemArchetypeFromNpc(npc: Row, seat: number): HoldemArchetype {
+  const personality = String(npc.personality ?? '').toLowerCase();
+  if (personality === 'aggressive') return seat % 2 === 0 ? 'aggressive' : 'gambler';
+  if (personality === 'trader') return seat % 2 === 0 ? 'shark' : 'tight';
+  if (personality === 'defensive') return seat % 2 === 0 ? 'tight' : 'passive';
+  if (personality === 'passive') return seat % 2 === 0 ? 'passive' : 'loose';
+  return HOLDEM_ARCHETYPES[seat % HOLDEM_ARCHETYPES.length];
+}
+
+async function pickHoldemOpponents(env: Env, roundId: string, count: number): Promise<Row[]> {
+  const res = await env.DB.prepare(
+    `SELECT id, name, side, personality
+       FROM game_npcs
+      WHERE round_id = ? AND is_alive = 1
+      ORDER BY RANDOM()
+      LIMIT ?`
+  ).bind(roundId, count).all<Row>();
+  return res.results;
+}
+
+function holdemSeatOrderForPayout(table: HoldemRuntimeTable, indexes: number[]): number[] {
+  const ordered: number[] = [];
+  let cursor = table.button;
+  for (let step = 0; step < table.seats.length; step += 1) {
+    cursor = (cursor + 1) % table.seats.length;
+    if (indexes.includes(cursor)) ordered.push(cursor);
+  }
+  return ordered;
+}
+
+function holdemBuildSeatView(
+  seat: HoldemSeatState,
+  table: HoldemRuntimeTable,
+  reveal: boolean,
+  isCurrent: boolean,
+  isSb: boolean,
+  isBb: boolean
+): Record<string, unknown> {
+  const hole = seat.hole.map(card => blackjackCardView(card, seat.kind !== 'player' && !reveal));
+  return {
+    seat: seat.seat,
+    id: seat.id,
+    kind: seat.kind,
+    name: seat.name,
+    side: seat.side,
+    personality: seat.personality,
+    archetype: seat.archetype,
+    stack: seat.stack,
+    folded: seat.folded,
+    all_in: seat.allIn,
+    last_action: seat.lastAction,
+    committed: seat.totalBet,
+    hole_cards: hole,
+    is_player: seat.kind === 'player',
+    is_turn: isCurrent,
+    dealer: table.button === seat.seat,
+    small_blind: isSb,
+    big_blind: isBb,
+  };
+}
+
+function holdemTableCanContinue(table: HoldemRuntimeTable): boolean {
+  const active = table.seats.filter(seat => seat.stack > 0);
+  return active.length >= 2 && table.seats[table.playerSeat].stack > 0;
+}
+
+function buildHoldemState(table: HoldemRuntimeTable | null, player: Row): Record<string, unknown> {
+  if (!table) {
+    return {
+      idle: true,
+      player_cash: Number(player.cash ?? 0),
+      min_buy_in: HOLDEM_MIN_BUYIN,
+      max_buy_in: HOLDEM_MAX_BUYIN,
+      small_blind: HOLDEM_SMALL_BLIND,
+      big_blind: HOLDEM_BIG_BLIND,
+    };
+  }
+
+  const playerSeat = table.seats[table.playerSeat];
+  const toCall = holdemToCall(table, playerSeat);
+  const unit = holdemBetUnit(table.street);
+  const raiseLocked = table.raiseLocked.includes(playerSeat.seat);
+  const canAct = table.actionIndex === playerSeat.seat && holdemCanSeatAct(playerSeat)
+    && (table.street === 'preflop' || table.street === 'flop' || table.street === 'turn' || table.street === 'river');
+  const canBet = canAct && table.currentBet === 0 && playerSeat.stack >= unit && table.aggressiveActions < HOLDEM_MAX_AGGRESSIVE_ACTIONS;
+  const canRaise = canAct
+    && table.currentBet > 0
+    && !raiseLocked
+    && table.aggressiveActions < HOLDEM_MAX_AGGRESSIVE_ACTIONS
+    && playerSeat.stack >= toCall + unit;
+  const canAllIn = canAct && playerSeat.stack > 0 && (!raiseLocked || playerSeat.stack <= toCall);
+  const revealOpponents = table.street === 'hand_over' || table.street === 'table_over';
+  const { sb, bb } = holdemBlindPositions(table);
+
+  return {
+    idle: false,
+    player_cash: Number(player.cash ?? 0),
+    min_buy_in: HOLDEM_MIN_BUYIN,
+    max_buy_in: HOLDEM_MAX_BUYIN,
+    small_blind: table.smallBlind,
+    big_blind: table.bigBlind,
+    table: {
+      id: table.id,
+      buy_in: table.buyIn,
+      street: table.street,
+      hand_number: table.handNumber,
+      pot: holdemTotalPot(table),
+      current_bet: table.currentBet,
+      call_amount: toCall,
+      bet_amount: unit,
+      raise_amount: toCall + unit,
+      player_stack: playerSeat.stack,
+      action_on_player: canAct,
+      can_fold: canAct,
+      can_check: canAct && toCall === 0,
+      can_call: canAct && toCall > 0,
+      can_bet: canBet,
+      can_raise: canRaise,
+      can_all_in: canAllIn,
+      can_next_hand: table.street === 'hand_over' && holdemTableCanContinue(table),
+      can_leave: table.street === 'hand_over' || table.street === 'table_over',
+      raise_locked: raiseLocked,
+      message: table.message,
+      result: table.result,
+      community_cards: table.community.map(card => blackjackCardView(card)),
+      seats: table.seats.map((seat, index) => holdemBuildSeatView(seat, table, revealOpponents, table.actionIndex === seat.seat, sb === index, bb === index)),
+    },
+  };
+}
+
+function holdemRoundClosed(table: HoldemRuntimeTable): boolean {
+  const live = holdemLiveSeats(table);
+  if (live.length <= 1) return true;
+  const actionable = holdemActionableSeats(table);
+  if (!actionable.length) return true;
+  return actionable.every(seat => seat.acted && seat.streetBet === table.currentBet);
+}
+
+function holdemResetResponses(table: HoldemRuntimeTable, actorSeat: number, onlyUnderCurrentBet = false): void {
+  for (const seat of table.seats) {
+    if (!holdemCanSeatAct(seat) || seat.seat === actorSeat) continue;
+    if (onlyUnderCurrentBet && seat.streetBet >= table.currentBet) continue;
+    seat.acted = false;
+  }
+}
+
+function holdemPostBlind(table: HoldemRuntimeTable, seatIndex: number, amount: number, label: string): void {
+  const seat = table.seats[seatIndex];
+  const posted = holdemApplyContribution(seat, amount);
+  seat.lastAction = posted < amount ? `All-in ${label}` : label;
+  seat.acted = !holdemCanSeatAct(seat);
+}
+
+function holdemInitHand(table: HoldemRuntimeTable): void {
+  const available = table.seats.filter(seat => seat.stack > 0);
+  if (available.length < 2 || table.seats[table.playerSeat].stack <= 0) {
+    table.street = 'table_over';
+    table.actionIndex = null;
+    table.message = table.seats[table.playerSeat].stack <= 0
+      ? 'Du är pank vid pokerbordet.'
+      : 'Bordet är tomt. Plocka markerna och lämna lokalen.';
+    table.result = table.seats[table.playerSeat].stack <= 0 ? 'busted' : 'table_clear';
+    return;
+  }
+
+  table.button = holdemNextSeat(table, table.button, seat => seat.stack > 0) ?? table.button;
+  table.handNumber += 1;
+  table.deck = shuffleBlackjackDeck(buildBlackjackDeck());
+  table.community = [];
+  table.message = `Hand ${table.handNumber}. Mörkarna ligger inne.`;
+  table.result = null;
+  table.handStartStacks = table.seats.map(seat => seat.stack);
+  table.raiseLocked = [];
+
+  for (const seat of table.seats) {
+    seat.hole = [];
+    seat.folded = seat.stack <= 0;
+    seat.allIn = false;
+    seat.streetBet = 0;
+    seat.totalBet = 0;
+    seat.acted = seat.stack <= 0;
+    seat.lastAction = null;
+  }
+
+  for (let round = 0; round < 2; round += 1) {
+    for (let idx = 0; idx < table.seats.length; idx += 1) {
+      const seat = table.seats[idx];
+      if (seat.stack > 0) seat.hole.push(drawBlackjackCard(table.deck));
+    }
+  }
+
+  table.street = 'preflop';
+  table.currentBet = table.bigBlind;
+  table.minRaise = holdemBetUnit('preflop');
+  table.aggressiveActions = 0;
+  const { sb, bb } = holdemBlindPositions(table);
+  holdemPostBlind(table, sb, table.smallBlind, 'Lilla mörken');
+  holdemPostBlind(table, bb, table.bigBlind, 'Stora mörken');
+  table.actionIndex = holdemActionStartIndex(table);
+}
+
+function holdemAdvanceStreet(table: HoldemRuntimeTable): void {
+  if (table.street === 'preflop') {
+    table.community.push(drawBlackjackCard(table.deck), drawBlackjackCard(table.deck), drawBlackjackCard(table.deck));
+    holdemResetStreet(table, 'flop');
+    table.message = 'Floppen ligger ute.';
+    return;
+  }
+  if (table.street === 'flop') {
+    table.community.push(drawBlackjackCard(table.deck));
+    holdemResetStreet(table, 'turn');
+    table.message = 'Turnen slog ner i filten.';
+    return;
+  }
+  if (table.street === 'turn') {
+    table.community.push(drawBlackjackCard(table.deck));
+    holdemResetStreet(table, 'river');
+    table.message = 'Rivern är öppen. Nu kostar tvekan.';
+  }
+}
+
+function holdemPickWinners(table: HoldemRuntimeTable, indexes: number[]): { winners: number[]; best: HoldemHandValue } {
+  let best = bestHoldemHand([...table.seats[indexes[0]].hole, ...table.community]);
+  const winners = [indexes[0]];
+  for (let i = 1; i < indexes.length; i += 1) {
+    const idx = indexes[i];
+    const value = bestHoldemHand([...table.seats[idx].hole, ...table.community]);
+    const cmp = compareHoldemHands(value, best);
+    if (cmp > 0) {
+      best = value;
+      winners.length = 0;
+      winners.push(idx);
+    } else if (cmp === 0) {
+      winners.push(idx);
+    }
+  }
+  return { winners, best };
+}
+
+function holdemResolvePots(table: HoldemRuntimeTable): { winners: number[]; best: HoldemHandValue | null; payouts: Map<number, number> } {
+  const payouts = new Map<number, number>();
+  const levels = [...new Set(table.seats.map(seat => seat.totalBet).filter(total => total > 0))].sort((a, b) => a - b);
+  let previous = 0;
+  let best: HoldemHandValue | null = null;
+  const allWinners = new Set<number>();
+
+  for (const level of levels) {
+    const diff = level - previous;
+    previous = level;
+    const contributors = table.seats.map((seat, index) => ({ seat, index })).filter(entry => entry.seat.totalBet >= level);
+    const potAmount = diff * contributors.length;
+    const eligible = contributors.filter(entry => !entry.seat.folded && entry.seat.hole.length === 2).map(entry => entry.index);
+    if (!potAmount || !eligible.length) continue;
+    const result = holdemPickWinners(table, eligible);
+    const split = Math.floor(potAmount / result.winners.length);
+    let remainder = potAmount - split * result.winners.length;
+    for (const idx of result.winners) {
+      payouts.set(idx, (payouts.get(idx) ?? 0) + split);
+      allWinners.add(idx);
+    }
+    for (const idx of holdemSeatOrderForPayout(table, result.winners)) {
+      if (remainder <= 0) break;
+      payouts.set(idx, (payouts.get(idx) ?? 0) + 1);
+      remainder -= 1;
+    }
+    best = !best || compareHoldemHands(result.best, best) >= 0 ? result.best : best;
+  }
+
+  for (const [idx, amount] of payouts) table.seats[idx].stack += amount;
+  return { winners: [...allWinners], best, payouts };
+}
+
+function holdemFinalizeHand(table: HoldemRuntimeTable): { net: number; message: string; outcome: HoldemResult } {
+  let message = table.message || 'Handen är klar.';
+  let outcome: HoldemResult = 'lose';
+  const live = holdemLiveSeats(table);
+  const playerStart = table.handStartStacks[table.playerSeat] ?? table.buyIn;
+
+  if (live.length === 1) {
+    const winner = live[0];
+    const pot = holdemTotalPot(table);
+    winner.stack += pot;
+    message = winner.seat === table.playerSeat
+      ? `Alla vek sig. Du skrapade hem ${fmtCurrency(pot)} kr i potten.`
+      : `${winner.name} tog hem potten utan showdown.`;
+    outcome = winner.seat === table.playerSeat ? 'win' : 'lose';
+  } else {
+    const result = holdemResolvePots(table);
+    const playerWon = result.payouts.get(table.playerSeat) ?? 0;
+    const winnerNames = result.winners.map(idx => table.seats[idx].name).join(', ');
+    if (result.winners.includes(table.playerSeat)) {
+      outcome = result.winners.length > 1 ? 'split' : 'win';
+      message = result.winners.length > 1
+        ? `Delad pott med ${winnerNames}. Din del: ${fmtCurrency(playerWon)} kr med ${result.best?.name ?? 'hand'}.`
+        : `Showdown vunnen. Du tog ${fmtCurrency(playerWon)} kr med ${result.best?.name ?? 'hand'}.`;
+    } else {
+      outcome = 'lose';
+      message = `${winnerNames} tog potten med ${result.best?.name ?? 'starkare hand'}.`;
+    }
+  }
+
+  for (const seat of table.seats) {
+    seat.streetBet = 0;
+    seat.totalBet = 0;
+    seat.acted = true;
+    seat.lastAction = seat.folded ? 'Fold' : seat.lastAction;
+  }
+
+  table.actionIndex = null;
+  table.currentBet = 0;
+  table.aggressiveActions = 0;
+  table.raiseLocked = [];
+  table.result = outcome;
+  if (!holdemTableCanContinue(table)) {
+    table.street = 'table_over';
+    if (table.seats[table.playerSeat].stack <= 0) {
+      table.result = 'busted';
+      message = `${message} Du är tom på marker.`;
+    } else {
+      table.result = 'table_clear';
+      message = `${message} Bordet är ditt nu.`;
+    }
+  } else {
+    table.street = 'hand_over';
+  }
+  table.message = message;
+  return { net: table.seats[table.playerSeat].stack - playerStart, message, outcome: table.result };
+}
+
+function holdemNpcDecision(table: HoldemRuntimeTable, seatIndex: number): HoldemActionKind {
+  const seat = table.seats[seatIndex];
+  const strength = holdemStrengthScore(seat, table);
+  const toCall = holdemToCall(table, seat);
+  const unit = holdemBetUnit(table.street);
+  const potOdds = toCall > 0 ? toCall / Math.max(1, holdemTotalPot(table) + toCall) : 0;
+  const archetype = seat.archetype;
+  const tightness = archetype === 'tight' || archetype === 'shark' ? 0.08 : archetype === 'loose' || archetype === 'gambler' ? -0.06 : 0;
+  const aggression = archetype === 'aggressive' || archetype === 'gambler' ? 0.08 : archetype === 'passive' ? -0.05 : 0;
+
+  if (toCall > 0) {
+    if (seat.stack <= toCall) return strength > 0.38 - tightness ? 'all-in' : 'fold';
+    if (strength < 0.24 + potOdds * 0.55 + tightness && Math.random() > 0.12) return 'fold';
+    if (!table.raiseLocked.includes(seat.seat) && table.aggressiveActions < HOLDEM_MAX_AGGRESSIVE_ACTIONS && seat.stack >= toCall + unit) {
+      if (strength > 0.72 - aggression || (strength > 0.55 && Math.random() < 0.16 + aggression)) return 'raise';
+    }
+    if (strength > 0.9 && seat.stack <= toCall + unit * 2) return 'all-in';
+    return 'call';
+  }
+
+  if (table.aggressiveActions < HOLDEM_MAX_AGGRESSIVE_ACTIONS && seat.stack >= unit) {
+    const bluff = archetype === 'gambler' ? 0.16 : archetype === 'aggressive' ? 0.1 : 0.04;
+    if (strength > 0.6 - aggression || (Math.random() < bluff && table.street !== 'river')) return 'bet';
+  }
+  if (strength > 0.95 && seat.stack <= unit * 2) return 'all-in';
+  return 'check';
+}
+
+function holdemApplyAction(table: HoldemRuntimeTable, seatIndex: number, action: HoldemActionKind): void {
+  const seat = table.seats[seatIndex];
+  if (!holdemCanSeatAct(seat)) throw new GameError('Den platsen kan inte agera nu.', 409);
+  const toCall = holdemToCall(table, seat);
+  const unit = holdemBetUnit(table.street);
+  const locked = table.raiseLocked.includes(seat.seat);
+  let increased = false;
+  let fullRaise = false;
+
+  switch (action) {
+    case 'fold':
+      seat.folded = true;
+      seat.acted = true;
+      seat.lastAction = 'Fold';
+      break;
+    case 'check':
+      if (toCall > 0) throw new GameError('Du måste syna, höja eller lägga dig.', 400);
+      seat.acted = true;
+      seat.lastAction = 'Check';
+      break;
+    case 'call': {
+      if (toCall <= 0) throw new GameError('Det finns inget att syna.', 400);
+      const paid = holdemApplyContribution(seat, toCall);
+      seat.acted = true;
+      seat.lastAction = paid < toCall ? 'All-in' : 'Call';
+      break;
+    }
+    case 'bet':
+      if (toCall > 0 || table.currentBet > 0) throw new GameError('Insatsen är redan öppen. Höj i stället.', 400);
+      if (table.aggressiveActions >= HOLDEM_MAX_AGGRESSIVE_ACTIONS) throw new GameError('Insatsrundan är redan capad.', 400);
+      if (seat.stack < unit) throw new GameError('Du har inte nog för en full limit-insats. Kör all-in i stället.', 400);
+      holdemApplyContribution(seat, unit);
+      table.currentBet = seat.streetBet;
+      table.aggressiveActions = 1;
+      seat.acted = true;
+      seat.lastAction = 'Bet';
+      increased = true;
+      fullRaise = true;
+      break;
+    case 'raise':
+      if (toCall <= 0) throw new GameError('Det finns inget att höja över.', 400);
+      if (locked) throw new GameError('Actionen är inte återöppnad för höjning. Du får syna eller lägga dig.', 400);
+      if (table.aggressiveActions >= HOLDEM_MAX_AGGRESSIVE_ACTIONS) throw new GameError('Rundan är redan capad.', 400);
+      if (seat.stack < toCall + unit) throw new GameError('Du har inte nog för en full limit-höjning. Kör all-in i stället.', 400);
+      holdemApplyContribution(seat, toCall + unit);
+      table.currentBet = seat.streetBet;
+      table.aggressiveActions += 1;
+      seat.acted = true;
+      seat.lastAction = 'Raise';
+      increased = true;
+      fullRaise = true;
+      break;
+    case 'all-in': {
+      if (seat.stack <= 0) throw new GameError('Du har inga marker kvar.', 400);
+      if (locked && seat.stack > toCall) throw new GameError('Actionen är inte återöppnad. Du kan inte ställa in över synen här.', 400);
+      const before = seat.streetBet;
+      const paid = holdemApplyContribution(seat, seat.stack);
+      seat.acted = true;
+      seat.lastAction = 'All-in';
+      if (before + paid > table.currentBet) {
+        const diff = before + paid - table.currentBet;
+        table.currentBet = before + paid;
+        increased = true;
+        if (diff >= table.minRaise) {
+          table.aggressiveActions += 1;
+          fullRaise = true;
+        } else {
+          for (const other of table.seats) {
+            if (other.seat !== seat.seat && other.acted && holdemCanSeatAct(other) && !table.raiseLocked.includes(other.seat)) {
+              table.raiseLocked.push(other.seat);
+            }
+          }
+        }
+      }
+      break;
+    }
+    default:
+      throw new GameError('Ogiltig pokeraction.', 400);
+  }
+
+  if (holdemLiveSeats(table).length <= 1) {
+    table.actionIndex = null;
+    return;
+  }
+  if (increased) {
+    if (fullRaise) table.raiseLocked = [];
+    holdemResetResponses(table, seat.seat, true);
+  }
+  table.actionIndex = holdemNextSeat(table, seat.seat, holdemCanSeatAct);
+}
+
+function holdemAdvanceToPlayer(table: HoldemRuntimeTable): { net: number; message: string; outcome: HoldemResult } | null {
+  while (true) {
+    if (holdemLiveSeats(table).length <= 1) return holdemFinalizeHand(table);
+    if (holdemRoundClosed(table)) {
+      if (table.street === 'river') return holdemFinalizeHand(table);
+      holdemAdvanceStreet(table);
+      if (holdemLiveSeats(table).length <= 1) return holdemFinalizeHand(table);
+      continue;
+    }
+    if (table.actionIndex === null) {
+      table.actionIndex = holdemActionStartIndex(table);
+      if (table.actionIndex === null) return holdemFinalizeHand(table);
+    }
+    const seat = table.seats[table.actionIndex];
+    if (seat.kind === 'player') return null;
+    holdemApplyAction(table, table.actionIndex, holdemNpcDecision(table, table.actionIndex));
+  }
+}
+
+function parseHoldemSeat(raw: unknown, index: number): HoldemSeatState {
+  if (!raw || typeof raw !== 'object') throw new GameError(`Pokerstate för plats ${index + 1} är trasig.`, 500);
+  const seat = raw as Record<string, unknown>;
+  const archetype = HOLDEM_ARCHETYPES.includes(String(seat.archetype ?? '') as HoldemArchetype)
+    ? String(seat.archetype) as HoldemArchetype
+    : HOLDEM_ARCHETYPES[index % HOLDEM_ARCHETYPES.length];
+  return {
+    seat: Number(seat.seat ?? index),
+    id: String(seat.id ?? `seat-${index}`),
+    kind: String(seat.kind ?? 'npc') === 'player' ? 'player' : 'npc',
+    playerId: seat.playerId == null ? null : String(seat.playerId),
+    npcId: seat.npcId == null ? null : String(seat.npcId),
+    name: String(seat.name ?? `Stol ${index + 1}`),
+    side: seat.side == null ? null : String(seat.side),
+    personality: seat.personality == null ? null : String(seat.personality),
+    archetype,
+    stack: Math.max(0, Math.floor(Number(seat.stack ?? 0))),
+    hole: Array.isArray(seat.hole) ? seat.hole.filter(card => typeof card === 'string').map(String) : [],
+    folded: !!seat.folded,
+    allIn: !!seat.allIn,
+    streetBet: Math.max(0, Math.floor(Number(seat.streetBet ?? 0))),
+    totalBet: Math.max(0, Math.floor(Number(seat.totalBet ?? 0))),
+    acted: !!seat.acted,
+    lastAction: seat.lastAction == null ? null : String(seat.lastAction),
+  };
+}
+
+function rowToHoldemTable(row: Row): HoldemRuntimeTable {
+  if (typeof row.state_json !== 'string' || !row.state_json.trim()) {
+    throw new GameError('Pokerbordets state saknas.', 500);
+  }
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(row.state_json) as Record<string, unknown>;
+  } catch {
+    throw new GameError('Pokerbordets state kunde inte läsas.', 500);
+  }
+  const streetRaw = String(parsed.street ?? 'preflop');
+  const street: HoldemStreet = ['preflop', 'flop', 'turn', 'river', 'hand_over', 'table_over'].includes(streetRaw)
+    ? streetRaw as HoldemStreet
+    : 'preflop';
+  const resultRaw = parsed.result == null ? null : String(parsed.result);
+  const result: HoldemResult = resultRaw === 'win' || resultRaw === 'lose' || resultRaw === 'split' || resultRaw === 'table_clear' || resultRaw === 'busted'
+    ? resultRaw
+    : null;
+  const seats = Array.isArray(parsed.seats) ? parsed.seats.map(parseHoldemSeat) : [];
+  if (!seats.length) throw new GameError('Pokerbordet saknar spelare.', 500);
+  const handStartStacks = Array.isArray(parsed.handStartStacks)
+    ? parsed.handStartStacks.map(value => Math.max(0, Math.floor(Number(value ?? 0))))
+    : seats.map(seat => seat.stack);
+  return {
+    id: String(row.id),
+    playerId: String(row.player_id),
+    roundId: String(row.round_id),
+    buyIn: Math.max(HOLDEM_MIN_BUYIN, Math.floor(Number(row.buy_in ?? parsed.buyIn ?? HOLDEM_MIN_BUYIN))),
+    smallBlind: Math.max(1, Math.floor(Number(row.small_blind ?? parsed.smallBlind ?? HOLDEM_SMALL_BLIND))),
+    bigBlind: Math.max(1, Math.floor(Number(row.big_blind ?? parsed.bigBlind ?? HOLDEM_BIG_BLIND))),
+    button: Math.max(0, Math.floor(Number(parsed.button ?? 0))),
+    playerSeat: Math.max(0, Math.floor(Number(parsed.playerSeat ?? 0))),
+    handNumber: Math.max(0, Math.floor(Number(parsed.handNumber ?? 0))),
+    street,
+    actionIndex: parsed.actionIndex == null ? null : Math.max(0, Math.floor(Number(parsed.actionIndex))),
+    currentBet: Math.max(0, Math.floor(Number(parsed.currentBet ?? 0))),
+    minRaise: Math.max(0, Math.floor(Number(parsed.minRaise ?? HOLDEM_BIG_BLIND))),
+    aggressiveActions: Math.max(0, Math.floor(Number(parsed.aggressiveActions ?? 0))),
+    raiseLocked: Array.isArray(parsed.raiseLocked) ? parsed.raiseLocked.map(value => Math.max(0, Math.floor(Number(value ?? 0)))) : [],
+    community: Array.isArray(parsed.community) ? parsed.community.filter(card => typeof card === 'string').map(String) : [],
+    deck: Array.isArray(parsed.deck) ? parsed.deck.filter(card => typeof card === 'string').map(String) : [],
+    message: parsed.message == null ? null : String(parsed.message),
+    result,
+    seats,
+    handStartStacks,
+  };
+}
+
+async function getHoldemTableForPlayer(env: Env, player: Row): Promise<HoldemRuntimeTable | null> {
+  try {
+    const row = await env.DB.prepare(
+      `SELECT * FROM game_holdem_tables WHERE player_id = ? AND round_id = ? LIMIT 1`
+    ).bind(player.id as string, player.round_id as string).first<Row>();
+    return row ? rowToHoldemTable(row) : null;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      throw new GameError('Hold’em-tabellen saknas. Kör game-migration-holdem.sql mot D1.', 500);
+    }
+    throw e;
+  }
+}
+
+async function saveHoldemTable(env: Env, table: HoldemRuntimeTable): Promise<void> {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO game_holdem_tables
+         (id, player_id, round_id, buy_in, small_blind, big_blind, status, state_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+       ON CONFLICT(player_id) DO UPDATE SET
+         round_id = excluded.round_id,
+         buy_in = excluded.buy_in,
+         small_blind = excluded.small_blind,
+         big_blind = excluded.big_blind,
+         status = excluded.status,
+         state_json = excluded.state_json,
+         updated_at = datetime('now')`
+    ).bind(
+      table.id,
+      table.playerId,
+      table.roundId,
+      table.buyIn,
+      table.smallBlind,
+      table.bigBlind,
+      table.street === 'table_over' ? 'finished' : 'active',
+      JSON.stringify(table)
+    ).run();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      throw new GameError('Hold’em-tabellen saknas. Kör game-migration-holdem.sql mot D1.', 500);
+    }
+    throw e;
+  }
+}
+
+async function deleteHoldemTable(env: Env, playerId: string): Promise<void> {
+  try {
+    await env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ?`).bind(playerId).run();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      throw new GameError('Hold’em-tabellen saknas. Kör game-migration-holdem.sql mot D1.', 500);
+    }
+    throw e;
+  }
+}
+
+async function createHoldemTable(env: Env, player: Row, buyIn: number): Promise<HoldemRuntimeTable> {
+  const opponents = await pickHoldemOpponents(env, String(player.round_id), HOLDEM_NPC_COUNT);
+  if (!opponents.length) {
+    throw new GameError('Pokerhörnan är mörk. Inga motspelare sitter inne än. Kör game-seed.sql först.', 500);
+  }
+  const seats: HoldemSeatState[] = [
+    {
+      seat: 0,
+      id: String(player.id),
+      kind: 'player',
+      playerId: String(player.id),
+      npcId: null,
+      name: String(player.name),
+      side: player.side == null ? null : String(player.side),
+      personality: null,
+      archetype: 'tight',
+      stack: buyIn,
+      hole: [],
+      folded: false,
+      allIn: false,
+      streetBet: 0,
+      totalBet: 0,
+      acted: false,
+      lastAction: null,
+    },
+    ...opponents.map((npc, index) => ({
+      seat: index + 1,
+      id: String(npc.id ?? `npc-${index + 1}`),
+      kind: 'npc' as const,
+      playerId: null,
+      npcId: String(npc.id ?? `npc-${index + 1}`),
+      name: String(npc.name ?? `Skugga ${index + 1}`),
+      side: npc.side == null ? null : String(npc.side),
+      personality: npc.personality == null ? null : String(npc.personality),
+      archetype: holdemArchetypeFromNpc(npc, index + 1),
+      stack: buyIn,
+      hole: [],
+      folded: false,
+      allIn: false,
+      streetBet: 0,
+      totalBet: 0,
+      acted: false,
+      lastAction: null,
+    })),
+  ];
+
+  const table: HoldemRuntimeTable = {
+    id: crypto.randomUUID(),
+    playerId: String(player.id),
+    roundId: String(player.round_id),
+    buyIn,
+    smallBlind: HOLDEM_SMALL_BLIND,
+    bigBlind: HOLDEM_BIG_BLIND,
+    button: seats.length - 1,
+    playerSeat: 0,
+    handNumber: 0,
+    street: 'hand_over',
+    actionIndex: null,
+    currentBet: 0,
+    minRaise: HOLDEM_BIG_BLIND,
+    aggressiveActions: 0,
+    raiseLocked: [],
+    community: [],
+    deck: [],
+    message: 'Du glider in i pokerhörnan och köper marker.',
+    result: null,
+    seats,
+    handStartStacks: seats.map(seat => seat.stack),
+  };
+
+  holdemInitHand(table);
+  holdemAdvanceToPlayer(table);
+  return table;
+}
+
+async function gameGetHoldemState(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    const table = await getHoldemTableForPlayer(env, player);
+    return gameJson(buildHoldemState(table, player));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+async function gameActionHoldemStart(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    if (player.in_prison) return gameJson({ error: 'Pokerbordet släpper inte in dig från kåken.' }, 400);
+    if (player.in_hospital) return gameJson({ error: 'Du är fortfarande på sjukhuset.' }, 400);
+
+    const body = await request.json<{ buy_in?: number }>().catch(() => ({} as { buy_in?: number }));
+    const requested = Math.floor(Number(body.buy_in ?? 0));
+    if (!Number.isFinite(requested) || requested < HOLDEM_MIN_BUYIN) {
+      return gameJson({ error: `Minsta buy-in är ${fmtCurrency(HOLDEM_MIN_BUYIN)} kr.` }, 400);
+    }
+    if (requested > HOLDEM_MAX_BUYIN) {
+      return gameJson({ error: `Max buy-in är ${fmtCurrency(HOLDEM_MAX_BUYIN)} kr.` }, 400);
+    }
+    const buyIn = normalizeHoldemBuyIn(requested);
+    const cash = Number(player.cash ?? 0);
+    if (cash < buyIn) {
+      return gameJson({ error: `Du har bara ${fmtCurrency(cash)} kr. Köp in dig billigare.` }, 400);
+    }
+
+    const existing = await getHoldemTableForPlayer(env, player);
+    if (existing) {
+      return gameJson({ error: 'Du sitter redan vid ett bord. Spela klart eller lämna bordet först.', ...buildHoldemState(existing, player) }, 409);
+    }
+
+    await env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ? AND round_id != ?`)
+      .bind(player.id as string, player.round_id as string).run();
+    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(buyIn, player.id as string).run();
+
+    const table = await createHoldemTable(env, player, buyIn);
+    await saveHoldemTable(env, table);
+    await logAction(env, player.id as string, 'casino', `Köpte in dig i Texas Hold'em med ${fmtCurrency(buyIn)} kr i marker.`, -buyIn, 0, 0, true);
+
+    const freshPlayer = await loadGamePlayerById(env, player.id as string);
+    return gameJson(buildHoldemState(table, freshPlayer));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+async function gameActionHoldemAct(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  let table: HoldemRuntimeTable | null = null;
+  try {
+    if (player.in_prison) return gameJson({ error: 'Du sitter i fängelse. Bordet är stängt för dig.' }, 400);
+    if (player.in_hospital) return gameJson({ error: 'Du är på sjukhus. Inget pokerface i dropp just nu.' }, 400);
+
+    table = await getHoldemTableForPlayer(env, player);
+    if (!table) return gameJson({ error: 'Du sitter inte vid något Hold’em-bord.' }, 400);
+    if (table.street === 'hand_over' || table.street === 'table_over') {
+      return gameJson({ error: 'Handen är redan avgjord. Starta nästa hand eller lämna bordet.', ...buildHoldemState(table, player) }, 409);
+    }
+    if (table.actionIndex !== table.playerSeat) {
+      return gameJson({ error: 'Det är inte din tur ännu.', ...buildHoldemState(table, player) }, 409);
+    }
+
+    const body = await request.json<{ action?: string }>().catch(() => ({} as { action?: string }));
+    const action = String(body.action ?? '').toLowerCase() as HoldemActionKind;
+    if (!['fold', 'check', 'call', 'bet', 'raise', 'all-in'].includes(action)) {
+      return gameJson({ error: 'Ogiltig pokeraction.', ...buildHoldemState(table, player) }, 400);
+    }
+
+    holdemApplyAction(table, table.playerSeat, action);
+    const resolved = holdemAdvanceToPlayer(table);
+    await saveHoldemTable(env, table);
+
+    if (resolved) {
+      await logAction(
+        env,
+        player.id as string,
+        'casino',
+        resolved.message,
+        0,
+        0,
+        0,
+        resolved.outcome === 'win' || resolved.outcome === 'split' || resolved.outcome === 'table_clear'
+      );
+    }
+
+    const freshPlayer = await loadGamePlayerById(env, player.id as string);
+    return gameJson(buildHoldemState(table, freshPlayer));
+  } catch (e) {
+    if (table) return gameJson({ error: (e as GameError).message, ...buildHoldemState(table, player) }, (e as GameError).status ?? 500);
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+async function gameActionHoldemNextHand(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    const table = await getHoldemTableForPlayer(env, player);
+    if (!table) return gameJson({ error: 'Du sitter inte vid något Hold’em-bord.' }, 400);
+    if (table.street !== 'hand_over') {
+      return gameJson({ error: table.street === 'table_over' ? 'Bordet är över. Lämna bordet och köp in igen.' : 'Nuvarande hand är inte färdig än.', ...buildHoldemState(table, player) }, 409);
+    }
+    if (!holdemTableCanContinue(table)) {
+      table.street = 'table_over';
+      table.message = table.seats[table.playerSeat].stack <= 0
+        ? 'Du är rökt vid pokerbordet. Lämna bordet och bygg upp kassan igen.'
+        : 'Bordet dog ut. Plocka markerna och stick.';
+      table.result = table.seats[table.playerSeat].stack <= 0 ? 'busted' : 'table_clear';
+      await saveHoldemTable(env, table);
+      return gameJson({ error: 'Bordet kan inte fortsätta. Lämna bordet först.', ...buildHoldemState(table, player) }, 409);
+    }
+
+    holdemInitHand(table);
+    holdemAdvanceToPlayer(table);
+    await saveHoldemTable(env, table);
+    const freshPlayer = await loadGamePlayerById(env, player.id as string);
+    return gameJson(buildHoldemState(table, freshPlayer));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+async function gameActionHoldemLeave(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    const table = await getHoldemTableForPlayer(env, player);
+    if (!table) return gameJson(buildHoldemState(null, player));
+    if (!(table.street === 'hand_over' || table.street === 'table_over')) {
+      return gameJson({ error: 'Du kan bara lämna bordet mellan händerna.', ...buildHoldemState(table, player) }, 409);
+    }
+
+    const stack = Math.max(0, Math.floor(Number(table.seats[table.playerSeat]?.stack ?? 0)));
+    const net = stack - table.buyIn;
+    if (stack > 0) {
+      await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(stack, player.id as string).run();
+    } else {
+      await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
+        .bind(player.id as string).run();
+    }
+    await deleteHoldemTable(env, player.id as string);
+
+    const description = net > 0
+      ? `Lämnade Texas Hold'em-bordet med ${fmtCurrency(stack)} kr i marker. Nettot blev +${fmtCurrency(net)} kr.`
+      : net < 0
+        ? `Lämnade Texas Hold'em-bordet med ${fmtCurrency(stack)} kr. Blödde ${fmtCurrency(Math.abs(net))} kr på kvällen.`
+        : `Lämnade Texas Hold'em-bordet jämnt på ${fmtCurrency(stack)} kr.`;
+    await logAction(env, player.id as string, 'casino', description, stack, 0, 0, stack > 0);
+
+    const freshPlayer = await loadGamePlayerById(env, player.id as string);
+    return gameJson({ message: description, ...buildHoldemState(null, freshPlayer) });
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
 }
 
 async function gameAdminAuth(request: Request, env: Env): Promise<Response> {

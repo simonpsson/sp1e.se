@@ -182,6 +182,23 @@ CREATE TABLE IF NOT EXISTS game_blackjack_hands (
 
 CREATE INDEX IF NOT EXISTS idx_game_blackjack_round ON game_blackjack_hands (round_id);
 
+CREATE TABLE IF NOT EXISTS game_holdem_tables (
+  id          TEXT PRIMARY KEY,
+  player_id   TEXT NOT NULL UNIQUE,
+  round_id    TEXT NOT NULL,
+  buy_in      INTEGER NOT NULL,
+  small_blind INTEGER NOT NULL DEFAULT 50,
+  big_blind   INTEGER NOT NULL DEFAULT 100,
+  status      TEXT NOT NULL DEFAULT 'active',
+  state_json  TEXT NOT NULL,
+  created_at  TEXT DEFAULT (datetime('now')),
+  updated_at  TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (player_id) REFERENCES game_players(id),
+  FOREIGN KEY (round_id) REFERENCES game_rounds(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_holdem_round ON game_holdem_tables (round_id);
+
 CREATE TABLE IF NOT EXISTS game_admin_sessions (
   token      TEXT PRIMARY KEY,
   expires_at TEXT NOT NULL,
