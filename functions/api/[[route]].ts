@@ -171,6 +171,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'suggest-names'    && method === 'GET')  return gameSuggestNames(request);
       if (id === 'weapons'          && method === 'GET')  return gameGetWeapons(request);
       if (id === 'inventory'        && method === 'GET')  return gameGetInventory(request, env);
+      if (id === 'quests'           && method === 'GET')  return gameGetQuests(request, env);
       if (id === 'new-round'        && method === 'POST') return gameNewRound(request, env);
       if (id === 'casino' && sub === 'blackjack' && action === 'state' && method === 'GET') {
         return gameGetBlackjackState(request, env);
@@ -208,6 +209,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
         if (sub === 'buy-vehicle'      && method === 'POST') return gameActionBuyVehicle(request, env);
         if (sub === 'race'             && method === 'POST') return gameActionRace(request, env);
         if (sub === 'buy-weapon'                       && method === 'POST') return gameActionBuyWeapon(request, env);
+        if (sub === 'quest-respond'                    && method === 'POST') return gameActionQuestRespond(request, env);
         if (sub === 'inventory' && action === 'equip' && method === 'POST') return gameActionInventoryEquip(request, env);
         if (sub === 'inventory' && action === 'sell'  && method === 'POST') return gameActionInventorySell(request, env);
       }
@@ -2196,15 +2198,19 @@ async function gameGetNpcs(env: Env): Promise<Response> {
 function npcBehaviorWeights(personality: string): { robbery: number; training: number; drug: number; assault: number } {
   switch (String(personality || '').toLowerCase()) {
     case 'aggressive':
-      return { robbery: 0.42, training: 0.12, drug: 0.14, assault: 0.32 };
+    case 'brawler':
+      return { robbery: 0.40, training: 0.10, drug: 0.12, assault: 0.38 };
     case 'trader':
-      return { robbery: 0.24, training: 0.14, drug: 0.44, assault: 0.18 };
+      return { robbery: 0.22, training: 0.12, drug: 0.48, assault: 0.18 };
+    case 'schemer':
+      return { robbery: 0.35, training: 0.15, drug: 0.30, assault: 0.20 };
+    case 'cautious':
     case 'defensive':
-      return { robbery: 0.25, training: 0.40, drug: 0.15, assault: 0.20 };
+      return { robbery: 0.22, training: 0.42, drug: 0.20, assault: 0.16 };
     case 'passive':
-      return { robbery: 0.18, training: 0.50, drug: 0.22, assault: 0.10 };
+      return { robbery: 0.16, training: 0.52, drug: 0.22, assault: 0.10 };
     default:
-      return { robbery: 0.32, training: 0.20, drug: 0.23, assault: 0.25 };
+      return { robbery: 0.30, training: 0.22, drug: 0.24, assault: 0.24 };
   }
 }
 
@@ -2212,15 +2218,38 @@ function npcTrainingLine(npc: Row): string {
   const name = String(npc.name ?? 'Någon');
   switch (String(npc.personality || '').toLowerCase()) {
     case 'aggressive':
-      return `${name} pumpade järn i skymundan och såg hungrigare ut än vanligt.`;
+    case 'brawler':
+      return `${name} slet järn i källargymmet och såg hungrigare ut än vanligt.`;
     case 'trader':
       return `${name} låg lågt, räknade risker och slipade nästa drag.`;
+    case 'schemer':
+      return `${name} studerade motståndarna och planerade nästa move.`;
+    case 'cautious':
     case 'defensive':
-      return `${name} höll låg profil och vässade formen i bakgränden.`;
+      return `${name} höll låg profil och vässade formen i bakgrunden.`;
     default:
       return `${name} höll sig undan men byggde upp sig i skuggorna.`;
   }
 }
+
+// NPC threat messages to players (flavor)
+const NPC_THREATS = [
+  '{npc} skickade ett kort meddelande: "Håll dig borta från mitt område."',
+  '{npc} lät höra sig: "Du syns för mycket. Det är farligt."',
+  '{npc} passerade förbi och fixerade blicken länge. Ingen sa något.',
+  '{npc} visste var du bor. Du fick reda på det via tredje hand.',
+  '{npc} markerade revir — ditt namn nämndes i ett samtal du inte hörde.',
+];
+
+// Quest templates by personality
+const QUEST_TEMPLATES: { title: string; description: string; reward_mult: number; personality: string }[] = [
+  { personality:'aggressive', title:'Skrämsel',      description:'Ge {target} en ordentlig lektion. 20% av deras cash i ersättning.',  reward_mult:0.20 },
+  { personality:'schemer',    title:'Hämtning',      description:'Hämta en packe från {target}. Inga frågor. Full lön.',               reward_mult:0.25 },
+  { personality:'trader',     title:'Konkurrent',    description:'Sätt press på {target}s drogmarknad. Köp och sälj snabbt.',          reward_mult:0.18 },
+  { personality:'brawler',    title:'Revanchmatch',  description:'{target} slog mig förra rundan. Ge igen, jag betalar.',              reward_mult:0.22 },
+  { personality:'cautious',   title:'Skydd',         description:'Håll koll på min fastighet ett dygn. Lugnt jobb, bra betalt.',       reward_mult:0.15 },
+  { personality:'passive',    title:'Schysst deal',  description:'Köp {qty} portioner marijuana och sälj för mig. Del av vinst.',     reward_mult:0.12 },
+];
 
 async function gameSimulate(env: Env): Promise<Response> {
   const round = await getActiveRound(env);
@@ -2317,6 +2346,80 @@ async function gameSimulate(env: Env): Promise<Response> {
       }
     }
   }
+
+  // ── Player-affecting events (pick 1 random active player as target) ─────────
+  try {
+    const round2 = round; // closure ref
+    const playerRes = await env.DB.prepare(
+      `SELECT id, name, cash, side, level FROM game_players
+       WHERE round_id = ? AND is_alive = 1 AND in_prison = 0 AND in_hospital = 0
+       ORDER BY RANDOM() LIMIT 3`
+    ).bind(round2.id as string).all<Row>();
+
+    for (const npc of res.results) {
+      const p = playerRes.results[Math.floor(Math.random() * playerRes.results.length)];
+      if (!p) continue;
+
+      const personality = String(npc.personality ?? '').toLowerCase();
+      const roll = Math.random();
+
+      // 3% chance aggressive/brawler NPC robs a player
+      if ((personality === 'aggressive' || personality === 'brawler') && roll < 0.03) {
+        const playerCash = (p.cash as number) ?? 0;
+        if (playerCash > 200) {
+          const stolen = Math.floor(playerCash * (0.05 + Math.random() * 0.07));
+          stmts.push(
+            env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+              .bind(stolen, p.id as string),
+            env.DB.prepare(`UPDATE game_npcs SET cash = cash + ? WHERE id = ?`)
+              .bind(stolen, npc.id as string),
+          );
+          // Log to player's action log
+          stmts.push(
+            env.DB.prepare(
+              `INSERT INTO game_action_log (id, player_id, action_type, description, cash_change, respect_change, xp_change, success)
+               VALUES (?, ?, 'assault', ?, ?, 0, 0, 0)`
+            ).bind(crypto.randomUUID(), p.id as string, `${npc.name as string} rånade dig och tog ${svNum(stolen)} kr.`, -stolen)
+          );
+          pushEvent(npc, 'rob_player', `${npc.name as string} rånade ${p.name as string} och tog ${svNum(stolen)} kr.`);
+        }
+      }
+      // 5% chance any NPC sends a threat to a player
+      else if (roll < 0.05) {
+        const tmpl = NPC_THREATS[Math.floor(Math.random() * NPC_THREATS.length)];
+        const msg  = tmpl.replace(/\{npc\}/g, npc.name as string);
+        stmts.push(
+          env.DB.prepare(
+            `INSERT INTO game_action_log (id, player_id, action_type, description, cash_change, respect_change, xp_change, success)
+             VALUES (?, ?, 'threat', ?, 0, 0, 0, 0)`
+          ).bind(crypto.randomUUID(), p.id as string, msg)
+        );
+        pushEvent(npc, 'threat', msg);
+      }
+      // 4% chance schemer/trader NPC offers a quest
+      else if ((personality === 'schemer' || personality === 'trader' || personality === 'aggressive') && roll < 0.09) {
+        const templates = QUEST_TEMPLATES.filter(t => t.personality === personality || t.personality === 'aggressive');
+        const tpl = templates[Math.floor(Math.random() * templates.length)] ?? QUEST_TEMPLATES[0];
+        const targetName = playerRes.results.find(pl => pl.id !== p.id)?.name ?? 'någon';
+        const reward = Math.max(500, Math.floor(((p.cash as number) ?? 2000) * tpl.reward_mult));
+        const desc = tpl.description
+          .replace(/{target}/g, String(targetName))
+          .replace(/{qty}/g, String(rand(5, 20)));
+        const questId = crypto.randomUUID();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        stmts.push(
+          env.DB.prepare(
+            `INSERT OR IGNORE INTO game_quests
+               (id, player_id, round_id, npc_id, npc_name, title, description, reward_cash, reward_respect, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(questId, p.id as string, round2.id as string, npc.id as string,
+            npc.name as string, tpl.title, desc, reward, Math.floor(reward / 200), expiresAt)
+        );
+        pushEvent(npc, 'quest_offer',
+          `${npc.name as string} har ett erbjudande till ${p.name as string}: "${tpl.title}" — ${svNum(reward)} kr.`);
+      }
+    }
+  } catch { /* player-affecting events are best-effort */ }
 
   if (stmts.length) {
     // D1 batch limit is 100; split just in case
@@ -5402,6 +5505,66 @@ async function gameActionInventorySell(request: Request, env: Env): Promise<Resp
       message: `${item.item_name as string} såld för ${sellFor.toLocaleString('sv')} kr.` });
   } catch {
     return gameJson({ error: 'Databasfel vid försäljning.' }, 500);
+  }
+}
+
+// ─── Quest handlers ───────────────────────────────────────────────────────────
+async function gameGetQuests(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const pid = player.id as string;
+  try {
+    const res = await env.DB.prepare(
+      `SELECT * FROM game_quests WHERE player_id = ? AND status IN ('pending','accepted')
+       AND (expires_at IS NULL OR expires_at > datetime('now'))
+       ORDER BY created_at DESC LIMIT 20`
+    ).bind(pid).all<Row>();
+    return gameJson({ quests: res.results });
+  } catch {
+    return gameJson({ quests: [] });
+  }
+}
+
+async function gameActionQuestRespond(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const body = await request.json<{ quest_id?: string; action?: string }>().catch(() => ({} as { quest_id?: string; action?: string }));
+  const questId = (body.quest_id ?? '').trim();
+  const action  = (body.action  ?? '').trim();
+  if (!questId || !['accept','reject'].includes(action))
+    return gameJson({ error: 'quest_id och action (accept/reject) krävs.' }, 400);
+
+  const pid = player.id as string;
+  try {
+    const quest = await env.DB.prepare(
+      `SELECT * FROM game_quests WHERE id = ? AND player_id = ? AND status = 'pending'`
+    ).bind(questId, pid).first<Row>();
+    if (!quest) return gameJson({ error: 'Uppdraget hittades inte eller är inte längre tillgängligt.' }, 404);
+
+    if (action === 'reject') {
+      await env.DB.prepare(`UPDATE game_quests SET status = 'rejected' WHERE id = ?`).bind(questId).run();
+      return gameJson({ ok: true, message: 'Uppdraget avböjt.' });
+    }
+
+    // Accept
+    await env.DB.prepare(`UPDATE game_quests SET status = 'accepted' WHERE id = ?`).bind(questId).run();
+    const reward = (quest.reward_cash as number) ?? 0;
+    const resp   = (quest.reward_respect as number) ?? 0;
+    // For now: instant reward on accept (simplified — full quest chain in future)
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE game_players SET cash = cash + ?, respect = respect + ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(reward, resp, pid),
+      env.DB.prepare(`UPDATE game_quests SET status = 'completed', completed_at = datetime('now') WHERE id = ?`)
+        .bind(questId),
+    ]);
+    await logAction(env, pid, 'quest', `Slutförde uppdrag "${quest.title as string}" — ${reward.toLocaleString('sv')} kr.`, reward, resp, 0, true);
+    return gameJson({ ok: true, message: `Uppdrag accepterat och slutfört. +${reward.toLocaleString('sv')} kr, +${resp} respect.`, reward, respect: resp });
+  } catch {
+    return gameJson({ error: 'Serverfel.' }, 500);
   }
 }
 

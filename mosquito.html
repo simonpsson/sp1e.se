@@ -387,6 +387,15 @@ select:focus{border-color:var(--red);}
 .inv-slot-card .slot-item{color:var(--white);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .inv-slot-card .slot-empty{color:var(--bg3);}
 
+/* ─── Quests ──────────────────────────────────────────────────────────────── */
+.quest-card{background:var(--bg2);border:1px solid #3a2a1a;padding:10px 12px;margin-bottom:6px;display:flex;flex-direction:column;gap:6px;}
+.quest-title{font-size:12px;font-weight:500;color:var(--amber);}
+.quest-npc{font-size:10px;color:var(--dim);letter-spacing:.5px;}
+.quest-desc{font-size:11px;color:var(--txt);line-height:1.5;}
+.quest-reward{font-size:11px;color:var(--green);}
+.quest-actions{display:flex;gap:8px;}
+.quest-actions button{font-size:10px;padding:3px 10px;}
+
 /* ─── Vapen ───────────────────────────────────────────────────────────────── */
 .weapon-card{background:var(--bg2);border:1px solid var(--border);padding:14px;display:flex;flex-direction:column;gap:8px;}
 .weapon-card.owned{border-color:var(--green);}
@@ -605,6 +614,11 @@ select:focus{border-color:var(--red);}
         <div class="sec-title">GATAN</div>
         <div class="sec-sub">Dina senaste handlingar</div>
         <div id="gatan-world" class="world-strip"></div>
+        <!-- Quest inbox -->
+        <div id="quest-panel" style="display:none;margin-bottom:14px;">
+          <div style="font-size:10px;color:var(--red);letter-spacing:.8px;margin-bottom:6px;">UPPDRAG</div>
+          <div id="quest-list"></div>
+        </div>
         <div id="gatan-feed" class="feed">
           <div class="feed-empty">Inga handlingar &auml;nnu. Dags att g&ouml;ra n&aring;got.</div>
         </div>
@@ -1214,11 +1228,14 @@ async function loadWorldPulse(force=false){
 function personalityLabel(value){
   const map={
     aggressive:'Aggro',
+    brawler:'Slagskämpe',
+    cautious:'Försiktig',
     defensive:'Defensiv',
+    schemer:'Intrigmakare',
     trader:'Fixare',
     passive:'Låg profil'
   };
-  return map[String(value||'').toLowerCase()]||'Okänd stil';
+  return map[String(value||'').toLowerCase()]||'Okänd';
 }
 
 async function loadHallOfFame(){
@@ -1513,6 +1530,7 @@ function renderWorldStrip(id){
 function renderGatan(){
   renderWorldStrip('gatan-world');
   void loadWorldPulse();
+  void loadQuests();
   const srvLog=(G.extra.log||[]).map(l=>({
     ts:l.created_at,desc:l.description||l.action_type,
     ok:l.success!==0,kind:'player'
@@ -1733,6 +1751,53 @@ async function doAssault(npcId){
     setTimeout(()=>renderStrid(),800);
   }
 }
+
+/* ─── Quests ──────────────────────────────────────────────────────────────── */
+async function loadQuests(){
+  const panel=document.getElementById('quest-panel');
+  const list =document.getElementById('quest-list');
+  if(!panel||!list) return;
+  try {
+    const r=await api('quests');
+    const quests=r.quests||[];
+    if(!quests.length){panel.style.display='none';return;}
+    panel.style.display='block';
+    list.innerHTML=quests.map(q=>`
+      <div class="quest-card" data-quest-id="${esc(q.id)}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div class="quest-title">${esc(q.title)}</div>
+            <div class="quest-npc">UPPDRAGSGIVARE: ${esc(q.npc_name)}</div>
+          </div>
+          <div class="quest-reward">+${(q.reward_cash||0).toLocaleString('sv')} kr</div>
+        </div>
+        <div class="quest-desc">${esc(q.description)}</div>
+        <div class="quest-actions">
+          <button data-quest-accept="${esc(q.id)}" class="primary">ACCEPTERA</button>
+          <button data-quest-reject="${esc(q.id)}">AVBÖJ</button>
+        </div>
+      </div>`).join('');
+  } catch { panel.style.display='none'; }
+}
+
+async function doQuestRespond(questId, action){
+  const r=await api('action/quest-respond','POST',{quest_id:questId,action});
+  if(r.error){addLog(r.error,'err');return;}
+  addLog(r.message||'Klart.','ok');
+  if(r.reward){
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();
+  }
+  loadQuests();
+}
+
+document.addEventListener('click',e=>{
+  const qa=e.target.closest('[data-quest-accept]');
+  if(qa) return void doQuestRespond(qa.dataset.questAccept,'accept');
+  const qr=e.target.closest('[data-quest-reject]');
+  if(qr) return void doQuestRespond(qr.dataset.questReject,'reject');
+});
 
 /* ─── Vapen (weapon shop) ─────────────────────────────────────────────────── */
 let G_WEAPONS = [];
