@@ -179,22 +179,30 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'casino' && sub === 'holdem' && action === 'state' && method === 'GET') {
         return gameGetHoldemState(request, env);
       }
+      if (id === 'casino' && sub === 'roulette' && action === 'state' && method === 'GET') {
+        return gameGetRouletteState(request, env);
+      }
       if (id === 'admin-auth'       && method === 'POST') return gameAdminAuth(request, env);
       if (id === 'admin-status'     && method === 'GET')  return gameAdminStatus(request, env);
       if (id === 'admin-logout'     && method === 'POST') return gameAdminLogout(request, env);
       if (id === 'admin'            && method === 'POST') return gameAdminCommand(request, env);
       if (id === 'action') {
         if (sub === 'blackjack') {
-          if (action === 'start'  && method === 'POST') return gameActionBlackjackStart(request, env);
-          if (action === 'hit'    && method === 'POST') return gameActionBlackjackHit(request, env);
-          if (action === 'stand'  && method === 'POST') return gameActionBlackjackStand(request, env);
-          if (action === 'double' && method === 'POST') return gameActionBlackjackDouble(request, env);
+          if (action === 'start'     && method === 'POST') return gameActionBlackjackStart(request, env);
+          if (action === 'hit'       && method === 'POST') return gameActionBlackjackHit(request, env);
+          if (action === 'stand'     && method === 'POST') return gameActionBlackjackStand(request, env);
+          if (action === 'double'    && method === 'POST') return gameActionBlackjackDouble(request, env);
+          if (action === 'split'     && method === 'POST') return gameActionBlackjackSplit(request, env);
+          if (action === 'insurance' && method === 'POST') return gameActionBlackjackInsurance(request, env);
         }
         if (sub === 'holdem') {
           if (action === 'start' && method === 'POST') return gameActionHoldemStart(request, env);
           if (action === 'act'   && method === 'POST') return gameActionHoldemAct(request, env);
           if (action === 'next'  && method === 'POST') return gameActionHoldemNextHand(request, env);
           if (action === 'leave' && method === 'POST') return gameActionHoldemLeave(request, env);
+        }
+        if (sub === 'roulette') {
+          if (action === 'spin' && method === 'POST') return gameActionRouletteSpin(request, env);
         }
         if (sub === 'robbery'          && method === 'POST') return gameActionRobbery(request, env);
         if (sub === 'train'            && method === 'POST') return gameActionTrain(request, env);
@@ -1176,7 +1184,7 @@ function suggestPlayerNames(count: number, side?: string): string[] {
   return results;
 }
 
-
+const GAME_COOKIE = 'game_session';
 const GAME_ADMIN_COOKIE = 'game_admin_session';
 const GAME_ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
@@ -1190,6 +1198,10 @@ function getGameCookie(request: Request): string | null {
 
 function setGameCookie(playerId: string): string {
   return `${GAME_COOKIE}=${playerId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${60 * 60 * 24 * 30}`;
+}
+
+function clearGameCookie(): string {
+  return `${GAME_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
 }
 
 function getGameAdminCookie(request: Request): string | null {
@@ -2478,7 +2490,7 @@ async function gameNewRound(request: Request, env: Env): Promise<Response> {
   const round = await createGameRound(env, await nextRoundNumber(env));
   const staleGameCookie = getGameCookie(request);
   const headers = new Headers({ 'Content-Type': 'application/json', ...cors() });
-  if (staleGameCookie) headers.append('Set-Cookie', `${GAME_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`);
+  if (staleGameCookie) headers.append('Set-Cookie', clearGameCookie());
   return new Response(JSON.stringify({
     round_id: round.id,
     round_number: round.round_number,
@@ -2610,7 +2622,7 @@ function settleBlackjack(hand: BlackjackRuntimeHand): Exclude<BlackjackOutcome, 
 async function requireActiveBlackjackHand(env: Env, player: Row): Promise<BlackjackRuntimeHand> {
   const hand = await getBlackjackHandForPlayer(env, player);
   if (!hand) throw new GameError('Ingen blackjack-hand pågår.', 400);
-  if (hand.state !== 'player_turn') throw new GameError('Den här handen är redan avgjord. Starta en ny.', 409);
+  if (hand.state === 'finished') throw new GameError('Den här handen är redan avgjord. Starta en ny.', 409);
   return hand;
 }
 
@@ -2658,6 +2670,7 @@ async function gameActionBlackjackStart(request: Request, env: Env): Promise<Res
       playerId: String(player.id),
       roundId: String(player.round_id),
       bet,
+      baseBet: bet,
       deck,
       playerCards: [drawBlackjackCard(deck), drawBlackjackCard(deck)],
       dealerCards: [drawBlackjackCard(deck), drawBlackjackCard(deck)],
@@ -2665,6 +2678,11 @@ async function gameActionBlackjackStart(request: Request, env: Env): Promise<Res
       result: null,
       message: 'Kort utdelade. Din tur.',
       doubled: false,
+      splitCards: [],
+      splitBet: 0,
+      splitResult: null,
+      splitDoubled: false,
+      insuranceBet: 0,
     };
 
     await saveBlackjackHand(env, hand);
@@ -2696,6 +2714,19 @@ async function gameActionBlackjackHit(request: Request, env: Env): Promise<Respo
     try { hand = await requireActiveBlackjackHand(env, player); }
     catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 400); }
 
+    if (hand.state === 'split_turn') {
+      hand.splitCards.push(drawBlackjackCard(hand.deck));
+      const splitStats = blackjackTotals(hand.splitCards);
+      if (splitStats.busted) {
+        finishDealerHand(hand);
+        return finalizeBlackjackSplitHand(env, player, hand);
+      }
+      hand.message = 'Kort till delade handen.';
+      await saveBlackjackHand(env, hand);
+      const fp = await loadGamePlayerById(env, player.id as string);
+      return gameJson(buildBlackjackState(hand, fp));
+    }
+
     hand.playerCards.push(drawBlackjackCard(hand.deck));
     const playerStats = blackjackTotals(hand.playerCards);
     if (playerStats.busted) {
@@ -2721,6 +2752,20 @@ async function gameActionBlackjackStand(request: Request, env: Env): Promise<Res
     try { hand = await requireActiveBlackjackHand(env, player); }
     catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 400); }
 
+    if (hand.state === 'split_turn') {
+      finishDealerHand(hand);
+      return finalizeBlackjackSplitHand(env, player, hand);
+    }
+
+    // If we have a split hand, transition to split_turn instead of dealer
+    if (hand.splitCards.length > 0) {
+      hand.state = 'split_turn';
+      hand.message = 'Första handen klar — spela nu din delade hand.';
+      await saveBlackjackHand(env, hand);
+      const fp = await loadGamePlayerById(env, player.id as string);
+      return gameJson(buildBlackjackState(hand, fp));
+    }
+
     finishDealerHand(hand);
     return finalizeBlackjackHand(env, player, hand, settleBlackjack(hand));
   } catch (e) {
@@ -2737,6 +2782,23 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
     let hand: BlackjackRuntimeHand;
     try { hand = await requireActiveBlackjackHand(env, player); }
     catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 400); }
+
+    if (hand.state === 'split_turn') {
+      // Double on split hand
+      if (hand.splitDoubled || hand.splitCards.length !== 2) {
+        return gameJson({ error: 'Du kan bara dubbla direkt efter given.' }, 400);
+      }
+      if (Number(player.cash ?? 0) < hand.splitBet) {
+        return gameJson({ error: 'Du har inte råd att dubbla den här delade handen.' }, 400);
+      }
+      await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(hand.splitBet, player.id as string).run();
+      hand.splitBet *= 2;
+      hand.splitDoubled = true;
+      hand.splitCards.push(drawBlackjackCard(hand.deck));
+      finishDealerHand(hand);
+      return finalizeBlackjackSplitHand(env, player, hand);
+    }
 
     if (hand.doubled || hand.playerCards.length !== 2) {
       return gameJson({ error: 'Du kan bara dubbla direkt efter given.' }, 400);
@@ -2756,8 +2818,265 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
       return finalizeBlackjackHand(env, player, hand, 'bust');
     }
 
+    // If split exists, transition to split_turn instead of dealer
+    if (hand.splitCards.length > 0) {
+      hand.state = 'split_turn';
+      hand.message = 'Dubblade och fick ett kort. Spela nu din delade hand.';
+      await saveBlackjackHand(env, hand);
+      const fp = await loadGamePlayerById(env, player.id as string);
+      return gameJson(buildBlackjackState(hand, fp));
+    }
+
     finishDealerHand(hand);
     return finalizeBlackjackHand(env, player, hand, settleBlackjack(hand));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+async function gameGetRouletteState(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    const recent = await getRouletteHistory(env, player);
+    return gameJson(buildRouletteState(player, recent));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+async function gameActionRouletteSpin(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    if (player.in_prison) return gameJson({ error: 'Roulettebordet står inte i fängelset.' }, 400);
+    if (player.in_hospital) return gameJson({ error: 'Du är på sjukhus. Ingen släpper dig till rouletten nu.' }, 400);
+    if (!player.is_alive) return gameJson({ error: 'Du är eliminerad.' }, 400);
+
+    const body = await request.json<{ bets?: unknown[] }>().catch(() => ({} as { bets?: unknown[] }));
+    if (!Array.isArray(body.bets) || !body.bets.length) {
+      return gameJson({ error: 'Lägg minst en rouletteinsats först.' }, 400);
+    }
+
+    const bets = body.bets.map(rouletteResolveBet);
+    const totalStake = bets.reduce((sum, bet) => sum + bet.stake, 0);
+    if (totalStake > ROULETTE_MAX_TOTAL_STAKE) {
+      return gameJson({ error: `Max total insats är ${fmtCurrency(ROULETTE_MAX_TOTAL_STAKE)} kr per snurr.` }, 400);
+    }
+    const cash = Number(player.cash ?? 0);
+    if (cash < totalStake) {
+      return gameJson({ error: `Du har bara ${fmtCurrency(cash)} kr. Sänk insatsen först.` }, 400);
+    }
+
+    const winningNumber = rouletteSpinNumber();
+    const color = rouletteColor(winningNumber);
+    const totalPayout = bets.reduce((sum, bet) => {
+      if (!bet.numbers.includes(winningNumber)) return sum;
+      return sum + bet.stake * (bet.payout + 1);
+    }, 0);
+    const netResult = totalPayout - totalStake;
+
+    const spin: RouletteSpinRecord = {
+      id: crypto.randomUUID(),
+      winning_number: winningNumber,
+      color,
+      total_stake: totalStake,
+      total_payout: totalPayout,
+      net_result: netResult,
+      bets,
+      created_at: new Date().toISOString(),
+      message: '',
+    };
+    spin.message = rouletteSpinMessage(spin);
+
+    if (netResult !== 0) {
+      await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(netResult, player.id as string).run();
+    } else {
+      await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
+        .bind(player.id as string).run();
+    }
+
+    await saveRouletteSpin(env, player, spin);
+    const summary = bets.slice(0, 3).map(bet => `${bet.label} (${fmtCurrency(bet.stake)} kr)`).join(', ');
+    const suffix = bets.length > 3 ? ` + ${bets.length - 3} till` : '';
+    await logAction(
+      env,
+      player.id as string,
+      'casino',
+      `${spin.message} Bord: ${summary}${suffix}.`,
+      netResult,
+      0,
+      0,
+      netResult >= 0
+    );
+
+    const freshPlayer = await loadGamePlayerById(env, player.id as string);
+    const recent = [spin, ...(await getRouletteHistory(env, freshPlayer)).filter(entry => entry.id !== spin.id)].slice(0, 12);
+    return gameJson({ message: spin.message, ...buildRouletteState(freshPlayer, recent, spin) });
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+// ─── Blackjack split + insurance ─────────────────────────────────────────────
+
+function settleSplitHand(splitCards: string[], dealerCards: string[]): Exclude<BlackjackOutcome, null> {
+  const s = blackjackTotals(splitCards);
+  const d = blackjackTotals(dealerCards);
+  if (s.busted) return 'bust';
+  if (d.busted) return 'win';
+  if (s.total > d.total) return 'win';
+  if (s.total < d.total) return 'lose';
+  return 'push';
+}
+
+function splitResultMessage(
+  main: Exclude<BlackjackOutcome, null>,
+  split: Exclude<BlackjackOutcome, null>,
+  mainBet: number,
+  splitBet: number,
+  totalNet: number
+): string {
+  const desc = (o: string) => o === 'win' ? 'vann' : o === 'bust' ? 'sprack' : o === 'push' ? 'push' : 'förlorade';
+  const netStr = totalNet >= 0 ? `+${fmtCurrency(totalNet)} kr` : `-${fmtCurrency(Math.abs(totalNet))} kr`;
+  return `Delade händer — hand 1 ${desc(main)}, hand 2 ${desc(split)}. Netto: ${netStr}.`;
+}
+
+async function finalizeBlackjackSplitHand(
+  env: Env,
+  player: Row,
+  hand: BlackjackRuntimeHand,
+): Promise<Response> {
+  const mainOutcome = settleBlackjack(hand);
+  const splitOutcome = settleSplitHand(hand.splitCards, hand.dealerCards);
+  hand.splitResult = splitOutcome;
+  hand.state = 'finished';
+  hand.result = mainOutcome;
+
+  const mainPayout  = blackjackPayout(mainOutcome,  hand.bet);
+  const splitPayout = blackjackPayout(splitOutcome, hand.splitBet);
+  const totalPayout = mainPayout + splitPayout;
+
+  const mainNet  = blackjackNet(mainOutcome,  hand.bet);
+  const splitNet = blackjackNet(splitOutcome, hand.splitBet);
+  const totalNet = mainNet + splitNet;
+
+  hand.message = splitResultMessage(mainOutcome, splitOutcome, hand.bet, hand.splitBet, totalNet);
+  await saveBlackjackHand(env, hand);
+
+  if (totalPayout > 0) {
+    await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(totalPayout, player.id as string).run();
+  } else {
+    await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
+      .bind(player.id as string).run();
+  }
+
+  await logAction(env, player.id as string, 'casino', hand.message, totalNet, 0, 0, totalNet >= 0);
+  const freshPlayer = await loadGamePlayerById(env, player.id as string);
+  return gameJson(buildBlackjackState(hand, freshPlayer));
+}
+
+async function gameActionBlackjackSplit(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    let hand: BlackjackRuntimeHand;
+    try { hand = await requireActiveBlackjackHand(env, player); }
+    catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 400); }
+
+    if (hand.state !== 'player_turn')
+      return gameJson({ error: 'Du kan bara dela i spelarturen.' }, 400);
+    if (hand.splitCards.length > 0)
+      return gameJson({ error: 'Du kan bara dela en gång.' }, 400);
+    if (hand.playerCards.length !== 2)
+      return gameJson({ error: 'Du kan bara dela direkt efter given.' }, 400);
+    if (blackjackRank(hand.playerCards[0]) !== blackjackRank(hand.playerCards[1]))
+      return gameJson({ error: 'Du kan bara dela ett par (två likadana kort).' }, 400);
+    if (Number(player.cash ?? 0) < hand.baseBet)
+      return gameJson({ error: 'Du har inte råd att dela handen.' }, 400);
+
+    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(hand.baseBet, player.id as string).run();
+
+    const secondCard = hand.playerCards.pop()!;
+    hand.splitCards = [secondCard];
+    hand.playerCards.push(drawBlackjackCard(hand.deck));
+    hand.splitCards.push(drawBlackjackCard(hand.deck));
+    hand.splitBet = hand.baseBet;
+    hand.message = 'Handen delad. Spela din första hand.';
+    await saveBlackjackHand(env, hand);
+
+    const freshPlayer = await loadGamePlayerById(env, player.id as string);
+    return gameJson(buildBlackjackState(hand, freshPlayer));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+async function gameActionBlackjackInsurance(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    let hand: BlackjackRuntimeHand;
+    try { hand = await requireActiveBlackjackHand(env, player); }
+    catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 400); }
+
+    if (hand.state !== 'player_turn')
+      return gameJson({ error: 'Du kan bara ta försäkring i spelarturen.' }, 400);
+    if (hand.insuranceBet > 0)
+      return gameJson({ error: 'Du har redan tagit försäkring.' }, 400);
+    if (hand.playerCards.length !== 2)
+      return gameJson({ error: 'Du kan bara ta försäkring direkt efter given.' }, 400);
+    if (blackjackRank(hand.dealerCards[0]) !== 'A')
+      return gameJson({ error: 'Försäkring erbjuds bara när dealern visar ett ess.' }, 400);
+
+    const insuranceBet = Math.floor(hand.baseBet / 2);
+    if (Number(player.cash ?? 0) < insuranceBet)
+      return gameJson({ error: `Försäkringen kostar ${fmtCurrency(insuranceBet)} kr.` }, 400);
+
+    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(insuranceBet, player.id as string).run();
+    hand.insuranceBet = insuranceBet;
+
+    const dealerStats = blackjackTotals(hand.dealerCards);
+    if (dealerStats.blackjack) {
+      const insurancePayout = insuranceBet * 3;
+      const playerStats = blackjackTotals(hand.playerCards);
+      let mainOutcome: Exclude<BlackjackOutcome, null> = 'dealer_blackjack';
+      let mainPayout = 0;
+      if (playerStats.blackjack) {
+        mainOutcome = 'push';
+        mainPayout  = hand.bet;
+      }
+      await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(insurancePayout + mainPayout, player.id as string).run();
+
+      const net = (insurancePayout - insuranceBet) + (mainPayout - hand.bet);
+      hand.message = playerStats.blackjack
+        ? `Försäkringen vann (${fmtCurrency(insuranceBet * 2)} kr netto). Push — bägge har blackjack.`
+        : `Dealern hade blackjack. Försäkringen vann ${fmtCurrency(insuranceBet * 2)} kr netto. Insatsen gick förlorad.`;
+      hand.state = 'finished';
+      hand.result = mainOutcome;
+      await saveBlackjackHand(env, hand);
+      await logAction(env, player.id as string, 'casino', hand.message, net, 0, 0, net >= 0);
+      const fp = await loadGamePlayerById(env, player.id as string);
+      return gameJson(buildBlackjackState(hand, fp));
+    }
+
+    hand.message = 'Dealern saknar blackjack. Försäkringen är förlorad. Spela vidare.';
+    await saveBlackjackHand(env, hand);
+    const freshPlayer = await loadGamePlayerById(env, player.id as string);
+    return gameJson(buildBlackjackState(hand, freshPlayer));
   } catch (e) {
     return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
   }
@@ -3518,6 +3837,11 @@ const BLACKJACK_MIN_BET = 100;
 const BLACKJACK_MAX_BET = 5000;
 const BLACKJACK_SUITS = ['S', 'H', 'D', 'C'] as const;
 const BLACKJACK_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as const;
+const ROULETTE_MIN_STAKE = 50;
+const ROULETTE_MAX_STAKE = 5000;
+const ROULETTE_MAX_TOTAL_STAKE = 10000;
+const ROULETTE_RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+const ROULETTE_ALLOWED_OUTSIDE = ['red', 'black', 'even', 'odd', 'low', 'high', 'dozen', 'column'] as const;
 const HOLDEM_SMALL_BLIND = 50;
 const HOLDEM_BIG_BLIND = 100;
 const HOLDEM_MIN_BUYIN = 2000;
@@ -3526,8 +3850,10 @@ const HOLDEM_MAX_AGGRESSIVE_ACTIONS = 4;
 const HOLDEM_NPC_COUNT = 3;
 const HOLDEM_ARCHETYPES = ['tight', 'loose', 'aggressive', 'passive', 'gambler', 'shark'] as const;
 
-type BlackjackPhase = 'player_turn' | 'finished';
+type BlackjackPhase = 'player_turn' | 'split_turn' | 'finished';
 type BlackjackOutcome = 'blackjack' | 'win' | 'lose' | 'push' | 'bust' | 'dealer_blackjack' | null;
+type RouletteBetKind = 'straight' | 'split' | 'street' | 'corner' | 'sixline' | 'red' | 'black' | 'even' | 'odd' | 'low' | 'high' | 'dozen' | 'column';
+type RouletteColor = 'red' | 'black' | 'green';
 type HoldemStreet = 'preflop' | 'flop' | 'turn' | 'river' | 'hand_over' | 'table_over';
 type HoldemActionKind = 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'all-in';
 type HoldemSeatKind = 'player' | 'npc';
@@ -3538,7 +3864,8 @@ interface BlackjackRuntimeHand {
   id: string;
   playerId: string;
   roundId: string;
-  bet: number;
+  bet: number;        // main hand bet (2× if doubled)
+  baseBet: number;    // original bet, never changes
   deck: string[];
   playerCards: string[];
   dealerCards: string[];
@@ -3546,6 +3873,34 @@ interface BlackjackRuntimeHand {
   result: BlackjackOutcome;
   message: string | null;
   doubled: boolean;
+  // Split
+  splitCards: string[];
+  splitBet: number;
+  splitResult: BlackjackOutcome;
+  splitDoubled: boolean;
+  // Insurance
+  insuranceBet: number;
+}
+
+interface RouletteBetSelection {
+  kind: RouletteBetKind;
+  stake: number;
+  label: string;
+  numbers: number[];
+  payout: number;
+  target: string | number | number[];
+}
+
+interface RouletteSpinRecord {
+  id: string;
+  winning_number: number;
+  color: RouletteColor;
+  total_stake: number;
+  total_payout: number;
+  net_result: number;
+  bets: RouletteBetSelection[];
+  created_at: string;
+  message: string;
 }
 
 interface HoldemSeatState {
@@ -3688,18 +4043,32 @@ function blackjackCardView(card: string, hidden = false): Record<string, unknown
 }
 
 function rowToBlackjackHand(row: Row): BlackjackRuntimeHand {
+  const rawState = String(row.state ?? 'player_turn');
+  const state: BlackjackPhase = rawState === 'finished' ? 'finished'
+    : rawState === 'split_turn' ? 'split_turn' : 'player_turn';
+  const bet = Number(row.bet ?? 0);
+  let splitCards: string[] = [];
+  if (row.split_hand) {
+    try { splitCards = JSON.parse(row.split_hand as string) as string[]; } catch {}
+  }
   return {
     id: String(row.id),
     playerId: String(row.player_id),
     roundId: String(row.round_id),
-    bet: Number(row.bet ?? 0),
+    bet,
+    baseBet: Number(row.base_bet ?? 0) || bet, // fallback to bet for old rows
     deck: parseBlackjackCards(row.deck_state, 'deck_state'),
     playerCards: parseBlackjackCards(row.player_hand, 'player_hand'),
     dealerCards: parseBlackjackCards(row.dealer_hand, 'dealer_hand'),
-    state: String(row.state ?? 'player_turn') === 'finished' ? 'finished' : 'player_turn',
+    state,
     result: (row.result as BlackjackOutcome) ?? null,
     message: row.message ? String(row.message) : null,
     doubled: Number(row.doubled ?? 0) === 1,
+    splitCards,
+    splitBet: Number(row.split_bet ?? 0),
+    splitResult: (row.split_result as BlackjackOutcome) ?? null,
+    splitDoubled: Number(row.split_doubled ?? 0) === 1,
+    insuranceBet: Number(row.insurance_bet ?? 0),
   };
 }
 
@@ -3722,11 +4091,14 @@ async function saveBlackjackHand(env: Env, hand: BlackjackRuntimeHand): Promise<
   try {
     await env.DB.prepare(
       `INSERT INTO game_blackjack_hands
-         (id, player_id, round_id, bet, deck_state, player_hand, dealer_hand, state, result, message, doubled, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+         (id, player_id, round_id, bet, base_bet, deck_state, player_hand, dealer_hand, state, result,
+          message, doubled, split_hand, split_bet, split_result, split_doubled, insurance_bet,
+          created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
        ON CONFLICT(player_id) DO UPDATE SET
          round_id = excluded.round_id,
          bet = excluded.bet,
+         base_bet = excluded.base_bet,
          deck_state = excluded.deck_state,
          player_hand = excluded.player_hand,
          dealer_hand = excluded.dealer_hand,
@@ -3734,19 +4106,30 @@ async function saveBlackjackHand(env: Env, hand: BlackjackRuntimeHand): Promise<
          result = excluded.result,
          message = excluded.message,
          doubled = excluded.doubled,
+         split_hand = excluded.split_hand,
+         split_bet = excluded.split_bet,
+         split_result = excluded.split_result,
+         split_doubled = excluded.split_doubled,
+         insurance_bet = excluded.insurance_bet,
          updated_at = datetime('now')`
     ).bind(
       hand.id,
       hand.playerId,
       hand.roundId,
       hand.bet,
+      hand.baseBet,
       JSON.stringify(hand.deck),
       JSON.stringify(hand.playerCards),
       JSON.stringify(hand.dealerCards),
       hand.state,
       hand.result,
       hand.message,
-      hand.doubled ? 1 : 0
+      hand.doubled ? 1 : 0,
+      hand.splitCards.length ? JSON.stringify(hand.splitCards) : null,
+      hand.splitBet,
+      hand.splitResult,
+      hand.splitDoubled ? 1 : 0,
+      hand.insuranceBet,
     ).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -3787,8 +4170,11 @@ function blackjackResultMessage(outcome: Exclude<BlackjackOutcome, null>, bet: n
 }
 
 function finishDealerHand(hand: BlackjackRuntimeHand): void {
-  while (blackjackTotals(hand.dealerCards).total < 17) {
+  // Dealer hits on soft 17 (Ace counted as 11 that makes total exactly 17)
+  let stats = blackjackTotals(hand.dealerCards);
+  while (stats.total < 17 || (stats.soft && stats.total === 17)) {
     hand.dealerCards.push(drawBlackjackCard(hand.deck));
+    stats = blackjackTotals(hand.dealerCards);
   }
 }
 
@@ -3805,31 +4191,68 @@ function buildBlackjackState(hand: BlackjackRuntimeHand | null, player: Row): Re
   const playerStats = blackjackTotals(hand.playerCards);
   const dealerStats = blackjackTotals(hand.dealerCards);
   const dealerHidden = hand.state !== 'finished';
+  const cash = Number(player.cash ?? 0);
+  const inSplit = hand.state === 'split_turn';
+  const activeCards = inSplit ? hand.splitCards : hand.playerCards;
+  const activeStats = blackjackTotals(activeCards);
+
+  // Split eligibility: same rank, exactly 2 cards, first action, not already split, can afford
+  const canSplit = hand.state === 'player_turn'
+    && !hand.doubled
+    && hand.splitCards.length === 0
+    && hand.playerCards.length === 2
+    && blackjackRank(hand.playerCards[0]) === blackjackRank(hand.playerCards[1])
+    && cash >= hand.baseBet;
+
+  // Insurance: dealer upcard (index 0) is Ace, first action, no insurance yet
+  const dealerUpcard = hand.dealerCards[0] ?? '';
+  const canInsurance = hand.state === 'player_turn'
+    && hand.insuranceBet === 0
+    && hand.splitCards.length === 0
+    && hand.playerCards.length === 2
+    && blackjackRank(dealerUpcard) === 'A'
+    && cash >= Math.floor(hand.baseBet / 2);
+
+  const splitStats = hand.splitCards.length ? blackjackTotals(hand.splitCards) : null;
+
   return {
     idle: false,
     min_bet: BLACKJACK_MIN_BET,
     max_bet: BLACKJACK_MAX_BET,
-    player_cash: Number(player.cash ?? 0),
+    player_cash: cash,
     hand: {
       id: hand.id,
       bet: hand.bet,
+      base_bet: hand.baseBet,
       state: hand.state,
       result: hand.result,
       message: hand.message,
       doubled: hand.doubled,
       finished: hand.state === 'finished',
-      can_hit: hand.state === 'player_turn',
-      can_stand: hand.state === 'player_turn',
-      can_double: hand.state === 'player_turn'
-        && !hand.doubled
-        && hand.playerCards.length === 2
-        && Number(player.cash ?? 0) >= hand.bet,
+      in_split_turn: inSplit,
+      can_hit: hand.state !== 'finished',
+      can_stand: hand.state !== 'finished',
+      can_double: hand.state !== 'finished'
+        && !( inSplit ? hand.splitDoubled : hand.doubled)
+        && activeCards.length === 2
+        && cash >= (inSplit ? hand.splitBet : hand.bet),
+      can_split: canSplit,
+      can_insurance: canInsurance,
+      insurance_cost: canInsurance ? Math.floor(hand.baseBet / 2) : 0,
+      insurance_bet: hand.insuranceBet,
       player_cards: hand.playerCards.map(card => blackjackCardView(card)),
       dealer_cards: hand.dealerCards.map((card, index) => blackjackCardView(card, dealerHidden && index === 1)),
       player_total: playerStats.total,
       player_soft: playerStats.soft,
       dealer_total: dealerHidden ? null : dealerStats.total,
       dealer_visible_total: dealerHidden ? blackjackTotals(hand.dealerCards.slice(0, 1)).total : dealerStats.total,
+      // Split hand data
+      split_cards: hand.splitCards.map(card => blackjackCardView(card)),
+      split_total: splitStats?.total ?? null,
+      split_soft: splitStats?.soft ?? false,
+      split_result: hand.splitResult,
+      split_bet: hand.splitBet,
+      split_doubled: hand.splitDoubled,
     },
   };
 }
@@ -3871,6 +4294,298 @@ async function finalizeBlackjackHand(
 
 function fmtCurrency(amount: number): string {
   return amount.toLocaleString('sv-SE');
+}
+
+function rouletteColor(number: number): RouletteColor {
+  if (number === 0) return 'green';
+  return ROULETTE_RED_NUMBERS.has(number) ? 'red' : 'black';
+}
+
+function rouletteSpinNumber(): number {
+  const limit = Math.floor(0x1_0000_0000 / 37) * 37;
+  const buffer = new Uint32Array(1);
+  do {
+    crypto.getRandomValues(buffer);
+  } while (buffer[0] >= limit);
+  return buffer[0] % 37;
+}
+
+function roulettePayout(kind: RouletteBetKind): number {
+  if (kind === 'straight') return 35;
+  if (kind === 'split') return 17;
+  if (kind === 'street') return 11;
+  if (kind === 'corner') return 8;
+  if (kind === 'sixline') return 5;
+  if (kind === 'dozen' || kind === 'column') return 2;
+  return 1;
+}
+
+function rouletteParseNumbers(target: unknown, label: string): number[] {
+  const raw = Array.isArray(target)
+    ? target
+    : typeof target === 'string'
+      ? target.split(/[^0-9]+/).filter(Boolean)
+      : target == null
+        ? []
+        : [target];
+  const numbers = raw.map(value => Math.floor(Number(value)));
+  if (!numbers.length || numbers.some(value => !Number.isFinite(value) || value < 0 || value > 36)) {
+    throw new GameError(`Ogiltigt mål för ${label}.`, 400);
+  }
+  return [...new Set(numbers)].sort((a, b) => a - b);
+}
+
+function rouletteNormalizeStraight(target: unknown): number[] {
+  const numbers = rouletteParseNumbers(target, 'rak satsning');
+  if (numbers.length !== 1) throw new GameError('Rak satsning kräver exakt ett nummer.', 400);
+  return numbers;
+}
+
+function rouletteNormalizeSplit(target: unknown): number[] {
+  const numbers = rouletteParseNumbers(target, 'split');
+  if (numbers.length !== 2) throw new GameError('Split kräver exakt två nummer.', 400);
+  const [a, b] = numbers;
+  if (a === 0) {
+    if (![1, 2, 3].includes(b)) throw new GameError('0 kan bara splittas mot 1, 2 eller 3.', 400);
+    return numbers;
+  }
+  const sameRow = Math.floor((a - 1) / 3) === Math.floor((b - 1) / 3);
+  const horizontal = sameRow && Math.abs(a - b) === 1;
+  const vertical = Math.abs(a - b) === 3;
+  if (!horizontal && !vertical) throw new GameError('Split måste vara två angränsande nummer.', 400);
+  return numbers;
+}
+
+function rouletteNormalizeStreet(target: unknown): number[] {
+  const numbers = rouletteParseNumbers(target, 'street');
+  if (numbers.length !== 3) throw new GameError('Street kräver tre nummer.', 400);
+  const [a, b, c] = numbers;
+  if (a === 0 || a % 3 !== 1 || b !== a + 1 || c !== a + 2) {
+    throw new GameError('Street måste vara en hel rad, till exempel 1,2,3.', 400);
+  }
+  return numbers;
+}
+
+function rouletteNormalizeCorner(target: unknown): number[] {
+  const numbers = rouletteParseNumbers(target, 'corner');
+  if (numbers.length !== 4) throw new GameError('Corner kräver fyra nummer.', 400);
+  const [a, b, c, d] = numbers;
+  if (a === 0 || a % 3 === 0 || b !== a + 1 || c !== a + 3 || d !== a + 4) {
+    throw new GameError('Corner måste vara ett 2x2-block, till exempel 1,2,4,5.', 400);
+  }
+  return numbers;
+}
+
+function rouletteNormalizeSixline(target: unknown): number[] {
+  const numbers = rouletteParseNumbers(target, 'sixline');
+  if (numbers.length !== 6) throw new GameError('Six line kräver sex nummer.', 400);
+  const [a, b, c, d, e, f] = numbers;
+  if (a === 0 || a % 3 !== 1 || b !== a + 1 || c !== a + 2 || d !== a + 3 || e !== a + 4 || f !== a + 5) {
+    throw new GameError('Six line måste vara två hela rader, till exempel 1,2,3,4,5,6.', 400);
+  }
+  return numbers;
+}
+
+function rouletteDozenNumbers(dozen: number): number[] {
+  if (![1, 2, 3].includes(dozen)) throw new GameError('Dussin måste vara 1, 2 eller 3.', 400);
+  const start = (dozen - 1) * 12 + 1;
+  return Array.from({ length: 12 }, (_, index) => start + index);
+}
+
+function rouletteColumnNumbers(column: number): number[] {
+  if (![1, 2, 3].includes(column)) throw new GameError('Kolumn måste vara 1, 2 eller 3.', 400);
+  return Array.from({ length: 12 }, (_, index) => column + index * 3);
+}
+
+function rouletteLabel(kind: RouletteBetKind, target: string | number | number[]): string {
+  if (kind === 'straight') return `Rak ${target}`;
+  if (kind === 'split') return `Split ${Array.isArray(target) ? target.join('/') : target}`;
+  if (kind === 'street') return `Street ${Array.isArray(target) ? target.join('-') : target}`;
+  if (kind === 'corner') return `Corner ${Array.isArray(target) ? target.join('-') : target}`;
+  if (kind === 'sixline') return `Six line ${Array.isArray(target) ? target.join('-') : target}`;
+  if (kind === 'red') return 'Röd';
+  if (kind === 'black') return 'Svart';
+  if (kind === 'even') return 'Jämnt';
+  if (kind === 'odd') return 'Udda';
+  if (kind === 'low') return '1-18';
+  if (kind === 'high') return '19-36';
+  if (kind === 'dozen') return `${target}:a 12`;
+  return `Kolumn ${target}`;
+}
+
+function rouletteResolveBet(raw: unknown): RouletteBetSelection {
+  if (!raw || typeof raw !== 'object') throw new GameError('Ogiltig rouletteinsats.', 400);
+  const row = raw as Record<string, unknown>;
+  const kind = String(row.kind ?? '').toLowerCase() as RouletteBetKind;
+  const stake = Math.floor(Number(row.stake ?? 0));
+  if (stake < ROULETTE_MIN_STAKE || stake > ROULETTE_MAX_STAKE) {
+    throw new GameError(`Varje rouletteinsats måste ligga mellan ${fmtCurrency(ROULETTE_MIN_STAKE)} och ${fmtCurrency(ROULETTE_MAX_STAKE)} kr.`, 400);
+  }
+
+  let numbers: number[] = [];
+  let target: string | number | number[] = '';
+
+  if (kind === 'straight') {
+    numbers = rouletteNormalizeStraight(row.target);
+    target = numbers[0];
+  } else if (kind === 'split') {
+    numbers = rouletteNormalizeSplit(row.target);
+    target = numbers;
+  } else if (kind === 'street') {
+    numbers = rouletteNormalizeStreet(row.target);
+    target = numbers;
+  } else if (kind === 'corner') {
+    numbers = rouletteNormalizeCorner(row.target);
+    target = numbers;
+  } else if (kind === 'sixline') {
+    numbers = rouletteNormalizeSixline(row.target);
+    target = numbers;
+  } else if (kind === 'red') {
+    numbers = [...ROULETTE_RED_NUMBERS].sort((a, b) => a - b);
+    target = 'red';
+  } else if (kind === 'black') {
+    numbers = Array.from({ length: 36 }, (_, index) => index + 1).filter(number => !ROULETTE_RED_NUMBERS.has(number));
+    target = 'black';
+  } else if (kind === 'even') {
+    numbers = Array.from({ length: 18 }, (_, index) => (index + 1) * 2);
+    target = 'even';
+  } else if (kind === 'odd') {
+    numbers = Array.from({ length: 18 }, (_, index) => index * 2 + 1);
+    target = 'odd';
+  } else if (kind === 'low') {
+    numbers = Array.from({ length: 18 }, (_, index) => index + 1);
+    target = 'low';
+  } else if (kind === 'high') {
+    numbers = Array.from({ length: 18 }, (_, index) => index + 19);
+    target = 'high';
+  } else if (kind === 'dozen') {
+    const dozen = Math.floor(Number(row.target ?? 0));
+    numbers = rouletteDozenNumbers(dozen);
+    target = dozen;
+  } else if (kind === 'column') {
+    const column = Math.floor(Number(row.target ?? 0));
+    numbers = rouletteColumnNumbers(column);
+    target = column;
+  } else {
+    throw new GameError('Ogiltig rouletteinsats.', 400);
+  }
+
+  return {
+    kind,
+    stake,
+    target,
+    numbers,
+    payout: roulettePayout(kind),
+    label: rouletteLabel(kind, target),
+  };
+}
+
+function rouletteSpinMessage(record: RouletteSpinRecord): string {
+  const landed = `${record.winning_number} ${record.color === 'green' ? 'grön' : record.color === 'red' ? 'röd' : 'svart'}`;
+  if (record.net_result > 0) {
+    return `Kulan dog på ${landed}. Du plockade hem ${fmtCurrency(record.net_result)} kr vid rouletten.`;
+  }
+  if (record.net_result < 0) {
+    return `Kulan dog på ${landed}. Huset tog ${fmtCurrency(Math.abs(record.net_result))} kr.`;
+  }
+  return `Kulan stannade på ${landed}. Du gick jämnt ut den här gången.`;
+}
+
+function rowToRouletteSpin(row: Row): RouletteSpinRecord {
+  let bets: RouletteBetSelection[] = [];
+  try {
+    const parsed = JSON.parse(String(row.bets_json ?? '[]')) as unknown;
+    if (Array.isArray(parsed)) {
+      bets = parsed.filter(entry => entry && typeof entry === 'object').map(entry => {
+        const bet = entry as Record<string, unknown>;
+        return {
+          kind: String(bet.kind ?? 'straight') as RouletteBetKind,
+          stake: Math.floor(Number(bet.stake ?? 0)),
+          label: String(bet.label ?? 'Insats'),
+          numbers: Array.isArray(bet.numbers) ? bet.numbers.map(value => Math.floor(Number(value))).filter(value => Number.isFinite(value)) : [],
+          payout: Math.floor(Number(bet.payout ?? 0)),
+          target: (bet.target as string | number | number[]) ?? '',
+        };
+      });
+    }
+  } catch {}
+  return {
+    id: String(row.id),
+    winning_number: Math.floor(Number(row.winning_number ?? 0)),
+    color: rouletteColor(Math.floor(Number(row.winning_number ?? 0))),
+    total_stake: Math.floor(Number(row.total_stake ?? 0)),
+    total_payout: Math.floor(Number(row.total_payout ?? 0)),
+    net_result: Math.floor(Number(row.net_result ?? 0)),
+    bets,
+    created_at: String(row.created_at ?? ''),
+    message: rouletteSpinMessage({
+      id: String(row.id),
+      winning_number: Math.floor(Number(row.winning_number ?? 0)),
+      color: rouletteColor(Math.floor(Number(row.winning_number ?? 0))),
+      total_stake: Math.floor(Number(row.total_stake ?? 0)),
+      total_payout: Math.floor(Number(row.total_payout ?? 0)),
+      net_result: Math.floor(Number(row.net_result ?? 0)),
+      bets,
+      created_at: String(row.created_at ?? ''),
+      message: '',
+    }),
+  };
+}
+
+async function getRouletteHistory(env: Env, player: Row): Promise<RouletteSpinRecord[]> {
+  try {
+    const result = await env.DB.prepare(
+      `SELECT * FROM game_roulette_spins WHERE player_id = ? AND round_id = ? ORDER BY created_at DESC LIMIT 12`
+    ).bind(player.id as string, player.round_id as string).all<Row>();
+    return result.results.map(rowToRouletteSpin);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      throw new GameError('Roulette-tabellen saknas. Kör game-migration-roulette.sql mot D1.', 500);
+    }
+    throw e;
+  }
+}
+
+async function saveRouletteSpin(env: Env, player: Row, record: RouletteSpinRecord): Promise<void> {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO game_roulette_spins
+        (id, player_id, round_id, winning_number, color, total_stake, total_payout, net_result, bets_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+    ).bind(
+      record.id,
+      player.id as string,
+      player.round_id as string,
+      record.winning_number,
+      record.color,
+      record.total_stake,
+      record.total_payout,
+      record.net_result,
+      JSON.stringify(record.bets)
+    ).run();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      throw new GameError('Roulette-tabellen saknas. Kör game-migration-roulette.sql mot D1.', 500);
+    }
+    throw e;
+  }
+}
+
+function buildRouletteState(player: Row, recent: RouletteSpinRecord[], lastSpin: RouletteSpinRecord | null = null): Record<string, unknown> {
+  return {
+    player_cash: Number(player.cash ?? 0),
+    min_stake: ROULETTE_MIN_STAKE,
+    max_stake: ROULETTE_MAX_STAKE,
+    max_total_stake: ROULETTE_MAX_TOTAL_STAKE,
+    recent,
+    last_spin: lastSpin ?? recent[0] ?? null,
+    wheel: Array.from({ length: 37 }, (_, number) => ({
+      number,
+      color: rouletteColor(number),
+    })),
+  };
 }
 
 function normalizeHoldemBuyIn(value: unknown): number {
