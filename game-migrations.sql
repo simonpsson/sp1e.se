@@ -88,3 +88,26 @@ ALTER TABLE game_inventory ADD COLUMN effects      TEXT;
 ALTER TABLE game_inventory ADD COLUMN source       TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_game_inventory_player_slot ON game_inventory (player_id, slot);
+
+-- ─── Migration 7: NPC AI — extended NPC fields + quest system ───────────────
+ALTER TABLE game_npcs ADD COLUMN npc_weapon         TEXT;
+ALTER TABLE game_npcs ADD COLUMN relation_to_player INTEGER DEFAULT 50;
+ALTER TABLE game_npcs ADD COLUMN last_action_at     DATETIME;
+
+CREATE TABLE IF NOT EXISTS game_quests (
+  id              TEXT PRIMARY KEY,
+  player_id       TEXT NOT NULL,
+  round_id        TEXT NOT NULL,
+  npc_id          TEXT NOT NULL,
+  npc_name        TEXT NOT NULL,
+  title           TEXT NOT NULL,
+  description     TEXT NOT NULL,
+  reward_cash     INTEGER DEFAULT 0,
+  reward_respect  INTEGER DEFAULT 0,
+  status          TEXT DEFAULT 'pending',  -- pending/accepted/rejected/completed
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expires_at      DATETIME,
+  completed_at    DATETIME
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_quests_player ON game_quests (player_id, status);

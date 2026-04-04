@@ -169,7 +169,9 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'simulate'         && method === 'GET')  return gameSimulate(env);
       if (id === 'hall-of-fame'     && method === 'GET')  return gameHallOfFame(env);
       if (id === 'suggest-names'    && method === 'GET')  return gameSuggestNames(request);
+      if (id === 'weapons'          && method === 'GET')  return gameGetWeapons(request);
       if (id === 'inventory'        && method === 'GET')  return gameGetInventory(request, env);
+      if (id === 'quests'           && method === 'GET')  return gameGetQuests(request, env);
       if (id === 'new-round'        && method === 'POST') return gameNewRound(request, env);
       if (id === 'casino' && sub === 'blackjack' && action === 'state' && method === 'GET') {
         return gameGetBlackjackState(request, env);
@@ -206,6 +208,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
         if (sub === 'choose-profession'&& method === 'POST') return gameActionChooseProfession(request, env);
         if (sub === 'buy-vehicle'      && method === 'POST') return gameActionBuyVehicle(request, env);
         if (sub === 'race'             && method === 'POST') return gameActionRace(request, env);
+        if (sub === 'buy-weapon'                       && method === 'POST') return gameActionBuyWeapon(request, env);
+        if (sub === 'quest-respond'                    && method === 'POST') return gameActionQuestRespond(request, env);
         if (sub === 'inventory' && action === 'equip' && method === 'POST') return gameActionInventoryEquip(request, env);
         if (sub === 'inventory' && action === 'sell'  && method === 'POST') return gameActionInventorySell(request, env);
       }
@@ -1873,6 +1877,136 @@ async function grantLoot(
   } catch { /* ignore duplicate or schema mismatch */ }
 }
 
+// ─── Weapon catalog ───────────────────────────────────────────────────────────
+interface Weapon {
+  id: string;
+  name: string;
+  category: 'melee' | 'pistol' | 'smg' | 'rifle' | 'shotgun';
+  damage: number;
+  accuracy: number;  // 1–100 base hit-chance percent
+  fire_rate: number; // shots per attack
+  buy_price: number;
+  level_req: number;
+  flavor: string;
+}
+
+const WEAPON_CATALOG: Weapon[] = [
+  // ── Melee ────────────────────────────────────────────────────────────────
+  { id:'kniv',      name:'Kniv',            category:'melee',   damage:8,  accuracy:88, fire_rate:1, buy_price:500,   level_req:1,  flavor:'Snabb, tyst, effektiv.' },
+  { id:'knogjarn',  name:'Knogjärn',        category:'melee',   damage:10, accuracy:90, fire_rate:1, buy_price:800,   level_req:1,  flavor:'Bärs i fickan, tas fram utan varning.' },
+  { id:'baseboll',  name:'Basebollträ',     category:'melee',   damage:14, accuracy:82, fire_rate:1, buy_price:1200,  level_req:2,  flavor:'Sportutrustning med dubbel användning.' },
+  { id:'slagga',    name:'Slägga',          category:'melee',   damage:20, accuracy:65, fire_rate:1, buy_price:2500,  level_req:3,  flavor:'Tungt. Enkelt. Övertygande.' },
+  { id:'machete',   name:'Machete',         category:'melee',   damage:24, accuracy:76, fire_rate:1, buy_price:4000,  level_req:5,  flavor:'Lång räckvidd, läskig profil.' },
+  { id:'stiletter', name:'Stiletter ×2',    category:'melee',   damage:16, accuracy:92, fire_rate:2, buy_price:6000,  level_req:6,  flavor:'Dubbla blad — en i varje hand.' },
+  { id:'katana',    name:'Katana',          category:'melee',   damage:32, accuracy:84, fire_rate:1, buy_price:9000,  level_req:8,  flavor:'Smugglad från Göteborg. Förmodligen äkta.' },
+
+  // ── Pistol ───────────────────────────────────────────────────────────────
+  { id:'rev22',     name:'.22 Revolver',    category:'pistol',  damage:14, accuracy:72, fire_rate:1, buy_price:3000,  level_req:3,  flavor:'Gammal men pålitlig.' },
+  { id:'glock17',   name:'Glock 17',        category:'pistol',  damage:22, accuracy:76, fire_rate:1, buy_price:5500,  level_req:5,  flavor:'Plastfantasins mästerverk.' },
+  { id:'beretta',   name:'Beretta 92',      category:'pistol',  damage:24, accuracy:79, fire_rate:1, buy_price:7000,  level_req:6,  flavor:'Stilren. Precis. Dyr.' },
+  { id:'magnum357', name:'.357 Magnum',     category:'pistol',  damage:30, accuracy:71, fire_rate:1, buy_price:8500,  level_req:7,  flavor:'Varje skott låter som en detonation.' },
+  { id:'deagle',    name:'Desert Eagle',    category:'pistol',  damage:36, accuracy:66, fire_rate:1, buy_price:11000, level_req:8,  flavor:'Överdriven. Perfekt.' },
+
+  // ── SMG ──────────────────────────────────────────────────────────────────
+  { id:'scorpion',  name:'Škorpion vz. 61', category:'smg',     damage:14, accuracy:60, fire_rate:3, buy_price:6000,  level_req:6,  flavor:'Tre skott innan han hinner reagera.' },
+  { id:'uzi',       name:'Uzi',             category:'smg',     damage:18, accuracy:56, fire_rate:3, buy_price:8000,  level_req:7,  flavor:'Klassikern. Oöverskådlig nyttjanderätt.' },
+  { id:'mac10',     name:'MAC-10',          category:'smg',     damage:17, accuracy:51, fire_rate:3, buy_price:9000,  level_req:7,  flavor:'Hög eldhastighet, låg träffsäkerhet. Fungerar.' },
+  { id:'pp19',      name:'PP-19 Bizon',     category:'smg',     damage:22, accuracy:63, fire_rate:2, buy_price:11000, level_req:8,  flavor:'Ryskt skumgummi i stålform.' },
+  { id:'mp5',       name:'MP5',             category:'smg',     damage:25, accuracy:67, fire_rate:2, buy_price:13000, level_req:9,  flavor:'Exklusiv men inte svårflörtad.' },
+
+  // ── Rifle ────────────────────────────────────────────────────────────────
+  { id:'famas',     name:'FAMAS',           category:'rifle',   damage:28, accuracy:79, fire_rate:2, buy_price:11000, level_req:9,  flavor:'Franskt ingenjörskonst med attityd.' },
+  { id:'ar15',      name:'AR-15',           category:'rifle',   damage:32, accuracy:73, fire_rate:2, buy_price:13000, level_req:9,  flavor:'Modulär, tillförlitlig, diskuterad.' },
+  { id:'m16',       name:'M16A2',           category:'rifle',   damage:34, accuracy:76, fire_rate:2, buy_price:15000, level_req:10, flavor:'Armékvalitet på gatunivå.' },
+  { id:'galil',     name:'Galil ACE',       category:'rifle',   damage:36, accuracy:71, fire_rate:2, buy_price:14500, level_req:10, flavor:'Israelisk precision, kompromisslös design.' },
+  { id:'ak47',      name:'AK-47',           category:'rifle',   damage:38, accuracy:69, fire_rate:2, buy_price:16000, level_req:10, flavor:'Tio miljoner kan inte ha fel.' },
+  { id:'hkg36',     name:'H&K G36',         category:'rifle',   damage:40, accuracy:77, fire_rate:2, buy_price:22000, level_req:12, flavor:'Tyskt hantverk. Ingen ursäkt.' },
+  { id:'fnscar',    name:'FN SCAR-H',       category:'rifle',   damage:44, accuracy:75, fire_rate:2, buy_price:26000, level_req:13, flavor:'Nato-standard. Svart marknad.' },
+  { id:'barrett',   name:'Barrett .50 Cal', category:'rifle',   damage:65, accuracy:56, fire_rate:1, buy_price:42000, level_req:15, flavor:'Ett skott. Ingen uppföljning behövs.' },
+
+  // ── Shotgun ──────────────────────────────────────────────────────────────
+  { id:'rem870',    name:'Remington 870',   category:'shotgun', damage:44, accuracy:53, fire_rate:1, buy_price:8000,  level_req:7,  flavor:'Pumphagelgevär. Talar klarspråk.' },
+  { id:'moss500',   name:'Mossberg 500',    category:'shotgun', damage:48, accuracy:51, fire_rate:1, buy_price:9000,  level_req:7,  flavor:'Tillförlitlig som en hammare.' },
+  { id:'spas12',    name:'SPAS-12',         category:'shotgun', damage:54, accuracy:46, fire_rate:1, buy_price:15000, level_req:10, flavor:'Halvautomatisk förstörelse.' },
+  { id:'saiga12',   name:'Saiga-12K',       category:'shotgun', damage:42, accuracy:49, fire_rate:2, buy_price:13500, level_req:9,  flavor:'Magasin. Dubbel förmåga.' },
+  { id:'sweeper',   name:'Street Sweeper',  category:'shotgun', damage:44, accuracy:43, fire_rate:3, buy_price:20000, level_req:12, flavor:'Trummor. Kaos. Effektivt.' },
+  { id:'minigun',   name:'Minigun',         category:'smg',     damage:28, accuracy:41, fire_rate:3, buy_price:55000, level_req:15, flavor:'För dem som inte längre bryr sig om subtilitet.' },
+];
+
+function gameGetWeapons(request: Request): Response {
+  const url = new URL(request.url);
+  const cat = url.searchParams.get('category') ?? '';
+  const items = cat ? WEAPON_CATALOG.filter(w => w.category === cat) : WEAPON_CATALOG;
+  return gameJson({ weapons: items });
+}
+
+async function gameActionBuyWeapon(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  if (player.in_prison)   return gameJson({ error: 'Du sitter i fängelse.' }, 400);
+  if (!player.is_alive)   return gameJson({ error: 'Du är eliminerad.' }, 400);
+
+  const body = await request.json<{ weapon_id?: string }>().catch(() => ({} as { weapon_id?: string }));
+  const weaponId = (body.weapon_id ?? '').trim();
+  const weapon = WEAPON_CATALOG.find(w => w.id === weaponId);
+  if (!weapon) return gameJson({ error: 'Okänt vapen.' }, 400);
+
+  const pid   = player.id as string;
+  const cash  = (player.cash as number) ?? 0;
+  const level = (player.level as number) ?? 1;
+
+  if (level < weapon.level_req)
+    return gameJson({ error: `Kräver level ${weapon.level_req}.` }, 400);
+  if (cash < weapon.buy_price)
+    return gameJson({ error: `Inte tillräckligt med cash. Behöver ${weapon.buy_price.toLocaleString('sv')} kr.` }, 400);
+
+  // Check not already owned in this round
+  const roundRow = await env.DB.prepare(
+    `SELECT id FROM game_rounds WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1`
+  ).first<{ id: string }>();
+  const roundId = roundRow?.id ?? 'round-001';
+
+  const existing = await env.DB.prepare(
+    `SELECT id FROM game_inventory WHERE player_id = ? AND item_name = ? AND round_id = ?`
+  ).bind(pid, weapon.name, roundId).first<{ id: string }>();
+  if (existing) return gameJson({ error: 'Du äger redan det vapnet.' }, 400);
+
+  // Auto-equip if no weapon currently equipped
+  const equippedWeapon = await env.DB.prepare(
+    `SELECT id FROM game_inventory WHERE player_id = ? AND slot = 'weapon' AND equipped = 1 LIMIT 1`
+  ).bind(pid).first<{ id: string }>();
+  const shouldEquip = !equippedWeapon ? 1 : 0;
+
+  try {
+    const itemId = crypto.randomUUID();
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(weapon.buy_price, pid),
+      env.DB.prepare(
+        `INSERT INTO game_inventory (id, player_id, round_id, item_type, item_name, quantity,
+           item_tier, equipped, slot, sell_price, effects, source)
+         VALUES (?, ?, ?, 'weapon', ?, 1, 3, ?, 'weapon', ?, ?, 'shop')`
+      ).bind(
+        itemId, pid, roundId,
+        weapon.name,
+        shouldEquip,
+        Math.floor(weapon.buy_price * 0.45),
+        JSON.stringify({ damage: weapon.damage, accuracy: weapon.accuracy, fire_rate: weapon.fire_rate, category: weapon.category }),
+      ),
+    ]);
+    return gameJson({
+      ok: true,
+      equipped: shouldEquip === 1,
+      message: `Köpte ${weapon.name}${shouldEquip ? ' — utrustat automatiskt' : ''}.`,
+      weapon,
+    });
+  } catch (e) {
+    return gameJson({ error: 'Köp misslyckades.' }, 500);
+  }
+}
+
 const ASSAULT_WIN_LINES = [
   'Du drog till med en vänsterkrok.',
   '{name} stumlade bakåt.',
@@ -2064,15 +2198,19 @@ async function gameGetNpcs(env: Env): Promise<Response> {
 function npcBehaviorWeights(personality: string): { robbery: number; training: number; drug: number; assault: number } {
   switch (String(personality || '').toLowerCase()) {
     case 'aggressive':
-      return { robbery: 0.42, training: 0.12, drug: 0.14, assault: 0.32 };
+    case 'brawler':
+      return { robbery: 0.40, training: 0.10, drug: 0.12, assault: 0.38 };
     case 'trader':
-      return { robbery: 0.24, training: 0.14, drug: 0.44, assault: 0.18 };
+      return { robbery: 0.22, training: 0.12, drug: 0.48, assault: 0.18 };
+    case 'schemer':
+      return { robbery: 0.35, training: 0.15, drug: 0.30, assault: 0.20 };
+    case 'cautious':
     case 'defensive':
-      return { robbery: 0.25, training: 0.40, drug: 0.15, assault: 0.20 };
+      return { robbery: 0.22, training: 0.42, drug: 0.20, assault: 0.16 };
     case 'passive':
-      return { robbery: 0.18, training: 0.50, drug: 0.22, assault: 0.10 };
+      return { robbery: 0.16, training: 0.52, drug: 0.22, assault: 0.10 };
     default:
-      return { robbery: 0.32, training: 0.20, drug: 0.23, assault: 0.25 };
+      return { robbery: 0.30, training: 0.22, drug: 0.24, assault: 0.24 };
   }
 }
 
@@ -2080,15 +2218,38 @@ function npcTrainingLine(npc: Row): string {
   const name = String(npc.name ?? 'Någon');
   switch (String(npc.personality || '').toLowerCase()) {
     case 'aggressive':
-      return `${name} pumpade järn i skymundan och såg hungrigare ut än vanligt.`;
+    case 'brawler':
+      return `${name} slet järn i källargymmet och såg hungrigare ut än vanligt.`;
     case 'trader':
       return `${name} låg lågt, räknade risker och slipade nästa drag.`;
+    case 'schemer':
+      return `${name} studerade motståndarna och planerade nästa move.`;
+    case 'cautious':
     case 'defensive':
-      return `${name} höll låg profil och vässade formen i bakgränden.`;
+      return `${name} höll låg profil och vässade formen i bakgrunden.`;
     default:
       return `${name} höll sig undan men byggde upp sig i skuggorna.`;
   }
 }
+
+// NPC threat messages to players (flavor)
+const NPC_THREATS = [
+  '{npc} skickade ett kort meddelande: "Håll dig borta från mitt område."',
+  '{npc} lät höra sig: "Du syns för mycket. Det är farligt."',
+  '{npc} passerade förbi och fixerade blicken länge. Ingen sa något.',
+  '{npc} visste var du bor. Du fick reda på det via tredje hand.',
+  '{npc} markerade revir — ditt namn nämndes i ett samtal du inte hörde.',
+];
+
+// Quest templates by personality
+const QUEST_TEMPLATES: { title: string; description: string; reward_mult: number; personality: string }[] = [
+  { personality:'aggressive', title:'Skrämsel',      description:'Ge {target} en ordentlig lektion. 20% av deras cash i ersättning.',  reward_mult:0.20 },
+  { personality:'schemer',    title:'Hämtning',      description:'Hämta en packe från {target}. Inga frågor. Full lön.',               reward_mult:0.25 },
+  { personality:'trader',     title:'Konkurrent',    description:'Sätt press på {target}s drogmarknad. Köp och sälj snabbt.',          reward_mult:0.18 },
+  { personality:'brawler',    title:'Revanchmatch',  description:'{target} slog mig förra rundan. Ge igen, jag betalar.',              reward_mult:0.22 },
+  { personality:'cautious',   title:'Skydd',         description:'Håll koll på min fastighet ett dygn. Lugnt jobb, bra betalt.',       reward_mult:0.15 },
+  { personality:'passive',    title:'Schysst deal',  description:'Köp {qty} portioner marijuana och sälj för mig. Del av vinst.',     reward_mult:0.12 },
+];
 
 async function gameSimulate(env: Env): Promise<Response> {
   const round = await getActiveRound(env);
@@ -2185,6 +2346,80 @@ async function gameSimulate(env: Env): Promise<Response> {
       }
     }
   }
+
+  // ── Player-affecting events (pick 1 random active player as target) ─────────
+  try {
+    const round2 = round; // closure ref
+    const playerRes = await env.DB.prepare(
+      `SELECT id, name, cash, side, level FROM game_players
+       WHERE round_id = ? AND is_alive = 1 AND in_prison = 0 AND in_hospital = 0
+       ORDER BY RANDOM() LIMIT 3`
+    ).bind(round2.id as string).all<Row>();
+
+    for (const npc of res.results) {
+      const p = playerRes.results[Math.floor(Math.random() * playerRes.results.length)];
+      if (!p) continue;
+
+      const personality = String(npc.personality ?? '').toLowerCase();
+      const roll = Math.random();
+
+      // 3% chance aggressive/brawler NPC robs a player
+      if ((personality === 'aggressive' || personality === 'brawler') && roll < 0.03) {
+        const playerCash = (p.cash as number) ?? 0;
+        if (playerCash > 200) {
+          const stolen = Math.floor(playerCash * (0.05 + Math.random() * 0.07));
+          stmts.push(
+            env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+              .bind(stolen, p.id as string),
+            env.DB.prepare(`UPDATE game_npcs SET cash = cash + ? WHERE id = ?`)
+              .bind(stolen, npc.id as string),
+          );
+          // Log to player's action log
+          stmts.push(
+            env.DB.prepare(
+              `INSERT INTO game_action_log (id, player_id, action_type, description, cash_change, respect_change, xp_change, success)
+               VALUES (?, ?, 'assault', ?, ?, 0, 0, 0)`
+            ).bind(crypto.randomUUID(), p.id as string, `${npc.name as string} rånade dig och tog ${svNum(stolen)} kr.`, -stolen)
+          );
+          pushEvent(npc, 'rob_player', `${npc.name as string} rånade ${p.name as string} och tog ${svNum(stolen)} kr.`);
+        }
+      }
+      // 5% chance any NPC sends a threat to a player
+      else if (roll < 0.05) {
+        const tmpl = NPC_THREATS[Math.floor(Math.random() * NPC_THREATS.length)];
+        const msg  = tmpl.replace(/\{npc\}/g, npc.name as string);
+        stmts.push(
+          env.DB.prepare(
+            `INSERT INTO game_action_log (id, player_id, action_type, description, cash_change, respect_change, xp_change, success)
+             VALUES (?, ?, 'threat', ?, 0, 0, 0, 0)`
+          ).bind(crypto.randomUUID(), p.id as string, msg)
+        );
+        pushEvent(npc, 'threat', msg);
+      }
+      // 4% chance schemer/trader NPC offers a quest
+      else if ((personality === 'schemer' || personality === 'trader' || personality === 'aggressive') && roll < 0.09) {
+        const templates = QUEST_TEMPLATES.filter(t => t.personality === personality || t.personality === 'aggressive');
+        const tpl = templates[Math.floor(Math.random() * templates.length)] ?? QUEST_TEMPLATES[0];
+        const targetName = playerRes.results.find(pl => pl.id !== p.id)?.name ?? 'någon';
+        const reward = Math.max(500, Math.floor(((p.cash as number) ?? 2000) * tpl.reward_mult));
+        const desc = tpl.description
+          .replace(/{target}/g, String(targetName))
+          .replace(/{qty}/g, String(rand(5, 20)));
+        const questId = crypto.randomUUID();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        stmts.push(
+          env.DB.prepare(
+            `INSERT OR IGNORE INTO game_quests
+               (id, player_id, round_id, npc_id, npc_name, title, description, reward_cash, reward_respect, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(questId, p.id as string, round2.id as string, npc.id as string,
+            npc.name as string, tpl.title, desc, reward, Math.floor(reward / 200), expiresAt)
+        );
+        pushEvent(npc, 'quest_offer',
+          `${npc.name as string} har ett erbjudande till ${p.name as string}: "${tpl.title}" — ${svNum(reward)} kr.`);
+      }
+    }
+  } catch { /* player-affecting events are best-effort */ }
 
   if (stmts.length) {
     // D1 batch limit is 100; split just in case
@@ -2837,20 +3072,42 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   if (!target) return gameJson({ error: 'Target not found.' }, 404);
   if (target.is_alive === 0) return gameJson({ error: 'Target is already down.' }, 400);
 
-  // Get weapon bonus
+  // Get equipped weapon stats
   const weaponRow = await env.DB.prepare(
-    `SELECT properties FROM game_inventory WHERE player_id = ? AND item_type = 'weapon' ORDER BY buy_price DESC LIMIT 1`
+    `SELECT item_name, effects FROM game_inventory WHERE player_id = ? AND slot = 'weapon' AND equipped = 1 LIMIT 1`
   ).bind(pid).first<Row>();
-  let weaponDmg = 0;
-  if (weaponRow?.properties) {
-    try { const p = JSON.parse(weaponRow.properties as string); weaponDmg = p.damage ?? 0; } catch {}
+  let weaponName     = '';
+  let weaponDmg      = 0;
+  let weaponAccuracy = 50; // base hit-chance %
+  let weaponFireRate = 1;
+  if (weaponRow?.effects) {
+    try {
+      const fx = JSON.parse(weaponRow.effects as string);
+      weaponDmg      = fx.damage      ?? 0;
+      weaponAccuracy = fx.accuracy    ?? 50;
+      weaponFireRate = fx.fire_rate   ?? 1;
+      weaponName     = weaponRow.item_name as string ?? '';
+    } catch {}
   }
 
-  const attackerStr = effectiveStat(player, 'strength');
-  const targetStr   = isNpc ? ((target.strength as number) ?? 10) : effectiveStat(target, 'strength');
-  const dmgMult     = 1 + profBonus(profession, 'assault_damage');
-  const attackPower = Math.round((attackerStr + weaponDmg + rand(1, 20)) * dmgMult);
-  const defensePower= targetStr + rand(1, 15);
+  const attackerStr  = effectiveStat(player, 'strength');
+  const attackerSte  = effectiveStat(player, 'stealth');
+  const targetStr    = isNpc ? ((target.strength as number) ?? 10) : effectiveStat(target, 'strength');
+  const dmgMult      = 1 + profBonus(profession, 'assault_damage');
+
+  // Multi-shot resolution: each shot checks hit independently
+  let totalShotDmg = 0;
+  let hits = 0;
+  const hitThreshold = Math.min(95, Math.round(weaponAccuracy * (1 + attackerSte / 200)));
+  for (let s = 0; s < weaponFireRate; s++) {
+    if (rand(1, 100) <= hitThreshold) {
+      totalShotDmg += Math.round(weaponDmg * (1 + attackerStr / 100));
+      hits++;
+    }
+  }
+  const baseAtk    = attackerStr + totalShotDmg + rand(1, 20);
+  const attackPower  = Math.round(baseAtk * dmgMult);
+  const defensePower = targetStr + rand(1, 15);
 
   const success = attackPower > defensePower;
   let damageDelt   = 0;
@@ -2861,11 +3118,12 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
 
   let combatLines: string[] = [];
   if (success) {
-    damageDelt    = rand(10, 40);
+    damageDelt    = Math.max(5, rand(8, 30) + Math.round(totalShotDmg * 0.4));
     cashStolen    = Math.floor(((target.cash as number) ?? 0) * (rand(10, 30) / 100));
     respectGained = Math.max(1, Math.floor(cashStolen / 200));
     message       = `\u2713 Slog ner ${target.name as string}. Stal ${cashStolen.toLocaleString('sv')} kr.`;
     combatLines   = ASSAULT_WIN_LINES.map(l => l.replace(/\{name\}/g, target.name as string));
+    if (weaponName && hits > 0) combatLines.unshift(`${hits > 1 ? `${hits} träffar` : '1 träff'} med ${weaponName}.`);
     combatLines.push(`Du stal ${cashStolen.toLocaleString('sv')} kr.`);
 
     // Reduce target HP
@@ -5247,6 +5505,66 @@ async function gameActionInventorySell(request: Request, env: Env): Promise<Resp
       message: `${item.item_name as string} såld för ${sellFor.toLocaleString('sv')} kr.` });
   } catch {
     return gameJson({ error: 'Databasfel vid försäljning.' }, 500);
+  }
+}
+
+// ─── Quest handlers ───────────────────────────────────────────────────────────
+async function gameGetQuests(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const pid = player.id as string;
+  try {
+    const res = await env.DB.prepare(
+      `SELECT * FROM game_quests WHERE player_id = ? AND status IN ('pending','accepted')
+       AND (expires_at IS NULL OR expires_at > datetime('now'))
+       ORDER BY created_at DESC LIMIT 20`
+    ).bind(pid).all<Row>();
+    return gameJson({ quests: res.results });
+  } catch {
+    return gameJson({ quests: [] });
+  }
+}
+
+async function gameActionQuestRespond(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const body = await request.json<{ quest_id?: string; action?: string }>().catch(() => ({} as { quest_id?: string; action?: string }));
+  const questId = (body.quest_id ?? '').trim();
+  const action  = (body.action  ?? '').trim();
+  if (!questId || !['accept','reject'].includes(action))
+    return gameJson({ error: 'quest_id och action (accept/reject) krävs.' }, 400);
+
+  const pid = player.id as string;
+  try {
+    const quest = await env.DB.prepare(
+      `SELECT * FROM game_quests WHERE id = ? AND player_id = ? AND status = 'pending'`
+    ).bind(questId, pid).first<Row>();
+    if (!quest) return gameJson({ error: 'Uppdraget hittades inte eller är inte längre tillgängligt.' }, 404);
+
+    if (action === 'reject') {
+      await env.DB.prepare(`UPDATE game_quests SET status = 'rejected' WHERE id = ?`).bind(questId).run();
+      return gameJson({ ok: true, message: 'Uppdraget avböjt.' });
+    }
+
+    // Accept
+    await env.DB.prepare(`UPDATE game_quests SET status = 'accepted' WHERE id = ?`).bind(questId).run();
+    const reward = (quest.reward_cash as number) ?? 0;
+    const resp   = (quest.reward_respect as number) ?? 0;
+    // For now: instant reward on accept (simplified — full quest chain in future)
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE game_players SET cash = cash + ?, respect = respect + ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(reward, resp, pid),
+      env.DB.prepare(`UPDATE game_quests SET status = 'completed', completed_at = datetime('now') WHERE id = ?`)
+        .bind(questId),
+    ]);
+    await logAction(env, pid, 'quest', `Slutförde uppdrag "${quest.title as string}" — ${reward.toLocaleString('sv')} kr.`, reward, resp, 0, true);
+    return gameJson({ ok: true, message: `Uppdrag accepterat och slutfört. +${reward.toLocaleString('sv')} kr, +${resp} respect.`, reward, respect: resp });
+  } catch {
+    return gameJson({ error: 'Serverfel.' }, 500);
   }
 }
 
