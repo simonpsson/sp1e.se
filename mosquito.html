@@ -386,6 +386,20 @@ select:focus{border-color:var(--red);}
 .inv-slot-card .slot-label{color:var(--dim);margin-bottom:4px;}
 .inv-slot-card .slot-item{color:var(--white);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .inv-slot-card .slot-empty{color:var(--bg3);}
+
+/* ─── Vapen ───────────────────────────────────────────────────────────────── */
+.weapon-card{background:var(--bg2);border:1px solid var(--border);padding:14px;display:flex;flex-direction:column;gap:8px;}
+.weapon-card.owned{border-color:var(--green);}
+.weapon-card.locked{opacity:.45;}
+.weapon-name{font-size:13px;font-weight:500;color:var(--white);}
+.weapon-cat{font-size:10px;color:var(--red);letter-spacing:.8px;text-transform:uppercase;}
+.weapon-stats{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:var(--dim);}
+.weapon-stats strong{color:var(--txt);}
+.weapon-flavor{font-size:10px;color:#444;font-style:italic;line-height:1.5;}
+.weapon-price{font-size:12px;color:var(--amber);}
+.weapon-lvl{font-size:10px;color:var(--dim);}
+.vapen-cat-btn{font-size:10px;padding:4px 10px;letter-spacing:.5px;}
+.vapen-cat-btn.active{border-color:var(--red);color:var(--red);}
 </style>
 </head>
 <body>
@@ -569,6 +583,7 @@ select:focus{border-color:var(--red);}
         <button class="nav-btn nv" data-s="brott">[BROTT]</button>
         <button class="nav-btn nv" data-s="droger">[DROGER]</button>
         <button class="nav-btn nv" data-s="strid">[STRID]</button>
+        <button class="nav-btn nv" data-s="vapen">[VAPEN]</button>
         <button class="nav-btn nv" data-s="traning">[TR&Auml;NING]</button>
         <button class="nav-btn nv" data-s="profession">[YRKE]</button>
         <button class="nav-btn nv" data-s="bank">[BANK]</button>
@@ -647,6 +662,26 @@ select:focus{border-color:var(--red);}
           <tbody id="npc-tbody"></tbody>
         </table>
         <div id="strid-msg" class="amsg"></div>
+      </div>
+
+      <!-- Vapen -->
+      <div id="s-vapen" class="g-sec">
+        <div class="sec-title">VAPENSHOP</div>
+        <div class="sec-sub">Utrustat vapen används automatiskt i strid. Köpt vapen säljs för ~45% av priset via Förråd.</div>
+        <div id="vapen-equipped" style="margin-bottom:16px;padding:10px 12px;border:1px solid var(--border);background:var(--bg2);font-size:12px;">
+          <span style="color:var(--dim);">UTRUSTAT:</span> <span id="vapen-equipped-name" style="color:var(--white);">Inga vapen utrustade</span>
+          <span id="vapen-equipped-stats" style="color:var(--dim);margin-left:8px;"></span>
+        </div>
+        <div id="vapen-filter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+          <button class="vapen-cat-btn active" data-vcat="">ALLA</button>
+          <button class="vapen-cat-btn" data-vcat="melee">KALLA VAPEN</button>
+          <button class="vapen-cat-btn" data-vcat="pistol">PISTOL</button>
+          <button class="vapen-cat-btn" data-vcat="smg">SMG</button>
+          <button class="vapen-cat-btn" data-vcat="rifle">RIFLE</button>
+          <button class="vapen-cat-btn" data-vcat="shotgun">HAGELGEVÄR</button>
+        </div>
+        <div id="vapen-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;"></div>
+        <div id="vapen-msg" class="amsg"></div>
       </div>
 
       <!-- Traning -->
@@ -928,6 +963,7 @@ select:focus{border-color:var(--red);}
     <button class="mb" data-s="brott">BROTT</button>
     <button class="mb" data-s="droger">DROGER</button>
     <button class="mb" data-s="strid">STRID</button>
+    <button class="mb" data-s="vapen">VAPEN</button>
     <button class="mb" data-s="traning">TR&Auml;NA</button>
     <button class="mb" data-s="profession">YRKE</button>
     <button class="mb" data-s="bank">BANK</button>
@@ -1394,7 +1430,7 @@ function renderSection(s){
   document.querySelectorAll('.g-sec').forEach(el=>el.style.display='none');
   const el=document.getElementById('s-'+s);
   document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
-  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,traning:renderTraning,profession:renderProfession,bank:renderBank,casino:renderCasino,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking,forrad:renderForrad};
+  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,vapen:renderVapen,traning:renderTraning,profession:renderProfession,bank:renderBank,casino:renderCasino,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking,forrad:renderForrad};
   setSectionError('');
   if(!el){
     setSectionError('Sektionen kunde inte hittas.');
@@ -1697,6 +1733,104 @@ async function doAssault(npcId){
     setTimeout(()=>renderStrid(),800);
   }
 }
+
+/* ─── Vapen (weapon shop) ─────────────────────────────────────────────────── */
+let G_WEAPONS = [];
+let G_OWNED_WEAPONS = new Set();
+let G_VAPEN_CAT = '';
+
+async function renderVapen(){
+  const grid = document.getElementById('vapen-grid');
+  const msg  = document.getElementById('vapen-msg');
+  const eqEl = document.getElementById('vapen-equipped-name');
+  const eqSt = document.getElementById('vapen-equipped-stats');
+  if(!grid) return;
+
+  // Show equipped weapon from inventory
+  const p = G.player;
+  let equippedWeapon = null;
+  if(G.extra?.inventory){
+    equippedWeapon = G.extra.inventory.find(i=>i.slot==='weapon'&&i.equipped);
+  }
+  if(equippedWeapon){
+    eqEl.textContent = equippedWeapon.item_name || equippedWeapon.name || '—';
+    try {
+      const fx = typeof equippedWeapon.effects === 'string' ? JSON.parse(equippedWeapon.effects) : equippedWeapon.effects || {};
+      eqSt.textContent = `DMG:${fx.damage||0}  ACC:${fx.accuracy||0}%  SHOTS:${fx.fire_rate||1}`;
+    } catch { eqSt.textContent = ''; }
+  } else {
+    eqEl.textContent = 'Inga vapen utrustade';
+    eqSt.textContent = '';
+  }
+
+  // Fetch weapons catalog if not yet loaded
+  if(!G_WEAPONS.length){
+    const r = await api('weapons');
+    if(r.weapons) G_WEAPONS = r.weapons;
+  }
+
+  // Fetch owned weapons from inventory
+  const inv = G.extra?.inventory || [];
+  G_OWNED_WEAPONS = new Set(inv.filter(i=>i.item_type==='weapon').map(i=>i.item_name));
+
+  const filtered = G_VAPEN_CAT ? G_WEAPONS.filter(w=>w.category===G_VAPEN_CAT) : G_WEAPONS;
+  const lvl = p?.level || 1;
+
+  const CAT_LABEL = {melee:'Kalla vapen',pistol:'Pistol',smg:'SMG',rifle:'Rifle',shotgun:'Hagelgevär'};
+
+  grid.innerHTML = filtered.map(w=>{
+    const owned   = G_OWNED_WEAPONS.has(w.name);
+    const locked  = lvl < w.level_req;
+    const cls     = owned ? 'owned' : (locked ? 'locked' : '');
+    const btnTxt  = owned ? 'ÄGER' : (locked ? `LV ${w.level_req}` : `${w.buy_price.toLocaleString('sv')} kr`);
+    const btnDisabled = owned || locked;
+    return `<div class="weapon-card ${cls}">
+      <div>
+        <div class="weapon-cat">${CAT_LABEL[w.category]||w.category}</div>
+        <div class="weapon-name">${esc(w.name)}</div>
+      </div>
+      <div class="weapon-stats">
+        <div>DMG <strong>${w.damage}</strong></div>
+        <div>ACC <strong>${w.accuracy}%</strong></div>
+        <div>SHOTS <strong>×${w.fire_rate}</strong></div>
+        <div>LV <strong>${w.level_req}</strong></div>
+      </div>
+      <div class="weapon-flavor">${esc(w.flavor)}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span class="weapon-price">${owned?'KÖPT':locked?'LÅST':w.buy_price.toLocaleString('sv')+' kr'}</span>
+        <button data-buy-weapon="${w.id}" ${btnDisabled?'disabled':''}>${btnTxt}</button>
+      </div>
+    </div>`;
+  }).join('') || '<div class="feed-empty">Inga vapen i denna kategori.</div>';
+
+  // Category filter buttons
+  document.querySelectorAll('.vapen-cat-btn').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.vcat === G_VAPEN_CAT);
+    btn.onclick = ()=>{
+      G_VAPEN_CAT = btn.dataset.vcat || '';
+      renderVapen();
+    };
+  });
+}
+
+async function doBuyWeapon(weaponId){
+  const msg = document.getElementById('vapen-msg');
+  setMsg(msg,'','');
+  const r = await api('action/buy-weapon','POST',{weapon_id:weaponId});
+  if(r.error){ setMsg(msg,r.error,'err'); return; }
+  setMsg(msg,r.message||'Klart.','ok');
+  addLog(r.message||`Köpte vapen`,'ok');
+  const pr = await api('player');
+  if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+  renderTopbar();renderSidebar();
+  G_WEAPONS = []; // force reload
+  renderVapen();
+}
+
+document.addEventListener('click',e=>{
+  const bw = e.target.closest('[data-buy-weapon]');
+  if(bw) return void doBuyWeapon(bw.dataset.buyWeapon);
+});
 
 /* ─── Traning ─────────────────────────────────────────────────────────────── */
 const TRAIN_CARDS=[
