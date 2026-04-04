@@ -272,3 +272,20 @@ CREATE TABLE IF NOT EXISTS game_quests (
 );
 
 CREATE INDEX IF NOT EXISTS idx_game_quests_player ON game_quests (player_id, status);
+
+-- ─── Asset registry ───────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_assets (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  category   TEXT NOT NULL,   -- weapon, action, status, ui, misc
+  tags       TEXT,            -- JSON array of tags
+  file_path  TEXT NOT NULL UNIQUE,
+  web_path   TEXT NOT NULL,   -- /assets/icons/filename.png
+  format     TEXT NOT NULL,   -- png, svg, webp
+  width      INTEGER,
+  height     INTEGER,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_assets_category ON game_assets (category);

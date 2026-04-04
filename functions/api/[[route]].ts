@@ -170,6 +170,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'hall-of-fame'     && method === 'GET')  return gameHallOfFame(env);
       if (id === 'suggest-names'    && method === 'GET')  return gameSuggestNames(request);
       if (id === 'weapons'          && method === 'GET')  return gameGetWeapons(request);
+      if (id === 'ammo'             && method === 'GET')  return gameGetAmmo(request, env);
       if (id === 'inventory'        && method === 'GET')  return gameGetInventory(request, env);
       if (id === 'quests'           && method === 'GET')  return gameGetQuests(request, env);
       if (id === 'new-round'        && method === 'POST') return gameNewRound(request, env);
@@ -217,6 +218,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
         if (sub === 'buy-vehicle'      && method === 'POST') return gameActionBuyVehicle(request, env);
         if (sub === 'race'             && method === 'POST') return gameActionRace(request, env);
         if (sub === 'buy-weapon'                       && method === 'POST') return gameActionBuyWeapon(request, env);
+        if (sub === 'buy-ammo'                         && method === 'POST') return gameActionBuyAmmo(request, env);
         if (sub === 'quest-respond'                    && method === 'POST') return gameActionQuestRespond(request, env);
         if (sub === 'inventory' && action === 'equip' && method === 'POST') return gameActionInventoryEquip(request, env);
         if (sub === 'inventory' && action === 'sell'  && method === 'POST') return gameActionInventorySell(request, env);
@@ -1158,10 +1160,10 @@ function generateNpcName(side: string): string {
   const alias    = pickRandom(aliases);
   const surname  = pickRandom(SURNAMES);
 
-  // Format weights: 25% first, 10% surname, 35% first+alias+surname, 20% alias+surname, 10% prefix+first
+  // Format weights: 25% first, 5% surname, 40% first+alias+surname, 20% alias+surname, 10% prefix+first
   const roll = Math.random();
   if (roll < 0.25) return firstName;
-  if (roll < 0.35) return surname;
+  if (roll < 0.30) return surname;
   if (roll < 0.70) return `${firstName} "${alias}" ${surname}`;
   if (roll < 0.90) return `${alias} ${surname}`;
   // prefix + first — hyphen for ≤5-char names (Mange → Lill-Mange), space otherwise
@@ -1610,6 +1612,8 @@ function adminHelp(): { message: string; commands: string[] } {
       'maxout',
       'legend',
       'chaos',
+      'regen-npcs',
+      'import-assets',
     ],
   };
 }
@@ -1895,54 +1899,76 @@ interface Weapon {
   name: string;
   category: 'melee' | 'pistol' | 'smg' | 'rifle' | 'shotgun';
   damage: number;
-  accuracy: number;  // 1–100 base hit-chance percent
-  fire_rate: number; // shots per attack
+  accuracy: number;   // 1–100 base hit-chance percent
+  fire_rate: number;  // shots per attack
   buy_price: number;
   level_req: number;
   flavor: string;
+  ammo_type: string | null; // null = melee (no ammo needed)
 }
+
+interface AmmoCatalogEntry {
+  type: string;       // display name / key used in game_inventory item_name
+  caliber: string;    // real-world caliber label
+  buy_price: number;  // cost per pack
+  qty: number;        // rounds per pack
+}
+
+const AMMO_CATALOG: AmmoCatalogEntry[] = [
+  { type: '.22 LR',           caliber: '.22 Long Rifle',        buy_price: 80,  qty: 50 },
+  { type: '9mm Parabellum',   caliber: '9×19mm Luger',          buy_price: 150, qty: 50 },
+  { type: '.357 Magnum',      caliber: '.357 Magnum',           buy_price: 200, qty: 30 },
+  { type: '.50 AE',           caliber: '.50 Action Express',    buy_price: 400, qty: 20 },
+  { type: '7.65mm Browning',  caliber: '7.65×17mm',             buy_price: 120, qty: 50 },
+  { type: '7.62×25mm Tokarev',caliber: '7.62mm Tokarev',        buy_price: 130, qty: 50 },
+  { type: '5.56×45mm NATO',   caliber: '5.56mm NATO',           buy_price: 180, qty: 30 },
+  { type: '7.62×39mm',        caliber: '7.62×39mm Soviet',      buy_price: 160, qty: 30 },
+  { type: '7.62×51mm NATO',   caliber: '.308 Winchester',       buy_price: 220, qty: 20 },
+  { type: '.50 BMG',          caliber: '.50 Browning',          buy_price: 600, qty: 10 },
+  { type: '12 gauge',         caliber: '12 gauge buckshot',     buy_price: 200, qty: 20 },
+];
 
 const WEAPON_CATALOG: Weapon[] = [
   // ── Melee ────────────────────────────────────────────────────────────────
-  { id:'kniv',      name:'Kniv',            category:'melee',   damage:8,  accuracy:88, fire_rate:1, buy_price:500,   level_req:1,  flavor:'Snabb, tyst, effektiv.' },
-  { id:'knogjarn',  name:'Knogjärn',        category:'melee',   damage:10, accuracy:90, fire_rate:1, buy_price:800,   level_req:1,  flavor:'Bärs i fickan, tas fram utan varning.' },
-  { id:'baseboll',  name:'Basebollträ',     category:'melee',   damage:14, accuracy:82, fire_rate:1, buy_price:1200,  level_req:2,  flavor:'Sportutrustning med dubbel användning.' },
-  { id:'slagga',    name:'Slägga',          category:'melee',   damage:20, accuracy:65, fire_rate:1, buy_price:2500,  level_req:3,  flavor:'Tungt. Enkelt. Övertygande.' },
-  { id:'machete',   name:'Machete',         category:'melee',   damage:24, accuracy:76, fire_rate:1, buy_price:4000,  level_req:5,  flavor:'Lång räckvidd, läskig profil.' },
-  { id:'stiletter', name:'Stiletter ×2',    category:'melee',   damage:16, accuracy:92, fire_rate:2, buy_price:6000,  level_req:6,  flavor:'Dubbla blad — en i varje hand.' },
-  { id:'katana',    name:'Katana',          category:'melee',   damage:32, accuracy:84, fire_rate:1, buy_price:9000,  level_req:8,  flavor:'Smugglad från Göteborg. Förmodligen äkta.' },
+  { id:'kniv',      name:'Kniv',            category:'melee',   damage:8,  accuracy:88, fire_rate:1, buy_price:500,   level_req:1,  flavor:'Snabb, tyst, effektiv.',                           ammo_type:null },
+  { id:'knogjarn',  name:'Knogjärn',        category:'melee',   damage:10, accuracy:90, fire_rate:1, buy_price:800,   level_req:1,  flavor:'Bärs i fickan, tas fram utan varning.',            ammo_type:null },
+  { id:'baseboll',  name:'Basebollträ',     category:'melee',   damage:14, accuracy:82, fire_rate:1, buy_price:1200,  level_req:2,  flavor:'Sportutrustning med dubbel användning.',           ammo_type:null },
+  { id:'slagga',    name:'Slägga',          category:'melee',   damage:20, accuracy:65, fire_rate:1, buy_price:2500,  level_req:3,  flavor:'Tungt. Enkelt. Övertygande.',                      ammo_type:null },
+  { id:'machete',   name:'Machete',         category:'melee',   damage:24, accuracy:76, fire_rate:1, buy_price:4000,  level_req:5,  flavor:'Lång räckvidd, läskig profil.',                    ammo_type:null },
+  { id:'stiletter', name:'Stiletter ×2',    category:'melee',   damage:16, accuracy:92, fire_rate:2, buy_price:6000,  level_req:6,  flavor:'Dubbla blad — en i varje hand.',                   ammo_type:null },
+  { id:'katana',    name:'Katana',          category:'melee',   damage:32, accuracy:84, fire_rate:1, buy_price:9000,  level_req:8,  flavor:'Smugglad från Göteborg. Förmodligen äkta.',        ammo_type:null },
 
   // ── Pistol ───────────────────────────────────────────────────────────────
-  { id:'rev22',     name:'.22 Revolver',    category:'pistol',  damage:14, accuracy:72, fire_rate:1, buy_price:3000,  level_req:3,  flavor:'Gammal men pålitlig.' },
-  { id:'glock17',   name:'Glock 17',        category:'pistol',  damage:22, accuracy:76, fire_rate:1, buy_price:5500,  level_req:5,  flavor:'Plastfantasins mästerverk.' },
-  { id:'beretta',   name:'Beretta 92',      category:'pistol',  damage:24, accuracy:79, fire_rate:1, buy_price:7000,  level_req:6,  flavor:'Stilren. Precis. Dyr.' },
-  { id:'magnum357', name:'.357 Magnum',     category:'pistol',  damage:30, accuracy:71, fire_rate:1, buy_price:8500,  level_req:7,  flavor:'Varje skott låter som en detonation.' },
-  { id:'deagle',    name:'Desert Eagle',    category:'pistol',  damage:36, accuracy:66, fire_rate:1, buy_price:11000, level_req:8,  flavor:'Överdriven. Perfekt.' },
+  { id:'rev22',     name:'.22 Revolver',    category:'pistol',  damage:14, accuracy:72, fire_rate:1, buy_price:3000,  level_req:3,  flavor:'Gammal men pålitlig.',                             ammo_type:'.22 LR' },
+  { id:'glock17',   name:'Glock 17',        category:'pistol',  damage:22, accuracy:76, fire_rate:1, buy_price:5500,  level_req:5,  flavor:'Plastfantasins mästerverk.',                       ammo_type:'9mm Parabellum' },
+  { id:'beretta',   name:'Beretta 92',      category:'pistol',  damage:24, accuracy:79, fire_rate:1, buy_price:7000,  level_req:6,  flavor:'Stilren. Precis. Dyr.',                            ammo_type:'9mm Parabellum' },
+  { id:'magnum357', name:'.357 Magnum',     category:'pistol',  damage:30, accuracy:71, fire_rate:1, buy_price:8500,  level_req:7,  flavor:'Varje skott låter som en detonation.',             ammo_type:'.357 Magnum' },
+  { id:'deagle',    name:'Desert Eagle',    category:'pistol',  damage:36, accuracy:66, fire_rate:1, buy_price:11000, level_req:8,  flavor:'Överdriven. Perfekt.',                             ammo_type:'.50 AE' },
 
   // ── SMG ──────────────────────────────────────────────────────────────────
-  { id:'scorpion',  name:'Škorpion vz. 61', category:'smg',     damage:14, accuracy:60, fire_rate:3, buy_price:6000,  level_req:6,  flavor:'Tre skott innan han hinner reagera.' },
-  { id:'uzi',       name:'Uzi',             category:'smg',     damage:18, accuracy:56, fire_rate:3, buy_price:8000,  level_req:7,  flavor:'Klassikern. Oöverskådlig nyttjanderätt.' },
-  { id:'mac10',     name:'MAC-10',          category:'smg',     damage:17, accuracy:51, fire_rate:3, buy_price:9000,  level_req:7,  flavor:'Hög eldhastighet, låg träffsäkerhet. Fungerar.' },
-  { id:'pp19',      name:'PP-19 Bizon',     category:'smg',     damage:22, accuracy:63, fire_rate:2, buy_price:11000, level_req:8,  flavor:'Ryskt skumgummi i stålform.' },
-  { id:'mp5',       name:'MP5',             category:'smg',     damage:25, accuracy:67, fire_rate:2, buy_price:13000, level_req:9,  flavor:'Exklusiv men inte svårflörtad.' },
+  { id:'scorpion',  name:'Škorpion vz. 61', category:'smg',     damage:14, accuracy:60, fire_rate:3, buy_price:6000,  level_req:6,  flavor:'Tre skott innan han hinner reagera.',              ammo_type:'7.65mm Browning' },
+  { id:'uzi',       name:'Uzi',             category:'smg',     damage:18, accuracy:56, fire_rate:3, buy_price:8000,  level_req:7,  flavor:'Klassikern. Oöverskådlig nyttjanderätt.',          ammo_type:'9mm Parabellum' },
+  { id:'mac10',     name:'MAC-10',          category:'smg',     damage:17, accuracy:51, fire_rate:3, buy_price:9000,  level_req:7,  flavor:'Hög eldhastighet, låg träffsäkerhet. Fungerar.',   ammo_type:'9mm Parabellum' },
+  { id:'pp19',      name:'PP-19 Bizon',     category:'smg',     damage:22, accuracy:63, fire_rate:2, buy_price:11000, level_req:8,  flavor:'Ryskt skumgummi i stålform.',                     ammo_type:'7.62×25mm Tokarev' },
+  { id:'mp5',       name:'MP5',             category:'smg',     damage:25, accuracy:67, fire_rate:2, buy_price:13000, level_req:9,  flavor:'Exklusiv men inte svårflörtad.',                   ammo_type:'9mm Parabellum' },
 
   // ── Rifle ────────────────────────────────────────────────────────────────
-  { id:'famas',     name:'FAMAS',           category:'rifle',   damage:28, accuracy:79, fire_rate:2, buy_price:11000, level_req:9,  flavor:'Franskt ingenjörskonst med attityd.' },
-  { id:'ar15',      name:'AR-15',           category:'rifle',   damage:32, accuracy:73, fire_rate:2, buy_price:13000, level_req:9,  flavor:'Modulär, tillförlitlig, diskuterad.' },
-  { id:'m16',       name:'M16A2',           category:'rifle',   damage:34, accuracy:76, fire_rate:2, buy_price:15000, level_req:10, flavor:'Armékvalitet på gatunivå.' },
-  { id:'galil',     name:'Galil ACE',       category:'rifle',   damage:36, accuracy:71, fire_rate:2, buy_price:14500, level_req:10, flavor:'Israelisk precision, kompromisslös design.' },
-  { id:'ak47',      name:'AK-47',           category:'rifle',   damage:38, accuracy:69, fire_rate:2, buy_price:16000, level_req:10, flavor:'Tio miljoner kan inte ha fel.' },
-  { id:'hkg36',     name:'H&K G36',         category:'rifle',   damage:40, accuracy:77, fire_rate:2, buy_price:22000, level_req:12, flavor:'Tyskt hantverk. Ingen ursäkt.' },
-  { id:'fnscar',    name:'FN SCAR-H',       category:'rifle',   damage:44, accuracy:75, fire_rate:2, buy_price:26000, level_req:13, flavor:'Nato-standard. Svart marknad.' },
-  { id:'barrett',   name:'Barrett .50 Cal', category:'rifle',   damage:65, accuracy:56, fire_rate:1, buy_price:42000, level_req:15, flavor:'Ett skott. Ingen uppföljning behövs.' },
+  { id:'famas',     name:'FAMAS',           category:'rifle',   damage:28, accuracy:79, fire_rate:2, buy_price:11000, level_req:9,  flavor:'Franskt ingenjörskonst med attityd.',              ammo_type:'5.56×45mm NATO' },
+  { id:'ar15',      name:'AR-15',           category:'rifle',   damage:32, accuracy:73, fire_rate:2, buy_price:13000, level_req:9,  flavor:'Modulär, tillförlitlig, diskuterad.',              ammo_type:'5.56×45mm NATO' },
+  { id:'m16',       name:'M16A2',           category:'rifle',   damage:34, accuracy:76, fire_rate:2, buy_price:15000, level_req:10, flavor:'Armékvalitet på gatunivå.',                        ammo_type:'5.56×45mm NATO' },
+  { id:'galil',     name:'Galil ACE',       category:'rifle',   damage:36, accuracy:71, fire_rate:2, buy_price:14500, level_req:10, flavor:'Israelisk precision, kompromisslös design.',       ammo_type:'5.56×45mm NATO' },
+  { id:'ak47',      name:'AK-47',           category:'rifle',   damage:38, accuracy:69, fire_rate:2, buy_price:16000, level_req:10, flavor:'Tio miljoner kan inte ha fel.',                    ammo_type:'7.62×39mm' },
+  { id:'hkg36',     name:'H&K G36',         category:'rifle',   damage:40, accuracy:77, fire_rate:2, buy_price:22000, level_req:12, flavor:'Tyskt hantverk. Ingen ursäkt.',                    ammo_type:'5.56×45mm NATO' },
+  { id:'fnscar',    name:'FN SCAR-H',       category:'rifle',   damage:44, accuracy:75, fire_rate:2, buy_price:26000, level_req:13, flavor:'Nato-standard. Svart marknad.',                    ammo_type:'7.62×51mm NATO' },
+  { id:'barrett',   name:'Barrett .50 Cal', category:'rifle',   damage:65, accuracy:56, fire_rate:1, buy_price:42000, level_req:15, flavor:'Ett skott. Ingen uppföljning behövs.',             ammo_type:'.50 BMG' },
 
   // ── Shotgun ──────────────────────────────────────────────────────────────
-  { id:'rem870',    name:'Remington 870',   category:'shotgun', damage:44, accuracy:53, fire_rate:1, buy_price:8000,  level_req:7,  flavor:'Pumphagelgevär. Talar klarspråk.' },
-  { id:'moss500',   name:'Mossberg 500',    category:'shotgun', damage:48, accuracy:51, fire_rate:1, buy_price:9000,  level_req:7,  flavor:'Tillförlitlig som en hammare.' },
-  { id:'spas12',    name:'SPAS-12',         category:'shotgun', damage:54, accuracy:46, fire_rate:1, buy_price:15000, level_req:10, flavor:'Halvautomatisk förstörelse.' },
-  { id:'saiga12',   name:'Saiga-12K',       category:'shotgun', damage:42, accuracy:49, fire_rate:2, buy_price:13500, level_req:9,  flavor:'Magasin. Dubbel förmåga.' },
-  { id:'sweeper',   name:'Street Sweeper',  category:'shotgun', damage:44, accuracy:43, fire_rate:3, buy_price:20000, level_req:12, flavor:'Trummor. Kaos. Effektivt.' },
-  { id:'minigun',   name:'Minigun',         category:'smg',     damage:28, accuracy:41, fire_rate:3, buy_price:55000, level_req:15, flavor:'För dem som inte längre bryr sig om subtilitet.' },
+  { id:'rem870',    name:'Remington 870',   category:'shotgun', damage:44, accuracy:53, fire_rate:1, buy_price:8000,  level_req:7,  flavor:'Pumphagelgevär. Talar klarspråk.',                 ammo_type:'12 gauge' },
+  { id:'moss500',   name:'Mossberg 500',    category:'shotgun', damage:48, accuracy:51, fire_rate:1, buy_price:9000,  level_req:7,  flavor:'Tillförlitlig som en hammare.',                    ammo_type:'12 gauge' },
+  { id:'spas12',    name:'SPAS-12',         category:'shotgun', damage:54, accuracy:46, fire_rate:1, buy_price:15000, level_req:10, flavor:'Halvautomatisk förstörelse.',                      ammo_type:'12 gauge' },
+  { id:'saiga12',   name:'Saiga-12K',       category:'shotgun', damage:42, accuracy:49, fire_rate:2, buy_price:13500, level_req:9,  flavor:'Magasin. Dubbel förmåga.',                        ammo_type:'12 gauge' },
+  { id:'sweeper',   name:'Street Sweeper',  category:'shotgun', damage:44, accuracy:43, fire_rate:3, buy_price:20000, level_req:12, flavor:'Trummor. Kaos. Effektivt.',                        ammo_type:'12 gauge' },
+  { id:'minigun',   name:'Minigun',         category:'smg',     damage:28, accuracy:41, fire_rate:3, buy_price:55000, level_req:15, flavor:'För dem som inte längre bryr sig om subtilitet.',  ammo_type:'9mm Parabellum' },
 ];
 
 function gameGetWeapons(request: Request): Response {
@@ -2017,6 +2043,83 @@ async function gameActionBuyWeapon(request: Request, env: Env): Promise<Response
   } catch (e) {
     return gameJson({ error: 'Köp misslyckades.' }, 500);
   }
+}
+
+async function gameGetAmmo(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  const pid = player.id as string;
+  const owned = await env.DB.prepare(
+    `SELECT item_name, quantity FROM game_inventory WHERE player_id = ? AND item_type = 'ammo'`
+  ).bind(pid).all<{ item_name: string; quantity: number }>();
+
+  const ownedMap: Record<string, number> = {};
+  for (const row of owned.results) {
+    ownedMap[row.item_name] = (ownedMap[row.item_name] ?? 0) + row.quantity;
+  }
+
+  const catalog = AMMO_CATALOG.map(entry => ({
+    ...entry,
+    owned: ownedMap[entry.type] ?? 0,
+  }));
+
+  return gameJson({ ammo: catalog });
+}
+
+async function gameActionBuyAmmo(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  if (player.in_prison) return gameJson({ error: 'Du sitter i fängelse.' }, 400);
+  if (!player.is_alive) return gameJson({ error: 'Du är eliminerad.' }, 400);
+
+  const body = await request.json<{ ammo_type?: string; quantity?: number }>().catch(() => ({} as { ammo_type?: string; quantity?: number }));
+  const ammoType = (body.ammo_type ?? '').trim();
+  const packs    = Math.max(1, Math.floor(Number(body.quantity ?? 1)));
+
+  const entry = AMMO_CATALOG.find(a => a.type === ammoType);
+  if (!entry) return gameJson({ error: 'Okänd ammotyp.' }, 400);
+
+  const totalCost  = entry.buy_price * packs;
+  const totalRounds = entry.qty * packs;
+  const cash = (player.cash as number) ?? 0;
+  if (cash < totalCost)
+    return gameJson({ error: `Inte tillräckligt med cash. Behöver ${totalCost.toLocaleString('sv')} kr.` }, 400);
+
+  const pid = player.id as string;
+
+  // Upsert ammo in inventory
+  const existing = await env.DB.prepare(
+    `SELECT id, quantity FROM game_inventory WHERE player_id = ? AND item_type = 'ammo' AND item_name = ? LIMIT 1`
+  ).bind(pid, ammoType).first<{ id: string; quantity: number }>();
+
+  if (existing) {
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(totalCost, pid),
+      env.DB.prepare(`UPDATE game_inventory SET quantity = quantity + ? WHERE id = ?`)
+        .bind(totalRounds, existing.id),
+    ]);
+  } else {
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(totalCost, pid),
+      env.DB.prepare(
+        `INSERT INTO game_inventory (id, player_id, item_type, item_name, quantity, buy_price, source)
+         VALUES (?, ?, 'ammo', ?, ?, ?, 'shop')`
+      ).bind(crypto.randomUUID(), pid, ammoType, totalRounds, entry.buy_price),
+    ]);
+  }
+
+  return gameJson({
+    ok: true,
+    message: `Köpte ${totalRounds} ${ammoType}-patroner för ${totalCost.toLocaleString('sv')} kr.`,
+    ammo_type: ammoType,
+    rounds_added: totalRounds,
+  });
 }
 
 const ASSAULT_WIN_LINES = [
@@ -2602,6 +2705,7 @@ async function gameGetBlackjackState(request: Request, env: Env): Promise<Respon
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
+    await ensureBlackjackColumns(env);
     const hand = await getBlackjackHandForPlayer(env, player);
     return gameJson(buildBlackjackState(hand, player));
   } catch (e) {
@@ -2632,6 +2736,7 @@ async function gameActionBlackjackStart(request: Request, env: Env): Promise<Res
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
+    await ensureBlackjackColumns(env);
     if (player.in_prison) return gameJson({ error: 'Kasinoet släpper inte in folk från kåken.' }, 400);
     if (player.in_hospital) return gameJson({ error: 'Du är fortfarande på sjukhuset.' }, 400);
 
@@ -3399,6 +3504,7 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   let weaponDmg      = 0;
   let weaponAccuracy = 50; // base hit-chance %
   let weaponFireRate = 1;
+  let weaponAmmoType: string | null = null;
   if (weaponRow?.effects) {
     try {
       const fx = JSON.parse(weaponRow.effects as string);
@@ -3407,6 +3513,25 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
       weaponFireRate = fx.fire_rate   ?? 1;
       weaponName     = weaponRow.item_name as string ?? '';
     } catch {}
+  }
+  // Resolve ammo_type from catalog for equipped weapon
+  if (weaponName) {
+    const catalogEntry = WEAPON_CATALOG.find(w => w.name === weaponName);
+    weaponAmmoType = catalogEntry?.ammo_type ?? null;
+  }
+
+  // Ammo check — ranged weapons require enough ammo in inventory
+  if (weaponAmmoType !== null) {
+    const ammoRow = await env.DB.prepare(
+      `SELECT quantity FROM game_inventory WHERE player_id = ? AND item_type = 'ammo' AND item_name = ? LIMIT 1`
+    ).bind(pid, weaponAmmoType).first<{ quantity: number }>();
+    const ammoOwned = ammoRow?.quantity ?? 0;
+    if (ammoOwned < weaponFireRate) {
+      return gameJson({
+        error: `Inte tillräckligt med ammunition (${weaponAmmoType}). Behöver ${weaponFireRate} patron${weaponFireRate > 1 ? 'er' : ''} — köp mer i vapenshopen.`,
+      }, 400);
+    }
+    // Consume ammo after check passes (done in batch with other writes below via flag)
   }
 
   const attackerStr  = effectiveStat(player, 'strength');
@@ -3479,6 +3604,14 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   }
 
   await updateEnergy(env, pid, energy, COST);
+
+  // Consume ammo for ranged weapons
+  if (weaponAmmoType !== null) {
+    await env.DB.prepare(
+      `UPDATE game_inventory SET quantity = MAX(0, quantity - ?)
+       WHERE player_id = ? AND item_type = 'ammo' AND item_name = ?`
+    ).bind(weaponFireRate, pid, weaponAmmoType).run();
+  }
 
   // Upsert cooldown
   await env.DB.prepare(
@@ -4070,6 +4203,25 @@ function rowToBlackjackHand(row: Row): BlackjackRuntimeHand {
     splitDoubled: Number(row.split_doubled ?? 0) === 1,
     insuranceBet: Number(row.insurance_bet ?? 0),
   };
+}
+
+// Auto-add missing blackjack columns when Migration 9 hasn't been applied yet.
+// Uses individual try/catch per statement because D1 throws on duplicate columns.
+let _bjColsChecked = false;
+async function ensureBlackjackColumns(env: Env): Promise<void> {
+  if (_bjColsChecked) return;
+  _bjColsChecked = true;
+  const cols = [
+    `ALTER TABLE game_blackjack_hands ADD COLUMN base_bet      INTEGER DEFAULT 0`,
+    `ALTER TABLE game_blackjack_hands ADD COLUMN split_hand    TEXT`,
+    `ALTER TABLE game_blackjack_hands ADD COLUMN split_bet     INTEGER DEFAULT 0`,
+    `ALTER TABLE game_blackjack_hands ADD COLUMN split_result  TEXT`,
+    `ALTER TABLE game_blackjack_hands ADD COLUMN split_doubled INTEGER DEFAULT 0`,
+    `ALTER TABLE game_blackjack_hands ADD COLUMN insurance_bet INTEGER DEFAULT 0`,
+  ];
+  for (const sql of cols) {
+    try { await env.DB.prepare(sql).run(); } catch { /* column already exists */ }
+  }
 }
 
 async function getBlackjackHandForPlayer(env: Env, player: Row): Promise<BlackjackRuntimeHand | null> {
@@ -6010,6 +6162,56 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
     const message = `Chaos slog till: ${cashDelta >= 0 ? '+' : ''}${cashDelta} cash, ${respectDelta >= 0 ? '+' : ''}${respectDelta} respect, HP ${hp}, energi ${energy}.`;
     await logAction(env, pid, 'admin', message, cashDelta, respectDelta, 0, true);
     return ok(message);
+  }
+
+  if (cmd === 'import-assets') {
+    // Reads /asset-manifest.json (built separately), upserts rows into game_assets.
+    // Create the manifest with: node scripts/build-asset-manifest.js
+    let manifest: Array<{ id: string; name: string; category: string; tags?: string[]; file_path: string; web_path: string; format: string; width?: number; height?: number }>;
+    try {
+      const url = new URL('/asset-manifest.json', request.url);
+      const resp = await fetch(url.toString());
+      if (!resp.ok) return err('asset-manifest.json not found. Run: node scripts/build-asset-manifest.js');
+      manifest = await resp.json() as typeof manifest;
+    } catch {
+      return err('Failed to fetch asset-manifest.json. Ensure the file is deployed to /asset-manifest.json.');
+    }
+    if (!Array.isArray(manifest) || !manifest.length) return ok('asset-manifest.json is empty — nothing to import.');
+    const stmts = manifest.map(a =>
+      env.DB.prepare(
+        `INSERT INTO game_assets (id, name, category, tags, file_path, web_path, format, width, height)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(file_path) DO UPDATE SET
+           name = excluded.name, category = excluded.category, tags = excluded.tags,
+           web_path = excluded.web_path, format = excluded.format,
+           width = excluded.width, height = excluded.height`
+      ).bind(
+        a.id ?? crypto.randomUUID(), a.name, a.category,
+        a.tags ? JSON.stringify(a.tags) : null,
+        a.file_path, a.web_path, a.format,
+        a.width ?? null, a.height ?? null
+      )
+    );
+    await env.DB.batch(stmts);
+    return ok(`Importerade ${stmts.length} assets till game_assets.`);
+  }
+
+  if (cmd === 'regen-npcs') {
+    const round = await env.DB.prepare(
+      `SELECT id FROM game_rounds WHERE is_active = 1 ORDER BY round_number DESC LIMIT 1`
+    ).first<{ id: string }>();
+    if (!round) return err('Ingen aktiv runda.');
+    const npcs = await env.DB.prepare(
+      `SELECT id, side FROM game_npcs WHERE round_id = ?`
+    ).bind(round.id).all<{ id: string; side: string }>();
+    if (!npcs.results.length) return ok('Inga NPCs i aktiv runda.');
+    const stmts = npcs.results.map(npc =>
+      env.DB.prepare(`UPDATE game_npcs SET name = ? WHERE id = ?`)
+        .bind(generateNpcName(npc.side ?? 'eastside'), npc.id)
+    );
+    await env.DB.batch(stmts);
+    await logAction(env, pid, 'admin', `Admin regenererade NPC-namn (${stmts.length} st).`, 0, 0, 0, true);
+    return ok(`Regenererade namn för ${stmts.length} NPCs.`);
   }
 
   return err('Unknown command. Run "help" for available commands.');
