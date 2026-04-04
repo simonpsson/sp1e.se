@@ -231,6 +231,38 @@ select:focus{border-color:var(--red);}
 .casino-chipbar{display:flex;gap:8px;flex-wrap:wrap;}
 .casino-chip{border-radius:999px;padding:7px 12px;background:#17131b;}
 .casino-chip.active{border-color:var(--amber);color:var(--white);background:#221811;}
+.casino-modebar{display:flex;gap:10px;flex-wrap:wrap;}
+.casino-mode{padding:8px 14px;border-radius:999px;background:#15131a;border:1px solid var(--border);letter-spacing:1px;}
+.casino-mode.active{border-color:var(--red);color:var(--white);background:#211215;}
+.casino-panel{display:none;flex-direction:column;gap:16px;}
+.casino-panel.active{display:flex;}
+.holdem-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px;}
+.holdem-summary .casino-stat strong{font-size:14px;}
+.holdem-board{display:flex;flex-direction:column;gap:14px;margin-top:14px;}
+.holdem-community{display:flex;flex-direction:column;gap:8px;}
+.holdem-community .bj-cards{min-height:112px;}
+.holdem-seats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+.holdem-seat{background:rgba(11,13,18,.88);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:180px;}
+.holdem-seat.player{border-color:#4b3a2a;background:rgba(20,18,14,.95);}
+.holdem-seat.turn{box-shadow:0 0 0 1px rgba(242,74,74,.35),0 0 0 4px rgba(242,74,74,.08);}
+.holdem-seat.folded{opacity:.62;}
+.holdem-seat-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
+.holdem-seat-name{display:flex;flex-direction:column;gap:6px;}
+.holdem-seat-name strong{font-size:13px;color:var(--white);}
+.holdem-seat-stack{font-size:13px;color:var(--amber);white-space:nowrap;}
+.holdem-badges{display:flex;gap:6px;flex-wrap:wrap;}
+.holdem-badge{display:inline-flex;align-items:center;justify-content:center;padding:2px 7px;border-radius:999px;border:1px solid var(--border);font-size:10px;letter-spacing:1px;background:#14161c;color:var(--dim);}
+.holdem-badge.turn{border-color:var(--red);color:#ffd9d9;background:#211214;}
+.holdem-badge.player{border-color:#5a4226;color:#ffd59c;background:#1e1710;}
+.holdem-badge.blind{border-color:#35546f;color:#b6dbff;background:#101820;}
+.holdem-badge.side-west{border-color:#6b2330;color:#ffadb8;background:#1f1014;}
+.holdem-badge.side-east{border-color:#1f4f7a;color:#9fd5ff;background:#101a24;}
+.holdem-seat-meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:10px;color:var(--dim);letter-spacing:.7px;}
+.holdem-seat-action{color:var(--white);}
+.holdem-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.holdem-actions button{min-width:92px;}
+.holdem-foot{font-size:11px;color:var(--dim);line-height:1.7;margin-top:4px;}
+.holdem-empty{font-size:12px;color:var(--dim);padding:10px 0;}
 .bj-hand{display:flex;flex-direction:column;gap:10px;}
 .bj-head{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;}
 .bj-name{font-size:11px;color:var(--dim);letter-spacing:1px;}
@@ -639,55 +671,116 @@ select:focus{border-color:var(--red);}
       <!-- Casino -->
       <div id="s-casino" class="g-sec">
         <div class="sec-title">CASINO</div>
-        <div class="sec-sub">Bakom sammetsdraperiet st&aring;r blackjackbordet upplyst. Snabbt, kallt och alltid lite farligt.</div>
+        <div class="sec-sub">Bakom sammetsdraperiet blinkar blackjackbordet och ett l&aring;gljutt Hold&rsquo;Em-bord. Snabbt, kallt och alltid lite farligt.</div>
         <div class="casino-shell">
-          <div class="casino-top">
-            <div class="casino-stat"><span>KASSA</span><strong id="casino-cash">0 kr</strong></div>
-            <div class="casino-stat"><span>INSATS</span><strong id="casino-bet-display">500 kr</strong></div>
-            <div class="casino-stat"><span>REGLER</span><strong>Blackjack 3:2</strong></div>
+          <div class="casino-modebar">
+            <button type="button" class="casino-mode" data-casino-mode="blackjack">BLACKJACK</button>
+            <button type="button" class="casino-mode" data-casino-mode="holdem">TEXAS HOLD&rsquo;EM</button>
           </div>
-          <div class="casino-table">
-            <div class="casino-bet">
-              <div class="casino-bet-row">
-                <label for="casino-bet-input">INSATS</label>
-                <input id="casino-bet-input" type="number" min="100" step="100" value="500">
-                <button class="primary" data-casino="start">DELA KORT</button>
-              </div>
-              <div id="casino-chipbar" class="casino-chipbar">
-                <button type="button" class="casino-chip" data-casino-bet="100">100 kr</button>
-                <button type="button" class="casino-chip" data-casino-bet="250">250 kr</button>
-                <button type="button" class="casino-chip" data-casino-bet="500">500 kr</button>
-                <button type="button" class="casino-chip" data-casino-bet="1000">1 000 kr</button>
-                <button type="button" class="casino-chip" data-casino-bet="2500">2 500 kr</button>
-                <button type="button" class="casino-chip" data-casino-bet="5000">5 000 kr</button>
-              </div>
-              <div class="casino-decknote">Min 100 kr. Max 5 000 kr. Ingen split eller insurance i den h&auml;r versionen.</div>
+
+          <div id="casino-panel-blackjack" class="casino-panel active">
+            <div class="casino-top">
+              <div class="casino-stat"><span>KASSA</span><strong id="casino-cash">0 kr</strong></div>
+              <div class="casino-stat"><span>INSATS</span><strong id="casino-bet-display">500 kr</strong></div>
+              <div class="casino-stat"><span>REGLER</span><strong>Blackjack 3:2</strong></div>
             </div>
-            <div id="casino-banner" class="bj-banner"><strong>Bordet är öppet.</strong><span>Välj insats och spela en hand.</span></div>
-            <div class="bj-divider"></div>
-            <div class="bj-hand">
-              <div class="bj-head">
-                <div class="bj-name">DEALER</div>
-                <div id="casino-dealer-total" class="bj-total">Totalt: —</div>
+            <div class="casino-table">
+              <div class="casino-bet">
+                <div class="casino-bet-row">
+                  <label for="casino-bet-input">INSATS</label>
+                  <input id="casino-bet-input" type="number" min="100" step="100" value="500">
+                  <button class="primary" data-casino="start">DELA KORT</button>
+                </div>
+                <div id="casino-chipbar" class="casino-chipbar">
+                  <button type="button" class="casino-chip" data-casino-bet="100">100 kr</button>
+                  <button type="button" class="casino-chip" data-casino-bet="250">250 kr</button>
+                  <button type="button" class="casino-chip" data-casino-bet="500">500 kr</button>
+                  <button type="button" class="casino-chip" data-casino-bet="1000">1 000 kr</button>
+                  <button type="button" class="casino-chip" data-casino-bet="2500">2 500 kr</button>
+                  <button type="button" class="casino-chip" data-casino-bet="5000">5 000 kr</button>
+                </div>
+                <div class="casino-decknote">Min 100 kr. Max 5 000 kr. Ingen split eller insurance i den h&auml;r versionen.</div>
               </div>
-              <div id="casino-dealer-cards" class="bj-cards"></div>
-            </div>
-            <div class="bj-divider"></div>
-            <div class="bj-hand">
-              <div class="bj-head">
-                <div class="bj-name">DU</div>
-                <div id="casino-player-total" class="bj-total">Totalt: —</div>
+              <div id="casino-banner" class="bj-banner"><strong>Bordet är öppet.</strong><span>Välj insats och spela en hand.</span></div>
+              <div class="bj-divider"></div>
+              <div class="bj-hand">
+                <div class="bj-head">
+                  <div class="bj-name">DEALER</div>
+                  <div id="casino-dealer-total" class="bj-total">Totalt: —</div>
+                </div>
+                <div id="casino-dealer-cards" class="bj-cards"></div>
               </div>
-              <div id="casino-player-cards" class="bj-cards"></div>
+              <div class="bj-divider"></div>
+              <div class="bj-hand">
+                <div class="bj-head">
+                  <div class="bj-name">DU</div>
+                  <div id="casino-player-total" class="bj-total">Totalt: —</div>
+                </div>
+                <div id="casino-player-cards" class="bj-cards"></div>
+              </div>
+              <div class="bj-divider"></div>
+              <div class="bj-actions">
+                <button data-casino="hit">KORT</button>
+                <button data-casino="stand">STANNA</button>
+                <button data-casino="double">DUBBLA</button>
+                <button data-casino="reset">SPELA IGEN</button>
+              </div>
+              <div id="casino-empty" class="bj-empty">Ingen hand pågår. Sätt en modest insats, spela snyggt och låt huset blinka först när du redan lämnat lokalen.</div>
             </div>
-            <div class="bj-divider"></div>
-            <div class="bj-actions">
-              <button data-casino="hit">KORT</button>
-              <button data-casino="stand">STANNA</button>
-              <button data-casino="double">DUBBLA</button>
-              <button data-casino="reset">SPELA IGEN</button>
+          </div>
+
+          <div id="casino-panel-holdem" class="casino-panel">
+            <div class="casino-top">
+              <div class="casino-stat"><span>KASSA</span><strong id="holdem-cash">0 kr</strong></div>
+              <div class="casino-stat"><span>STACK</span><strong id="holdem-stack">—</strong></div>
+              <div class="casino-stat"><span>MÖRKAR</span><strong id="holdem-blinds">50 / 100</strong></div>
             </div>
-            <div id="casino-empty" class="bj-empty">Ingen hand pågår. Sätt en modest insats, spela snyggt och låt huset blinka först när du redan lämnat lokalen.</div>
+            <div class="casino-table">
+              <div class="casino-bet">
+                <div class="casino-bet-row">
+                  <label for="holdem-buyin-input">BUY-IN</label>
+                  <input id="holdem-buyin-input" type="number" min="2000" max="10000" step="100" value="2000">
+                  <button class="primary" data-holdem="start">SÄTT DIG</button>
+                </div>
+                <div id="holdem-chipbar" class="casino-chipbar">
+                  <button type="button" class="casino-chip" data-holdem-buyin="2000">2 000 kr</button>
+                  <button type="button" class="casino-chip" data-holdem-buyin="4000">4 000 kr</button>
+                  <button type="button" class="casino-chip" data-holdem-buyin="6000">6 000 kr</button>
+                  <button type="button" class="casino-chip" data-holdem-buyin="8000">8 000 kr</button>
+                  <button type="button" class="casino-chip" data-holdem-buyin="10000">10 000 kr</button>
+                </div>
+                <div class="casino-decknote">Fixed-limit Hold&rsquo;Em. 50/100 pre-flop &amp; flop. 100/200 turn &amp; river. Cap 4 aggressiva actions per gata.</div>
+              </div>
+              <div id="holdem-banner" class="bj-banner"><strong>Pokerhörnan är öppen.</strong><span>Köp in dig, läs bordet och låt ingen känna lukten av panik.</span></div>
+              <div class="holdem-summary">
+                <div class="casino-stat"><span>POTT</span><strong id="holdem-pot">0 kr</strong></div>
+                <div class="casino-stat"><span>GATA</span><strong id="holdem-street">Väntar</strong></div>
+                <div class="casino-stat"><span>ATT SYNA</span><strong id="holdem-call">0 kr</strong></div>
+                <div class="casino-stat"><span>TRYCK</span><strong id="holdem-turn">—</strong></div>
+              </div>
+              <div class="holdem-board">
+                <div class="holdem-community">
+                  <div class="bj-head">
+                    <div class="bj-name">BORD</div>
+                    <div id="holdem-meta" class="bj-total">Fast limit / 4 seats</div>
+                  </div>
+                  <div id="holdem-community-cards" class="bj-cards"></div>
+                </div>
+                <div id="holdem-seats" class="holdem-seats"></div>
+              </div>
+              <div class="holdem-actions">
+                <button data-holdem="fold">FOLDA</button>
+                <button data-holdem="check">CHECKA</button>
+                <button data-holdem="call">SYNA</button>
+                <button data-holdem="bet">BETTA</button>
+                <button data-holdem="raise">HÖJ</button>
+                <button data-holdem="all-in">ALL-IN</button>
+                <button data-holdem="next">NÄSTA HAND</button>
+                <button data-holdem="leave">LÄMNA</button>
+              </div>
+              <div id="holdem-empty" class="holdem-empty">Ingen pokerhand pågår. Köp in dig och sätt tonen direkt.</div>
+              <div class="holdem-foot">V1 kör riktig Texas Hold&rsquo;Em i fixed-limit-format: riktiga streets, blinds, showdown och delad pott när händerna knyter sig.</div>
+            </div>
           </div>
         </div>
         <div id="casino-msg" class="amsg"></div>
@@ -824,15 +917,23 @@ select:focus{border-color:var(--red);}
   </div>
 </div>
 <script>
+function defaultCasinoState(){
+  return {
+    mode:'blackjack',
+    blackjack:{loaded:false,loading:false,state:null},
+    holdem:{loaded:false,loading:false,state:null}
+  };
+}
+
 const G={
   player:null,extra:{},status:null,prices:{},npcs:[],
   section:'gatan',busy:false,selectedSide:'eastside',
-  drugSel:'marijuana',drugQty:1,casinoBet:500,
+  drugSel:'marijuana',drugQty:1,casinoBet:500,holdemBuyIn:2000,
   errors:{player:null,status:null,prices:null,npcs:null,casino:null},
   _fetchedAt:0,_nrgTick:null,_prisonTick:null,_hospitalTick:null,_pollTimer:null,_pricePoll:null,
   _propTicks:{},log:[],
   vehicles:[],
-  casino:{loaded:false,loading:false,state:null},
+  casino:defaultCasinoState(),
   world:{events:[],loading:false,lastLoaded:0},
   devHistory:['> help'],
   siteAuthenticated:false,
@@ -1156,7 +1257,8 @@ async function startNextRound(){
   G.status=null;
   G.player=null;
   G.extra={};
-  G.casino={loaded:false,loading:false,state:null};
+  G.casino=defaultCasinoState();
+  G.holdemBuyIn=2000;
   G.hallOfFame=null;
   G.selectedSide='eastside';
   const nameInput=document.getElementById('inp-name');
@@ -1282,17 +1384,25 @@ document.addEventListener('click',e=>{
 });
 
 document.addEventListener('click',e=>{
-  const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-casino],[data-casino-bet],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-buy-vehicle]');
+  const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-casino],[data-casino-bet],[data-casino-mode],[data-holdem],[data-holdem-buyin],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-buy-vehicle]');
   if(!target) return;
   if(target.dataset.prison) return void doPrison(target.dataset.prison);
   if(target.dataset.hospital) return void doHospital(target.dataset.hospital);
   if(target.dataset.bank) return void doBank(target.dataset.bank);
+  if(target.dataset.casinoMode) return void setCasinoMode(target.dataset.casinoMode);
   if(target.dataset.casinoBet) return void setCasinoBet(Number(target.dataset.casinoBet));
+  if(target.dataset.holdemBuyin) return void setHoldemBuyIn(Number(target.dataset.holdemBuyin));
   if(target.dataset.casino){
     if(target.dataset.casino==='start' || target.dataset.casino==='reset') return void doBlackjackStart();
     if(target.dataset.casino==='hit') return void doBlackjackAction('hit');
     if(target.dataset.casino==='stand') return void doBlackjackAction('stand');
     if(target.dataset.casino==='double') return void doBlackjackAction('double');
+  }
+  if(target.dataset.holdem){
+    if(target.dataset.holdem==='start') return void doHoldemStart();
+    if(target.dataset.holdem==='next') return void doHoldemNextHand();
+    if(target.dataset.holdem==='leave') return void doHoldemLeave();
+    return void doHoldemAction(target.dataset.holdem);
   }
   if(target.dataset.collect==='all') return void doCollect();
   if(target.dataset.collectOne) return void doCollectOne(target.dataset.collectOne);
@@ -1892,6 +2002,404 @@ async function doBlackjackAction(action){
   await syncCasinoAfterAction(res);
 }
 
+function casinoStore(mode){
+  const key=mode==='holdem'?'holdem':'blackjack';
+  return G.casino[key];
+}
+
+function setCasinoMode(mode){
+  G.casino.mode=mode==='holdem'?'holdem':'blackjack';
+  renderCasino();
+}
+
+function setHoldemBuyIn(value){
+  const next=Math.max(2000,Math.min(10000,Math.floor(Number(value)||0)));
+  G.holdemBuyIn=next||2000;
+  const input=document.getElementById('holdem-buyin-input');
+  if(input) input.value=String(G.holdemBuyIn);
+  document.querySelectorAll('[data-holdem-buyin]').forEach(btn=>{
+    btn.classList.toggle('active',Number(btn.dataset.holdemBuyin)===G.holdemBuyIn);
+  });
+}
+
+async function loadCasinoState(force=false){
+  const mode=G.casino.mode==='holdem'?'holdem':'blackjack';
+  const store=casinoStore(mode);
+  if(store.loading||(!force&&store.loaded)) return;
+  store.loading=true;
+  const res=await api(mode==='holdem'?'casino/holdem/state':'casino/blackjack/state');
+  store.loading=false;
+  store.loaded=true;
+  G.errors.casino=apiError(res,mode==='holdem'?'Kunde inte ladda pokerbordet.':'Kunde inte ladda blackjackbordet.');
+  if(!res.error){
+    store.state=res;
+    if(mode==='blackjack'&&res.hand&&res.hand.bet) G.casinoBet=res.hand.bet;
+    if(mode==='holdem'&&res.table&&res.table.buy_in) G.holdemBuyIn=res.table.buy_in;
+  }else if(force){
+    store.state=null;
+  }
+  renderCasino();
+}
+
+function blackjackBannerClass(result){
+  if(result==='blackjack'||result==='win'||result==='table_clear') return 'bj-banner win';
+  if(result==='push'||result==='split') return 'bj-banner push';
+  if(result==='lose'||result==='bust'||result==='dealer_blackjack'||result==='busted') return 'bj-banner lose';
+  return 'bj-banner';
+}
+
+function blackjackCardsHtml(cards){
+  if(!cards||!cards.length){
+    return '<div class="bj-empty">Inga kort p&aring; bordet &auml;n.</div>';
+  }
+  return cards.map(card=>{
+    if(card.hidden){
+      return '<div class="bj-card hidden" aria-label="Dolt kort"></div>';
+    }
+    const code=String(card.code||'');
+    const label=esc(card.label||code||'Kort');
+    const fallback=`<div class="bj-card-fallback${card.color==='red'?' red':''}">
+        <div class="bj-rank">${esc(card.rank||'')}</div>
+        <div class="bj-suit">${esc(card.suit||'')}</div>
+      </div>`;
+    if(!code||BLACKJACK_FALLBACK_CODES.has(code)){
+      return `<div class="bj-card fallback" aria-label="${label}">${fallback}</div>`;
+    }
+    return `<div class="bj-card" aria-label="${label}">
+        ${fallback}
+        <img src="${blackjackCardAsset(code)}" alt="${label}" decoding="async" onerror="this.remove();this.parentElement.classList.add('fallback')">
+      </div>`;
+  }).join('');
+}
+
+function renderBlackjackCards(id,cards){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.innerHTML=blackjackCardsHtml(cards);
+}
+
+function holdemStreetLabel(street){
+  const map={
+    preflop:'Pre-flop',
+    flop:'Flop',
+    turn:'Turn',
+    river:'River',
+    hand_over:'Showdown',
+    table_over:'Bordet stängt'
+  };
+  return map[String(street||'')]||'Väntar';
+}
+
+function holdemSeatBadges(seat){
+  const badges=[];
+  if(seat.is_player) badges.push('<span class="holdem-badge player">DU</span>');
+  if(seat.dealer) badges.push('<span class="holdem-badge">D</span>');
+  if(seat.small_blind) badges.push('<span class="holdem-badge blind">SB</span>');
+  if(seat.big_blind) badges.push('<span class="holdem-badge blind">BB</span>');
+  if(seat.side==='eastside') badges.push('<span class="holdem-badge side-east">EAST</span>');
+  if(seat.side==='westside') badges.push('<span class="holdem-badge side-west">WEST</span>');
+  if(seat.is_turn) badges.push('<span class="holdem-badge turn">I TUR</span>');
+  return badges.join('');
+}
+
+function renderHoldemSeats(seats){
+  const el=document.getElementById('holdem-seats');
+  if(!el) return;
+  if(!seats||!seats.length){
+    el.innerHTML='';
+    return;
+  }
+  el.innerHTML=seats.map(seat=>{
+    const stateLabel=seat.folded?'Foldat':seat.all_in?'All-in':seat.last_action||'Väntar';
+    const personality=seat.kind==='npc'?(seat.personality||seat.archetype||'okänd stil'):(seat.archetype||'spelare');
+    return `<div class="holdem-seat${seat.is_player?' player':''}${seat.is_turn?' turn':''}${seat.folded?' folded':''}">
+      <div class="holdem-seat-head">
+        <div class="holdem-seat-name">
+          <strong>${esc(seat.name||'Okänd')}</strong>
+          <div class="holdem-badges">${holdemSeatBadges(seat)}</div>
+        </div>
+        <div class="holdem-seat-stack">${fmtCash(seat.stack||0)} kr</div>
+      </div>
+      <div class="holdem-seat-meta">
+        <span>${seat.kind==='npc'?'Profil':'Position'}: ${esc(personality)}</span>
+        <span class="holdem-seat-action">${esc(stateLabel)}</span>
+      </div>
+      <div class="bj-cards">${blackjackCardsHtml(seat.hole_cards||[])}</div>
+      <div class="holdem-seat-meta">
+        <span>Totalt i potten: ${fmtCash(seat.committed||0)} kr</span>
+        <span>${seat.all_in?'Kan inte agera mer':seat.folded?'Ute ur handen':'Marker kvar'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCasinoBlackjack(){
+  const store=casinoStore('blackjack');
+  const p=G.player;
+  if(!p) return;
+  set('casino-cash',fmtCash(p.cash||0)+' kr');
+  setCasinoBet(G.casinoBet);
+  const input=document.getElementById('casino-bet-input');
+  if(input) input.oninput=()=>setCasinoBet(input.value);
+
+  if(!store.loaded&&!store.loading){
+    const banner=document.getElementById('casino-banner');
+    if(banner){
+      banner.className='bj-banner';
+      banner.innerHTML='<strong>Bordet värms upp.</strong><span>Laddar kortleken från huset...</span>';
+    }
+    set('casino-player-total','Totalt: —');
+    set('casino-dealer-total','Totalt: —');
+    renderBlackjackCards('casino-player-cards',[]);
+    renderBlackjackCards('casino-dealer-cards',[]);
+    loadCasinoState();
+    return;
+  }
+
+  const state=store.state;
+  const hand=state&&state.hand?state.hand:null;
+  const banner=document.getElementById('casino-banner');
+  const empty=document.getElementById('casino-empty');
+  const startBtn=document.querySelector('[data-casino="start"]');
+  const hitBtn=document.querySelector('[data-casino="hit"]');
+  const standBtn=document.querySelector('[data-casino="stand"]');
+  const doubleBtn=document.querySelector('[data-casino="double"]');
+  const resetBtn=document.querySelector('[data-casino="reset"]');
+
+  if(startBtn) startBtn.disabled=!!(hand&&!hand.finished)||G.busy;
+  if(hitBtn) hitBtn.disabled=!hand||hand.finished||!hand.can_hit||G.busy;
+  if(standBtn) standBtn.disabled=!hand||hand.finished||!hand.can_stand||G.busy;
+  if(doubleBtn) doubleBtn.disabled=!hand||hand.finished||!hand.can_double||G.busy;
+  if(resetBtn) resetBtn.disabled=!!(hand&&!hand.finished)||G.busy;
+
+  if(!hand){
+    if(empty) empty.style.display='block';
+    set('casino-player-total','Totalt: —');
+    set('casino-dealer-total','Totalt: —');
+    renderBlackjackCards('casino-player-cards',[]);
+    renderBlackjackCards('casino-dealer-cards',[]);
+    if(banner){
+      banner.className='bj-banner';
+      banner.innerHTML='<strong>Bordet är öppet.</strong><span>Välj insats och spela en hand.</span>';
+    }
+    return;
+  }
+
+  if(empty) empty.style.display='none';
+  renderBlackjackCards('casino-player-cards',hand.player_cards||[]);
+  renderBlackjackCards('casino-dealer-cards',hand.dealer_cards||[]);
+  set('casino-player-total',`Totalt: ${hand.player_total||0}`);
+  const dealerLabel=hand.dealer_total===null
+    ? `Totalt: ${hand.dealer_visible_total||0} + ?`
+    : `Totalt: ${hand.dealer_total||0}`;
+  set('casino-dealer-total',dealerLabel);
+  if(banner){
+    banner.className=blackjackBannerClass(hand.result);
+    banner.innerHTML=`<strong>${esc(hand.message||'Hand pågår.')}</strong><span>Insats: ${fmtCash(hand.bet||0)} kr${hand.doubled?' · Double aktiv':''}</span>`;
+  }
+}
+
+function renderCasinoHoldem(){
+  const store=casinoStore('holdem');
+  const p=G.player;
+  if(!p) return;
+  const input=document.getElementById('holdem-buyin-input');
+  if(input) input.oninput=()=>setHoldemBuyIn(input.value);
+  setHoldemBuyIn(G.holdemBuyIn);
+  set('holdem-cash',fmtCash(p.cash||0)+' kr');
+
+  if(!store.loaded&&!store.loading){
+    const banner=document.getElementById('holdem-banner');
+    if(banner){
+      banner.className='bj-banner';
+      banner.innerHTML='<strong>Pokerbordet väntar.</strong><span>Laddar marker, dealers och filten...</span>';
+    }
+    set('holdem-stack','—');
+    set('holdem-blinds','50 / 100');
+    set('holdem-pot','0 kr');
+    set('holdem-street','Väntar');
+    set('holdem-call','0 kr');
+    set('holdem-turn','—');
+    set('holdem-meta','Fast limit / 4 seats');
+    renderBlackjackCards('holdem-community-cards',[]);
+    renderHoldemSeats([]);
+    loadCasinoState();
+    return;
+  }
+
+  const state=store.state||{};
+  const table=state.table||null;
+  const banner=document.getElementById('holdem-banner');
+  const empty=document.getElementById('holdem-empty');
+  const startBtn=document.querySelector('[data-holdem="start"]');
+  const foldBtn=document.querySelector('[data-holdem="fold"]');
+  const checkBtn=document.querySelector('[data-holdem="check"]');
+  const callBtn=document.querySelector('[data-holdem="call"]');
+  const betBtn=document.querySelector('[data-holdem="bet"]');
+  const raiseBtn=document.querySelector('[data-holdem="raise"]');
+  const allInBtn=document.querySelector('[data-holdem="all-in"]');
+  const nextBtn=document.querySelector('[data-holdem="next"]');
+  const leaveBtn=document.querySelector('[data-holdem="leave"]');
+
+  if(startBtn) startBtn.disabled=!!table||G.busy||(p.cash||0)<2000;
+  if(foldBtn) foldBtn.disabled=!table||!table.can_fold||G.busy;
+  if(checkBtn) checkBtn.disabled=!table||!table.can_check||G.busy;
+  if(callBtn) callBtn.disabled=!table||!table.can_call||G.busy;
+  if(betBtn) betBtn.disabled=!table||!table.can_bet||G.busy;
+  if(raiseBtn) raiseBtn.disabled=!table||!table.can_raise||G.busy;
+  if(allInBtn) allInBtn.disabled=!table||!table.can_all_in||G.busy;
+  if(nextBtn) nextBtn.disabled=!table||!table.can_next_hand||G.busy;
+  if(leaveBtn) leaveBtn.disabled=!table||!table.can_leave||G.busy;
+
+  if(!table){
+    if(empty) empty.style.display='block';
+    if(banner){
+      banner.className='bj-banner';
+      banner.innerHTML='<strong>Pokerhörnan är öppen.</strong><span>Köp in dig, sätt tonen och tvinga resten av bordet att leva på dina reads.</span>';
+    }
+    set('holdem-stack','—');
+    set('holdem-blinds',`${state.small_blind||50} / ${state.big_blind||100}`);
+    set('holdem-pot','0 kr');
+    set('holdem-street','Väntar');
+    set('holdem-call','0 kr');
+    set('holdem-turn','—');
+    set('holdem-meta','Fast limit / 4 seats');
+    renderBlackjackCards('holdem-community-cards',[]);
+    renderHoldemSeats([]);
+    return;
+  }
+
+  if(empty) empty.style.display='none';
+  const actingSeat=(table.seats||[]).find(seat=>seat.is_turn);
+  set('holdem-stack',fmtCash(table.player_stack||0)+' kr');
+  set('holdem-blinds',`${state.small_blind||50} / ${state.big_blind||100}`);
+  set('holdem-pot',fmtCash(table.pot||0)+' kr');
+  set('holdem-street',holdemStreetLabel(table.street));
+  set('holdem-call',fmtCash(table.call_amount||0)+' kr');
+  set('holdem-turn',actingSeat?actingSeat.name:(table.street==='hand_over'||table.street==='table_over'?'Showdown':'—'));
+  set('holdem-meta',`Hand ${table.hand_number||0} · Buy-in ${fmtCash(table.buy_in||0)} kr${table.raise_locked?' · Raise låst för kort höjning':''}`);
+  renderBlackjackCards('holdem-community-cards',table.community_cards||[]);
+  renderHoldemSeats(table.seats||[]);
+  if(banner){
+    banner.className=blackjackBannerClass(table.result);
+    banner.innerHTML=`<strong>${esc(table.message||'Pokerbordet väntar på draget.')}</strong><span>${table.action_on_player?'Din tur. Läs av bordet.':table.can_next_hand?'Handen är klar. Du kan spela nästa.':'Bordet rör sig.'}</span>`;
+  }
+}
+
+function renderCasino(){
+  const mode=G.casino.mode==='holdem'?'holdem':'blackjack';
+  document.querySelectorAll('[data-casino-mode]').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.casinoMode===mode);
+  });
+  const bjPanel=document.getElementById('casino-panel-blackjack');
+  const holdemPanel=document.getElementById('casino-panel-holdem');
+  if(bjPanel) bjPanel.classList.toggle('active',mode==='blackjack');
+  if(holdemPanel) holdemPanel.classList.toggle('active',mode==='holdem');
+  if(mode==='holdem') renderCasinoHoldem();
+  else renderCasinoBlackjack();
+  setMsg('casino-msg',G.errors.casino||'',G.errors.casino?'err':'');
+}
+
+async function syncCasinoAfterAction(res,mode=G.casino.mode){
+  const store=casinoStore(mode);
+  if(mode==='blackjack'&&res.hand&&res.hand.bet) G.casinoBet=res.hand.bet;
+  if(mode==='holdem'&&res.table&&res.table.buy_in) G.holdemBuyIn=res.table.buy_in;
+  if((mode==='blackjack'&&(res.hand||res.idle!==undefined))||(mode==='holdem'&&(res.table||res.idle!==undefined||res.message))){
+    store.loaded=true;
+    if(res.table||res.hand||res.idle!==undefined) store.state=res;
+  }
+  G.errors.casino=res.error||'';
+  if(res.error){
+    setMsg('casino-msg',res.error,'err');
+    renderCasino();
+    return false;
+  }
+  const pr=await api('player');
+  G.errors.player=apiError(pr,'Kunde inte uppdatera karaktären.');
+  if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+  renderTopbar();renderSidebar();renderCasino();
+  if(mode==='blackjack'&&res.hand&&res.hand.finished&&res.hand.message){
+    const isBad=['lose','bust','dealer_blackjack'].includes(res.hand.result||'');
+    addLog(res.hand.message,isBad?'err':'ok');
+  }
+  if(mode==='holdem'&&res.table&&['hand_over','table_over'].includes(res.table.street||'')&&res.table.message){
+    const bad=['lose','busted'].includes(res.table.result||'');
+    addLog(res.table.message,bad?'err':'ok');
+  }
+  setMsg('casino-msg',res.message||(res.table&&res.table.message)||(res.hand&&res.hand.message)||'Bordet uppdaterat.','ok');
+  return true;
+}
+
+async function doBlackjackStart(){
+  if(G.busy) return;
+  const input=document.getElementById('casino-bet-input');
+  const bet=Math.max(100,Math.min(5000,Math.floor(+(input&&input.value)||0)));
+  if(!bet){setMsg('casino-msg','Ange en giltig insats.','err');return;}
+  setCasinoBet(bet);
+  G.busy=true;
+  setMsg('casino-msg','Dealern blandar korten...','info');
+  const res=await post('action/blackjack/start',{bet});
+  G.busy=false;
+  await syncCasinoAfterAction(res,'blackjack');
+}
+
+async function doBlackjackAction(action){
+  if(G.busy) return;
+  G.busy=true;
+  setMsg('casino-msg',action==='hit'?'Du ber om ett kort...':action==='stand'?'Dealern spelar ut handen...':'Dubblar ner...','info');
+  const res=await post(`action/blackjack/${action}`,{});
+  G.busy=false;
+  await syncCasinoAfterAction(res,'blackjack');
+}
+
+async function doHoldemStart(){
+  if(G.busy) return;
+  const input=document.getElementById('holdem-buyin-input');
+  const buyIn=Math.max(2000,Math.min(10000,Math.floor(+(input&&input.value)||0)));
+  if(!buyIn){setMsg('casino-msg','Ange ett giltigt buy-in.','err');return;}
+  setHoldemBuyIn(buyIn);
+  G.busy=true;
+  setMsg('casino-msg','Dealern kastar upp marker och låter mörkarna rassla in...','info');
+  const res=await post('action/holdem/start',{buy_in:buyIn});
+  G.busy=false;
+  await syncCasinoAfterAction(res,'holdem');
+}
+
+async function doHoldemAction(action){
+  if(G.busy) return;
+  G.busy=true;
+  const labels={
+    fold:'Du släpper handen.',
+    check:'Du knackar bordet.',
+    call:'Du synar och stirrar tillbaka.',
+    bet:'Du öppnar hårt.',
+    raise:'Du höjer och sätter press.',
+    'all-in':'Du skjuter in allt.'
+  };
+  setMsg('casino-msg',labels[action]||'Pokerbordet väntar...','info');
+  const res=await post('action/holdem/act',{action});
+  G.busy=false;
+  await syncCasinoAfterAction(res,'holdem');
+}
+
+async function doHoldemNextHand(){
+  if(G.busy) return;
+  G.busy=true;
+  setMsg('casino-msg','Ny hand dras upp. Läs bordet igen...','info');
+  const res=await post('action/holdem/next',{});
+  G.busy=false;
+  await syncCasinoAfterAction(res,'holdem');
+}
+
+async function doHoldemLeave(){
+  if(G.busy) return;
+  G.busy=true;
+  setMsg('casino-msg','Du samlar markerna och backar från bordet...','info');
+  const res=await post('action/holdem/leave',{});
+  G.busy=false;
+  await syncCasinoAfterAction(res,'holdem');
+}
+
 function bindDevConsole(){
   const unlockInput=document.getElementById('dev-password');
   const unlockBtn=document.getElementById('dev-unlock-btn');
@@ -2310,7 +2818,8 @@ async function doCreate(){
   else{
     setMsg('create-err','','');
     G.player=r.player;G.extra={player:r.player};G._fetchedAt=Date.now();
-    G.casino={loaded:false,loading:false,state:null};
+    G.casino=defaultCasinoState();
+    G.holdemBuyIn=2000;
     await loadAll();
     applyCondition();
     startTimers();
