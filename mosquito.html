@@ -330,7 +330,7 @@ select:focus{border-color:var(--red);}
 .bj-name{font-size:11px;color:var(--dim);letter-spacing:1px;}
 .bj-total{font-size:13px;color:var(--white);}
 .bj-cards{display:flex;gap:10px;flex-wrap:wrap;}
-.bj-card{--card-scale:1.25;width:74px;height:96px;border-radius:2px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);}
+.bj-card{--card-scale:1.5;width:72px;height:96px;border-radius:2px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);}
 .bj-card img{width:100%;height:100%;display:block;object-fit:cover;background:#fff;}
 .bj-card.sprite-card{background:linear-gradient(180deg,#f6f2eb,#d8d2c8);}
 .bj-card.hidden{background:
@@ -358,7 +358,7 @@ select:focus{border-color:var(--red);}
 .bj-card-fallback.red{color:#b32025;}
 .bj-rank{font-size:17px;font-weight:500;line-height:1;}
 .bj-suit{font-size:15px;align-self:flex-end;}
-.poker-card-sprite{position:absolute;top:0;left:0;z-index:2;display:block;width:59px;height:77px;background-image:url('/assets/poker-pack/1.2%20Poker%20cards.png');background-repeat:no-repeat;background-size:944px 385px;background-position:var(--pc-x,0px) var(--pc-y,0px);transform:scale(var(--card-scale));transform-origin:top left;}
+.poker-card-sprite{position:absolute;top:0;left:0;z-index:2;display:block;width:48px;height:64px;background-image:url('/assets/poker-pack/1.2%20Poker%20cards.png');background-repeat:no-repeat;background-size:944px 385px;background-position:var(--pc-x,0px) var(--pc-y,0px);transform:scale(var(--card-scale));transform-origin:top left;image-rendering:pixelated;}
 .bj-actions{display:flex;gap:10px;flex-wrap:wrap;}
 .bj-banner{min-height:42px;border:1px solid var(--border);border-radius:0;background:var(--bg2);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .bj-banner strong{font-size:13px;color:var(--white);}
@@ -398,7 +398,7 @@ select:focus{border-color:var(--red);}
   #mob-nav{display:flex;}
   #main-area{padding:12px;padding-bottom:70px;}
   button{min-height:44px;}
-  .bj-card{--card-scale:1.085;width:64px;height:84px;}
+  .bj-card{--card-scale:1.25;width:60px;height:80px;}
 }
 
 /* ─── Animations ──────────────────────────────────────────────────────────── */
@@ -2263,8 +2263,10 @@ async function loadCasinoState(force=false){
   renderCasino();
 }
 
-const POKER_CARD_COLS=16;
+const POKER_CARD_COLS=15;
 const POKER_CARD_ROWS=5;
+const POKER_CARD_CELL_W=48;
+const POKER_CARD_CELL_H=64;
 const POKER_CARD_BACK={col:4,row:4};
 const POKER_RANK_ORDER=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const POKER_SUIT_ROW={H:0,D:1,S:2,C:3};
@@ -2279,7 +2281,7 @@ function pokerCardMeta(code){
 }
 
 function pokerCardSpriteStyle(col,row){
-  return `--pc-x:${-59*col}px;--pc-y:${-77*row}px;`;
+  return `--pc-x:${-POKER_CARD_CELL_W*col}px;--pc-y:${-POKER_CARD_CELL_H*row}px;`;
 }
 
 function pokerCardSpriteHtml(card){
