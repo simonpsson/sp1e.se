@@ -74,11 +74,18 @@ CREATE TABLE IF NOT EXISTS game_inventory (
   quantity    INTEGER DEFAULT 1,
   buy_price   INTEGER,
   properties  TEXT,              -- JSON: {"damage":15,"accuracy":80}
+  item_tier   INTEGER DEFAULT 1,
+  equipped    INTEGER DEFAULT 0,
+  slot        TEXT,
+  sell_price  INTEGER DEFAULT 0,
+  effects     TEXT,
+  source      TEXT,
   created_at  TEXT    DEFAULT (datetime('now')),
   FOREIGN KEY (player_id) REFERENCES game_players(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_game_inv_player ON game_inventory (player_id);
+CREATE INDEX IF NOT EXISTS idx_game_inv_player      ON game_inventory (player_id);
+CREATE INDEX IF NOT EXISTS idx_game_inventory_player_slot ON game_inventory (player_id, slot);
 
 -- ─── Properties ──────────────────────────────────────────────────────────────
 
@@ -99,17 +106,20 @@ CREATE INDEX IF NOT EXISTS idx_game_props_player ON game_properties (player_id);
 -- ─── NPCs ────────────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS game_npcs (
-  id          TEXT    PRIMARY KEY,
-  round_id    TEXT    NOT NULL,
-  name        TEXT    NOT NULL,
-  level       INTEGER DEFAULT 1,
-  respect     INTEGER DEFAULT 0,
-  strength    INTEGER DEFAULT 10,
-  cash        INTEGER DEFAULT 100,
-  hp          INTEGER DEFAULT 50,
-  side        TEXT    DEFAULT 'eastside',
-  personality TEXT,  -- aggressive, defensive, trader, passive
-  is_alive    INTEGER DEFAULT 1,
+  id                 TEXT    PRIMARY KEY,
+  round_id           TEXT    NOT NULL,
+  name               TEXT    NOT NULL,
+  level              INTEGER DEFAULT 1,
+  respect            INTEGER DEFAULT 0,
+  strength           INTEGER DEFAULT 10,
+  cash               INTEGER DEFAULT 100,
+  hp                 INTEGER DEFAULT 50,
+  side               TEXT    DEFAULT 'eastside',
+  personality        TEXT,  -- aggressive, defensive, trader, passive, brawler, schemer, cautious
+  is_alive           INTEGER DEFAULT 1,
+  npc_weapon         TEXT,
+  relation_to_player INTEGER DEFAULT 50,
+  last_action_at     DATETIME,
   FOREIGN KEY (round_id) REFERENCES game_rounds(id)
 );
 
@@ -163,19 +173,25 @@ CREATE TABLE IF NOT EXISTS game_assault_cooldowns (
 -- ─── Admin sessions & audit ──────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS game_blackjack_hands (
-  id          TEXT PRIMARY KEY,
-  player_id   TEXT NOT NULL UNIQUE,
-  round_id    TEXT NOT NULL,
-  bet         INTEGER NOT NULL,
-  deck_state  TEXT NOT NULL,
-  player_hand TEXT NOT NULL,
-  dealer_hand TEXT NOT NULL,
-  state       TEXT NOT NULL DEFAULT 'player_turn',
-  result      TEXT,
-  message     TEXT,
-  doubled     INTEGER DEFAULT 0,
-  created_at  TEXT DEFAULT (datetime('now')),
-  updated_at  TEXT DEFAULT (datetime('now')),
+  id            TEXT PRIMARY KEY,
+  player_id     TEXT NOT NULL UNIQUE,
+  round_id      TEXT NOT NULL,
+  bet           INTEGER NOT NULL,
+  base_bet      INTEGER DEFAULT 0,
+  deck_state    TEXT NOT NULL,
+  player_hand   TEXT NOT NULL,
+  dealer_hand   TEXT NOT NULL,
+  state         TEXT NOT NULL DEFAULT 'player_turn',
+  result        TEXT,
+  message       TEXT,
+  doubled       INTEGER DEFAULT 0,
+  split_hand    TEXT,
+  split_bet     INTEGER DEFAULT 0,
+  split_result  TEXT,
+  split_doubled INTEGER DEFAULT 0,
+  insurance_bet INTEGER DEFAULT 0,
+  created_at    TEXT DEFAULT (datetime('now')),
+  updated_at    TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (player_id) REFERENCES game_players(id),
   FOREIGN KEY (round_id) REFERENCES game_rounds(id)
 );
@@ -236,3 +252,23 @@ CREATE TABLE IF NOT EXISTS game_admin_audit (
 );
 
 CREATE INDEX IF NOT EXISTS idx_game_admin_audit_created ON game_admin_audit (created_at DESC);
+
+-- ─── Quests ──────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_quests (
+  id              TEXT PRIMARY KEY,
+  player_id       TEXT NOT NULL,
+  round_id        TEXT NOT NULL,
+  npc_id          TEXT NOT NULL,
+  npc_name        TEXT NOT NULL,
+  title           TEXT NOT NULL,
+  description     TEXT NOT NULL,
+  reward_cash     INTEGER DEFAULT 0,
+  reward_respect  INTEGER DEFAULT 0,
+  status          TEXT DEFAULT 'pending',  -- pending/accepted/rejected/completed
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expires_at      DATETIME,
+  completed_at    DATETIME
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_quests_player ON game_quests (player_id, status);

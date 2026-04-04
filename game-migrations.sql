@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS game_quests (
 
 CREATE INDEX IF NOT EXISTS idx_game_quests_player ON game_quests (player_id, status);
 
--- Migration 8: Add Roulette spin history
+-- ─── Migration 8: Add Roulette spin history ───────────────────────────────────
 CREATE TABLE IF NOT EXISTS game_roulette_spins (
   id             TEXT PRIMARY KEY,
   player_id      TEXT NOT NULL,
@@ -129,3 +129,11 @@ CREATE TABLE IF NOT EXISTS game_roulette_spins (
 
 CREATE INDEX IF NOT EXISTS idx_game_roulette_player_created ON game_roulette_spins (player_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_game_roulette_round ON game_roulette_spins (round_id);
+
+-- ─── Migration 9: Blackjack — split + insurance columns ──────────────────────
+ALTER TABLE game_blackjack_hands ADD COLUMN base_bet        INTEGER DEFAULT 0;
+ALTER TABLE game_blackjack_hands ADD COLUMN split_hand      TEXT;
+ALTER TABLE game_blackjack_hands ADD COLUMN split_bet       INTEGER DEFAULT 0;
+ALTER TABLE game_blackjack_hands ADD COLUMN split_result    TEXT;
+ALTER TABLE game_blackjack_hands ADD COLUMN split_doubled   INTEGER DEFAULT 0;
+ALTER TABLE game_blackjack_hands ADD COLUMN insurance_bet   INTEGER DEFAULT 0;

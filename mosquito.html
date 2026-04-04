@@ -822,7 +822,7 @@ select:focus{border-color:var(--red);}
                   <button type="button" class="casino-chip" data-casino-bet="2500">2 500 kr</button>
                   <button type="button" class="casino-chip" data-casino-bet="5000">5 000 kr</button>
                 </div>
-                <div class="casino-decknote">Min 100 kr. Max 5 000 kr. Ingen split eller insurance i den h&auml;r versionen.</div>
+                <div class="casino-decknote">Min 100 kr. Max 5 000 kr. Blackjack 3:2. Split &amp; insurance tillg&auml;ngligt.</div>
               </div>
               <div id="casino-banner" class="bj-banner"><strong>Bordet är öppet.</strong><span>Välj insats och spela en hand.</span></div>
               <div class="bj-divider"></div>
@@ -836,16 +836,28 @@ select:focus{border-color:var(--red);}
               <div class="bj-divider"></div>
               <div class="bj-hand">
                 <div class="bj-head">
-                  <div class="bj-name">DU</div>
+                  <div id="casino-player-name" class="bj-name">DU</div>
                   <div id="casino-player-total" class="bj-total">Totalt: —</div>
                 </div>
                 <div id="casino-player-cards" class="bj-cards"></div>
+              </div>
+              <div id="casino-split-section" style="display:none;">
+                <div class="bj-divider"></div>
+                <div class="bj-hand">
+                  <div class="bj-head">
+                    <div class="bj-name">SPLIT-HAND</div>
+                    <div id="casino-split-total" class="bj-total">Totalt: —</div>
+                  </div>
+                  <div id="casino-split-cards" class="bj-cards"></div>
+                </div>
               </div>
               <div class="bj-divider"></div>
               <div class="bj-actions">
                 <button data-casino="hit">KORT</button>
                 <button data-casino="stand">STANNA</button>
                 <button data-casino="double">DUBBLA</button>
+                <button data-casino="split" style="display:none;">SPLIT</button>
+                <button data-casino="insurance" style="display:none;">INSURANCE</button>
                 <button data-casino="reset">SPELA IGEN</button>
               </div>
               <div id="casino-empty" class="bj-empty">Ingen hand pågår. Sätt en modest insats, spela snyggt och låt huset blinka först när du redan lämnat lokalen.</div>
@@ -1648,6 +1660,8 @@ document.addEventListener('click',e=>{
     if(target.dataset.casino==='hit') return void doBlackjackAction('hit');
     if(target.dataset.casino==='stand') return void doBlackjackAction('stand');
     if(target.dataset.casino==='double') return void doBlackjackAction('double');
+    if(target.dataset.casino==='split') return void doBlackjackAction('split');
+    if(target.dataset.casino==='insurance') return void doBlackjackAction('insurance');
   }
   if(target.dataset.holdem){
     if(target.dataset.holdem==='start') return void doHoldemStart();
@@ -2318,7 +2332,10 @@ function renderCasino(){
   const hitBtn=document.querySelector('[data-casino="hit"]');
   const standBtn=document.querySelector('[data-casino="stand"]');
   const doubleBtn=document.querySelector('[data-casino="double"]');
+  const splitBtn=document.querySelector('[data-casino="split"]');
+  const insuranceBtn=document.querySelector('[data-casino="insurance"]');
   const resetBtn=document.querySelector('[data-casino="reset"]');
+  const splitSection=document.getElementById('casino-split-section');
 
   if(startBtn) startBtn.disabled=!!(hand&&!hand.finished)||G.busy;
   if(hitBtn) hitBtn.disabled=!hand||hand.finished||!hand.can_hit||G.busy;
@@ -2326,10 +2343,27 @@ function renderCasino(){
   if(doubleBtn) doubleBtn.disabled=!hand||hand.finished||!hand.can_double||G.busy;
   if(resetBtn) resetBtn.disabled=!!(hand&&!hand.finished)||G.busy;
 
+  // Split button: visible only when can_split is true
+  if(splitBtn){
+    const showSplit=!!(hand&&hand.can_split&&!hand.finished);
+    splitBtn.style.display=showSplit?'':'none';
+    splitBtn.disabled=!showSplit||G.busy;
+  }
+  // Insurance button: visible only when can_insurance is true
+  if(insuranceBtn){
+    const showIns=!!(hand&&hand.can_insurance&&!hand.finished);
+    insuranceBtn.style.display=showIns?'':'none';
+    insuranceBtn.disabled=!showIns||G.busy;
+    if(showIns&&hand.insurance_cost) insuranceBtn.textContent=`INSURANCE (${fmtCash(hand.insurance_cost)} kr)`;
+    else insuranceBtn.textContent='INSURANCE';
+  }
+
   if(!hand){
     if(empty) empty.style.display='block';
+    if(splitSection) splitSection.style.display='none';
     set('casino-player-total','Totalt: —');
     set('casino-dealer-total','Totalt: —');
+    set('casino-player-name','DU');
     renderBlackjackCards('casino-player-cards',[]);
     renderBlackjackCards('casino-dealer-cards',[]);
     if(banner){
@@ -2341,16 +2375,47 @@ function renderCasino(){
   }
 
   if(empty) empty.style.display='none';
+
+  // Show split section when split cards exist
+  const hasSplit=hand.split_cards&&hand.split_cards.length>0;
+  if(splitSection) splitSection.style.display=hasSplit?'block':'none';
+
+  // Label main hand to show which is active during split
+  if(hand.in_split_turn){
+    set('casino-player-name','DU (KLAR)');
+  } else {
+    set('casino-player-name',hasSplit?'DU (AKTIV)':'DU');
+  }
+
   renderBlackjackCards('casino-player-cards',hand.player_cards||[]);
   renderBlackjackCards('casino-dealer-cards',hand.dealer_cards||[]);
-  set('casino-player-total',`Totalt: ${hand.player_total||0}`);
+
+  // Main hand total
+  const mainTot=hand.player_total||0;
+  const mainTotalLabel=hand.player_soft?`Totalt: ${mainTot} (soft)`:`Totalt: ${mainTot}`;
+  set('casino-player-total',mainTotalLabel);
+
+  // Split hand
+  if(hasSplit){
+    renderBlackjackCards('casino-split-cards',hand.split_cards||[]);
+    const splitTot=hand.split_total||0;
+    let splitLabel=hand.split_soft?`Totalt: ${splitTot} (soft)`:`Totalt: ${splitTot}`;
+    if(hand.split_result) splitLabel+=` · ${hand.split_result.toUpperCase()}`;
+    else if(hand.in_split_turn) splitLabel+=' (AKTIV)';
+    set('casino-split-total',splitLabel);
+  }
+
   const dealerLabel=hand.dealer_total===null
     ? `Totalt: ${hand.dealer_visible_total||0} + ?`
     : `Totalt: ${hand.dealer_total||0}`;
   set('casino-dealer-total',dealerLabel);
+
   if(banner){
     banner.className=blackjackBannerClass(hand.result);
-    banner.innerHTML=`<strong>${esc(hand.message||'Hand pågår.')}</strong><span>Insats: ${fmtCash(hand.bet||0)} kr${hand.doubled?' · Double aktiv':''}</span>`;
+    const betInfo=hand.split_bet
+      ? `Insats: ${fmtCash(hand.bet||0)} kr + split ${fmtCash(hand.split_bet||0)} kr${hand.doubled?' · Double':''}${hand.split_doubled?' · Split-double':''}`
+      : `Insats: ${fmtCash(hand.bet||0)} kr${hand.doubled?' · Double aktiv':''}`;
+    banner.innerHTML=`<strong>${esc(hand.message||'Hand pågår.')}</strong><span>${betInfo}</span>`;
   }
   setMsg('casino-msg',G.errors.casino||'',G.errors.casino?'err':'');
 }
@@ -2395,7 +2460,8 @@ async function doBlackjackStart(){
 async function doBlackjackAction(action){
   if(G.busy) return;
   G.busy=true;
-  setMsg('casino-msg',action==='hit'?'Du ber om ett kort...':action==='stand'?'Dealern spelar ut handen...':'Dubblar ner...','info');
+  const msgs={hit:'Du ber om ett kort...',stand:'Dealern spelar ut handen...',double:'Dubblar ner...',split:'Klipper hand...',insurance:'Tecknar försäkring...'};
+  setMsg('casino-msg',msgs[action]||'Väntar...','info');
   const res=await post(`action/blackjack/${action}`,{});
   G.busy=false;
   await syncCasinoAfterAction(res);
