@@ -2674,7 +2674,7 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
   if (action === 'boost') {
     const stat = body.stat ?? '';
     if (!['strength', 'intelligence', 'charisma', 'stealth'].includes(stat))
-      return gameJson({ error: 'stat must be strength/intelligence/charisma/stealth.' }, 400);
+      return gameJson({ error: 'Ogiltigt stat för boost.' }, 400);
     const BOOST_COST = 5000;
     if (cash < BOOST_COST) return gameJson({ error: `Boost kostar ${BOOST_COST} kr.` }, 400);
     const newVal = Math.min(100, ((player[stat] as number) ?? 10) + 1);
@@ -2685,7 +2685,7 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
     return gameJson({ boosted: stat, new_value: newVal, cost: BOOST_COST, new_cash: cash - BOOST_COST });
   }
 
-  return gameJson({ error: 'action must be "heal", "boost" or "wait".' }, 400);
+  return gameJson({ error: 'Ogiltig sjukhusåtgärd.' }, 400);
 }
 
 async function gameActionBank(request: Request, env: Env): Promise<Response> {
@@ -2834,8 +2834,8 @@ async function gameActionCollectIncome(request: Request, env: Env): Promise<Resp
     );
     const income        = Math.round(hourlyIncome * hours);
     total += income;
-    return env.DB.prepare(`UPDATE game_properties SET last_collected = datetime('now') WHERE id = ?`)
-      .bind(prop.id as string);
+    return env.DB.prepare(`UPDATE game_properties SET last_collected = datetime('now') WHERE id = ? AND last_collected = ?`)
+      .bind(prop.id as string, prop.last_collected as string);
   });
 
   if (total === 0) return gameJson({ message: 'Ingen inkomst att h\u00e4mta \u00e4nnu.', collected: 0 });
