@@ -8,19 +8,19 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#x1F99F;</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a24;--border:#2a2a3a;--red:#f24a4a;--amber:#f2a54a;--green:#4af24a;--dim:#666;--txt:#c8c8d8;--white:#eeeef8;}
+:root{--bg:#0c0c0c;--bg2:#111111;--bg3:#1a1a1a;--border:#2a2a2a;--red:#c23a22;--amber:#c4a44a;--green:#3ecf3e;--dim:#666;--txt:#b8b8b8;--white:#e0e0e0;--m-bg:#0c0c0c;--m-accent:#c23a22;--m-cash:#c4a44a;--m-dim:#666;--m-txt:#b8b8b8;--m-white:#e0e0e0;}
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'DM Mono',monospace;font-size:13px;line-height:1.5;}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:'JetBrains Mono','DM Mono',monospace;font-size:13px;line-height:1.5;}
 a{color:var(--dim);text-decoration:none;}a:hover{color:var(--txt);}
-input{background:var(--bg3);border:1px solid var(--border);color:var(--white);font-family:inherit;font-size:13px;padding:8px 12px;outline:none;border-radius:3px;width:100%;}
+input{background:var(--bg2);border:1px solid var(--border);color:var(--white);font-family:inherit;font-size:13px;padding:8px 12px;outline:none;border-radius:0;width:100%;}
 input:focus{border-color:var(--red);}
-button{font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--txt);padding:7px 14px;border-radius:3px;transition:all .15s;}
-button:hover:not(:disabled){border-color:var(--red);color:var(--white);}
+button{font-family:'JetBrains Mono','DM Mono',monospace;font-size:12px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--txt);padding:7px 14px;border-radius:0;transition:border-color .12s,color .12s,background .12s;}
+button:hover:not(:disabled){border-color:var(--red);color:var(--white);background:rgba(194,58,34,.06);}
 button:disabled{opacity:.35;cursor:not-allowed;}
-button.primary{background:var(--red);border-color:var(--red);color:#fff;}
-button.primary:hover:not(:disabled){background:#d43a3a;}
+button.primary{background:transparent;border-color:var(--red);color:var(--red);}
+button.primary:hover:not(:disabled){background:rgba(194,58,34,.14);color:var(--white);}
 .amsg{margin-top:8px;font-size:12px;min-height:18px;}
 .amsg.ok{color:var(--green);}
 .amsg.err{color:var(--red);}
@@ -37,11 +37,11 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 
 /* ─── Round end ─────────────────────────────────────────────────────────────── */
 #screen-round{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
-.round-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:24px;width:100%;max-width:760px;display:flex;flex-direction:column;gap:16px;}
+.round-box{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:24px;width:100%;max-width:760px;display:flex;flex-direction:column;gap:16px;}
 .round-hero{font-size:12px;color:var(--amber);letter-spacing:1px;}
 .round-copy{font-size:11px;color:var(--dim);line-height:1.8;}
 .round-list{display:flex;flex-direction:column;gap:10px;}
-.round-entry{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;}
+.round-entry{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:0;}
 .round-entry strong{color:var(--white);}
 .round-entry span{font-size:11px;color:var(--dim);}
 
@@ -49,20 +49,19 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 #screen-create{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
 .cr-logo{font-size:32px;font-weight:500;color:var(--red);letter-spacing:4px;}
 .cr-sub{color:var(--dim);font-size:11px;letter-spacing:2px;}
-.cr-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;}
+.cr-box{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;}
 .cr-label{font-size:11px;color:var(--dim);letter-spacing:1px;margin-bottom:4px;}
 .side-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.side-card{border:2px solid var(--border);border-radius:6px;padding:16px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg3);}
+.side-card{border:2px solid var(--border);border-radius:0;padding:16px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg3);}
 .side-card:hover{border-color:var(--txt);}
 .side-card.active{border-color:var(--red);background:#1a0d0d;}
-.side-card .s-icon{font-size:24px;}
-.side-card .s-name{font-size:12px;font-weight:500;margin-top:6px;letter-spacing:1px;}
+.side-card .s-name{font-size:12px;font-weight:500;letter-spacing:1px;}
 .side-card .s-desc{font-size:10px;color:var(--dim);margin-top:4px;}
 
 /* ─── Prison ──────────────────────────────────────────────────────────────── */
 #screen-prison{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
 .pr-logo{font-size:28px;font-weight:500;color:var(--red);letter-spacing:3px;}
-.pr-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;text-align:center;}
+.pr-box{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;text-align:center;}
 .pr-timer{font-size:40px;font-weight:500;color:var(--red);letter-spacing:4px;}
 .pr-subtitle{font-size:11px;color:var(--dim);letter-spacing:1px;}
 .pr-btns{display:flex;flex-direction:column;gap:10px;}
@@ -70,9 +69,9 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 /* ─── Hospital ────────────────────────────────────────────────────────────── */
 #screen-hospital{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
 .hs-logo{font-size:28px;font-weight:500;color:var(--amber);letter-spacing:3px;}
-.hs-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;}
-.hp-track{height:12px;background:var(--bg3);border-radius:6px;overflow:hidden;border:1px solid var(--border);}
-.hp-fill-wrap{height:100%;background:var(--green);border-radius:6px;transition:width .3s;}
+.hs-box{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;}
+.hp-track{height:12px;background:var(--bg3);border-radius:0;overflow:hidden;border:1px solid var(--border);}
+.hp-fill-wrap{height:100%;background:var(--green);border-radius:0;transition:width .3s;}
 .hs-btns{display:flex;flex-direction:column;gap:10px;}
 
 /* ─── Topbar ──────────────────────────────────────────────────────────────── */
@@ -80,11 +79,11 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 .tb-brand{font-size:14px;font-weight:500;color:var(--red);letter-spacing:3px;white-space:nowrap;}
 .tb-center{flex:1;display:flex;align-items:center;gap:10px;justify-content:center;overflow:hidden;}
 #tb-name{font-size:13px;color:var(--white);font-weight:500;}
-#tb-level{font-size:11px;color:var(--dim);background:var(--bg3);padding:2px 6px;border-radius:3px;}
+#tb-level{font-size:11px;color:var(--dim);background:var(--bg3);padding:2px 6px;border-radius:0;}
 #tb-cash{font-size:13px;color:var(--amber);}
 .nrg-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.nrg-track{width:60px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
-#nrg-fill{height:100%;background:var(--green);border-radius:3px;transition:width .3s;}
+.nrg-track{width:60px;height:6px;background:var(--bg3);border-radius:0;overflow:hidden;border:1px solid var(--border);}
+#nrg-fill{height:100%;background:var(--green);border-radius:0;transition:width .3s;}
 #nrg-txt{font-size:10px;color:var(--dim);white-space:nowrap;}
 #nrg-hint{font-size:10px;color:var(--dim);white-space:nowrap;display:none;}
 @media(min-width:600px){#nrg-hint{display:block;}}
@@ -100,15 +99,15 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 .sb-title{font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:10px;text-transform:uppercase;}
 .stat-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
 .stat-lbl{font-size:10px;color:var(--dim);width:30px;flex-shrink:0;}
-.stat-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
-.stat-fill{height:100%;background:var(--red);border-radius:3px;transition:width .3s;}
+.stat-track{flex:1;height:5px;background:var(--bg3);border-radius:0;overflow:hidden;}
+.stat-fill{height:100%;background:var(--red);border-radius:0;transition:width .3s;}
 .stat-val{font-size:10px;color:var(--dim);width:24px;text-align:right;flex-shrink:0;}
 #sb-prof{font-size:12px;color:var(--white);font-weight:500;}
 #sb-side{font-size:11px;margin-top:4px;}
 #sb-resp{font-size:11px;color:var(--dim);margin-top:4px;}
-.nav-btn{display:block;width:100%;text-align:left;padding:9px 16px;background:none;border:none;border-radius:0;color:var(--dim);font-size:12px;letter-spacing:.5px;border-left:3px solid transparent;cursor:pointer;}
-.nav-btn:hover{color:var(--white);background:var(--bg3);}
-.nav-btn.active{color:var(--red);border-left-color:var(--red);background:var(--bg3);}
+.nav-btn{display:block;width:100%;text-align:left;padding:8px 16px;background:none;border:none;border-radius:0;color:var(--dim);font-size:11px;letter-spacing:.8px;border-left:2px solid transparent;cursor:pointer;}
+.nav-btn:hover{color:var(--white);background:rgba(194,58,34,.04);border-left-color:var(--border);}
+.nav-btn.active{color:var(--red);border-left-color:var(--red);background:rgba(194,58,34,.06);}
 .sb-back{padding:10px 16px;font-size:11px;color:var(--dim);border-top:1px solid var(--border);margin-top:auto;}
 
 /* ─── Main area ───────────────────────────────────────────────────────────── */
@@ -116,29 +115,33 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 .g-sec{display:none;}
 .sec-title{font-size:16px;font-weight:500;color:var(--white);letter-spacing:2px;margin-bottom:4px;}
 .sec-sub{font-size:11px;color:var(--dim);margin-bottom:18px;}
-.world-strip{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;display:flex;gap:16px;flex-wrap:wrap;line-height:1.7;}
+.world-strip{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:12px;margin-bottom:16px;font-size:12px;display:flex;gap:16px;flex-wrap:wrap;line-height:1.7;}
 .world-strip span{color:var(--dim);}
 .world-strip strong{color:var(--white);}
 
 /* ─── Gatan (feed) ────────────────────────────────────────────────────────── */
-.feed{display:flex;flex-direction:column;gap:6px;}
-.feed-item{display:flex;gap:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;font-size:12px;}
-.feed-time{color:var(--dim);flex-shrink:0;font-size:11px;}
-.feed-desc{flex:1;display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;}
+.feed{display:flex;flex-direction:column;gap:0;font-size:12px;}
+.feed-item{display:flex;gap:8px;padding:3px 0;background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,.03);font-size:12px;align-items:baseline;}
+.feed-time{color:#3a3a3a;flex-shrink:0;font-size:10px;font-variant-numeric:tabular-nums;}
+.feed-type{flex-shrink:0;font-size:10px;letter-spacing:.3px;min-width:68px;text-align:right;}
+.feed-desc{flex:1;display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;}
 .feed-text{flex:1;min-width:0;}
-.feed-item.ok .feed-desc{color:var(--green);}
+.feed-item.ok .feed-type{color:var(--green);}
+.feed-item.ok .feed-desc{color:var(--txt);}
+.feed-item.err .feed-type{color:var(--red);}
 .feed-item.err .feed-desc{color:var(--red);}
+.feed-item.info .feed-type{color:var(--amber);}
 .feed-item.info .feed-desc{color:var(--amber);}
-.feed-item.world{border-color:#2b3240;background:#111820;}
-.feed-item.world .feed-desc{color:#c7d4ff;}
-.feed-badge{display:inline-flex;align-items:center;justify-content:center;padding:2px 7px;border-radius:999px;border:1px solid #2f3949;background:#141b24;color:#d5deee;font-size:10px;letter-spacing:1px;flex-shrink:0;}
-.feed-badge.east{border-color:#1f4f7a;color:#8ecbff;background:#101a24;}
-.feed-badge.west{border-color:#6b2330;color:#ff9cab;background:#1f1014;}
+.feed-item.world .feed-type{color:#5a6a9a;}
+.feed-item.world .feed-desc{color:#8a9ac8;}
+.feed-badge{display:inline-flex;align-items:center;justify-content:center;padding:1px 5px;border-radius:2px;border:1px solid #2f3949;background:transparent;color:#8a9ac8;font-size:10px;letter-spacing:.5px;flex-shrink:0;}
+.feed-badge.east{border-color:#1f4f7a;color:#6aaad4;background:transparent;}
+.feed-badge.west{border-color:#6b2330;color:#d47a89;background:transparent;}
 .feed-empty{color:var(--dim);font-size:12px;padding:20px 0;text-align:center;}
 
 /* ─── Brott (robbery) ─────────────────────────────────────────────────────── */
 .rob-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px;}
-.rob-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;cursor:pointer;transition:all .15s;position:relative;}
+.rob-card{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:14px;cursor:pointer;transition:all .15s;position:relative;}
 .rob-card:hover:not(.locked){border-color:var(--red);}
 .rob-card.locked{opacity:.45;cursor:not-allowed;}
 .rob-card.flash-ok{border-color:var(--green);background:#0d1a0d;}
@@ -157,10 +160,10 @@ button.primary:hover:not(:disabled){background:#d43a3a;}
 .tu{color:var(--green);}
 .td{color:var(--red);}
 .ts2{color:var(--dim);}
-.drug-form{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:400px;}
+.drug-form{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:400px;}
 .drug-form-row{display:flex;gap:10px;align-items:center;}
 .drug-form-row label{font-size:11px;color:var(--dim);width:60px;flex-shrink:0;}
-select{background:var(--bg3);border:1px solid var(--border);color:var(--white);font-family:inherit;font-size:12px;padding:7px 10px;border-radius:3px;outline:none;width:100%;}
+select{background:var(--bg2);border:1px solid var(--border);color:var(--white);font-family:inherit;font-size:12px;padding:7px 10px;border-radius:0;outline:none;width:100%;}
 select:focus{border-color:var(--red);}
 .drug-total{font-size:12px;color:var(--amber);}
 .drug-btns{display:flex;gap:10px;}
@@ -172,29 +175,29 @@ select:focus{border-color:var(--red);}
 .npc-table tr:hover td{background:var(--bg3);}
 .npc-namecell{display:flex;flex-direction:column;gap:4px;}
 .npc-meta{font-size:10px;color:var(--dim);letter-spacing:.7px;}
-.npc-stance{display:inline-flex;align-items:center;justify-content:center;padding:2px 6px;border-radius:999px;border:1px solid var(--border);font-size:10px;letter-spacing:.8px;background:#14161c;color:var(--dim);}
-.lock-notice{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;font-size:12px;color:var(--dim);}
+.npc-stance{display:inline-flex;align-items:center;justify-content:center;padding:2px 6px;border-radius:2px;border:1px solid var(--border);font-size:10px;letter-spacing:.8px;background:#14161c;color:var(--dim);}
+.lock-notice{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:16px;font-size:12px;color:var(--dim);}
 
 /* ─── Traning ─────────────────────────────────────────────────────────────── */
 .train-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
-.train-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;}
-.train-icon{font-size:20px;margin-bottom:8px;}
+.train-card{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:14px;}
+.train-icon{font-size:11px;color:var(--red);letter-spacing:.5px;margin-bottom:8px;}
 .train-name{font-size:13px;font-weight:500;color:var(--white);margin-bottom:4px;}
 .train-stat{font-size:11px;color:var(--dim);margin-bottom:8px;}
 .stat-bar-wrap{margin-bottom:10px;}
-.stat-bar-track{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
-.stat-bar-fill{height:100%;background:var(--red);border-radius:3px;}
+.stat-bar-track{height:5px;background:var(--bg3);border-radius:0;overflow:hidden;}
+.stat-bar-fill{height:100%;background:var(--red);border-radius:0;}
 .stat-bar-txt{font-size:10px;color:var(--dim);margin-top:3px;}
 
 /* ─── Fastigheter ─────────────────────────────────────────────────────────── */
 .prop-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
-.prop-row{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.prop-row{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .prop-info{flex:1;}
 .prop-name{font-size:13px;font-weight:500;color:var(--white);}
 .prop-detail{font-size:11px;color:var(--dim);margin-top:3px;}
 .prop-acc{font-size:12px;color:var(--green);}
 .buy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
-.buy-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;}
+.buy-card{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:14px;}
 .buy-type{font-size:12px;font-weight:500;color:var(--white);margin-bottom:4px;}
 .buy-cost{font-size:11px;color:var(--amber);margin-bottom:4px;}
 .buy-income{font-size:10px;color:var(--dim);margin-bottom:10px;}
@@ -206,33 +209,33 @@ select:focus{border-color:var(--red);}
 .rank-table td{padding:8px 10px;border-bottom:1px solid var(--bg3);}
 .rank-table tr.me td{background:#1a150a;color:var(--amber);}
 .rank-table tr.rank-gap td{padding-top:14px;color:var(--dim);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border);}
-.round-info{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;display:flex;gap:20px;flex-wrap:wrap;}
+.round-info{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:12px;margin-bottom:16px;font-size:12px;display:flex;gap:20px;flex-wrap:wrap;}
 .round-info span{color:var(--dim);}
 .round-info strong{color:var(--white);}
 .bank-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;}
-.bank-stat{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:4px;}
+.bank-stat{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:12px;display:flex;flex-direction:column;gap:4px;}
 .bank-stat span{font-size:10px;color:var(--dim);letter-spacing:1px;}
 .bank-stat strong{font-size:15px;color:var(--white);}
-.bank-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:440px;}
+.bank-card{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:440px;}
 .bank-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
 .bank-row label{font-size:11px;color:var(--dim);width:70px;flex-shrink:0;}
 .bank-row input{max-width:180px;}
 .casino-shell{display:flex;flex-direction:column;gap:16px;}
 .casino-top{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;}
-.casino-stat{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:4px;}
+.casino-stat{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:12px;display:flex;flex-direction:column;gap:4px;}
 .casino-stat span{font-size:10px;color:var(--dim);letter-spacing:1px;}
 .casino-stat strong{font-size:15px;color:var(--white);}
-.casino-table{background:linear-gradient(180deg,#13181d,#0f1317);border:1px solid var(--border);border-radius:10px;padding:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);}
+.casino-table{background:linear-gradient(180deg,#13181d,#0f1317);border:1px solid var(--border);border-radius:0;padding:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);}
 .casino-decknote{font-size:10px;color:var(--dim);letter-spacing:1px;}
 .casino-bet{display:flex;flex-direction:column;gap:12px;}
 .casino-bet-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
 .casino-bet-row label{font-size:11px;color:var(--dim);width:84px;flex-shrink:0;}
 .casino-bet-row input{max-width:160px;}
 .casino-chipbar{display:flex;gap:8px;flex-wrap:wrap;}
-.casino-chip{border-radius:999px;padding:7px 12px;background:#17131b;}
+.casino-chip{border-radius:2px;padding:7px 12px;background:#17131b;}
 .casino-chip.active{border-color:var(--amber);color:var(--white);background:#221811;}
 .casino-modebar{display:flex;gap:10px;flex-wrap:wrap;}
-.casino-mode{padding:8px 14px;border-radius:999px;background:#15131a;border:1px solid var(--border);letter-spacing:1px;}
+.casino-mode{padding:8px 14px;border-radius:2px;background:#15131a;border:1px solid var(--border);letter-spacing:1px;}
 .casino-mode.active{border-color:var(--red);color:var(--white);background:#211215;}
 .casino-panel{display:none;flex-direction:column;gap:16px;}
 .casino-panel.active{display:flex;}
@@ -242,7 +245,7 @@ select:focus{border-color:var(--red);}
 .holdem-community{display:flex;flex-direction:column;gap:8px;}
 .holdem-community .bj-cards{min-height:112px;}
 .holdem-seats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
-.holdem-seat{background:rgba(11,13,18,.88);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:180px;}
+.holdem-seat{background:rgba(11,13,18,.88);border:1px solid var(--border);border-radius:0;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:180px;}
 .holdem-seat.player{border-color:#4b3a2a;background:rgba(20,18,14,.95);}
 .holdem-seat.turn{box-shadow:0 0 0 1px rgba(242,74,74,.35),0 0 0 4px rgba(242,74,74,.08);}
 .holdem-seat.folded{opacity:.62;}
@@ -251,7 +254,7 @@ select:focus{border-color:var(--red);}
 .holdem-seat-name strong{font-size:13px;color:var(--white);}
 .holdem-seat-stack{font-size:13px;color:var(--amber);white-space:nowrap;}
 .holdem-badges{display:flex;gap:6px;flex-wrap:wrap;}
-.holdem-badge{display:inline-flex;align-items:center;justify-content:center;padding:2px 7px;border-radius:999px;border:1px solid var(--border);font-size:10px;letter-spacing:1px;background:#14161c;color:var(--dim);}
+.holdem-badge{display:inline-flex;align-items:center;justify-content:center;padding:2px 7px;border-radius:2px;border:1px solid var(--border);font-size:10px;letter-spacing:1px;background:#14161c;color:var(--dim);}
 .holdem-badge.turn{border-color:var(--red);color:#ffd9d9;background:#211214;}
 .holdem-badge.player{border-color:#5a4226;color:#ffd59c;background:#1e1710;}
 .holdem-badge.blind{border-color:#35546f;color:#b6dbff;background:#101820;}
@@ -268,7 +271,7 @@ select:focus{border-color:var(--red);}
 .bj-name{font-size:11px;color:var(--dim);letter-spacing:1px;}
 .bj-total{font-size:13px;color:var(--white);}
 .bj-cards{display:flex;gap:10px;flex-wrap:wrap;}
-.bj-card{width:74px;aspect-ratio:5/7;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);}
+.bj-card{width:74px;aspect-ratio:5/7;border-radius:2px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);}
 .bj-card img{width:100%;height:100%;display:block;object-fit:cover;background:#fff;}
 .bj-card.hidden{background:
   radial-gradient(circle at 30% 30%,rgba(255,255,255,.08),transparent 30%),
@@ -293,7 +296,7 @@ select:focus{border-color:var(--red);}
 .bj-rank{font-size:17px;font-weight:500;line-height:1;}
 .bj-suit{font-size:15px;align-self:flex-end;}
 .bj-actions{display:flex;gap:10px;flex-wrap:wrap;}
-.bj-banner{min-height:42px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.bj-banner{min-height:42px;border:1px solid var(--border);border-radius:0;background:var(--bg2);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .bj-banner strong{font-size:13px;color:var(--white);}
 .bj-banner span{font-size:11px;color:var(--dim);}
 .bj-banner.win{border-color:rgba(74,242,74,.35);}
@@ -302,32 +305,31 @@ select:focus{border-color:var(--red);}
 .bj-empty{font-size:12px;color:var(--dim);line-height:1.7;max-width:560px;}
 .bj-meta{font-size:11px;color:var(--dim);}
 .bj-divider{height:1px;background:var(--border);margin:6px 0;}
-.prof-status{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--dim);}
+.prof-status{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:12px;margin-bottom:16px;font-size:12px;color:var(--dim);}
 .prof-status strong{color:var(--white);}
 .prof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;}
-.prof-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:8px;}
+.prof-card{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:14px;display:flex;flex-direction:column;gap:8px;}
 .prof-card.active{border-color:var(--green);}
 .prof-card.locked{opacity:.6;}
 .prof-name{font-size:13px;font-weight:500;color:var(--white);}
 .prof-bonus{font-size:11px;color:var(--dim);line-height:1.6;}
 .prof-note{font-size:10px;color:var(--amber);letter-spacing:.5px;}
-.dev-tag{display:inline-flex;align-items:center;justify-content:center;padding:2px 6px;border:1px solid var(--red);border-radius:999px;font-size:10px;color:var(--red);letter-spacing:1px;vertical-align:middle;margin-left:8px;}
-.dev-shell{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;}
+.dev-tag{display:inline-flex;align-items:center;justify-content:center;padding:2px 6px;border:1px solid var(--red);border-radius:2px;font-size:10px;color:var(--red);letter-spacing:1px;vertical-align:middle;margin-left:8px;}
+.dev-shell{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:16px;display:flex;flex-direction:column;gap:12px;}
 .dev-meta{font-size:11px;color:var(--dim);line-height:1.7;}
 .dev-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
 .dev-row input{flex:1;min-width:220px;}
-.dev-lock{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:460px;}
+.dev-lock{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:460px;}
 .dev-quick{display:flex;flex-wrap:wrap;gap:8px;}
 .dev-quick button{padding:6px 10px;font-size:11px;}
-.dev-output{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:12px;min-height:180px;max-height:320px;overflow:auto;white-space:pre-wrap;font-size:11px;line-height:1.7;color:var(--white);}
+.dev-output{background:var(--bg);border:1px solid var(--border);border-radius:0;padding:12px;min-height:180px;max-height:320px;overflow:auto;white-space:pre-wrap;font-size:11px;line-height:1.7;color:var(--white);}
 
 /* ─── Mobile nav ──────────────────────────────────────────────────────────── */
 #mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:100;overflow-x:auto;}
 .mb-inner{display:flex;min-width:max-content;width:100%;}
-.mb{flex:1;background:none;border:none;border-radius:0;color:var(--dim);font-size:9px;padding:8px 4px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;white-space:nowrap;min-width:48px;}
-.mb:hover{color:var(--white);background:var(--bg3);}
+.mb{flex:1;background:none;border:none;border-right:1px solid var(--border);border-radius:0;color:var(--dim);font-size:9px;padding:8px 4px;min-height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;white-space:nowrap;min-width:48px;letter-spacing:.5px;}
+.mb:hover{color:var(--white);background:rgba(194,58,34,.06);}
 .mb.active{color:var(--red);}
-.mb-icon{font-size:14px;}
 @media(max-width:640px){
   #mob-nav{display:flex;}
   #main-area{padding:12px;padding-bottom:70px;}
@@ -354,14 +356,14 @@ select:focus{border-color:var(--red);}
 
 /* ─── Race section ────────────────────────────────────────────────────────── */
 .race-tiers{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px;}
-.race-tier{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;}
+.race-tier{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:16px;}
 .race-tier-name{font-size:14px;font-weight:500;color:var(--white);margin-bottom:4px;}
 .race-tier-fee{font-size:12px;color:var(--amber);margin-bottom:4px;}
 .race-tier-prize{font-size:12px;color:var(--green);margin-bottom:12px;}
-.race-log{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;min-height:60px;display:none;}
+.race-log{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:12px;margin-bottom:16px;font-size:12px;min-height:60px;display:none;}
 .race-log.show{display:block;}
 .vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;}
-.vehicle-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;}
+.vehicle-card{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:14px;}
 .vehicle-card.owned{border-color:var(--green);}
 .vehicle-name{font-size:12px;font-weight:500;color:var(--white);margin-bottom:4px;}
 .vehicle-cost{font-size:11px;color:var(--amber);margin-bottom:2px;}
@@ -373,14 +375,14 @@ select:focus{border-color:var(--red);}
 .loot-tier-3{color:#4af24a;}
 .loot-tier-4{color:#4a8ef2;}
 .loot-tier-5{color:#f2a54a;}
-.inv-item{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.inv-item{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:6px;}
 .inv-item.equipped{border-color:var(--green);background:#0d1a0d;}
 .inv-name{flex:1;font-size:12px;}
 .inv-tier{font-size:10px;font-weight:600;letter-spacing:.5px;}
 .inv-slot{font-size:10px;color:var(--dim);margin-left:4px;}
 .inv-actions{display:flex;gap:6px;}
 .inv-actions button{font-size:10px;padding:3px 8px;}
-.inv-slot-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:10px;text-align:center;}
+.inv-slot-card{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:8px;font-size:10px;text-align:center;}
 .inv-slot-card .slot-label{color:var(--dim);margin-bottom:4px;}
 .inv-slot-card .slot-item{color:var(--white);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .inv-slot-card .slot-empty{color:var(--bg3);}
@@ -426,18 +428,16 @@ select:focus{border-color:var(--red);}
         <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">FÖRSLAG &mdash; klicka för att välja</div>
         <div id="name-sugg-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
       </div>
-      <button id="sugg-btn" style="margin-top:6px;font-size:10px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--dim);" type="button">Namnf&ouml;rslag</button>
+      <button id="sugg-btn" style="margin-top:6px;font-size:10px;padding:4px 10px;" type="button">NAMNF&Ouml;RSLAG</button>
     </div>
     <div>
       <div class="cr-label">VÄLJ SIDA</div>
       <div class="side-row">
         <div class="side-card active" data-side="eastside">
-          <div class="s-icon">&#x1F535;</div>
           <div class="s-name">EASTSIDE</div>
           <div class="s-desc">Aggressiv. Stark.</div>
         </div>
         <div class="side-card" data-side="westside">
-          <div class="s-icon">&#x1F534;</div>
           <div class="s-name">WESTSIDE</div>
           <div class="s-desc">Listig. Snabb.</div>
         </div>
@@ -450,7 +450,7 @@ select:focus{border-color:var(--red);}
 
 <!-- ─── Prison Screen ──────────────────────────────────────────────────────── -->
 <div id="screen-prison" class="screen" style="display:none;">
-  <div class="pr-logo">&#x26D3; HÄKTET</div>
+  <div class="pr-logo">HÄKTET</div>
   <div style="font-size:12px;color:var(--dim);">Du sitter inlåst. Vänta eller rymma.</div>
   <div class="pr-box">
     <div>
@@ -471,7 +471,7 @@ select:focus{border-color:var(--red);}
 
 <!-- ─── Hospital Screen ────────────────────────────────────────────────────── -->
 <div id="screen-hospital" class="screen" style="display:none;">
-  <div class="hs-logo">&#x2764; SJUKHUSET</div>
+  <div class="hs-logo">SJUKHUSET</div>
   <div style="font-size:12px;color:var(--dim);">Du återhämtar dig. Vila eller betala.</div>
   <div class="hs-box">
     <div>
@@ -501,7 +501,7 @@ select:focus{border-color:var(--red);}
 <div id="screen-game" class="screen" style="display:none;flex-direction:column;height:100dvh;">
   <!-- Topbar -->
   <div id="topbar">
-    <div class="tb-brand">&#x1F99F;</div>
+    <div class="tb-brand">MOSQ</div>
     <div class="tb-center">
       <span id="tb-name">---</span>
       <span id="tb-level">Lv1</span>
@@ -551,7 +551,7 @@ select:focus{border-color:var(--red);}
       <div class="sb-card">
         <div class="sb-title">IDENTITET</div>
         <div id="sb-prof">Inget yrke</div>
-        <div id="sb-side">&#x1F535; Eastside</div>
+        <div id="sb-side">Eastside</div>
         <div id="sb-resp">0 respect &middot; Lv1</div>
         <div id="sb-bank" style="font-size:11px;color:var(--dim);margin-top:4px;">Bank: 0 kr</div>
         <div id="sb-xp-wrap" style="margin-top:8px;">
@@ -565,19 +565,19 @@ select:focus{border-color:var(--red);}
       </div>
       <!-- Nav -->
       <div style="padding:8px 0;">
-        <button class="nav-btn nv active" data-s="gatan">&#x1F30D; Gatan</button>
-        <button class="nav-btn nv" data-s="brott">&#x1F52B; Brott</button>
-        <button class="nav-btn nv" data-s="droger">&#x1F48A; Droger</button>
-        <button class="nav-btn nv" data-s="strid">&#x1F94A; Strid</button>
-        <button class="nav-btn nv" data-s="traning">&#x1F3CB; Tr&auml;ning</button>
-        <button class="nav-btn nv" data-s="profession">&#x2699; Yrke</button>
-        <button class="nav-btn nv" data-s="bank">&#x1F4B0; Bank</button>
-        <button class="nav-btn nv" data-s="casino">&#x1F0CF; Casino</button>
-        <button class="nav-btn nv" data-s="dev">&#x1F6E0; Dev</button>
-        <button class="nav-btn nv" data-s="forrad">&#x1F392; F&ouml;rr&aring;d</button>
-        <button class="nav-btn nv" data-s="fastigheter">&#x1F3E0; Fastigheter</button>
-        <button class="nav-btn nv" data-s="race">&#x1F3CE; Streetrace</button>
-        <button class="nav-btn nv" data-s="ranking">&#x1F3C6; Ranking</button>
+        <button class="nav-btn nv active" data-s="gatan">[GATAN]</button>
+        <button class="nav-btn nv" data-s="brott">[BROTT]</button>
+        <button class="nav-btn nv" data-s="droger">[DROGER]</button>
+        <button class="nav-btn nv" data-s="strid">[STRID]</button>
+        <button class="nav-btn nv" data-s="traning">[TR&Auml;NING]</button>
+        <button class="nav-btn nv" data-s="profession">[YRKE]</button>
+        <button class="nav-btn nv" data-s="bank">[BANK]</button>
+        <button class="nav-btn nv" data-s="casino">[CASINO]</button>
+        <button class="nav-btn nv" data-s="dev">[DEV]</button>
+        <button class="nav-btn nv" data-s="forrad">[F&Ouml;RR&Aring;D]</button>
+        <button class="nav-btn nv" data-s="fastigheter">[FASTIGHETER]</button>
+        <button class="nav-btn nv" data-s="race">[RACE]</button>
+        <button class="nav-btn nv" data-s="ranking">[RANKING]</button>
       </div>
       <div class="sb-back"><a href="/">&larr; Tillbaka</a></div>
     </div>
@@ -640,7 +640,7 @@ select:focus{border-color:var(--red);}
         <div class="sec-title">STRID</div>
         <div class="sec-sub">Attackera rivals</div>
         <div id="strid-lock" class="lock-notice" style="display:none;">
-          &#x1F512; L&aring;ses upp vid level 8
+          [LÅST]L&aring;ses upp vid level 8
         </div>
         <table class="npc-table" id="npc-tbl">
           <thead><tr><th>NAMN</th><th>LV</th><th>STR</th><th>SIDA</th><th>BYTE</th><th></th></tr></thead>
@@ -661,7 +661,7 @@ select:focus{border-color:var(--red);}
       <div id="s-profession" class="g-sec">
         <div class="sec-title">YRKE</div>
         <div class="sec-sub">V&auml;lj specialisering fr&aring;n level 3. Ett enda byte till&aring;tet fr&aring;n level 10.</div>
-        <div id="prof-lock" class="lock-notice" style="display:none;">&#x1F512; L&aring;ses upp vid level 3</div>
+        <div id="prof-lock" class="lock-notice" style="display:none;">[LÅST]L&aring;ses upp vid level 3</div>
         <div id="prof-content">
           <div id="prof-status" class="prof-status"></div>
           <div id="prof-grid" class="prof-grid"></div>
@@ -860,7 +860,7 @@ select:focus{border-color:var(--red);}
         <div class="sec-title">FASTIGHETER</div>
         <div class="sec-sub">Passiv inkomst</div>
         <div id="prop-lock" class="lock-notice" style="display:none;">
-          &#x1F512; L&aring;ses upp vid level 10
+          [LÅST]L&aring;ses upp vid level 10
         </div>
         <div id="prop-content">
           <div id="prop-list" class="prop-list"></div>
@@ -877,24 +877,24 @@ select:focus{border-color:var(--red);}
       <div id="s-race" class="g-sec">
         <div class="sec-title">STREETRACE</div>
         <div class="sec-sub">L&aring;ses upp vid level 10. V&auml;lj tier &mdash; satsa insats &mdash; vinn 3x.</div>
-        <div id="race-lock" class="lock-notice" style="display:none;">&#x1F512; L&aring;ses upp vid level 10</div>
+        <div id="race-lock" class="lock-notice" style="display:none;">[LÅST]L&aring;ses upp vid level 10</div>
         <div id="race-content">
           <div id="race-log" class="race-log"></div>
           <div class="race-tiers">
             <div class="race-tier">
-              <div class="race-tier-name">&#x1F7E2; GRÖN TIER</div>
+              <div class="race-tier-name">[ GRÖN TIER ]</div>
               <div class="race-tier-fee">Insats: 1&nbsp;000 kr</div>
               <div class="race-tier-prize">Vinst: 3&nbsp;000 kr + 50 XP</div>
               <button data-race="1">STARTA RACE</button>
             </div>
             <div class="race-tier">
-              <div class="race-tier-name">&#x1F7E1; GUL TIER</div>
+              <div class="race-tier-name">[ GUL TIER ]</div>
               <div class="race-tier-fee">Insats: 5&nbsp;000 kr</div>
               <div class="race-tier-prize">Vinst: 15&nbsp;000 kr + 150 XP</div>
               <button data-race="2">STARTA RACE</button>
             </div>
             <div class="race-tier">
-              <div class="race-tier-name">&#x1F534; R&Ouml;D TIER</div>
+              <div class="race-tier-name">[ RÖD TIER ]</div>
               <div class="race-tier-fee">Insats: 25&nbsp;000 kr</div>
               <div class="race-tier-prize">Vinst: 75&nbsp;000 kr + 400 XP</div>
               <button data-race="3">STARTA RACE</button>
@@ -924,19 +924,19 @@ select:focus{border-color:var(--red);}
 <!-- Mobile nav -->
 <div id="mob-nav" style="display:none;">
   <div class="mb-inner">
-    <button class="mb active" data-s="gatan"><span class="mb-icon">&#x1F30D;</span>Gatan</button>
-    <button class="mb" data-s="brott"><span class="mb-icon">&#x1F52B;</span>Brott</button>
-    <button class="mb" data-s="droger"><span class="mb-icon">&#x1F48A;</span>Droger</button>
-    <button class="mb" data-s="strid"><span class="mb-icon">&#x1F94A;</span>Strid</button>
-    <button class="mb" data-s="traning"><span class="mb-icon">&#x1F3CB;</span>Tr&auml;na</button>
-    <button class="mb" data-s="profession"><span class="mb-icon">&#x2699;</span>Yrke</button>
-    <button class="mb" data-s="bank"><span class="mb-icon">&#x1F4B0;</span>Bank</button>
-    <button class="mb" data-s="casino"><span class="mb-icon">&#x1F0CF;</span>Casino</button>
-    <button class="mb" data-s="dev"><span class="mb-icon">&#x1F6E0;</span>Dev</button>
-    <button class="mb" data-s="forrad"><span class="mb-icon">&#x1F392;</span>Förråd</button>
-    <button class="mb" data-s="fastigheter"><span class="mb-icon">&#x1F3E0;</span>Fast.</button>
-    <button class="mb" data-s="race"><span class="mb-icon">&#x1F3CE;</span>Race</button>
-    <button class="mb" data-s="ranking"><span class="mb-icon">&#x1F3C6;</span>Rank</button>
+    <button class="mb active" data-s="gatan">GATAN</button>
+    <button class="mb" data-s="brott">BROTT</button>
+    <button class="mb" data-s="droger">DROGER</button>
+    <button class="mb" data-s="strid">STRID</button>
+    <button class="mb" data-s="traning">TR&Auml;NA</button>
+    <button class="mb" data-s="profession">YRKE</button>
+    <button class="mb" data-s="bank">BANK</button>
+    <button class="mb" data-s="casino">CASINO</button>
+    <button class="mb" data-s="dev">DEV</button>
+    <button class="mb" data-s="forrad">F&Ouml;RR&Aring;D</button>
+    <button class="mb" data-s="fastigheter">FAST.</button>
+    <button class="mb" data-s="race">RACE</button>
+    <button class="mb" data-s="ranking">RANK</button>
   </div>
 </div>
 
@@ -1363,7 +1363,7 @@ function renderSidebar(){
     if(vv) vv.textContent=v;
   }
   set('sb-prof',professionName(p.profession)||'Inget yrke');
-  set('sb-side',p.side==='westside'?'&#x1F534; Westside':'&#x1F535; Eastside');
+  set('sb-side',p.side==='westside'?'[WEST]':'[EAST]');
   set('sb-resp',fmtCash(p.respect)+' respect &middot; Lv'+p.level);
   set('sb-bank','Bank: '+fmtCash(p.bank||0)+' kr');
   const xp=p.xp||0;const lvl=p.level||1;
@@ -1498,12 +1498,14 @@ function renderGatan(){
   if(!all.length){feed.innerHTML='<div class="feed-empty">Inga handlingar ännu. Första stöten avgör tonen för hela rundan.</div>';return;}
   feed.innerHTML=all.slice(0,50).map(l=>{
     const d=new Date(l.ts);
-    const hm=isNaN(d)?'--:--':(d.getHours()+'').padStart(2,'0')+':'+(d.getMinutes()+'').padStart(2,'0');
+    const pad=n=>(n+'').padStart(2,'0');
+    const hms=isNaN(d)?'--:--:--':`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     const cls=l.kind==='world'?'world':(l.ok===false?'err':'ok');
+    const typeLabel=l.kind==='world'?'STAN':(l.ok===false?'FAIL':'OK');
     const badge=l.kind==='world'
       ? `<span class="feed-badge ${l.side==='westside'?'west':(l.side==='eastside'?'east':'')}">${esc(l.actor||'Stan')}</span>`
       : '';
-    return `<div class="feed-item ${cls}"><span class="feed-time">[${hm}]</span><span class="feed-desc">${badge}<span class="feed-text">${esc(l.desc||'')}</span></span></div>`;
+    return `<div class="feed-item ${cls}"><span class="feed-time">[${hms}]</span><span class="feed-type">${typeLabel} &raquo;</span><span class="feed-desc">${badge}<span class="feed-text">${esc(l.desc||'')}</span></span></div>`;
   }).join('');
 }
 
@@ -1666,8 +1668,8 @@ function renderStrid(){
   if(!G.npcs.length){tbody.innerHTML='<tr><td colspan="6" style="color:var(--dim);text-align:center;padding:16px;">Inga rivals hittade</td></tr>';return;}
   tbody.innerHTML=G.npcs.map(n=>{
     const loot=Math.round(n.cash*0.3);
-    const sideIcon=n.side==='westside'?'&#x1F534;':'&#x1F535;';
-    return `<tr><td><div class="npc-namecell"><strong>${esc(n.name)}</strong><div class="npc-meta"><span class="npc-stance">${esc(personalityLabel(n.personality))}</span></div></div></td><td>Lv${n.level}</td><td>${n.strength}</td><td>${sideIcon}</td><td>${fmtCash(loot)} kr</td><td><button data-assault="${n.id}" ${p&&p.level<8?'disabled':''}>ATTACKERA</button></td></tr>`;
+    const sideLabel=n.side==='westside'?'WEST':'EAST';
+    return `<tr><td><div class="npc-namecell"><strong>${esc(n.name)}</strong><div class="npc-meta"><span class="npc-stance">${esc(personalityLabel(n.personality))}</span></div></div></td><td>Lv${n.level}</td><td>${n.strength}</td><td>${sideLabel}</td><td>${fmtCash(loot)} kr</td><td><button data-assault="${n.id}" ${p&&p.level<8?'disabled':''}>ATTACKERA</button></td></tr>`;
   }).join('');
 }
 
@@ -1698,10 +1700,10 @@ async function doAssault(npcId){
 
 /* ─── Traning ─────────────────────────────────────────────────────────────── */
 const TRAIN_CARDS=[
-  {stat:'strength',icon:'&#x1F3CB;',name:'Gym',label:'STR'},
-  {stat:'intelligence',icon:'&#x1F4DA;',name:'Skola',label:'INT'},
-  {stat:'charisma',icon:'&#x1F5E3;',name:'Gatan',label:'CHA'},
-  {stat:'stealth',icon:'&#x1F576;',name:'Smögträning',label:'SMY'}
+  {stat:'strength',icon:'[STR]',name:'Gym',label:'STR'},
+  {stat:'intelligence',icon:'[INT]',name:'Skola',label:'INT'},
+  {stat:'charisma',icon:'[CHA]',name:'Gatan',label:'CHA'},
+  {stat:'stealth',icon:'[SMY]',name:'Smygträning',label:'SMY'}
 ];
 
 function renderTraning(){
@@ -1750,11 +1752,11 @@ async function doTrain(stat){
 
 /* ─── Yrke ────────────────────────────────────────────────────────────────── */
 const PROFESSION_CFG={
-  'rånare':{icon:'&#x1F52B;',name:'Rånare',bonus:['+30% cash från rån','-20% fängelsetid']},
-  langare:{icon:'&#x1F48A;',name:'Langare',bonus:['Bättre spread på drogmarknaden','Starkare marginaler vid köp/sälj']},
-  torped:{icon:'&#x1F6E1;',name:'Torped',bonus:['+30% assault-skada','+20% max HP']},
-  hallick:{icon:'&#x1F3E0;',name:'Hallick',bonus:['+40% fastighetsinkomst','Bygger passiv ekonomi snabbare']},
-  bedragare:{icon:'&#x1F4BC;',name:'Bedragare',bonus:['+20% på alla stats i spel','+15% XP från aktiviteter']},
+  'rånare':{icon:'[RÅN]',name:'Rånare',bonus:['+30% cash från rån','-20% fängelsetid']},
+  langare:{icon:'[DRG]',name:'Langare',bonus:['Bättre spread på drogmarknaden','Starkare marginaler vid köp/sälj']},
+  torped:{icon:'[TRP]',name:'Torped',bonus:['+30% assault-skada','+20% max HP']},
+  hallick:{icon:'[HST]',name:'Hallick',bonus:['+40% fastighetsinkomst','Bygger passiv ekonomi snabbare']},
+  bedragare:{icon:'[BDR]',name:'Bedragare',bonus:['+20% på alla stats i spel','+15% XP från aktiviteter']},
 };
 
 function renderProfession(){
@@ -2729,12 +2731,12 @@ function renderRanking(){
   const hasSelf=!!myName&&all.some(row=>!row.isNpc&&row.name===myName);
   const rowsHtml=all.map((row,i)=>{
     const isMe=!row.isNpc&&row.name===myName;
-    const sideIcon=row.side==='westside'?'&#x1F534;':'&#x1F535;';
+    const sideLabel=row.side==='westside'?'WEST':'EAST';
     const prof=professionName(row.profession)||'—';
-    return `<tr${isMe?' class="me"':''}><td>${i+1}</td><td>${esc(row.name)}${row.isNpc?' <span style="color:var(--dim);font-size:10px;">[NPC]</span>':''}</td><td>Lv${row.level}</td><td>${fmtCash(row.respect)}</td><td>${prof}</td><td>${sideIcon}</td></tr>`;
+    return `<tr${isMe?' class="me"':''}><td>${i+1}</td><td>${esc(row.name)}${row.isNpc?' <span style="color:var(--dim);font-size:10px;">[NPC]</span>':''}</td><td>Lv${row.level}</td><td>${fmtCash(row.respect)}</td><td>${prof}</td><td>${sideLabel}</td></tr>`;
   }).join('');
   const selfHtml=(!hasSelf&&self&&G.status.self_rank)
-    ? `<tr class="rank-gap"><td colspan="6">DIN PLACERING</td></tr><tr class="me"><td>${G.status.self_rank}</td><td>${esc(self.name)}</td><td>Lv${self.level}</td><td>${fmtCash(self.respect)}</td><td>${professionName(self.profession)||'—'}</td><td>${self.side==='westside'?'&#x1F534;':'&#x1F535;'}</td></tr>`
+    ? `<tr class="rank-gap"><td colspan="6">DIN PLACERING</td></tr><tr class="me"><td>${G.status.self_rank}</td><td>${esc(self.name)}</td><td>Lv${self.level}</td><td>${fmtCash(self.respect)}</td><td>${professionName(self.profession)||'—'}</td><td>${self.side==='westside'?'WEST':'EAST'}</td></tr>`
     : '';
   tbody.innerHTML=rowsHtml+selfHtml;
 }
@@ -2842,7 +2844,7 @@ async function loadNameSuggestions(){
   wrap.style.display='block';
   const r=await api('suggest-names?count=5&side='+encodeURIComponent(G.selectedSide));
   if(r.names&&r.names.length){
-    list.innerHTML=r.names.map(n=>`<button type="button" style="font-size:11px;padding:3px 8px;background:var(--bg2);border:1px solid var(--border);color:var(--txt);cursor:pointer;border-radius:3px;" onclick="document.getElementById('inp-name').value=${JSON.stringify(n)};document.getElementById('name-suggestions').style.display='none';">${esc(n)}</button>`).join('');
+    list.innerHTML=r.names.map(n=>`<button type="button" style="font-size:11px;padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--txt);cursor:pointer;border-radius:0;" onclick="document.getElementById('inp-name').value=${JSON.stringify(n)};document.getElementById('name-suggestions').style.display='none';">${esc(n)}</button>`).join('');
   }else{
     list.innerHTML='<span style="color:var(--dim);font-size:10px;">Inga förslag tillgängliga.</span>';
   }
