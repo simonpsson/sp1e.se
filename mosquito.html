@@ -576,6 +576,17 @@ select:focus{border-color:var(--red);}
       <button id="hosp-heal-btn" class="primary" data-hospital="heal">
         BETALA FÖR VÅRD &mdash; <span id="hosp-heal-cost">...</span> kr
       </button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <select id="hosp-boost-stat" style="min-width:150px;">
+          <option value="strength">Styrka</option>
+          <option value="intelligence">Intelligens</option>
+          <option value="charisma">Karisma</option>
+          <option value="stealth">Smidighet</option>
+        </select>
+        <button id="hosp-boost-btn" data-hospital="boost">
+          STAT-BOOST &mdash; 5 000 kr
+        </button>
+      </div>
       <button id="hosp-wait-btn" data-hospital="wait">
         UPPDATERA STATUS
       </button>
@@ -1037,7 +1048,7 @@ select:focus{border-color:var(--red);}
         <div class="sec-title">DEV CONSOLE <span class="dev-tag">ADMIN</span></div>
         <div class="sec-sub">Serverstyrda admin-kommandon f&ouml;r den aktuella karakt&auml;ren. Dev console kr&auml;ver en kort admin-uppl&aring;sning ovanp&aring; hubb-sessionen.</div>
         <div id="dev-lock" class="dev-lock">
-          <div class="dev-meta">Lås upp adminläget med samma lösenord som resten av sp1e. Sessionen lever i 2 timmar och kan låsas manuellt.</div>
+          <div class="dev-meta">Lås upp adminläget med ett separat adminlösenord. Sessionen lever i 2 timmar och kan låsas manuellt.</div>
           <div class="dev-row">
             <input id="dev-password" type="password" placeholder="Adminlösenord" autocomplete="current-password" spellcheck="false">
             <button id="dev-unlock-btn" class="primary">LÅS UPP</button>
@@ -1196,7 +1207,7 @@ const G={
   devHistory:['> help'],
   siteAuthenticated:false,
   hallOfFame:null,
-  admin:{authenticated:false,expiresAt:null}
+  admin:{authenticated:false,expiresAt:null,configured:true}
 };
 const AUTH_REDIRECT='/?next=%2Fmosquito';
 const WORLD_PULSE_CACHE_KEY='mosquito-world-pulse-v1';
@@ -1424,7 +1435,8 @@ async function syncAdminStatus(){
   const res=await api('admin-status');
   G.admin={
     authenticated: !!res.authenticated,
-    expiresAt: res.expires_at||null
+    expiresAt: res.expires_at||null,
+    configured: res.configured!==false
   };
   return G.admin.authenticated;
 }
@@ -1703,9 +1715,11 @@ function renderWorldStrip(id){
     el.innerHTML='<span>Världen laddar fortfarande. Håll låg profil tills siffrorna är på plats.</span>';
     return;
   }
-  const leader=(G.status.top10||[])[0];
+  const worldTop=(G.status.world_top10||[]);
+  const leader=worldTop[0]||(G.status.top10||[])[0];
   const rival=leader?`${leader.name} leder med ${fmtCash(leader.respect||0)} respect`:'Ingen ledare ännu';
-  const selfRank=G.status.self_rank?`#${G.status.self_rank}`:'Oplacerad';
+  const rankValue=G.status.world_self_rank??G.status.self_rank??null;
+  const selfRank=rankValue?`#${rankValue}`:'Oplacerad';
   const latestWorld=(G.world.events||[])[0];
   const bits=[
     `<span><strong>Runda ${esc(String(G.status.round.number||'—'))}</strong> pågår</span>`,
@@ -3232,7 +3246,12 @@ function renderDev(){
   if(shell) shell.style.display=G.admin.authenticated?'flex':'none';
   if(logoutBtn) logoutBtn.style.display=G.admin.authenticated?'inline-flex':'none';
   if(!p) return;
-  if(!G.admin.authenticated) return;
+  if(!G.admin.authenticated){
+    if(G.admin.configured===false){
+      setMsg('dev-auth-msg','Adminlösenordet är inte konfigurerat ännu. Lägg in GAME_ADMIN_PASSWORD_HASH först.','err');
+    }
+    return;
+  }
   const meta=document.getElementById('dev-meta');
   if(meta){
     const expires=G.admin.expiresAt?new Date(G.admin.expiresAt):null;
@@ -3260,7 +3279,7 @@ async function unlockAdmin(){
     return;
   }
   if(input) input.value='';
-  G.admin={authenticated:true,expiresAt:res.expires_at||null};
+  G.admin={authenticated:true,expiresAt:res.expires_at||null,configured:true};
   setMsg('dev-auth-msg','Adminläget är upplåst.','ok');
   setMsg('dev-msg','','');
   renderDev();
@@ -3275,7 +3294,7 @@ async function lockAdmin(){
     setMsg('dev-auth-msg',res.error,'err');
     return;
   }
-  G.admin={authenticated:false,expiresAt:null};
+  G.admin={authenticated:false,expiresAt:null,configured:G.admin.configured!==false};
   setMsg('dev-auth-msg','Adminläget låstes.','ok');
   renderDev();
 }
@@ -3295,7 +3314,7 @@ async function runDevCommand(raw){
   G.busy=false;
   if(r.error){
     if(r._status===403){
-      G.admin={authenticated:false,expiresAt:null};
+      G.admin={authenticated:false,expiresAt:null,configured:G.admin.configured!==false};
       setMsg('dev-auth-msg',r.error,'err');
     }
     G.devHistory.unshift(`> ${command}\nERROR: ${r.error}`);
@@ -3456,8 +3475,9 @@ function renderRanking(){
   if(meta){
     if(G.status&&G.status.round){
       const self=G.status.self||null;
-      const selfRank=G.status.self_rank?`#${G.status.self_rank}`:'Oplacerad';
-      const leader=(G.status.top10||[])[0];
+      const rankValue=G.status.world_self_rank??G.status.self_rank??null;
+      const selfRank=rankValue?`#${rankValue}`:'Oplacerad';
+      const leader=(G.status.world_top10||[])[0]||(G.status.top10||[])[0];
       meta.innerHTML=[
         `<span>30 dagar att bli kung. <strong>Din plats: ${esc(selfRank)}</strong></span>`,
         leader?`<span>Toppen hålls av <strong>${esc(leader.name)}</strong> på ${fmtCash(leader.respect||0)} respect</span>`:'<span>Ingen ledare ännu. Perfekt läge att ta första platsen.</span>',
@@ -3469,14 +3489,20 @@ function renderRanking(){
   }
   const tbody=document.getElementById('rank-tbody');
   if(!tbody) return;
+  const worldTop=(G.status&&G.status.world_top10)||null;
   const players=(G.status&&G.status.top10)||[];
-  const npcsRank=[...G.npcs].sort((a,b)=>(b.respect||0)-(a.respect||0)).slice(0,10).map(n=>({
-    name:n.name,level:n.level,respect:n.respect,profession:'NPC',side:n.side,isNpc:true
+  const fallbackRows=[
+    ...players.map(p=>({
+      name:p.name,level:p.level,respect:p.respect,profession:p.profession||'none',side:p.side,isNpc:false
+    })),
+    ...[...G.npcs].sort((a,b)=>(b.respect||0)-(a.respect||0)).slice(0,10).map(n=>({
+      name:n.name,level:n.level,respect:n.respect,profession:'NPC',side:n.side,isNpc:true
+    }))
+  ].sort((a,b)=>b.respect-a.respect).slice(0,20);
+  const all=((worldTop&&worldTop.length)?worldTop:fallbackRows).map(row=>({
+    ...row,
+    isNpc: !!(row.isNpc??row.is_npc)
   }));
-  const playerRows=players.map(p=>({
-    name:p.name,level:p.level,respect:p.respect,profession:p.profession||'none',side:p.side,isNpc:false
-  }));
-  const all=[...playerRows,...npcsRank].sort((a,b)=>b.respect-a.respect).slice(0,20);
   const myName=G.player?G.player.name:'';
   const self=G.status&&G.status.self;
   const hasSelf=!!myName&&all.some(row=>!row.isNpc&&row.name===myName);
@@ -3486,10 +3512,14 @@ function renderRanking(){
     const prof=professionName(row.profession)||'—';
     return `<tr${isMe?' class="me"':''}><td>${i+1}</td><td>${esc(row.name)}${row.isNpc?' <span style="color:var(--dim);font-size:10px;">[NPC]</span>':''}</td><td>Lv${row.level}</td><td>${fmtCash(row.respect)}</td><td>${prof}</td><td>${sideLabel}</td></tr>`;
   }).join('');
-  const selfHtml=(!hasSelf&&self&&G.status.self_rank)
+  const selfRankValue=G.status&&((G.status.world_self_rank??G.status.self_rank)??null);
+  const selfHtml=(!hasSelf&&self&&selfRankValue)
     ? `<tr class="rank-gap"><td colspan="6">DIN PLACERING</td></tr><tr class="me"><td>${G.status.self_rank}</td><td>${esc(self.name)}</td><td>Lv${self.level}</td><td>${fmtCash(self.respect)}</td><td>${professionName(self.profession)||'—'}</td><td>${self.side==='westside'?'WEST':'EAST'}</td></tr>`
     : '';
-  tbody.innerHTML=rowsHtml+selfHtml;
+  const resolvedSelfHtml=(selfHtml&&G.status&&G.status.self_rank&&selfRankValue)
+    ? selfHtml.replace(`>${G.status.self_rank}<`,`>${selfRankValue}<`)
+    : selfHtml;
+  tbody.innerHTML=rowsHtml+resolvedSelfHtml;
 }
 
 /* ─── Prison ─────────────────────────────────────────────────────────────── */
@@ -3555,7 +3585,12 @@ function renderHospitalScreen(){
 
 async function doHospital(action){
   if(G.busy) return;G.busy=true;
-  const r=await post('action/hospital',{action});
+  const body={action};
+  if(action==='boost'){
+    const statSel=document.getElementById('hosp-boost-stat');
+    body.stat=(statSel&&statSel.value)||'strength';
+  }
+  const r=await post('action/hospital',body);
   G.busy=false;
   if(r.error){setMsg('hosp-msg',r.error,'err');}
   else{
