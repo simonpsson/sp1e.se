@@ -137,3 +137,19 @@ ALTER TABLE game_blackjack_hands ADD COLUMN split_bet       INTEGER DEFAULT 0;
 ALTER TABLE game_blackjack_hands ADD COLUMN split_result    TEXT;
 ALTER TABLE game_blackjack_hands ADD COLUMN split_doubled   INTEGER DEFAULT 0;
 ALTER TABLE game_blackjack_hands ADD COLUMN insurance_bet   INTEGER DEFAULT 0;
+
+-- ─── Migration 10: Asset registry ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS game_assets (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  category   TEXT NOT NULL,
+  tags       TEXT,
+  file_path  TEXT NOT NULL UNIQUE,
+  web_path   TEXT NOT NULL,
+  format     TEXT NOT NULL,
+  width      INTEGER,
+  height     INTEGER,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_assets_category ON game_assets (category);
