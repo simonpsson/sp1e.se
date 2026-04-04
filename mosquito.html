@@ -266,6 +266,56 @@ select:focus{border-color:var(--red);}
 .holdem-actions button{min-width:92px;}
 .holdem-foot{font-size:11px;color:var(--dim);line-height:1.7;margin-top:4px;}
 .holdem-empty{font-size:12px;color:var(--dim);padding:10px 0;}
+.roulette-topline{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px;}
+.roulette-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.9fr);gap:16px;margin-top:14px;align-items:start;}
+.roulette-board-wrap{display:flex;flex-direction:column;gap:14px;}
+.roulette-grid{display:grid;grid-template-columns:72px repeat(12,minmax(0,1fr));gap:6px;}
+.roulette-zero{grid-row:span 3;min-height:162px;border-radius:10px;border:1px solid #315d4b;background:linear-gradient(180deg,#173026,#0f201a);color:#d8ffe8;font-size:18px;letter-spacing:2px;}
+.roulette-num{min-height:50px;border-radius:8px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+.roulette-num.red{background:#2a1418;color:#ffd8dc;border-color:#5d2630;}
+.roulette-num.black{background:#101216;color:#f4f4f4;border-color:#2e3540;}
+.roulette-num.green{background:#133125;color:#d6ffe4;border-color:#2f6a4b;}
+.roulette-num.active,.roulette-zero.active{box-shadow:0 0 0 1px rgba(242,74,74,.75) inset,0 0 0 1px rgba(242,74,74,.2),0 0 16px rgba(242,74,74,.16);}
+.roulette-outside{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}
+.roulette-outside button{min-height:44px;border-radius:8px;background:#14171d;}
+.roulette-outside button.red{background:#251317;border-color:#5d2630;color:#ffd8dc;}
+.roulette-outside button.black{background:#11151b;border-color:#384252;color:#f4f4f4;}
+.roulette-outside button.active{box-shadow:0 0 0 1px rgba(242,74,74,.75) inset,0 0 16px rgba(242,74,74,.14);color:var(--white);}
+.roulette-builder,.roulette-slip,.roulette-history{background:rgba(11,13,18,.88);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.roulette-builder{display:flex;flex-direction:column;gap:12px;}
+.roulette-builder-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.roulette-builder-grid label,.roulette-slip label{display:flex;flex-direction:column;gap:6px;font-size:10px;color:var(--dim);letter-spacing:1px;}
+.roulette-builder-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.roulette-builder-row input,.roulette-builder-row select{min-width:0;flex:1;}
+.roulette-slip-head,.roulette-history-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;}
+.roulette-slip-list,.roulette-history-list{display:flex;flex-direction:column;gap:8px;}
+.roulette-slip-item,.roulette-history-item{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:8px;background:#13161d;padding:10px;}
+.roulette-slip-item strong,.roulette-history-item strong{font-size:12px;color:var(--white);}
+.roulette-slip-meta,.roulette-history-meta{font-size:10px;color:var(--dim);letter-spacing:.7px;line-height:1.5;}
+.roulette-chipbar{display:flex;gap:8px;flex-wrap:wrap;}
+.roulette-chipbar .casino-chip.active{border-color:var(--red);background:#211215;}
+.roulette-spinbar{display:flex;gap:10px;flex-wrap:wrap;}
+.roulette-spinbar button{min-width:108px;}
+.roulette-banner{margin-top:14px;}
+.roulette-result{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.roulette-ball{width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:14px;border:1px solid var(--border);}
+.roulette-ball.red{background:#2a1418;color:#ffd8dc;border-color:#5d2630;}
+.roulette-ball.black{background:#11151b;color:#f4f4f4;border-color:#384252;}
+.roulette-ball.green{background:#133125;color:#d6ffe4;border-color:#2f6a4b;}
+.roulette-helper{font-size:10px;color:var(--dim);letter-spacing:.8px;line-height:1.6;}
+.roulette-remove{padding:6px 9px;font-size:10px;}
+.roulette-history-item.good{border-color:rgba(79,191,129,.25);}
+.roulette-history-item.bad{border-color:rgba(242,74,74,.22);}
+@media (max-width:980px){
+  .roulette-layout{grid-template-columns:1fr;}
+  .roulette-grid{grid-template-columns:56px repeat(12,minmax(0,1fr));}
+}
+@media (max-width:760px){
+  .roulette-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .roulette-zero{grid-row:auto;min-height:54px;}
+  .roulette-outside{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .roulette-builder-grid{grid-template-columns:1fr;}
+}
 .bj-hand{display:flex;flex-direction:column;gap:10px;}
 .bj-head{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;}
 .bj-name{font-size:11px;color:var(--dim);letter-spacing:1px;}
@@ -743,10 +793,11 @@ select:focus{border-color:var(--red);}
       <!-- Casino -->
       <div id="s-casino" class="g-sec">
         <div class="sec-title">CASINO</div>
-        <div class="sec-sub">Bakom sammetsdraperiet blinkar blackjackbordet och ett l&aring;gljutt Hold&rsquo;Em-bord. Snabbt, kallt och alltid lite farligt.</div>
+        <div class="sec-sub">Bakom sammetsdraperiet blinkar blackjackbordet, rouletten spinner och ett l&aring;gljutt Hold&rsquo;Em-bord v&auml;ntar. Snabbt, kallt och alltid lite farligt.</div>
         <div class="casino-shell">
           <div class="casino-modebar">
             <button type="button" class="casino-mode" data-casino-mode="blackjack">BLACKJACK</button>
+            <button type="button" class="casino-mode" data-casino-mode="roulette">ROULETTE</button>
             <button type="button" class="casino-mode" data-casino-mode="holdem">TEXAS HOLD&rsquo;EM</button>
           </div>
 
@@ -852,6 +903,103 @@ select:focus{border-color:var(--red);}
               </div>
               <div id="holdem-empty" class="holdem-empty">Ingen pokerhand pågår. Köp in dig och sätt tonen direkt.</div>
               <div class="holdem-foot">V1 kör riktig Texas Hold&rsquo;Em i fixed-limit-format: riktiga streets, blinds, showdown och delad pott när händerna knyter sig.</div>
+            </div>
+          </div>
+          <div id="casino-panel-roulette" class="casino-panel">
+            <div class="casino-top">
+              <div class="casino-stat"><span>KASSA</span><strong id="roulette-cash">0 kr</strong></div>
+              <div class="casino-stat"><span>INSATS / BRICKA</span><strong id="roulette-stake-display">100 kr</strong></div>
+              <div class="casino-stat"><span>MAX / SNURR</span><strong>10 000 kr</strong></div>
+            </div>
+            <div class="casino-table">
+              <div id="roulette-banner" class="bj-banner roulette-banner"><strong>Rouletten Ã¤r varm.</strong><span>Europeiskt hjul. Ett nummer, ett andetag, inga ursÃ¤kter.</span></div>
+              <div class="roulette-topline">
+                <div class="casino-stat"><span>SENASTE</span><strong id="roulette-last-number">â€”</strong></div>
+                <div class="casino-stat"><span>RESULTAT</span><strong id="roulette-last-net">0 kr</strong></div>
+                <div class="casino-stat"><span>PÃ… BRICKAN</span><strong id="roulette-total-stake">0 kr</strong></div>
+              </div>
+              <div class="roulette-layout">
+                <div class="roulette-board-wrap">
+                  <div class="roulette-builder">
+                    <div class="casino-bet-row">
+                      <label for="roulette-stake-input">BRICKA</label>
+                      <input id="roulette-stake-input" type="number" min="50" max="5000" step="50" value="100">
+                    </div>
+                    <div id="roulette-chipbar" class="roulette-chipbar">
+                      <button type="button" class="casino-chip" data-roulette-stake="50">50 kr</button>
+                      <button type="button" class="casino-chip" data-roulette-stake="100">100 kr</button>
+                      <button type="button" class="casino-chip" data-roulette-stake="250">250 kr</button>
+                      <button type="button" class="casino-chip" data-roulette-stake="500">500 kr</button>
+                      <button type="button" class="casino-chip" data-roulette-stake="1000">1 000 kr</button>
+                      <button type="button" class="casino-chip" data-roulette-stake="2500">2 500 kr</button>
+                    </div>
+                    <div class="roulette-helper">Klicka pÃ¥ ett nummer fÃ¶r rak satsning. UtefÃ¤ltsknapparna lÃ¤gger samma bricka direkt. Inside-bets byggs i panelen till hÃ¶ger.</div>
+                  </div>
+
+                  <div id="roulette-grid" class="roulette-grid"></div>
+
+                  <div class="roulette-outside">
+                    <button type="button" class="red" data-roulette-outside="red">RÃ–D</button>
+                    <button type="button" class="black" data-roulette-outside="black">SVART</button>
+                    <button type="button" data-roulette-outside="even">JÃ„MNT</button>
+                    <button type="button" data-roulette-outside="odd">UDDA</button>
+                    <button type="button" data-roulette-outside="low">1-18</button>
+                    <button type="button" data-roulette-outside="high">19-36</button>
+                    <button type="button" data-roulette-outside="dozen" data-roulette-target="1">1:A 12</button>
+                    <button type="button" data-roulette-outside="dozen" data-roulette-target="2">2:A 12</button>
+                    <button type="button" data-roulette-outside="dozen" data-roulette-target="3">3:E 12</button>
+                    <button type="button" data-roulette-outside="column" data-roulette-target="1">KOLUMN 1</button>
+                    <button type="button" data-roulette-outside="column" data-roulette-target="2">KOLUMN 2</button>
+                    <button type="button" data-roulette-outside="column" data-roulette-target="3">KOLUMN 3</button>
+                  </div>
+                </div>
+
+                <div class="roulette-side">
+                  <div class="roulette-builder">
+                    <div class="roulette-slip-head">
+                      <strong>INSIDE-BYGGARE</strong>
+                      <span class="roulette-helper">Split, street, corner, six line</span>
+                    </div>
+                    <div class="roulette-builder-grid">
+                      <label for="roulette-advanced-kind">BETTYP
+                        <select id="roulette-advanced-kind">
+                          <option value="split">Split</option>
+                          <option value="street">Street</option>
+                          <option value="corner">Corner</option>
+                          <option value="sixline">Six line</option>
+                        </select>
+                      </label>
+                      <label for="roulette-advanced-target">MÃ…L
+                        <input id="roulette-advanced-target" type="text" value="1,2" placeholder="1,2">
+                      </label>
+                    </div>
+                    <div class="roulette-builder-row">
+                      <button type="button" data-roulette="add-advanced">LÃ„GG TILL</button>
+                      <span class="roulette-helper">Exempel: split 1,2 · street 1,2,3 · corner 1,2,4,5 · six line 1,2,3,4,5,6</span>
+                    </div>
+                  </div>
+
+                  <div class="roulette-slip">
+                    <div class="roulette-slip-head">
+                      <strong>DIN BRICKA</strong>
+                      <button type="button" data-roulette="clear" class="roulette-remove">RENSA</button>
+                    </div>
+                    <div id="roulette-slip-list" class="roulette-slip-list"></div>
+                  </div>
+
+                  <div class="roulette-spinbar">
+                    <button type="button" class="primary" data-roulette="spin">SNURRA</button>
+                  </div>
+
+                  <div class="roulette-history">
+                    <div class="roulette-history-head">
+                      <strong>SENASTE SNURREN</strong>
+                      <span class="roulette-helper">12 senaste</span>
+                    </div>
+                    <div id="roulette-history-list" class="roulette-history-list"></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1004,14 +1152,15 @@ function defaultCasinoState(){
   return {
     mode:'blackjack',
     blackjack:{loaded:false,loading:false,state:null},
-    holdem:{loaded:false,loading:false,state:null}
+    holdem:{loaded:false,loading:false,state:null},
+    roulette:{loaded:false,loading:false,state:null}
   };
 }
 
 const G={
   player:null,extra:{},status:null,prices:{},npcs:[],
   section:'gatan',busy:false,selectedSide:'eastside',
-  drugSel:'marijuana',drugQty:1,casinoBet:500,holdemBuyIn:2000,
+  drugSel:'marijuana',drugQty:1,casinoBet:500,holdemBuyIn:2000,rouletteStake:100,rouletteBets:[],
   errors:{player:null,status:null,prices:null,npcs:null,casino:null},
   _fetchedAt:0,_nrgTick:null,_prisonTick:null,_hospitalTick:null,_pollTimer:null,_pricePoll:null,
   _propTicks:{},log:[],
@@ -1345,6 +1494,8 @@ async function startNextRound(){
   G.extra={};
   G.casino=defaultCasinoState();
   G.holdemBuyIn=2000;
+  G.rouletteStake=100;
+  G.rouletteBets=[];
   G.hallOfFame=null;
   G.selectedSide='eastside';
   const nameInput=document.getElementById('inp-name');
@@ -1470,7 +1621,7 @@ document.addEventListener('click',e=>{
 });
 
 document.addEventListener('click',e=>{
-  const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-casino],[data-casino-bet],[data-casino-mode],[data-holdem],[data-holdem-buyin],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-buy-vehicle]');
+  const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-casino],[data-casino-bet],[data-casino-mode],[data-holdem],[data-holdem-buyin],[data-roulette],[data-roulette-stake],[data-roulette-outside],[data-roulette-number],[data-roulette-remove],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-buy-vehicle]');
   if(!target) return;
   if(target.dataset.prison) return void doPrison(target.dataset.prison);
   if(target.dataset.hospital) return void doHospital(target.dataset.hospital);
@@ -1478,6 +1629,20 @@ document.addEventListener('click',e=>{
   if(target.dataset.casinoMode) return void setCasinoMode(target.dataset.casinoMode);
   if(target.dataset.casinoBet) return void setCasinoBet(Number(target.dataset.casinoBet));
   if(target.dataset.holdemBuyin) return void setHoldemBuyIn(Number(target.dataset.holdemBuyin));
+  if(target.dataset.rouletteStake) return void setRouletteStake(Number(target.dataset.rouletteStake));
+  if(target.dataset.rouletteNumber!==undefined) return void addRouletteBet('straight',Number(target.dataset.rouletteNumber));
+  if(target.dataset.rouletteOutside){
+    const kind=target.dataset.rouletteOutside;
+    const rawTarget=target.dataset.rouletteTarget;
+    const resolved=(kind==='dozen'||kind==='column')?Number(rawTarget||0):(rawTarget||kind);
+    return void addRouletteBet(kind,resolved);
+  }
+  if(target.dataset.rouletteRemove) return void removeRouletteBet(Number(target.dataset.rouletteRemove));
+  if(target.dataset.roulette){
+    if(target.dataset.roulette==='add-advanced') return void addAdvancedRouletteBet();
+    if(target.dataset.roulette==='clear') return void clearRouletteBets();
+    if(target.dataset.roulette==='spin') return void doRouletteSpin();
+  }
   if(target.dataset.casino){
     if(target.dataset.casino==='start' || target.dataset.casino==='reset') return void doBlackjackStart();
     if(target.dataset.casino==='hit') return void doBlackjackAction('hit');
@@ -2237,13 +2402,255 @@ async function doBlackjackAction(action){
 }
 
 function casinoStore(mode){
-  const key=mode==='holdem'?'holdem':'blackjack';
+  const key=mode==='holdem'||mode==='roulette'?mode:'blackjack';
   return G.casino[key];
 }
 
 function setCasinoMode(mode){
-  G.casino.mode=mode==='holdem'?'holdem':'blackjack';
+  G.casino.mode=mode==='holdem'||mode==='roulette'?mode:'blackjack';
+  G.errors.casino='';
   renderCasino();
+}
+
+const FRONTEND_ROULETTE_RED=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+
+function rouletteFrontColor(number){
+  const n=Math.floor(Number(number)||0);
+  if(n===0) return 'green';
+  return FRONTEND_ROULETTE_RED.has(n)?'red':'black';
+}
+
+function rouletteTargetKey(target){
+  if(Array.isArray(target)) return target.join(',');
+  return String(target??'');
+}
+
+function rouletteBetKey(kind,target){
+  return `${kind}:${rouletteTargetKey(target)}`;
+}
+
+function rouletteBetLabel(kind,target){
+  if(kind==='straight') return `Nummer ${target}`;
+  if(kind==='split') return `Split ${rouletteTargetKey(target)}`;
+  if(kind==='street') return `Street ${rouletteTargetKey(target)}`;
+  if(kind==='corner') return `Corner ${rouletteTargetKey(target)}`;
+  if(kind==='sixline') return `Six line ${rouletteTargetKey(target)}`;
+  if(kind==='red') return 'R\u00f6d';
+  if(kind==='black') return 'Svart';
+  if(kind==='even') return 'J\u00e4mnt';
+  if(kind==='odd') return 'Udda';
+  if(kind==='low') return '1-18';
+  if(kind==='high') return '19-36';
+  if(kind==='dozen') return `${target}:a 12`;
+  if(kind==='column') return `Kolumn ${target}`;
+  return String(kind||'Insats');
+}
+
+function rouletteBallHtml(number,color){
+  const tone=color==='green'?'gr\u00f6n':color==='red'?'r\u00f6d':'svart';
+  return `<span class="roulette-result"><span class="roulette-ball ${esc(color||'black')}">${esc(String(number))}</span><span>${esc(tone)}</span></span>`;
+}
+
+function rouletteSpinTime(ts){
+  try{
+    return new Date(ts).toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'});
+  }catch{
+    return '--:--';
+  }
+}
+
+function normalizeRouletteCopy(){
+  const panel=document.getElementById('casino-panel-roulette');
+  if(!panel||panel.dataset.copyReady==='1') return;
+  panel.dataset.copyReady='1';
+  const banner=document.getElementById('roulette-banner');
+  if(banner){
+    banner.innerHTML='<strong>Rouletten &auml;r varm.</strong><span>Europeiskt hjul. Ett nummer, ett andetag, inga urs&auml;kter.</span>';
+  }
+  const topStat=panel.querySelector('.roulette-topline .casino-stat:nth-child(3) span');
+  if(topStat) topStat.innerHTML='P&Aring; BRICKAN';
+  const helperBlocks=panel.querySelectorAll('.roulette-helper');
+  if(helperBlocks[0]) helperBlocks[0].innerHTML='Klicka p&aring; ett nummer f&ouml;r rak satsning. Utef&auml;ltsknapparna l&auml;gger samma bricka direkt. Inside-bets byggs i panelen till h&ouml;ger.';
+  if(helperBlocks[2]) helperBlocks[2].innerHTML='Exempel: split 1,2 &middot; street 1,2,3 &middot; corner 1,2,4,5 &middot; six line 1,2,3,4,5,6';
+  const redBtn=panel.querySelector('[data-roulette-outside="red"]');
+  const evenBtn=panel.querySelector('[data-roulette-outside="even"]');
+  const targetLabel=panel.querySelector('label[for="roulette-advanced-target"]');
+  const addBtn=panel.querySelector('[data-roulette="add-advanced"]');
+  if(redBtn) redBtn.textContent='R\u00d6D';
+  if(evenBtn) evenBtn.textContent='J\u00c4MNT';
+  if(targetLabel&&targetLabel.childNodes[0]) targetLabel.childNodes[0].textContent='M\u00c5L';
+  if(addBtn) addBtn.textContent='L\u00c4GG TILL';
+}
+
+function setRouletteStake(value){
+  const raw=Math.floor(Number(value)||0);
+  const next=Math.max(50,Math.min(5000,raw||100));
+  G.rouletteStake=next;
+  const input=document.getElementById('roulette-stake-input');
+  if(input&&input.value!==String(next)) input.value=String(next);
+  set('roulette-stake-display',fmtCash(next)+' kr');
+  document.querySelectorAll('[data-roulette-stake]').forEach(btn=>{
+    btn.classList.toggle('active',Number(btn.dataset.rouletteStake)===next);
+  });
+}
+
+function addRouletteBet(kind,target){
+  const stake=Math.max(50,Math.min(5000,Math.floor(Number(G.rouletteStake)||0)));
+  G.rouletteBets.push({kind,target,stake,label:rouletteBetLabel(kind,target)});
+  G.errors.casino='';
+  renderCasino();
+}
+
+function addAdvancedRouletteBet(){
+  const kindInput=document.getElementById('roulette-advanced-kind');
+  const targetInput=document.getElementById('roulette-advanced-target');
+  const kind=kindInput&&kindInput.value||'split';
+  const target=targetInput&&targetInput.value.trim();
+  if(!target){
+    setMsg('casino-msg','Ange ett m\u00e5l f\u00f6r inside-bettet.','err');
+    return;
+  }
+  addRouletteBet(kind,target);
+}
+
+function removeRouletteBet(index){
+  if(index<0||index>=G.rouletteBets.length) return;
+  G.rouletteBets.splice(index,1);
+  renderCasino();
+}
+
+function clearRouletteBets(){
+  G.rouletteBets=[];
+  renderCasino();
+}
+
+function renderRouletteGrid(state){
+  const el=document.getElementById('roulette-grid');
+  if(!el) return;
+  const wheelMap=new Map(Array.isArray(state&&state.wheel)?state.wheel.map(entry=>[Number(entry.number),String(entry.color||rouletteFrontColor(entry.number))]):[]);
+  const colorFor=number=>wheelMap.get(number)||rouletteFrontColor(number);
+  const straightKeys=new Set(G.rouletteBets.filter(bet=>bet.kind==='straight').map(bet=>rouletteBetKey(bet.kind,bet.target)));
+  const makeCell=(number,zero=false)=>{
+    const color=colorFor(number);
+    const cls=zero?'roulette-zero':'roulette-num';
+    const active=straightKeys.has(rouletteBetKey('straight',number))?' active':'';
+    return `<button type="button" class="${cls} ${color}${active}" data-roulette-number="${number}">${number}</button>`;
+  };
+  const top=Array.from({length:12},(_,idx)=>(idx+1)*3);
+  const mid=Array.from({length:12},(_,idx)=>idx*3+2);
+  const low=Array.from({length:12},(_,idx)=>idx*3+1);
+  el.innerHTML=[makeCell(0,true),...top.map(n=>makeCell(n)),...mid.map(n=>makeCell(n)),...low.map(n=>makeCell(n))].join('');
+}
+
+function renderRouletteSlip(maxTotal){
+  const el=document.getElementById('roulette-slip-list');
+  if(!el) return 0;
+  const total=G.rouletteBets.reduce((sum,bet)=>sum+Math.max(0,Math.floor(Number(bet.stake)||0)),0);
+  set('roulette-total-stake',fmtCash(total)+' kr');
+  if(!G.rouletteBets.length){
+    el.innerHTML='<div class="bj-empty">Ingen bricka ligger ute &auml;n. Bygg en enkel rak insats eller kombinera flera bet.</div>';
+    return total;
+  }
+  el.innerHTML=G.rouletteBets.map((bet,index)=>`<div class="roulette-slip-item">
+      <div>
+        <strong>${esc(bet.label||rouletteBetLabel(bet.kind,bet.target))}</strong>
+        <div class="roulette-slip-meta">Typ: ${esc(String(bet.kind))} &middot; Insats ${fmtCash(bet.stake)} kr</div>
+      </div>
+      <button type="button" class="roulette-remove" data-roulette-remove="${index}">TA BORT</button>
+    </div>`).join('');
+  if(total>maxTotal){
+    el.insertAdjacentHTML('beforeend',`<div class="roulette-slip-item"><div><strong>F\u00f6r tung bricka</strong><div class="roulette-slip-meta">Max total insats per snurr \u00e4r ${fmtCash(maxTotal)} kr. Ta bort n\u00e5gra marker innan du sl\u00e4pper kulan.</div></div></div>`);
+  }
+  return total;
+}
+
+function renderRouletteHistory(history){
+  const el=document.getElementById('roulette-history-list');
+  if(!el) return;
+  if(!history||!history.length){
+    el.innerHTML='<div class="bj-empty">Inga snurr i loggen &auml;n. Huset v&auml;ntar p&aring; f&ouml;rsta kulan.</div>';
+    return;
+  }
+  el.innerHTML=history.map(spin=>{
+    const cls=spin.net_result>0?'good':spin.net_result<0?'bad':'';
+    const summary=(spin.bets||[]).slice(0,3).map(bet=>esc(bet.label||rouletteBetLabel(bet.kind,bet.target))).join(' &middot; ');
+    const suffix=(spin.bets||[]).length>3?` &middot; +${spin.bets.length-3} till`:'';
+    return `<div class="roulette-history-item ${cls}">
+      <div>
+        <strong>${rouletteBallHtml(spin.winning_number,spin.color)}</strong>
+        <div class="roulette-history-meta">${esc(spin.message||'')}<br>${summary||'Tom bricka'}${suffix}</div>
+      </div>
+      <div class="roulette-history-meta">${rouletteSpinTime(spin.created_at)}<br>${spin.net_result>0?'+':''}${fmtCash(spin.net_result)} kr</div>
+    </div>`;
+  }).join('');
+}
+
+function renderCasinoRoulette(){
+  normalizeRouletteCopy();
+  const store=casinoStore('roulette');
+  const p=G.player;
+  if(!p) return;
+  const stakeInput=document.getElementById('roulette-stake-input');
+  if(stakeInput&&!stakeInput.dataset.bound){
+    stakeInput.addEventListener('input',()=>setRouletteStake(stakeInput.value));
+    stakeInput.dataset.bound='1';
+  }
+  setRouletteStake(G.rouletteStake);
+  set('roulette-cash',fmtCash(p.cash||0)+' kr');
+
+  if(!store.loaded&&!store.loading){
+    const banner=document.getElementById('roulette-banner');
+    if(banner){
+      banner.className='bj-banner roulette-banner';
+      banner.innerHTML='<strong>Rouletten v\u00e4rms upp.</strong><span>Huset laddar hjulet och sopar undan dammet fr\u00e5n filten.</span>';
+    }
+    set('roulette-last-number','&mdash;');
+    set('roulette-last-net','0 kr');
+    renderRouletteGrid(null);
+    renderRouletteSlip(10000);
+    renderRouletteHistory([]);
+    loadCasinoState();
+    return;
+  }
+
+  const state=store.state||{};
+  const maxTotal=Math.floor(Number(state.max_total_stake??10000));
+  const totalStake=renderRouletteSlip(maxTotal);
+  renderRouletteGrid(state);
+  renderRouletteHistory(state.recent||[]);
+
+  const lastSpin=state.last_spin||null;
+  const banner=document.getElementById('roulette-banner');
+  if(lastSpin){
+    set('roulette-last-number',rouletteBallHtml(lastSpin.winning_number,lastSpin.color));
+    set('roulette-last-net',`${lastSpin.net_result>0?'+':''}${fmtCash(lastSpin.net_result)} kr`);
+    if(banner){
+      banner.className='bj-banner roulette-banner'+(lastSpin.net_result>0?' win':lastSpin.net_result<0?' lose':' push');
+      banner.innerHTML=`<strong>${esc(state.message||lastSpin.message||'Kulan har stannat.')}</strong><span>Total insats: ${fmtCash(lastSpin.total_stake||0)} kr &middot; Utbetalning: ${fmtCash(lastSpin.total_payout||0)} kr</span>`;
+    }
+  }else{
+    set('roulette-last-number','&mdash;');
+    set('roulette-last-net','0 kr');
+    if(banner){
+      banner.className='bj-banner roulette-banner';
+      banner.innerHTML='<strong>Rouletten &auml;r varm.</strong><span>Bygg brickan, v&auml;lj tempo och l&aring;t kulan avg&ouml;ra om natten blir dyr.</span>';
+    }
+  }
+
+  document.querySelectorAll('#casino-panel-roulette [data-roulette-outside]').forEach(btn=>{
+    const kind=btn.dataset.rouletteOutside;
+    const target=(kind==='dozen'||kind==='column')?Number(btn.dataset.rouletteTarget||0):(btn.dataset.rouletteTarget||kind);
+    btn.classList.toggle('active',G.rouletteBets.some(bet=>rouletteBetKey(bet.kind,bet.target)===rouletteBetKey(kind,target)));
+    btn.disabled=G.busy;
+  });
+  document.querySelectorAll('#casino-panel-roulette [data-roulette-stake]').forEach(btn=>btn.disabled=G.busy);
+  document.querySelectorAll('#casino-panel-roulette [data-roulette-number]').forEach(btn=>btn.disabled=G.busy);
+  const clearBtn=document.querySelector('#casino-panel-roulette [data-roulette="clear"]');
+  const addBtn=document.querySelector('#casino-panel-roulette [data-roulette="add-advanced"]');
+  const spinBtn=document.querySelector('#casino-panel-roulette [data-roulette="spin"]');
+  if(clearBtn) clearBtn.disabled=G.busy||!G.rouletteBets.length;
+  if(addBtn) addBtn.disabled=G.busy;
+  if(spinBtn) spinBtn.disabled=G.busy||!G.rouletteBets.length||totalStake>maxTotal;
 }
 
 function setHoldemBuyIn(value){
@@ -2257,18 +2664,33 @@ function setHoldemBuyIn(value){
 }
 
 async function loadCasinoState(force=false){
-  const mode=G.casino.mode==='holdem'?'holdem':'blackjack';
+  const mode=G.casino.mode==='holdem'||G.casino.mode==='roulette'?G.casino.mode:'blackjack';
   const store=casinoStore(mode);
   if(store.loading||(!force&&store.loaded)) return;
   store.loading=true;
-  const res=await api(mode==='holdem'?'casino/holdem/state':'casino/blackjack/state');
+  const path=mode==='holdem'
+    ? 'casino/holdem/state'
+    : mode==='roulette'
+      ? 'casino/roulette/state'
+      : 'casino/blackjack/state';
+  const res=await api(path);
   store.loading=false;
   store.loaded=true;
-  G.errors.casino=apiError(res,mode==='holdem'?'Kunde inte ladda pokerbordet.':'Kunde inte ladda blackjackbordet.');
+  G.errors.casino=apiError(
+    res,
+    mode==='holdem'
+      ? 'Kunde inte ladda pokerbordet.'
+      : mode==='roulette'
+        ? 'Kunde inte ladda roulettebordet.'
+        : 'Kunde inte ladda blackjackbordet.'
+  );
   if(!res.error){
     store.state=res;
     if(mode==='blackjack'&&res.hand&&res.hand.bet) G.casinoBet=res.hand.bet;
     if(mode==='holdem'&&res.table&&res.table.buy_in) G.holdemBuyIn=res.table.buy_in;
+    if(mode==='roulette'&&Number.isFinite(Number(res.min_stake))&&!G.rouletteBets.length){
+      setRouletteStake(Math.max(50,Math.floor(Number(res.min_stake)||100)));
+    }
   }else if(force){
     store.state=null;
   }
@@ -2521,15 +2943,18 @@ function renderCasinoHoldem(){
 }
 
 function renderCasino(){
-  const mode=G.casino.mode==='holdem'?'holdem':'blackjack';
+  const mode=G.casino.mode==='holdem'||G.casino.mode==='roulette'?G.casino.mode:'blackjack';
   document.querySelectorAll('[data-casino-mode]').forEach(btn=>{
     btn.classList.toggle('active',btn.dataset.casinoMode===mode);
   });
   const bjPanel=document.getElementById('casino-panel-blackjack');
+  const roulettePanel=document.getElementById('casino-panel-roulette');
   const holdemPanel=document.getElementById('casino-panel-holdem');
   if(bjPanel) bjPanel.classList.toggle('active',mode==='blackjack');
+  if(roulettePanel) roulettePanel.classList.toggle('active',mode==='roulette');
   if(holdemPanel) holdemPanel.classList.toggle('active',mode==='holdem');
   if(mode==='holdem') renderCasinoHoldem();
+  else if(mode==='roulette') renderCasinoRoulette();
   else renderCasinoBlackjack();
   setMsg('casino-msg',G.errors.casino||'',G.errors.casino?'err':'');
 }
@@ -2538,9 +2963,9 @@ async function syncCasinoAfterAction(res,mode=G.casino.mode){
   const store=casinoStore(mode);
   if(mode==='blackjack'&&res.hand&&res.hand.bet) G.casinoBet=res.hand.bet;
   if(mode==='holdem'&&res.table&&res.table.buy_in) G.holdemBuyIn=res.table.buy_in;
-  if((mode==='blackjack'&&(res.hand||res.idle!==undefined))||(mode==='holdem'&&(res.table||res.idle!==undefined||res.message))){
+  if((mode==='blackjack'&&(res.hand||res.idle!==undefined))||(mode==='holdem'&&(res.table||res.idle!==undefined||res.message))||(mode==='roulette'&&(res.wheel||res.recent||res.last_spin||res.player_cash!==undefined))){
     store.loaded=true;
-    if(res.table||res.hand||res.idle!==undefined) store.state=res;
+    if(mode==='roulette'||res.table||res.hand||res.idle!==undefined) store.state=res;
   }
   G.errors.casino=res.error||'';
   if(res.error){
@@ -2548,6 +2973,7 @@ async function syncCasinoAfterAction(res,mode=G.casino.mode){
     renderCasino();
     return false;
   }
+  if(mode==='roulette') G.rouletteBets=[];
   const pr=await api('player');
   G.errors.player=apiError(pr,'Kunde inte uppdatera karaktären.');
   if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
@@ -2559,6 +2985,10 @@ async function syncCasinoAfterAction(res,mode=G.casino.mode){
   if(mode==='holdem'&&res.table&&['hand_over','table_over'].includes(res.table.street||'')&&res.table.message){
     const bad=['lose','busted'].includes(res.table.result||'');
     addLog(res.table.message,bad?'err':'ok');
+  }
+  if(mode==='roulette'&&res.message){
+    const bad=Number((res.last_spin&&res.last_spin.net_result)||0)<0;
+    addLog(res.message,bad?'err':'ok');
   }
   setMsg('casino-msg',res.message||(res.table&&res.table.message)||(res.hand&&res.hand.message)||'Bordet uppdaterat.','ok');
   return true;
@@ -2632,6 +3062,28 @@ async function doHoldemLeave(){
   const res=await post('action/holdem/leave',{});
   G.busy=false;
   await syncCasinoAfterAction(res,'holdem');
+}
+
+async function doRouletteSpin(){
+  if(G.busy) return;
+  if(!G.rouletteBets.length){
+    setMsg('casino-msg','Lägg minst en insats innan du släpper kulan.','err');
+    return;
+  }
+  const store=casinoStore('roulette');
+  const state=store.state||{};
+  const maxTotal=Math.floor(Number(state.max_total_stake??10000));
+  const totalStake=G.rouletteBets.reduce((sum,bet)=>sum+Math.max(0,Math.floor(Number(bet.stake)||0)),0);
+  if(totalStake>maxTotal){
+    setMsg('casino-msg',`Max total insats är ${fmtCash(maxTotal)} kr per snurr.`,'err');
+    return;
+  }
+  G.busy=true;
+  setMsg('casino-msg','Kulan släpps och huset håller andan...','info');
+  const bets=G.rouletteBets.map(bet=>({kind:bet.kind,target:bet.target,stake:bet.stake}));
+  const res=await post('action/roulette/spin',{bets});
+  G.busy=false;
+  await syncCasinoAfterAction(res,'roulette');
 }
 
 function bindDevConsole(){
@@ -3070,6 +3522,8 @@ async function doCreate(){
     G.player=r.player;G.extra={player:r.player};G._fetchedAt=Date.now();
     G.casino=defaultCasinoState();
     G.holdemBuyIn=2000;
+    G.rouletteStake=100;
+    G.rouletteBets=[];
     await loadAll();
     applyCondition();
     startTimers();

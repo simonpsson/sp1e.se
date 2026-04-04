@@ -179,6 +179,9 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'casino' && sub === 'holdem' && action === 'state' && method === 'GET') {
         return gameGetHoldemState(request, env);
       }
+      if (id === 'casino' && sub === 'roulette' && action === 'state' && method === 'GET') {
+        return gameGetRouletteState(request, env);
+      }
       if (id === 'admin-auth'       && method === 'POST') return gameAdminAuth(request, env);
       if (id === 'admin-status'     && method === 'GET')  return gameAdminStatus(request, env);
       if (id === 'admin-logout'     && method === 'POST') return gameAdminLogout(request, env);
@@ -195,6 +198,9 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
           if (action === 'act'   && method === 'POST') return gameActionHoldemAct(request, env);
           if (action === 'next'  && method === 'POST') return gameActionHoldemNextHand(request, env);
           if (action === 'leave' && method === 'POST') return gameActionHoldemLeave(request, env);
+        }
+        if (sub === 'roulette') {
+          if (action === 'spin' && method === 'POST') return gameActionRouletteSpin(request, env);
         }
         if (sub === 'robbery'          && method === 'POST') return gameActionRobbery(request, env);
         if (sub === 'train'            && method === 'POST') return gameActionTrain(request, env);
@@ -2763,6 +2769,95 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
   }
 }
 
+async function gameGetRouletteState(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    const recent = await getRouletteHistory(env, player);
+    return gameJson(buildRouletteState(player, recent));
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
+async function gameActionRouletteSpin(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  try {
+    if (player.in_prison) return gameJson({ error: 'Roulettebordet står inte i fängelset.' }, 400);
+    if (player.in_hospital) return gameJson({ error: 'Du är på sjukhus. Ingen släpper dig till rouletten nu.' }, 400);
+    if (!player.is_alive) return gameJson({ error: 'Du är eliminerad.' }, 400);
+
+    const body = await request.json<{ bets?: unknown[] }>().catch(() => ({} as { bets?: unknown[] }));
+    if (!Array.isArray(body.bets) || !body.bets.length) {
+      return gameJson({ error: 'Lägg minst en rouletteinsats först.' }, 400);
+    }
+
+    const bets = body.bets.map(rouletteResolveBet);
+    const totalStake = bets.reduce((sum, bet) => sum + bet.stake, 0);
+    if (totalStake > ROULETTE_MAX_TOTAL_STAKE) {
+      return gameJson({ error: `Max total insats är ${fmtCurrency(ROULETTE_MAX_TOTAL_STAKE)} kr per snurr.` }, 400);
+    }
+    const cash = Number(player.cash ?? 0);
+    if (cash < totalStake) {
+      return gameJson({ error: `Du har bara ${fmtCurrency(cash)} kr. Sänk insatsen först.` }, 400);
+    }
+
+    const winningNumber = rouletteSpinNumber();
+    const color = rouletteColor(winningNumber);
+    const totalPayout = bets.reduce((sum, bet) => {
+      if (!bet.numbers.includes(winningNumber)) return sum;
+      return sum + bet.stake * (bet.payout + 1);
+    }, 0);
+    const netResult = totalPayout - totalStake;
+
+    const spin: RouletteSpinRecord = {
+      id: crypto.randomUUID(),
+      winning_number: winningNumber,
+      color,
+      total_stake: totalStake,
+      total_payout: totalPayout,
+      net_result: netResult,
+      bets,
+      created_at: new Date().toISOString(),
+      message: '',
+    };
+    spin.message = rouletteSpinMessage(spin);
+
+    if (netResult !== 0) {
+      await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(netResult, player.id as string).run();
+    } else {
+      await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
+        .bind(player.id as string).run();
+    }
+
+    await saveRouletteSpin(env, player, spin);
+    const summary = bets.slice(0, 3).map(bet => `${bet.label} (${fmtCurrency(bet.stake)} kr)`).join(', ');
+    const suffix = bets.length > 3 ? ` + ${bets.length - 3} till` : '';
+    await logAction(
+      env,
+      player.id as string,
+      'casino',
+      `${spin.message} Bord: ${summary}${suffix}.`,
+      netResult,
+      0,
+      0,
+      netResult >= 0
+    );
+
+    const freshPlayer = await loadGamePlayerById(env, player.id as string);
+    const recent = [spin, ...(await getRouletteHistory(env, freshPlayer)).filter(entry => entry.id !== spin.id)].slice(0, 12);
+    return gameJson({ message: spin.message, ...buildRouletteState(freshPlayer, recent, spin) });
+  } catch (e) {
+    return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
+  }
+}
+
 async function gameActionRobbery(request: Request, env: Env): Promise<Response> {
   let player: Row;
   try { player = await requireGamePlayer(request, env); }
@@ -3518,6 +3613,11 @@ const BLACKJACK_MIN_BET = 100;
 const BLACKJACK_MAX_BET = 5000;
 const BLACKJACK_SUITS = ['S', 'H', 'D', 'C'] as const;
 const BLACKJACK_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as const;
+const ROULETTE_MIN_STAKE = 50;
+const ROULETTE_MAX_STAKE = 5000;
+const ROULETTE_MAX_TOTAL_STAKE = 10000;
+const ROULETTE_RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+const ROULETTE_ALLOWED_OUTSIDE = ['red', 'black', 'even', 'odd', 'low', 'high', 'dozen', 'column'] as const;
 const HOLDEM_SMALL_BLIND = 50;
 const HOLDEM_BIG_BLIND = 100;
 const HOLDEM_MIN_BUYIN = 2000;
@@ -3528,6 +3628,8 @@ const HOLDEM_ARCHETYPES = ['tight', 'loose', 'aggressive', 'passive', 'gambler',
 
 type BlackjackPhase = 'player_turn' | 'finished';
 type BlackjackOutcome = 'blackjack' | 'win' | 'lose' | 'push' | 'bust' | 'dealer_blackjack' | null;
+type RouletteBetKind = 'straight' | 'split' | 'street' | 'corner' | 'sixline' | 'red' | 'black' | 'even' | 'odd' | 'low' | 'high' | 'dozen' | 'column';
+type RouletteColor = 'red' | 'black' | 'green';
 type HoldemStreet = 'preflop' | 'flop' | 'turn' | 'river' | 'hand_over' | 'table_over';
 type HoldemActionKind = 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'all-in';
 type HoldemSeatKind = 'player' | 'npc';
@@ -3546,6 +3648,27 @@ interface BlackjackRuntimeHand {
   result: BlackjackOutcome;
   message: string | null;
   doubled: boolean;
+}
+
+interface RouletteBetSelection {
+  kind: RouletteBetKind;
+  stake: number;
+  label: string;
+  numbers: number[];
+  payout: number;
+  target: string | number | number[];
+}
+
+interface RouletteSpinRecord {
+  id: string;
+  winning_number: number;
+  color: RouletteColor;
+  total_stake: number;
+  total_payout: number;
+  net_result: number;
+  bets: RouletteBetSelection[];
+  created_at: string;
+  message: string;
 }
 
 interface HoldemSeatState {
@@ -3871,6 +3994,298 @@ async function finalizeBlackjackHand(
 
 function fmtCurrency(amount: number): string {
   return amount.toLocaleString('sv-SE');
+}
+
+function rouletteColor(number: number): RouletteColor {
+  if (number === 0) return 'green';
+  return ROULETTE_RED_NUMBERS.has(number) ? 'red' : 'black';
+}
+
+function rouletteSpinNumber(): number {
+  const limit = Math.floor(0x1_0000_0000 / 37) * 37;
+  const buffer = new Uint32Array(1);
+  do {
+    crypto.getRandomValues(buffer);
+  } while (buffer[0] >= limit);
+  return buffer[0] % 37;
+}
+
+function roulettePayout(kind: RouletteBetKind): number {
+  if (kind === 'straight') return 35;
+  if (kind === 'split') return 17;
+  if (kind === 'street') return 11;
+  if (kind === 'corner') return 8;
+  if (kind === 'sixline') return 5;
+  if (kind === 'dozen' || kind === 'column') return 2;
+  return 1;
+}
+
+function rouletteParseNumbers(target: unknown, label: string): number[] {
+  const raw = Array.isArray(target)
+    ? target
+    : typeof target === 'string'
+      ? target.split(/[^0-9]+/).filter(Boolean)
+      : target == null
+        ? []
+        : [target];
+  const numbers = raw.map(value => Math.floor(Number(value)));
+  if (!numbers.length || numbers.some(value => !Number.isFinite(value) || value < 0 || value > 36)) {
+    throw new GameError(`Ogiltigt mål för ${label}.`, 400);
+  }
+  return [...new Set(numbers)].sort((a, b) => a - b);
+}
+
+function rouletteNormalizeStraight(target: unknown): number[] {
+  const numbers = rouletteParseNumbers(target, 'rak satsning');
+  if (numbers.length !== 1) throw new GameError('Rak satsning kräver exakt ett nummer.', 400);
+  return numbers;
+}
+
+function rouletteNormalizeSplit(target: unknown): number[] {
+  const numbers = rouletteParseNumbers(target, 'split');
+  if (numbers.length !== 2) throw new GameError('Split kräver exakt två nummer.', 400);
+  const [a, b] = numbers;
+  if (a === 0) {
+    if (![1, 2, 3].includes(b)) throw new GameError('0 kan bara splittas mot 1, 2 eller 3.', 400);
+    return numbers;
+  }
+  const sameRow = Math.floor((a - 1) / 3) === Math.floor((b - 1) / 3);
+  const horizontal = sameRow && Math.abs(a - b) === 1;
+  const vertical = Math.abs(a - b) === 3;
+  if (!horizontal && !vertical) throw new GameError('Split måste vara två angränsande nummer.', 400);
+  return numbers;
+}
+
+function rouletteNormalizeStreet(target: unknown): number[] {
+  const numbers = rouletteParseNumbers(target, 'street');
+  if (numbers.length !== 3) throw new GameError('Street kräver tre nummer.', 400);
+  const [a, b, c] = numbers;
+  if (a === 0 || a % 3 !== 1 || b !== a + 1 || c !== a + 2) {
+    throw new GameError('Street måste vara en hel rad, till exempel 1,2,3.', 400);
+  }
+  return numbers;
+}
+
+function rouletteNormalizeCorner(target: unknown): number[] {
+  const numbers = rouletteParseNumbers(target, 'corner');
+  if (numbers.length !== 4) throw new GameError('Corner kräver fyra nummer.', 400);
+  const [a, b, c, d] = numbers;
+  if (a === 0 || a % 3 === 0 || b !== a + 1 || c !== a + 3 || d !== a + 4) {
+    throw new GameError('Corner måste vara ett 2x2-block, till exempel 1,2,4,5.', 400);
+  }
+  return numbers;
+}
+
+function rouletteNormalizeSixline(target: unknown): number[] {
+  const numbers = rouletteParseNumbers(target, 'sixline');
+  if (numbers.length !== 6) throw new GameError('Six line kräver sex nummer.', 400);
+  const [a, b, c, d, e, f] = numbers;
+  if (a === 0 || a % 3 !== 1 || b !== a + 1 || c !== a + 2 || d !== a + 3 || e !== a + 4 || f !== a + 5) {
+    throw new GameError('Six line måste vara två hela rader, till exempel 1,2,3,4,5,6.', 400);
+  }
+  return numbers;
+}
+
+function rouletteDozenNumbers(dozen: number): number[] {
+  if (![1, 2, 3].includes(dozen)) throw new GameError('Dussin måste vara 1, 2 eller 3.', 400);
+  const start = (dozen - 1) * 12 + 1;
+  return Array.from({ length: 12 }, (_, index) => start + index);
+}
+
+function rouletteColumnNumbers(column: number): number[] {
+  if (![1, 2, 3].includes(column)) throw new GameError('Kolumn måste vara 1, 2 eller 3.', 400);
+  return Array.from({ length: 12 }, (_, index) => column + index * 3);
+}
+
+function rouletteLabel(kind: RouletteBetKind, target: string | number | number[]): string {
+  if (kind === 'straight') return `Rak ${target}`;
+  if (kind === 'split') return `Split ${Array.isArray(target) ? target.join('/') : target}`;
+  if (kind === 'street') return `Street ${Array.isArray(target) ? target.join('-') : target}`;
+  if (kind === 'corner') return `Corner ${Array.isArray(target) ? target.join('-') : target}`;
+  if (kind === 'sixline') return `Six line ${Array.isArray(target) ? target.join('-') : target}`;
+  if (kind === 'red') return 'Röd';
+  if (kind === 'black') return 'Svart';
+  if (kind === 'even') return 'Jämnt';
+  if (kind === 'odd') return 'Udda';
+  if (kind === 'low') return '1-18';
+  if (kind === 'high') return '19-36';
+  if (kind === 'dozen') return `${target}:a 12`;
+  return `Kolumn ${target}`;
+}
+
+function rouletteResolveBet(raw: unknown): RouletteBetSelection {
+  if (!raw || typeof raw !== 'object') throw new GameError('Ogiltig rouletteinsats.', 400);
+  const row = raw as Record<string, unknown>;
+  const kind = String(row.kind ?? '').toLowerCase() as RouletteBetKind;
+  const stake = Math.floor(Number(row.stake ?? 0));
+  if (stake < ROULETTE_MIN_STAKE || stake > ROULETTE_MAX_STAKE) {
+    throw new GameError(`Varje rouletteinsats måste ligga mellan ${fmtCurrency(ROULETTE_MIN_STAKE)} och ${fmtCurrency(ROULETTE_MAX_STAKE)} kr.`, 400);
+  }
+
+  let numbers: number[] = [];
+  let target: string | number | number[] = '';
+
+  if (kind === 'straight') {
+    numbers = rouletteNormalizeStraight(row.target);
+    target = numbers[0];
+  } else if (kind === 'split') {
+    numbers = rouletteNormalizeSplit(row.target);
+    target = numbers;
+  } else if (kind === 'street') {
+    numbers = rouletteNormalizeStreet(row.target);
+    target = numbers;
+  } else if (kind === 'corner') {
+    numbers = rouletteNormalizeCorner(row.target);
+    target = numbers;
+  } else if (kind === 'sixline') {
+    numbers = rouletteNormalizeSixline(row.target);
+    target = numbers;
+  } else if (kind === 'red') {
+    numbers = [...ROULETTE_RED_NUMBERS].sort((a, b) => a - b);
+    target = 'red';
+  } else if (kind === 'black') {
+    numbers = Array.from({ length: 36 }, (_, index) => index + 1).filter(number => !ROULETTE_RED_NUMBERS.has(number));
+    target = 'black';
+  } else if (kind === 'even') {
+    numbers = Array.from({ length: 18 }, (_, index) => (index + 1) * 2);
+    target = 'even';
+  } else if (kind === 'odd') {
+    numbers = Array.from({ length: 18 }, (_, index) => index * 2 + 1);
+    target = 'odd';
+  } else if (kind === 'low') {
+    numbers = Array.from({ length: 18 }, (_, index) => index + 1);
+    target = 'low';
+  } else if (kind === 'high') {
+    numbers = Array.from({ length: 18 }, (_, index) => index + 19);
+    target = 'high';
+  } else if (kind === 'dozen') {
+    const dozen = Math.floor(Number(row.target ?? 0));
+    numbers = rouletteDozenNumbers(dozen);
+    target = dozen;
+  } else if (kind === 'column') {
+    const column = Math.floor(Number(row.target ?? 0));
+    numbers = rouletteColumnNumbers(column);
+    target = column;
+  } else {
+    throw new GameError('Ogiltig rouletteinsats.', 400);
+  }
+
+  return {
+    kind,
+    stake,
+    target,
+    numbers,
+    payout: roulettePayout(kind),
+    label: rouletteLabel(kind, target),
+  };
+}
+
+function rouletteSpinMessage(record: RouletteSpinRecord): string {
+  const landed = `${record.winning_number} ${record.color === 'green' ? 'grön' : record.color === 'red' ? 'röd' : 'svart'}`;
+  if (record.net_result > 0) {
+    return `Kulan dog på ${landed}. Du plockade hem ${fmtCurrency(record.net_result)} kr vid rouletten.`;
+  }
+  if (record.net_result < 0) {
+    return `Kulan dog på ${landed}. Huset tog ${fmtCurrency(Math.abs(record.net_result))} kr.`;
+  }
+  return `Kulan stannade på ${landed}. Du gick jämnt ut den här gången.`;
+}
+
+function rowToRouletteSpin(row: Row): RouletteSpinRecord {
+  let bets: RouletteBetSelection[] = [];
+  try {
+    const parsed = JSON.parse(String(row.bets_json ?? '[]')) as unknown;
+    if (Array.isArray(parsed)) {
+      bets = parsed.filter(entry => entry && typeof entry === 'object').map(entry => {
+        const bet = entry as Record<string, unknown>;
+        return {
+          kind: String(bet.kind ?? 'straight') as RouletteBetKind,
+          stake: Math.floor(Number(bet.stake ?? 0)),
+          label: String(bet.label ?? 'Insats'),
+          numbers: Array.isArray(bet.numbers) ? bet.numbers.map(value => Math.floor(Number(value))).filter(value => Number.isFinite(value)) : [],
+          payout: Math.floor(Number(bet.payout ?? 0)),
+          target: (bet.target as string | number | number[]) ?? '',
+        };
+      });
+    }
+  } catch {}
+  return {
+    id: String(row.id),
+    winning_number: Math.floor(Number(row.winning_number ?? 0)),
+    color: rouletteColor(Math.floor(Number(row.winning_number ?? 0))),
+    total_stake: Math.floor(Number(row.total_stake ?? 0)),
+    total_payout: Math.floor(Number(row.total_payout ?? 0)),
+    net_result: Math.floor(Number(row.net_result ?? 0)),
+    bets,
+    created_at: String(row.created_at ?? ''),
+    message: rouletteSpinMessage({
+      id: String(row.id),
+      winning_number: Math.floor(Number(row.winning_number ?? 0)),
+      color: rouletteColor(Math.floor(Number(row.winning_number ?? 0))),
+      total_stake: Math.floor(Number(row.total_stake ?? 0)),
+      total_payout: Math.floor(Number(row.total_payout ?? 0)),
+      net_result: Math.floor(Number(row.net_result ?? 0)),
+      bets,
+      created_at: String(row.created_at ?? ''),
+      message: '',
+    }),
+  };
+}
+
+async function getRouletteHistory(env: Env, player: Row): Promise<RouletteSpinRecord[]> {
+  try {
+    const result = await env.DB.prepare(
+      `SELECT * FROM game_roulette_spins WHERE player_id = ? AND round_id = ? ORDER BY created_at DESC LIMIT 12`
+    ).bind(player.id as string, player.round_id as string).all<Row>();
+    return result.results.map(rowToRouletteSpin);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      throw new GameError('Roulette-tabellen saknas. Kör game-migration-roulette.sql mot D1.', 500);
+    }
+    throw e;
+  }
+}
+
+async function saveRouletteSpin(env: Env, player: Row, record: RouletteSpinRecord): Promise<void> {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO game_roulette_spins
+        (id, player_id, round_id, winning_number, color, total_stake, total_payout, net_result, bets_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+    ).bind(
+      record.id,
+      player.id as string,
+      player.round_id as string,
+      record.winning_number,
+      record.color,
+      record.total_stake,
+      record.total_payout,
+      record.net_result,
+      JSON.stringify(record.bets)
+    ).run();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table')) {
+      throw new GameError('Roulette-tabellen saknas. Kör game-migration-roulette.sql mot D1.', 500);
+    }
+    throw e;
+  }
+}
+
+function buildRouletteState(player: Row, recent: RouletteSpinRecord[], lastSpin: RouletteSpinRecord | null = null): Record<string, unknown> {
+  return {
+    player_cash: Number(player.cash ?? 0),
+    min_stake: ROULETTE_MIN_STAKE,
+    max_stake: ROULETTE_MAX_STAKE,
+    max_total_stake: ROULETTE_MAX_TOTAL_STAKE,
+    recent,
+    last_spin: lastSpin ?? recent[0] ?? null,
+    wheel: Array.from({ length: 37 }, (_, number) => ({
+      number,
+      color: rouletteColor(number),
+    })),
+  };
 }
 
 function normalizeHoldemBuyIn(value: unknown): number {
