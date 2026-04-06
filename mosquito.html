@@ -480,8 +480,12 @@ select:focus{border-color:var(--red);}
 <div id="screen-boot" class="screen" style="display:flex;">
   <div class="boot-logo">MOSQUITO</div>
   <div id="boot-copy" class="boot-copy">Kontrollerar samma lösenordssession som sp1e-hubben.</div>
+  <div id="boot-login-form" style="display:none;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:280px;">
+    <input id="boot-password" type="password" placeholder="Lösenord..." autocomplete="current-password"
+      style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--white);padding:8px 12px;font-size:12px;letter-spacing:.5px;outline:none;">
+    <button id="boot-login-btn" class="primary" style="width:100%;">LÅS UPP MOSQUITO</button>
+  </div>
   <div class="boot-actions">
-    <a id="boot-login-btn" class="primary" href="/?next=%2Fmosquito" style="display:inline-flex;align-items:center;">LÅS UPP MOSQUITO</a>
     <button id="boot-refresh-btn">FÖRSÖK IGEN</button>
   </div>
   <div id="boot-msg" class="amsg"></div>
@@ -1342,10 +1346,10 @@ function normalizeWorldEvents(res){
 document.addEventListener('DOMContentLoaded',init);
 function showLockedState(msg){
   const copy=document.getElementById('boot-copy');
-  if(copy) copy.textContent=msg||'Logga in med samma lösenordssession som sp1e-hubben för att öppna Mosquito.';
-  setMsg('boot-msg',msg?'':'Kontrollerar åtkomst...',msg?'':'info');
-  const loginBtn=document.getElementById('boot-login-btn');
-  if(loginBtn) loginBtn.style.display='inline-flex';
+  if(copy) copy.textContent='Ange lösenordet för sp1e-hubben för att öppna Mosquito.';
+  setMsg('boot-msg','','');
+  const form=document.getElementById('boot-login-form');
+  if(form) form.style.display='flex';
   showScreen('boot');
 }
 
@@ -1357,12 +1361,12 @@ async function ensureSiteAuth(){
     if(r.ok&&d.authenticated){
       G.siteAuthenticated=true;
       setMsg('boot-msg','','');
-      const loginBtn=document.getElementById('boot-login-btn');
-      if(loginBtn) loginBtn.style.display='none';
+      const form=document.getElementById('boot-login-form');
+      if(form) form.style.display='none';
       return true;
     }
   }catch{}
-  showLockedState('Mosquito kräver samma lösenord som sp1e-hubben. Fortsätt till låsskärmen och kom tillbaka hit när sessionen är öppen.');
+  showLockedState();
   return false;
 }
 function apiError(res,fallback){
@@ -1540,12 +1544,39 @@ function showScreen(name){
   if(mn) mn.style.display=name==='game'?'flex':'none';
 }
 
+async function doBootLogin(){
+  const pw=document.getElementById('boot-password');
+  const password=pw?pw.value.trim():'';
+  if(!password){setMsg('boot-msg','Ange lösenordet.','err');return;}
+  setMsg('boot-msg','Loggar in...','info');
+  const btn=document.getElementById('boot-login-btn');
+  if(btn) btn.disabled=true;
+  try{
+    const r=await fetch('/api/auth/login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+    const d=await r.json().catch(()=>({}));
+    if(r.ok&&d.success){
+      setMsg('boot-msg','Inloggad!','ok');
+      if(pw) pw.value='';
+      // Re-run init from scratch now that we have a session
+      init();
+    }else{
+      setMsg('boot-msg',d.error||'Fel lösenord.','err');
+      if(btn) btn.disabled=false;
+    }
+  }catch{
+    setMsg('boot-msg','Nätverksfel. Försök igen.','err');
+    if(btn) btn.disabled=false;
+  }
+}
+
 function bindShellControls(){
   const loginBtn=document.getElementById('boot-login-btn');
-  if(loginBtn) loginBtn.addEventListener('click',()=>{location.href=AUTH_REDIRECT;});
+  if(loginBtn) loginBtn.addEventListener('click',doBootLogin);
+  const pwInput=document.getElementById('boot-password');
+  if(pwInput) pwInput.addEventListener('keydown',e=>{if(e.key==='Enter') doBootLogin();});
   const refreshBtn=document.getElementById('boot-refresh-btn');
   if(refreshBtn) refreshBtn.addEventListener('click',async()=>{
-    if(await ensureSiteAuth()) location.reload();
+    if(await ensureSiteAuth()) init();
   });
   const roundRefresh=document.getElementById('round-refresh-btn');
   if(roundRefresh) roundRefresh.addEventListener('click',async()=>{
