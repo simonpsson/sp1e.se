@@ -1116,16 +1116,14 @@ const FEMALE_FIRST = [
   'Malin','Emma','Lina','Tessan','Tanja','Veronica','Nina',
 ];
 
-const ALIASES_EASTSIDE = [
-  'Kobran','Skuggan','Kniven','Turbo','Kranen','Pantern','Baxarn',
-  'Röken','Kedjan','Raketen','Spiken','Stålet','Hajen','Masken',
-  'Betongen','Iskall','Tjacket','Sotarn','Muren','Lodjuret',
-];
-
-const ALIASES_WESTSIDE = [
-  'Vargen','Räven','Kulan','Blixten','Järnet','Smilen','Fimpen',
-  'Falken','Duvan','Kungen','Boxarn','Slaktarn','Kocken',
-  'Zäta','Kexet','Mörkret','Tassen','Hårda','Tunnan','Krossarn',
+const ALIASES = [
+  'Vargen','Räven','Falken','Kobran','Skuggan','Kungen',
+  'Kulan','Blixten','Kniven','Kocken','Boxarn','Slaktarn',
+  'Järnet','Turbo','Kranen','Fimpen','Tunnan','Smilen',
+  'Krossarn','Kexet','Zäta','Röken','Iskall','Hårda',
+  'Tjacket','Mörkret','Duvan','Pantern','Betongen','Masken',
+  'Hajen','Kedjan','Raketen','Spiken','Stålet','Sotarn',
+  'Baxarn','Muren','Tassen','Lodjuret',
 ];
 
 const PREFIXES_MALE   = ['Lille','Store','Gamle','Unga','Norr','Söder','Dumme','Fule'];
@@ -1155,9 +1153,8 @@ function generateNpcName(side: string): string {
     firstName = Math.random() < 0.65 ? pickRandom(MALE_FIRST_CLASSIC) : pickRandom(MALE_FIRST_URBAN);
   }
 
-  const aliases  = eastside ? ALIASES_EASTSIDE : ALIASES_WESTSIDE;
   const prefixes = female ? PREFIXES_FEMALE : PREFIXES_MALE;
-  const alias    = pickRandom(aliases);
+  const alias    = pickRandom(ALIASES);
   const surname  = pickRandom(SURNAMES);
 
   // Format weights: 25% first, 5% surname, 40% first+alias+surname, 20% alias+surname, 10% prefix+first
@@ -1333,6 +1330,29 @@ const NPC_TIERS = [
 
 const NPC_PERSONALITIES = ['aggressive','passive','defensive','trader'] as const;
 
+const SEEDED_NPC_NAMES: Array<{ name: string; side: 'eastside' | 'westside' }> = [
+  { name: 'Ronny "Vargen" Pettersson',  side: 'westside' },
+  { name: 'Conny "Kulan" Karlsson',     side: 'westside' },
+  { name: 'Lill-Mange',                 side: 'westside' },
+  { name: 'Glenn "Järnet" Andersson',   side: 'westside' },
+  { name: 'Roger "Blixten" Svensson',   side: 'westside' },
+  { name: 'Sigge "Räven" Larsson',      side: 'westside' },
+  { name: 'Robban "Kranen" Lindström',  side: 'westside' },
+  { name: 'Micke "Boxarn" Nilsson',     side: 'westside' },
+  { name: 'Bosse "Fimpen" Holm',        side: 'westside' },
+  { name: 'Kenneth "Smilen" Berglund',  side: 'westside' },
+  { name: 'Amir "Skuggan"',             side: 'eastside' },
+  { name: 'Hassan "Kniven" Jönsson',    side: 'eastside' },
+  { name: 'Rico "Turbo" Wallin',        side: 'eastside' },
+  { name: 'Milan "Pantern" Lundberg',   side: 'eastside' },
+  { name: 'Alex "Baxarn" Ekström',      side: 'eastside' },
+  { name: 'Bella "Kobran" Dahlberg',    side: 'eastside' },
+  { name: 'Sussan "Mörkret" Holmberg',  side: 'eastside' },
+  { name: 'Nadia "Duvan" Söderberg',    side: 'eastside' },
+  { name: 'Maggan "Tassen" Nyström',    side: 'eastside' },
+  { name: 'Leila "Stålet" Forsberg',    side: 'eastside' },
+];
+
 async function createGameRound(env: Env, roundNumber: number): Promise<Row> {
   const id = `round-${String(roundNumber).padStart(3, '0')}`;
   const startDate = new Date();
@@ -1342,12 +1362,11 @@ async function createGameRound(env: Env, roundNumber: number): Promise<Row> {
      VALUES (?, ?, ?, ?, 1)`
   ).bind(id, roundNumber, startDate.toISOString(), endDate.toISOString()).run();
 
-  // Seed 20 NPCs with generated names across tiers
+  // Seed 20 NPCs with curated names across tiers
   const npcStmts = Array.from({ length: 20 }, (_, i) => {
-    const side  = i < 10 ? 'eastside' : 'westside';
+    const { name, side } = SEEDED_NPC_NAMES[i];
     const tier  = NPC_TIERS[Math.min(i % NPC_TIERS.length, NPC_TIERS.length - 1)];
     const [lvl, resp, str, cash, hp] = tier;
-    const name  = generateNpcName(side);
     const pers  = pickRandom([...NPC_PERSONALITIES]);
     const npcId = `${id}-npc-${String(i + 1).padStart(2, '0')}`;
     return env.DB.prepare(
