@@ -45,12 +45,19 @@ button.primary:hover:not(:disabled){background:rgba(194,58,34,.14);color:var(--w
 .round-entry strong{color:var(--white);}
 .round-entry span{font-size:11px;color:var(--dim);}
 
-/* ─── Create ──────────────────────────────────────────────────────────────── */
-#screen-create{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
+/* ─── Auth (login / register) ─────────────────────────────────────────────── */
+#screen-auth{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
 .cr-logo{font-size:32px;font-weight:500;color:var(--red);letter-spacing:4px;}
 .cr-sub{color:var(--dim);font-size:11px;letter-spacing:2px;}
 .cr-box{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;}
 .cr-label{font-size:11px;color:var(--dim);letter-spacing:1px;margin-bottom:4px;}
+.auth-tabs{display:flex;gap:0;}
+.auth-tab{flex:1;padding:8px;font-size:11px;letter-spacing:1px;background:var(--bg3);border:1px solid var(--border);color:var(--dim);cursor:pointer;}
+.auth-tab.active{background:var(--bg2);color:var(--white);border-bottom-color:var(--bg2);}
+.auth-panel{display:none;flex-direction:column;gap:14px;}
+.auth-panel.active{display:flex;}
+.auth-input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--white);padding:8px 10px;font-size:12px;letter-spacing:.3px;outline:none;box-sizing:border-box;}
+.auth-input:focus{border-color:var(--txt);}
 .side-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .side-card{border:2px solid var(--border);border-radius:0;padding:16px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg3);}
 .side-card:hover{border-color:var(--txt);}
@@ -507,35 +514,65 @@ select:focus{border-color:var(--red);}
   </div>
 </div>
 
-<!-- ─── Create Screen ─────────────────────────────────────────────────────── -->
-<div id="screen-create" class="screen" style="display:none;">
+<!-- ─── Auth Screen (login / register) ────────────────────────────────────── -->
+<div id="screen-auth" class="screen" style="display:none;">
   <div class="cr-logo">MOSQUITO</div>
   <div class="cr-sub">CRIME SIMULATOR &mdash; STHLM</div>
   <div class="cr-box">
-    <div>
-      <div class="cr-label">SPELNAMN</div>
-      <input id="inp-name" type="text" placeholder="Ditt gängsnamn..." maxlength="20" autocomplete="off">
-      <div id="name-suggestions" style="margin-top:6px;display:none;">
-        <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">FÖRSLAG &mdash; klicka för att välja</div>
-        <div id="name-sugg-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-      </div>
-      <button id="sugg-btn" style="margin-top:6px;font-size:10px;padding:4px 10px;" type="button">NAMNF&Ouml;RSLAG</button>
+    <div class="auth-tabs">
+      <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">SKAPA KONTO</button>
+      <button class="auth-tab" id="tab-login"    onclick="switchAuthTab('login')">LOGGA IN</button>
     </div>
-    <div>
-      <div class="cr-label">VÄLJ SIDA</div>
-      <div class="side-row">
-        <div class="side-card active" data-side="eastside">
-          <div class="s-name">EASTSIDE</div>
-          <div class="s-desc">Aggressiv. Stark.</div>
+
+    <!-- Register panel -->
+    <div id="auth-panel-register" class="auth-panel">
+      <div>
+        <div class="cr-label">E-POST</div>
+        <input id="reg-email" class="auth-input" type="email" placeholder="din@email.com" autocomplete="email">
+      </div>
+      <div>
+        <div class="cr-label">L&Ouml;SENORD (min. 6 tecken)</div>
+        <input id="reg-password" class="auth-input" type="password" placeholder="Lösenord..." autocomplete="new-password">
+      </div>
+      <div>
+        <div class="cr-label">KARAKTÄRSNAMN</div>
+        <input id="reg-name" class="auth-input" type="text" placeholder="Ditt gängsnamn..." maxlength="24" autocomplete="off">
+        <div id="reg-name-suggestions" style="margin-top:6px;display:none;">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">FÖRSLAG &mdash; klicka för att välja</div>
+          <div id="reg-sugg-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         </div>
-        <div class="side-card" data-side="westside">
-          <div class="s-name">WESTSIDE</div>
-          <div class="s-desc">Listig. Snabb.</div>
+        <button id="reg-sugg-btn" style="margin-top:6px;font-size:10px;padding:4px 10px;" type="button">NAMNF&Ouml;RSLAG</button>
+      </div>
+      <div>
+        <div class="cr-label">V&Auml;LJ SIDA</div>
+        <div class="side-row">
+          <div class="side-card active" data-side="eastside">
+            <div class="s-name">EASTSIDE</div>
+            <div class="s-desc">Aggressiv. Stark.</div>
+          </div>
+          <div class="side-card" data-side="westside">
+            <div class="s-name">WESTSIDE</div>
+            <div class="s-desc">Listig. Snabb.</div>
+          </div>
         </div>
       </div>
+      <button id="reg-btn" class="primary">SKAPA KONTO &amp; SPELA</button>
     </div>
-    <button id="create-btn" class="primary">SKAPA KARAKTÄR</button>
-    <div id="create-err" class="amsg"></div>
+
+    <!-- Login panel -->
+    <div id="auth-panel-login" class="auth-panel">
+      <div>
+        <div class="cr-label">E-POST</div>
+        <input id="login-email" class="auth-input" type="email" placeholder="din@email.com" autocomplete="email">
+      </div>
+      <div>
+        <div class="cr-label">L&Ouml;SENORD</div>
+        <input id="login-password" class="auth-input" type="password" placeholder="Lösenord..." autocomplete="current-password">
+      </div>
+      <button id="login-btn" class="primary">LOGGA IN</button>
+    </div>
+
+    <div id="auth-err" class="amsg"></div>
   </div>
 </div>
 
@@ -1263,7 +1300,7 @@ function defaultCasinoState(){
 }
 
 const G={
-  player:null,extra:{},status:null,prices:{},npcs:[],
+  player:null,account:null,extra:{},status:null,prices:{},npcs:[],
   section:'gatan',busy:false,selectedSide:'eastside',
   drugSel:'marijuana',drugQty:1,casinoBet:500,holdemBuyIn:2000,rouletteStake:100,rouletteBets:[],
   errors:{player:null,status:null,prices:null,npcs:null,casino:null},
@@ -1409,10 +1446,10 @@ async function init(){
     showScreen('round');
     return;
   }else if(r.error&&r._status&&r._status!==401){
-    setMsg('create-err',r.error,'err');
+    setMsg('auth-err',r.error,'err');
   }
   if(!G.player){
-    showScreen('create');
+    showScreen('auth');
     return;
   }
   await loadAll();
@@ -1536,9 +1573,9 @@ function applyCondition(){
 
 function showScreen(name){
   if(name!=='game') clearPropertyTicks();
-  ['boot','round','create','prison','hospital','game'].forEach(s=>{
+  ['boot','round','auth','prison','hospital','game'].forEach(s=>{
     const el=document.getElementById('screen-'+s);
-    if(el) el.style.display=s===name?(s==='game'?'flex':'flex'):'none';
+    if(el) el.style.display=s===name?'flex':'none';
   });
   const mn=document.getElementById('mob-nav');
   if(mn) mn.style.display=name==='game'?'flex':'none';
@@ -1643,11 +1680,10 @@ async function startNextRound(){
   G.rouletteBets=[];
   G.hallOfFame=null;
   G.selectedSide='eastside';
-  const nameInput=document.getElementById('inp-name');
-  if(nameInput) nameInput.value='';
   selectSide('eastside');
-  setMsg('create-err',res.message||'Ny runda startad. Skapa din karaktär.','info');
-  showScreen('create');
+  switchAuthTab('register');
+  setMsg('auth-err',res.message||'Ny runda startad. Registrera dig för att spela.','info');
+  showScreen('auth');
 }
 
 function calcEnergy(){
@@ -3600,7 +3636,7 @@ async function doHospital(action){
   }
 }
 
-/* ─── Create ──────────────────────────────────────────────────────────────── */
+/* ─── Auth (login / register) ────────────────────────────────────────────── */
 function selectSide(side){
   document.querySelectorAll('.side-card').forEach(c=>c.classList.remove('active'));
   const card=document.querySelector('.side-card[data-side="'+side+'"]');
@@ -3608,61 +3644,99 @@ function selectSide(side){
   G.selectedSide=side;
 }
 
+function switchAuthTab(tab){
+  ['register','login'].forEach(t=>{
+    const btn=document.getElementById('tab-'+t);
+    const panel=document.getElementById('auth-panel-'+t);
+    if(btn) btn.classList.toggle('active',t===tab);
+    if(panel) panel.classList.toggle('active',t===tab);
+  });
+}
+
 function bindCreate(){
   document.querySelectorAll('.side-card').forEach(card=>{
     card.addEventListener('click',()=>selectSide(card.dataset.side));
   });
-  const inp=document.getElementById('inp-name');
-  if(inp) inp.addEventListener('keydown',e=>{if(e.key==='Enter') doCreate();});
-  const btn=document.getElementById('create-btn');
-  if(btn) btn.addEventListener('click',doCreate);
-  const suggBtn=document.getElementById('sugg-btn');
+  const regBtn=document.getElementById('reg-btn');
+  if(regBtn) regBtn.addEventListener('click',doRegister);
+  const regNameInp=document.getElementById('reg-name');
+  if(regNameInp) regNameInp.addEventListener('keydown',e=>{if(e.key==='Enter') doRegister();});
+  const loginBtn=document.getElementById('login-btn');
+  if(loginBtn) loginBtn.addEventListener('click',doLogin);
+  const loginPwInp=document.getElementById('login-password');
+  if(loginPwInp) loginPwInp.addEventListener('keydown',e=>{if(e.key==='Enter') doLogin();});
+  const suggBtn=document.getElementById('reg-sugg-btn');
   if(suggBtn) suggBtn.addEventListener('click',loadNameSuggestions);
+  // Default: show register tab
+  switchAuthTab('register');
 }
 
 async function loadNameSuggestions(){
-  const wrap=document.getElementById('name-suggestions');
-  const list=document.getElementById('name-sugg-list');
+  const wrap=document.getElementById('reg-name-suggestions');
+  const list=document.getElementById('reg-sugg-list');
   if(!wrap||!list) return;
   list.innerHTML='<span style="color:var(--dim);font-size:10px;">Laddar...</span>';
   wrap.style.display='block';
   const r=await api('suggest-names?count=5&side='+encodeURIComponent(G.selectedSide));
   if(r.names&&r.names.length){
-    list.innerHTML=r.names.map(n=>`<button type="button" style="font-size:11px;padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--txt);cursor:pointer;border-radius:0;" onclick="document.getElementById('inp-name').value=${JSON.stringify(n)};document.getElementById('name-suggestions').style.display='none';">${esc(n)}</button>`).join('');
+    list.innerHTML=r.names.map(n=>`<button type="button" style="font-size:11px;padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--txt);cursor:pointer;border-radius:0;" onclick="document.getElementById('reg-name').value=${JSON.stringify(n)};document.getElementById('reg-name-suggestions').style.display='none';">${esc(n)}</button>`).join('');
   }else{
     list.innerHTML='<span style="color:var(--dim);font-size:10px;">Inga förslag tillgängliga.</span>';
   }
 }
 
-async function doCreate(){
+async function enterGame(r){
+  setMsg('auth-err','','');
+  G.player=r.player;G.extra={player:r.player};G._fetchedAt=Date.now();
+  G.account=r.account||null;
+  G.casino=defaultCasinoState();
+  G.holdemBuyIn=2000;
+  G.rouletteStake=100;
+  G.rouletteBets=[];
+  await loadAll();
+  applyCondition();
+  startTimers();
+  if(!G._pollTimer) G._pollTimer=setInterval(softReload,30000);
+  if(!G._pricePoll) G._pricePoll=setInterval(refreshPrices,60000);
+}
+
+async function doRegister(){
   if(G.busy) return;
-  const name=(document.getElementById('inp-name').value||'').trim();
-  if(!name){setMsg('create-err','Ange ett namn','err');return;}
-  setMsg('create-err','Skapar karaktär...','info');
+  const email=(document.getElementById('reg-email')?.value||'').trim();
+  const password=(document.getElementById('reg-password')?.value||'');
+  const name=(document.getElementById('reg-name')?.value||'').trim();
+  if(!email){setMsg('auth-err','Ange e-postadress.','err');return;}
+  if(!password){setMsg('auth-err','Ange lösenord.','err');return;}
+  if(!name){setMsg('auth-err','Ange ett karaktärsnamn.','err');return;}
+  setMsg('auth-err','Skapar konto...','info');
   G.busy=true;
   let r;
-  try{
-    r=await post('create-character',{name,side:G.selectedSide});
-  }catch(e){
-    setMsg('create-err','Nätverksfel: '+e,'err');
-    G.busy=false;return;
-  }
+  try{r=await post('register',{email,password,name,side:G.selectedSide});}
+  catch(e){setMsg('auth-err','Nätverksfel: '+e,'err');G.busy=false;return;}
   G.busy=false;
-  if(r.error){setMsg('create-err',r.error,'err');}
-  else if(!r.player){setMsg('create-err','Oväntat svar från servern','err');}
-  else{
-    setMsg('create-err','','');
-    G.player=r.player;G.extra={player:r.player};G._fetchedAt=Date.now();
-    G.casino=defaultCasinoState();
-    G.holdemBuyIn=2000;
-    G.rouletteStake=100;
-    G.rouletteBets=[];
-    await loadAll();
-    applyCondition();
-    startTimers();
-    if(!G._pollTimer) G._pollTimer=setInterval(softReload,30000);
-    if(!G._pricePoll) G._pricePoll=setInterval(refreshPrices,60000);
-  }
+  if(r.error){setMsg('auth-err',r.error,'err');}
+  else if(!r.player){setMsg('auth-err','Oväntat svar från servern.','err');}
+  else{await enterGame(r);}
+}
+
+async function doLogin(){
+  if(G.busy) return;
+  const email=(document.getElementById('login-email')?.value||'').trim();
+  const password=(document.getElementById('login-password')?.value||'');
+  if(!email){setMsg('auth-err','Ange e-postadress.','err');return;}
+  if(!password){setMsg('auth-err','Ange lösenord.','err');return;}
+  setMsg('auth-err','Loggar in...','info');
+  G.busy=true;
+  let r;
+  try{r=await post('login',{email,password});}
+  catch(e){setMsg('auth-err','Nätverksfel: '+e,'err');G.busy=false;return;}
+  G.busy=false;
+  if(r.no_character){
+    setMsg('auth-err','Ingen karaktär i pågående runda. Skapa ett nytt konto för att spela.','err');
+    switchAuthTab('register');
+  }else if(r.error){setMsg('auth-err',r.error,'err');}
+  else if(!r.player){setMsg('auth-err','Oväntat svar från servern.','err');}
+  else{await enterGame(r);}
 }
 
 /* ─── Level-up ───────────────────────────────────────────────────────────── */
