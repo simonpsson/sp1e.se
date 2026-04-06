@@ -17,13 +17,13 @@ VALUES (
 -- Distributed: 10 eastside, 10 westside; mixed levels 1–15
 
 INSERT OR IGNORE INTO game_npcs (id, round_id, name, level, respect, strength, cash, hp, side, personality, is_alive) VALUES
-  ('npc-01', 'round-001', 'Amir "Skuggan" Hassan',        3,   120,  22,   800,  30, 'eastside',  'aggressive', 1),
+  ('npc-01', 'round-001', 'Amir "Skuggan"',                3,   120,  22,   800,  30, 'eastside',  'aggressive', 1),
   ('npc-02', 'round-001', 'Rico "Turbo" Wallin',           1,    30,  12,   200,  15, 'eastside',  'passive',    1),
   ('npc-03', 'round-001', 'Hassan "Kniven" Jönsson',       7,   580,  45,  4200,  70, 'eastside',  'aggressive', 1),
   ('npc-04', 'round-001', 'Milan "Pantern" Lundberg',      5,   300,  35,  2000,  50, 'eastside',  'trader',     1),
   ('npc-05', 'round-001', 'Alex "Baxarn" Ekström',         4,   200,  28,  1200,  40, 'eastside',  'defensive',  1),
-  ('npc-06', 'round-001', 'Kranen Karlsson',               2,    75,  15,   400,  20, 'eastside',  'passive',    1),
-  ('npc-07', 'round-001', 'Kobran Nilsson',               10,  1200,  62,  9000, 100, 'eastside',  'aggressive', 1),
+  ('npc-06', 'round-001', 'Kenneth "Smilen" Berglund',     2,    75,  15,   400,  20, 'westside',  'passive',    1),
+  ('npc-07', 'round-001', 'Sussan "Mörkret" Holmberg',   10,  1200,  62,  9000, 100, 'eastside',  'aggressive', 1),
   ('npc-08', 'round-001', 'Bella "Kobran" Dahlberg',       6,   450,  38,  3000,  60, 'eastside',  'trader',     1),
   ('npc-09', 'round-001', 'Nadia "Duvan" Söderberg',       9,  1050,  56,  7200,  90, 'eastside',  'defensive',  1),
   ('npc-10', 'round-001', 'Leila "Stålet" Forsberg',      12,  1900,  70, 13000, 120, 'eastside',  'aggressive', 1),

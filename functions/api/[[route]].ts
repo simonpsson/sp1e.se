@@ -162,6 +162,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     // ── Game (Mosquito) — requires site auth + game session cookie ───────────
     if (resource === 'game') {
       await requireAuth(request, env);
+      if (id === 'register'         && method === 'POST') return gameRegister(request, env);
+      if (id === 'login'            && method === 'POST') return gameLogin(request, env);
       if (id === 'create-character' && method === 'POST') return gameCreateCharacter(request, env);
       if (id === 'player'           && method === 'GET')  return gameGetPlayer(request, env);
       if (id === 'status'           && method === 'GET')  return gameGetStatus(request, env);
@@ -1205,6 +1207,52 @@ function clearGameCookie(): string {
   return `${GAME_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
 }
 
+// ── Token-based session cookies (account system) ──────────────────────────────
+const GAME_TOKEN_COOKIE = 'game_token';
+const ADMIN_EMAIL = 'simon.pn@protonmail.com';
+
+function getTokenCookie(request: Request): string | null {
+  const cookie = request.headers.get('Cookie') ?? '';
+  const match  = cookie.match(/(?:^|;\s*)game_token=([^;]+)/);
+  return match ? match[1] : null;
+}
+
+function setTokenCookie(token: string): string {
+  return `${GAME_TOKEN_COOKIE}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${60 * 60 * 24 * 30}`;
+}
+
+function clearTokenCookie(): string {
+  return `${GAME_TOKEN_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
+}
+
+async function hashGamePassword(password: string): Promise<string> {
+  const saltBytes = new Uint8Array(16);
+  crypto.getRandomValues(saltBytes);
+  const saltHex = toHex(saltBytes);
+  const km = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' }, km, 256
+  );
+  return `pbkdf2:100000:${saltHex}:${toHex(new Uint8Array(bits))}`;
+}
+
+async function lookupSession(env: Env, request: Request): Promise<{ account: Row; player: Row } | null> {
+  const token = getTokenCookie(request);
+  if (!token) return null;
+  const session = await env.DB.prepare(
+    `SELECT * FROM game_sessions WHERE token = ? AND expires_at > datetime('now')`
+  ).bind(token).first<Row>();
+  if (!session) return null;
+  const [account, player] = await Promise.all([
+    env.DB.prepare('SELECT * FROM game_accounts WHERE id = ?').bind(session.account_id as string).first<Row>(),
+    env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(session.player_id as string).first<Row>(),
+  ]);
+  if (!account || !player) return null;
+  return { account, player };
+}
+
 function getGameAdminCookie(request: Request): string | null {
   const cookie = request.headers.get('Cookie') ?? '';
   const match = cookie.match(/(?:^|;\s*)game_admin_session=([^;]+)/);
@@ -1263,13 +1311,12 @@ async function syncGamePlayerState(env: Env, player: Row): Promise<Row> {
 }
 
 async function requireGamePlayer(request: Request, env: Env): Promise<Row> {
-  const pid = getGameCookie(request);
-  if (!pid) throw new GameError('Ingen aktiv karaktär. Skapa en först.', 401);
+  const session = await lookupSession(env, request);
+  if (!session) throw new GameError('Ingen aktiv session. Logga in först.', 401);
   const round = await ensureActiveRound(env, { createIfMissing: false });
-  const player = await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>();
-  if (!player) throw new GameError('Karaktären hittades inte.', 404);
+  const { player } = session;
   if ((player.round_id as string) !== (round.id as string)) {
-    throw new GameError('Rundan har avslutats. Starta en ny karaktär för nästa runda.', 409);
+    throw new GameError('Rundan har avslutats. Logga in igen för att starta nästa runda.', 409);
   }
   return syncGamePlayerState(env, player);
 }
@@ -2619,9 +2666,9 @@ async function gameNewRound(request: Request, env: Env): Promise<Response> {
   }
 
   const round = await createGameRound(env, await nextRoundNumber(env));
-  const staleGameCookie = getGameCookie(request);
   const headers = new Headers({ 'Content-Type': 'application/json', ...cors() });
-  if (staleGameCookie) headers.append('Set-Cookie', clearGameCookie());
+  if (getGameCookie(request)) headers.append('Set-Cookie', clearGameCookie());
+  if (getTokenCookie(request)) headers.append('Set-Cookie', clearTokenCookie());
   return new Response(JSON.stringify({
     round_id: round.id,
     round_number: round.round_number,
@@ -2723,7 +2770,8 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
   let self: Record<string, unknown> | null = null;
   let selfRank: number | null = null;
   let worldSelfRank: number | null = null;
-  const currentPid = getGameCookie(request);
+  const tokenSession = await lookupSession(env, request).catch(() => null);
+  const currentPid = tokenSession?.player?.id ? String(tokenSession.player.id) : getGameCookie(request);
   if (currentPid) {
     const selfRow = players.find(row => String(row.id) === currentPid) ?? null;
     if (selfRow) {
@@ -6141,15 +6189,159 @@ async function gameAdminStatus(request: Request, env: Env): Promise<Response> {
   });
 }
 
+async function gameRegister(request: Request, env: Env): Promise<Response> {
+  let body: { email?: string; password?: string; name?: string; side?: string };
+  try { body = await request.json<typeof body>(); }
+  catch { return gameJson({ error: 'Ogiltig förfrågan.' }, 400); }
+
+  const email    = (body.email ?? '').trim().toLowerCase();
+  const password = body.password ?? '';
+  const name     = (body.name ?? '').trim().slice(0, 24);
+  const side     = body.side === 'westside' ? 'westside' : 'eastside';
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return gameJson({ error: 'Ange en giltig e-postadress.' }, 400);
+  if (password.length < 6)
+    return gameJson({ error: 'Lösenordet måste vara minst 6 tecken.' }, 400);
+  if (!name || name.length < 2)
+    return gameJson({ error: 'Karaktärsnamnet måste vara 2–24 tecken.' }, 400);
+  if (!/^[\w\s\u00C0-\u024F"'-]+$/u.test(name))
+    return gameJson({ error: 'Namnet innehåller otillåtna tecken.' }, 400);
+
+  const isAdmin = email === ADMIN_EMAIL;
+
+  try {
+    const existingAccount = await env.DB.prepare('SELECT id, is_admin FROM game_accounts WHERE email = ?')
+      .bind(email).first<Row>();
+
+    let accountId: string;
+    let adminFlag: number;
+
+    if (existingAccount && !isAdmin) {
+      return gameJson({ error: 'E-postadressen är redan registrerad. Logga in istället.' }, 409);
+    } else if (existingAccount) {
+      // Admin re-creating a character with the same email
+      accountId = existingAccount.id as string;
+      adminFlag = existingAccount.is_admin as number;
+    } else {
+      const hash = await hashGamePassword(password);
+      accountId  = crypto.randomUUID();
+      adminFlag  = isAdmin ? 1 : 0;
+      try {
+        await env.DB.prepare(
+          `INSERT INTO game_accounts (id, email, password_hash, password_salt, is_admin)
+           VALUES (?, ?, ?, ?, ?)`
+        ).bind(accountId, email, hash, '', adminFlag).run();
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('UNIQUE')) return gameJson({ error: 'E-postadressen är redan registrerad.' }, 409);
+        throw e;
+      }
+    }
+
+    const round = await ensureActiveRound(env);
+
+    const existingName = await env.DB.prepare(
+      `SELECT id FROM game_players WHERE name = ? AND round_id = ?`
+    ).bind(name, round.id as string).first<Row>();
+    if (existingName) return gameJson({ error: 'Det namnet är redan taget. Välj ett annat.' }, 409);
+
+    const pid = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO game_players (id, round_id, name, side, account_id) VALUES (?, ?, ?, ?, ?)`
+    ).bind(pid, round.id as string, name, side, accountId).run();
+
+    const token     = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    await env.DB.prepare(
+      `INSERT INTO game_sessions (token, account_id, player_id, expires_at) VALUES (?, ?, ?, ?)`
+    ).bind(token, accountId, pid, expiresAt).run();
+
+    const player = await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>();
+    return new Response(JSON.stringify({
+      player,
+      account: { email, is_admin: adminFlag },
+    }), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json', 'Set-Cookie': setTokenCookie(token), ...cors() },
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table'))
+      return gameJson({ error: 'Speldatabasen är inte initierad. Kör game-schema.sql.' }, 500);
+    throw e;
+  }
+}
+
+async function gameLogin(request: Request, env: Env): Promise<Response> {
+  let body: { email?: string; password?: string };
+  try { body = await request.json<typeof body>(); }
+  catch { return gameJson({ error: 'Ogiltig förfrågan.' }, 400); }
+
+  const email    = (body.email ?? '').trim().toLowerCase();
+  const password = body.password ?? '';
+
+  if (!email)    return gameJson({ error: 'Ange e-postadress.' }, 400);
+  if (!password) return gameJson({ error: 'Ange lösenord.' }, 400);
+
+  try {
+    const account = await env.DB.prepare('SELECT * FROM game_accounts WHERE email = ?')
+      .bind(email).first<Row>();
+    if (!account) {
+      await sleep(300);
+      return gameJson({ error: 'Fel e-postadress eller lösenord.' }, 401);
+    }
+
+    const valid = await verifyPassword(password, account.password_hash as string);
+    if (!valid) {
+      await sleep(300);
+      return gameJson({ error: 'Fel e-postadress eller lösenord.' }, 401);
+    }
+
+    const round = await getActiveRound(env);
+    if (!round) return gameJson({ error: 'Ingen aktiv runda för tillfället.' }, 409);
+
+    const player = await env.DB.prepare(
+      `SELECT * FROM game_players WHERE account_id = ? AND round_id = ?`
+    ).bind(account.id as string, round.id as string).first<Row>();
+    if (!player) {
+      return gameJson({
+        error: 'Ingen karaktär hittades för denna runda. Det kan bero på att rundan nyligen startades om.',
+        no_character: true,
+      }, 404);
+    }
+
+    const token     = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    await env.DB.prepare(
+      `INSERT INTO game_sessions (token, account_id, player_id, expires_at) VALUES (?, ?, ?, ?)`
+    ).bind(token, account.id as string, player.id as string, expiresAt).run();
+
+    const syncedPlayer = await syncGamePlayerState(env, player);
+    return new Response(JSON.stringify({
+      player: syncedPlayer,
+      account: { email, is_admin: account.is_admin },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Set-Cookie': setTokenCookie(token), ...cors() },
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('no such table'))
+      return gameJson({ error: 'Speldatabasen är inte initierad. Kör game-schema.sql.' }, 500);
+    throw e;
+  }
+}
+
 async function gameLogout(request: Request, env: Env): Promise<Response> {
-  return new Response(JSON.stringify({ success: true }), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Set-Cookie': clearGameCookie(),
-      ...cors(),
-    },
-  });
+  const token = getTokenCookie(request);
+  if (token) {
+    await env.DB.prepare('DELETE FROM game_sessions WHERE token = ?').bind(token).run().catch(() => {});
+  }
+  const headers = new Headers({ 'Content-Type': 'application/json', ...cors() });
+  headers.append('Set-Cookie', clearTokenCookie());
+  headers.append('Set-Cookie', clearGameCookie());
+  return new Response(JSON.stringify({ success: true }), { status: 200, headers });
 }
 
 async function gameAdminLogout(request: Request, env: Env): Promise<Response> {
