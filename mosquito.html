@@ -679,7 +679,10 @@ select:focus{border-color:var(--red);}
         <button class="nav-btn nv" data-s="ranking">[RANKING]</button>
         <button class="nav-btn nv" data-s="karta">[KARTA]</button>
       </div>
-      <div class="sb-back"><a href="/">&larr; Tillbaka</a></div>
+      <div class="sb-back">
+        <a href="/">&larr; Tillbaka</a>
+        <button id="char-logout-btn" style="background:none;border:none;color:var(--dim);font-size:11px;cursor:pointer;padding:0;margin-top:6px;display:block;letter-spacing:.5px;">[BYT KARAKT&Auml;R]</button>
+      </div>
     </div>
 
     <!-- Main area -->
@@ -1371,10 +1374,21 @@ function apiError(res,fallback){
   return '';
 }
 
+function bindCharLogout(){
+  const btn=document.getElementById('char-logout-btn');
+  if(!btn) return;
+  btn.addEventListener('click',async()=>{
+    if(!confirm('Logga ut karaktären? Du kan alltid logga in igen med samma karaktär senare.')) return;
+    await fetch('/api/game/logout',{method:'POST',credentials:'same-origin'});
+    location.reload();
+  });
+}
+
 async function init(){
   showScreen('boot');
   restoreWorldPulseCache();
   bindShellControls();
+  bindCharLogout();
   applyPokerChipSkins();
   if(!(await ensureSiteAuth())) return;
   bindCreate();
