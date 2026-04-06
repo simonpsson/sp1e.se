@@ -183,6 +183,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'casino' && sub === 'roulette' && action === 'state' && method === 'GET') {
         return gameGetRouletteState(request, env);
       }
+      if (id === 'logout'           && method === 'POST') return gameLogout(request, env);
       if (id === 'admin-auth'       && method === 'POST') return gameAdminAuth(request, env);
       if (id === 'admin-status'     && method === 'GET')  return gameAdminStatus(request, env);
       if (id === 'admin-logout'     && method === 'POST') return gameAdminLogout(request, env);
@@ -6053,6 +6054,17 @@ async function gameAdminStatus(request: Request, env: Env): Promise<Response> {
   return gameJson({
     authenticated: !!session,
     expires_at: session?.expires_at ?? null,
+  });
+}
+
+async function gameLogout(request: Request, env: Env): Promise<Response> {
+  return new Response(JSON.stringify({ success: true }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Set-Cookie': clearGameCookie(),
+      ...cors(),
+    },
   });
 }
 
