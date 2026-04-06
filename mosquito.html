@@ -2393,6 +2393,8 @@ const POKER_CARD_COLS=15;
 const POKER_CARD_ROWS=5;
 const POKER_CARD_CELL_W=48;
 const POKER_CARD_CELL_H=64;
+const POKER_SPRITE_W=944;
+const POKER_SPRITE_H=385;
 const POKER_CARD_BACK={col:4,row:4};
 const POKER_RANK_ORDER=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const POKER_SUIT_ROW={H:0,D:1,S:2,C:3};
@@ -2407,7 +2409,10 @@ function pokerCardMeta(code){
 }
 
 function pokerCardSpriteStyle(col,row){
-  return `--pc-x:${-POKER_CARD_CELL_W*col}px;--pc-y:${-POKER_CARD_CELL_H*row}px;`;
+  // Use actual spritesheet cell strides, not the display clip size
+  const sx=(POKER_SPRITE_W/POKER_CARD_COLS)*col;
+  const sy=(POKER_SPRITE_H/POKER_CARD_ROWS)*row;
+  return `--pc-x:${-sx.toFixed(2)}px;--pc-y:${-sy.toFixed(2)}px;`;
 }
 
 function pokerCardSpriteHtml(card){
@@ -3583,6 +3588,21 @@ function renderRanking(){
     const roundNumber=(s.round&&s.round.number)||s.round_number||'—';
     ri.innerHTML=`<span>Runda <strong>${roundNumber}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>Spelare: <strong>${playerCount}</strong></span>`;
   }
+  // Build combined player+NPC list first so self-rank reflects true combined position
+  const players=(G.status&&G.status.top10)||[];
+  const npcsRank=[...G.npcs].sort((a,b)=>(b.respect||0)-(a.respect||0)).slice(0,10).map(n=>({
+    name:n.name,level:n.level,respect:n.respect,profession:'NPC',side:n.side,isNpc:true
+  }));
+  const playerRows=players.map(p=>({
+    name:p.name,level:p.level,respect:p.respect,profession:p.profession||'none',side:p.side,isNpc:false
+  }));
+  const all=[...playerRows,...npcsRank].sort((a,b)=>b.respect-a.respect).slice(0,20);
+  const myName=G.player?G.player.name:'';
+  const myPosInAll=myName?all.findIndex(r=>!r.isNpc&&r.name===myName):-1;
+  // Self-rank derived from the combined list so it matches the displayed table
+  const selfRank=myPosInAll>=0?`#${myPosInAll+1}`:(G.status&&G.status.self_rank?`#${G.status.self_rank}`:'Oplacerad');
+  const combinedLeader=all[0]||null;
+
   const meta=document.getElementById('rank-meta');
   if(meta){
     if(G.status&&G.status.round){
@@ -3592,7 +3612,7 @@ function renderRanking(){
       const leader=(G.status.world_top10||[])[0]||(G.status.top10||[])[0];
       meta.innerHTML=[
         `<span>30 dagar att bli kung. <strong>Din plats: ${esc(selfRank)}</strong></span>`,
-        leader?`<span>Toppen hålls av <strong>${esc(leader.name)}</strong> på ${fmtCash(leader.respect||0)} respect</span>`:'<span>Ingen ledare ännu. Perfekt läge att ta första platsen.</span>',
+        combinedLeader?`<span>Toppen hålls av <strong>${esc(combinedLeader.name)}</strong>${combinedLeader.isNpc?' [NPC]':''} på ${fmtCash(combinedLeader.respect||0)} respect</span>`:'<span>Ingen ledare ännu. Perfekt läge att ta första platsen.</span>',
         self?`<span>Du spelar som <strong>${esc(self.name)}</strong></span>`:'<span>Skapa en karaktär för att kliva in i tabellen.</span>'
       ].join('');
     }else{
@@ -3617,7 +3637,7 @@ function renderRanking(){
   }));
   const myName=G.player?G.player.name:'';
   const self=G.status&&G.status.self;
-  const hasSelf=!!myName&&all.some(row=>!row.isNpc&&row.name===myName);
+  const hasSelf=!!myName&&myPosInAll>=0;
   const rowsHtml=all.map((row,i)=>{
     const isMe=!row.isNpc&&row.name===myName;
     const sideLabel=row.side==='westside'?'WEST':'EAST';

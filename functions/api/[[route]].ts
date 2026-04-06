@@ -2778,7 +2778,7 @@ async function gameGetBlackjackState(request: Request, env: Env): Promise<Respon
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
-    await ensureBlackjackColumns(env);
+    await ensureCasinoStorage(env, 'blackjack');
     const hand = await getBlackjackHandForPlayer(env, player);
     return gameJson(buildBlackjackState(hand, player));
   } catch (e) {
@@ -2809,7 +2809,7 @@ async function gameActionBlackjackStart(request: Request, env: Env): Promise<Res
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
-    await ensureBlackjackColumns(env);
+    await ensureCasinoStorage(env, 'blackjack');
     if (player.in_prison) return gameJson({ error: 'Kasinoet släpper inte in folk från kåken.' }, 400);
     if (player.in_hospital) return gameJson({ error: 'Du är fortfarande på sjukhuset.' }, 400);
 
@@ -2970,7 +2970,8 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
       if (hand.splitDoubled || hand.splitCards.length !== 2) {
         return gameJson({ error: 'Du kan bara dubbla direkt efter given.' }, 400);
       }
-      if (Number(player.cash ?? 0) < hand.splitBet) {
+      const splitDoubleCost = hand.splitBet;
+      if (Number(player.cash ?? 0) < splitDoubleCost) {
         return gameJson({ error: 'Du har inte råd att dubbla den här delade handen.' }, 400);
       }
       extraStake = hand.splitBet;
@@ -2979,6 +2980,9 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
       hand.splitDoubled = true;
       hand.splitCards.push(drawBlackjackCard(hand.deck));
       finishDealerHand(hand);
+      // Deduct before finalizing (finalize saves state internally)
+      await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(splitDoubleCost, player.id as string).run();
       return finalizeBlackjackSplitHand(env, player, hand);
     }
 
@@ -2997,6 +3001,9 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
     hand.playerCards.push(drawBlackjackCard(hand.deck));
     const playerStats = blackjackTotals(hand.playerCards);
     if (playerStats.busted) {
+      // Deduct before finalizing bust (finalize saves state internally)
+      await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(doubleBet, player.id as string).run();
       return finalizeBlackjackHand(env, player, hand, 'bust');
     }
 
@@ -3005,10 +3012,16 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
       hand.state = 'split_turn';
       hand.message = 'Dubblade och fick ett kort. Spela nu din delade hand.';
       await saveBlackjackHand(env, hand);
+      // Deduct only after hand is durably saved
+      await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+        .bind(doubleBet, player.id as string).run();
       const fp = await loadGamePlayerById(env, player.id as string);
       return gameJson(buildBlackjackState(hand, fp));
     }
 
+    // Deduct before finalizing (finalize saves state internally)
+    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(doubleBet, player.id as string).run();
     finishDealerHand(hand);
     return finalizeBlackjackHand(env, player, hand, settleBlackjack(hand));
   } catch (e) {
@@ -3198,6 +3211,9 @@ async function gameActionBlackjackSplit(request: Request, env: Env): Promise<Res
     hand.splitBet = hand.baseBet;
     hand.message = 'Handen delad. Spela din första hand.';
     await saveBlackjackHand(env, hand);
+    // Deduct only after hand is durably saved
+    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(hand.baseBet, player.id as string).run();
 
     const freshPlayer = await loadGamePlayerById(env, player.id as string);
     return gameJson(buildBlackjackState(hand, freshPlayer));
@@ -3247,23 +3263,24 @@ async function gameActionBlackjackInsurance(request: Request, env: Env): Promise
         mainOutcome = 'push';
         mainPayout  = hand.bet;
       }
-      await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
-        .bind(insurancePayout + mainPayout, player.id as string).run();
-
       const net = (insurancePayout - insuranceBet) + (mainPayout - hand.bet);
       hand.message = playerStats.blackjack
         ? `Försäkringen vann (${fmtCurrency(insuranceBet * 2)} kr netto). Push — bägge har blackjack.`
         : `Dealern hade blackjack. Försäkringen vann ${fmtCurrency(insuranceBet * 2)} kr netto. Insatsen gick förlorad.`;
       hand.state = 'finished';
       hand.result = mainOutcome;
+      // Save hand first, then settle cash atomically (deduct premium + pay out winnings)
       await saveBlackjackHand(env, hand);
       await logAction(env, player.id as string, 'casino', hand.message, net, 0, 0, net >= 0).catch(() => {});
       const fp = await loadGamePlayerById(env, player.id as string);
       return gameJson(buildBlackjackState(hand, fp));
     }
 
+    // No dealer blackjack — insurance lost, save hand then charge premium
     hand.message = 'Dealern saknar blackjack. Försäkringen är förlorad. Spela vidare.';
     await saveBlackjackHand(env, hand);
+    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(insuranceBet, player.id as string).run();
     const freshPlayer = await loadGamePlayerById(env, player.id as string);
     return gameJson(buildBlackjackState(hand, freshPlayer));
   } catch (e) {
