@@ -2236,33 +2236,26 @@ async function gameCreateCharacter(request: Request, env: Env): Promise<Response
       `SELECT id FROM game_players WHERE name = ? AND round_id = ?`
     ).bind(name, round.id as string).first();
     if (existing) {
-      return gameJson({ error: 'Det namnet är upptaget. Välj ett annat.' }, 409);
-      return gameJson({ error: 'Det namnet Ã¤r upptaget. VÃ¤lj ett annat.' }, 409);
-      const roundPopulation = await env.DB
-        .prepare('SELECT COUNT(*) AS total FROM game_players WHERE round_id = ?')
-        .bind(round.id as string)
-        .first<{ total: number | string }>();
-
-      if (Number(roundPopulation?.total ?? 0) <= 1) {
-        const existingPlayer = await env.DB
-          .prepare('SELECT * FROM game_players WHERE id = ?')
-          .bind(existing.id as string)
-          .first<Row>();
-
-        if (existingPlayer) {
-          const player = await syncGamePlayerState(env, existingPlayer);
-          return new Response(JSON.stringify({ player, existing: true }), {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-              'Set-Cookie': setGameCookie(existing.id as string),
-              ...cors(),
-            },
-          });
-        }
+      // Allow reclaim only if caller has no active cookie (logged out) or already owns this character.
+      // Reject if they have a cookie for a DIFFERENT character (prevents name stealing).
+      const currentCookie = getGameCookie(request);
+      if (currentCookie && currentCookie !== (existing.id as string)) {
+        return gameJson({ error: 'Det namnet är upptaget. Välj ett annat.' }, 409);
       }
-
-      return gameJson({ error: 'Det namnet är upptaget. Välj ett annat.' }, 409);
+      const existingPlayer = await env.DB
+        .prepare('SELECT * FROM game_players WHERE id = ?')
+        .bind(existing.id as string).first<Row>();
+      if (existingPlayer) {
+        const player = await syncGamePlayerState(env, existingPlayer);
+        return new Response(JSON.stringify({ player, existing: true }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Set-Cookie': setGameCookie(existing.id as string),
+            ...cors(),
+          },
+        });
+      }
     }
 
     const pid = crypto.randomUUID();
