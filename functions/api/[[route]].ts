@@ -159,9 +159,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       return importDaxMeasures(env);
     }
 
-    // ── Game (Mosquito) — requires site auth + game session cookie ───────────
+    // ── Game (Mosquito) — public; individual routes guard themselves ──────────
     if (resource === 'game') {
-      await requireAuth(request, env);
       if (id === 'register'         && method === 'POST') return gameRegister(request, env);
       if (id === 'login'            && method === 'POST') return gameLogin(request, env);
       if (id === 'create-character' && method === 'POST') return gameCreateCharacter(request, env);
