@@ -486,8 +486,8 @@ select:focus{border-color:var(--red);}
 <!-- ─── Boot Screen ────────────────────────────────────────────────────────── -->
 <div id="screen-boot" class="screen" style="display:flex;">
   <div class="boot-logo">MOSQUITO</div>
-  <div id="boot-copy" class="boot-copy">Kontrollerar samma lösenordssession som sp1e-hubben.</div>
-  <div id="boot-login-form" style="display:none;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:280px;">
+  <div id="boot-copy" class="boot-copy">Ange lösenordet för att öppna Mosquito.</div>
+  <div id="boot-login-form" style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:280px;">
     <input id="boot-password" type="password" placeholder="Lösenord..." autocomplete="current-password"
       style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--white);padding:8px 12px;font-size:12px;letter-spacing:.5px;outline:none;">
     <button id="boot-login-btn" class="primary" style="width:100%;">LÅS UPP MOSQUITO</button>
@@ -1391,7 +1391,6 @@ function showLockedState(msg){
 }
 
 async function ensureSiteAuth(){
-  setMsg('boot-msg','Kontrollerar åtkomst...','info');
   try{
     const r=await fetch('/api/auth/check',{credentials:'same-origin'});
     const d=await r.json().catch(()=>({}));
@@ -1400,6 +1399,8 @@ async function ensureSiteAuth(){
       setMsg('boot-msg','','');
       const form=document.getElementById('boot-login-form');
       if(form) form.style.display='none';
+      const copy=document.getElementById('boot-copy');
+      if(copy) copy.textContent='';
       return true;
     }
   }catch{}
@@ -1612,9 +1613,7 @@ function bindShellControls(){
   const pwInput=document.getElementById('boot-password');
   if(pwInput) pwInput.addEventListener('keydown',e=>{if(e.key==='Enter') doBootLogin();});
   const refreshBtn=document.getElementById('boot-refresh-btn');
-  if(refreshBtn) refreshBtn.addEventListener('click',async()=>{
-    if(await ensureSiteAuth()) init();
-  });
+  if(refreshBtn) refreshBtn.addEventListener('click',()=>init());
   const roundRefresh=document.getElementById('round-refresh-btn');
   if(roundRefresh) roundRefresh.addEventListener('click',async()=>{
     setMsg('round-msg','Uppdaterar hall of fame...','info');
