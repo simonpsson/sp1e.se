@@ -486,15 +486,7 @@ select:focus{border-color:var(--red);}
 <!-- ─── Boot Screen ────────────────────────────────────────────────────────── -->
 <div id="screen-boot" class="screen" style="display:flex;">
   <div class="boot-logo">MOSQUITO</div>
-  <div id="boot-copy" class="boot-copy">Ange lösenordet för att öppna Mosquito.</div>
-  <div id="boot-login-form" style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:280px;">
-    <input id="boot-password" type="password" placeholder="Lösenord..." autocomplete="current-password"
-      style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--white);padding:8px 12px;font-size:12px;letter-spacing:.5px;outline:none;">
-    <button id="boot-login-btn" class="primary" style="width:100%;">LÅS UPP MOSQUITO</button>
-  </div>
-  <div class="boot-actions">
-    <button id="boot-refresh-btn">FÖRSÖK IGEN</button>
-  </div>
+  <div id="boot-copy" class="boot-copy">Ansluter...</div>
   <div id="boot-msg" class="amsg"></div>
 </div>
 
@@ -1310,11 +1302,9 @@ const G={
   casino:defaultCasinoState(),
   world:{events:[],loading:false,lastLoaded:0},
   devHistory:['> help'],
-  siteAuthenticated:false,
   hallOfFame:null,
   admin:{authenticated:false,expiresAt:null,configured:true}
 };
-const AUTH_REDIRECT='/?next=%2Fmosquito';
 const WORLD_PULSE_CACHE_KEY='mosquito-world-pulse-v1';
 const WORLD_PULSE_TTL_MS=90*1000;
 
@@ -1376,32 +1366,6 @@ function normalizeWorldEvents(res){
 }
 
 document.addEventListener('DOMContentLoaded',init);
-function showLockedState(msg){
-  const copy=document.getElementById('boot-copy');
-  if(copy) copy.textContent='Ange lösenordet för sp1e-hubben för att öppna Mosquito.';
-  setMsg('boot-msg','','');
-  const form=document.getElementById('boot-login-form');
-  if(form) form.style.display='flex';
-  showScreen('boot');
-}
-
-async function ensureSiteAuth(){
-  try{
-    const r=await fetch('/api/auth/check',{credentials:'same-origin'});
-    const d=await r.json().catch(()=>({}));
-    if(r.ok&&d.authenticated){
-      G.siteAuthenticated=true;
-      setMsg('boot-msg','','');
-      const form=document.getElementById('boot-login-form');
-      if(form) form.style.display='none';
-      const copy=document.getElementById('boot-copy');
-      if(copy) copy.textContent='';
-      return true;
-    }
-  }catch{}
-  showLockedState();
-  return false;
-}
 function apiError(res,fallback){
   if(!res) return fallback;
   if(res.error) return res.error;
@@ -1425,7 +1389,6 @@ async function init(){
   bindShellControls();
   bindCharLogout();
   applyPokerChipSkins();
-  if(!(await ensureSiteAuth())) return;
   bindCreate();
   bindDrugForm();
   bindDevConsole();
@@ -1577,38 +1540,7 @@ function showScreen(name){
   if(mn) mn.style.display=name==='game'?'flex':'none';
 }
 
-async function doBootLogin(){
-  const pw=document.getElementById('boot-password');
-  const password=pw?pw.value.trim():'';
-  if(!password){setMsg('boot-msg','Ange lösenordet.','err');return;}
-  setMsg('boot-msg','Loggar in...','info');
-  const btn=document.getElementById('boot-login-btn');
-  if(btn) btn.disabled=true;
-  try{
-    const r=await fetch('/api/auth/login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
-    const d=await r.json().catch(()=>({}));
-    if(r.ok&&d.success){
-      setMsg('boot-msg','Inloggad!','ok');
-      if(pw) pw.value='';
-      // Re-run init from scratch now that we have a session
-      init();
-    }else{
-      setMsg('boot-msg',d.error||'Fel lösenord.','err');
-      if(btn) btn.disabled=false;
-    }
-  }catch{
-    setMsg('boot-msg','Nätverksfel. Försök igen.','err');
-    if(btn) btn.disabled=false;
-  }
-}
-
 function bindShellControls(){
-  const loginBtn=document.getElementById('boot-login-btn');
-  if(loginBtn) loginBtn.addEventListener('click',doBootLogin);
-  const pwInput=document.getElementById('boot-password');
-  if(pwInput) pwInput.addEventListener('keydown',e=>{if(e.key==='Enter') doBootLogin();});
-  const refreshBtn=document.getElementById('boot-refresh-btn');
-  if(refreshBtn) refreshBtn.addEventListener('click',()=>init());
   const roundRefresh=document.getElementById('round-refresh-btn');
   if(roundRefresh) roundRefresh.addEventListener('click',async()=>{
     setMsg('round-msg','Uppdaterar hall of fame...','info');
