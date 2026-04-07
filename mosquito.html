@@ -1324,11 +1324,6 @@ async function api(path,opts={}){
     if(opts.body) cfg.headers={'Content-Type':'application/json'};
     const r=await fetch('/api/game/'+path,cfg);
     const data=await r.json().catch(()=>({}));
-    if(r.status===401&&data.error==='Unauthorized'){
-      G.siteAuthenticated=false;
-      showLockedState('Mosquito är låst. Logga in med samma lösenord som sp1e-hubben för att spela vidare.');
-      return {...data,_status:r.status};
-    }
     return {...data,_status:r.status};
   }catch{return{error:'Kunde inte nå servern',_status:0};}
 }
