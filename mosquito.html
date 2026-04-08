@@ -3450,7 +3450,6 @@ function renderRanking(){
   const tbody=document.getElementById('rank-tbody');
   if(!tbody) return;
   const worldTop=(G.status&&G.status.world_top10)||null;
-  const players=(G.status&&G.status.top10)||[];
   const fallbackRows=[
     ...players.map(p=>({
       name:p.name,level:p.level,respect:p.respect,profession:p.profession||'none',side:p.side,isNpc:false
@@ -3459,14 +3458,13 @@ function renderRanking(){
       name:n.name,level:n.level,respect:n.respect,profession:'NPC',side:n.side,isNpc:true
     }))
   ].sort((a,b)=>b.respect-a.respect).slice(0,20);
-  const all=((worldTop&&worldTop.length)?worldTop:fallbackRows).map(row=>({
+  const tableRows=((worldTop&&worldTop.length)?worldTop:fallbackRows).map(row=>({
     ...row,
     isNpc: !!(row.isNpc??row.is_npc)
   }));
-  const myName=G.player?G.player.name:'';
   const self=G.status&&G.status.self;
   const hasSelf=!!myName&&myPosInAll>=0;
-  const rowsHtml=all.map((row,i)=>{
+  const rowsHtml=tableRows.map((row,i)=>{
     const isMe=!row.isNpc&&row.name===myName;
     const sideLabel=row.side==='westside'?'WEST':'EAST';
     const prof=professionName(row.profession)||'—';
