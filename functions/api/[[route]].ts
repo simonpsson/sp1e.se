@@ -1094,83 +1094,75 @@ async function getArtworks(env: Env): Promise<Response> {
 
 // ─── Game (Mosquito) ─────────────────────────────────────────────────────────
 
-// ── Name generation ──────────────────────────────────────────────────────────
+// ============================================
+// MOSQUITO NAME SYSTEM — DO NOT MODIFY
+// ============================================
 
-const MALE_FIRST_CLASSIC = [
-  'Ronny','Conny','Tommy','Mange','Bengan','Patrik','Robban',
-  'Niklas','Fredde','Macke','Sigge','Rolle','Stefan','Kenneth',
-  'Glenn','Roger','Jonny','Micke','Henke','Bosse','Pelle',
-  'Kurre','Lasse','Hasse','Leif','Christer','Kent','Jocke',
-  'Ante','Matte','Tobbe','Kenta','Putte','Roffe','Lennie',
-];
-
-const MALE_FIRST_URBAN = [
-  'Alex','Marcus','Viktor','Felix','Eddie','Dennis','Martin',
-  'Joel','Tony','Carlo','Rico','Bruno','Milan','Amir','Hassan',
-  'Samir','Adnan','Nico','Diego','Kevin','Robin','Marko',
-  'Leon','Dino','Ivan','Adis','Nermin','Armin','Tarik','Yousef',
-];
-
-const FEMALE_FIRST = [
-  'Bella','Maggan','Sussan','Jenny','Sandra','Jessica','Linda',
-  'Mia','Nilla','Anki','Nettan','Kicki','Bettan','Carro',
-  'Fia','Sara','Lena','Anna','Sofia','Nadia','Leila',
-  'Amina','Yasmin','Mona','Frida','Elin','Julia','Lotta',
-  'Malin','Emma','Lina','Tessan','Tanja','Veronica','Nina',
-];
-
-const ALIASES = [
-  'Vargen','Räven','Falken','Kobran','Skuggan','Kungen',
-  'Kulan','Blixten','Kniven','Kocken','Boxarn','Slaktarn',
-  'Järnet','Turbo','Kranen','Fimpen','Tunnan','Smilen',
-  'Krossarn','Kexet','Zäta','Röken','Iskall','Hårda',
-  'Tjacket','Mörkret','Duvan','Pantern','Betongen','Masken',
-  'Hajen','Kedjan','Raketen','Spiken','Stålet','Sotarn',
-  'Baxarn','Muren','Tassen','Lodjuret',
-];
-
-const PREFIXES_MALE   = ['Lille','Store','Gamle','Unga','Norr','Söder','Dumme','Fule'];
-const PREFIXES_FEMALE = ['Lilla','Stora','Gamla','Unga','Norr','Söder'];
-
-const SURNAMES = [
-  'Andersson','Johansson','Karlsson','Nilsson','Eriksson',
-  'Larsson','Olsson','Persson','Svensson','Gustafsson',
-  'Pettersson','Jonsson','Jansson','Hansson','Bengtsson',
-  'Jönsson','Lindberg','Jakobsson','Magnusson','Olofsson',
-  'Lindström','Lindqvist','Lundberg','Berglund','Bergman',
-  'Holm','Holmberg','Nyström','Dahlberg','Söderberg',
-  'Sundberg','Forsberg','Ekström','Wallin','Berg',
-  'Lundqvist','Blomqvist','Eklund','Malmberg','Åberg',
-];
+const NAME_POOLS = {
+  maleClassic: [
+    'Ronny','Conny','Tommy','Mange','Bengan','Patrik','Robban',
+    'Niklas','Fredde','Macke','Sigge','Rolle','Stefan','Kenneth',
+    'Glenn','Roger','Jonny','Micke','Henke','Bosse','Pelle',
+    'Kurre','Lasse','Hasse','Leif','Christer','Kent','Jocke',
+    'Ante','Matte','Tobbe','Kenta','Putte','Roffe','Lennie',
+  ],
+  maleUrban: [
+    'Alex','Marcus','Viktor','Felix','Eddie','Dennis','Martin',
+    'Joel','Tony','Carlo','Rico','Bruno','Milan','Amir','Hassan',
+    'Samir','Adnan','Nico','Diego','Kevin','Robin','Marko',
+    'Leon','Dino','Ivan','Adis','Nermin','Armin','Tarik','Yousef',
+  ],
+  female: [
+    'Bella','Maggan','Sussan','Jenny','Sandra','Jessica','Linda',
+    'Mia','Nilla','Anki','Nettan','Kicki','Bettan','Carro',
+    'Fia','Sara','Lena','Anna','Sofia','Nadia','Leila',
+    'Amina','Yasmin','Mona','Frida','Elin','Julia','Lotta',
+    'Malin','Emma','Lina','Tessan','Tanja','Veronica','Nina',
+  ],
+  aliases: [
+    'Vargen','Räven','Falken','Kobran','Skuggan','Kungen',
+    'Kulan','Blixten','Kniven','Kocken','Boxarn','Slaktarn',
+    'Järnet','Turbo','Kranen','Fimpen','Tunnan','Smilen',
+    'Krossarn','Kexet','Zäta','Röken','Iskall','Hårda',
+    'Tjacket','Mörkret','Duvan','Pantern','Betongen','Masken',
+    'Hajen','Kedjan','Raketen','Spiken','Stålet','Sotarn',
+    'Baxarn','Muren','Tassen','Lodjuret',
+  ],
+  prefixMale:   ['Lille','Store','Gamle','Unga'],
+  prefixFemale: ['Lilla','Stora','Gamla','Unga'],
+  surnames: [
+    'Andersson','Johansson','Karlsson','Nilsson','Eriksson',
+    'Larsson','Olsson','Persson','Svensson','Gustafsson',
+    'Pettersson','Jonsson','Jansson','Hansson','Bengtsson',
+    'Jönsson','Lindberg','Jakobsson','Magnusson','Olofsson',
+    'Lindström','Lindqvist','Lundberg','Berglund','Bergman',
+    'Holm','Holmberg','Nyström','Dahlberg','Söderberg',
+  ],
+};
 
 function generateNpcName(side: string): string {
-  const eastside = side === 'eastside';
-  const female   = Math.random() < 0.20;
+  const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+  const roll = Math.random();
 
+  const isFemale = Math.random() < 0.25;
   let firstName: string;
-  if (female) {
-    firstName = pickRandom(FEMALE_FIRST);
-  } else if (eastside) {
-    firstName = Math.random() < 0.65 ? pickRandom(MALE_FIRST_URBAN) : pickRandom(MALE_FIRST_CLASSIC);
+  if (isFemale) {
+    firstName = pick(NAME_POOLS.female);
+  } else if (side === 'eastside') {
+    firstName = Math.random() < 0.6 ? pick(NAME_POOLS.maleUrban) : pick(NAME_POOLS.maleClassic);
   } else {
-    firstName = Math.random() < 0.65 ? pickRandom(MALE_FIRST_CLASSIC) : pickRandom(MALE_FIRST_URBAN);
+    firstName = Math.random() < 0.6 ? pick(NAME_POOLS.maleClassic) : pick(NAME_POOLS.maleUrban);
   }
 
-  const prefixes = female ? PREFIXES_FEMALE : PREFIXES_MALE;
-  const alias    = pickRandom(ALIASES);
-  const surname  = pickRandom(SURNAMES);
+  const alias   = pick(NAME_POOLS.aliases);
+  const surname = pick(NAME_POOLS.surnames);
+  const prefix  = isFemale ? pick(NAME_POOLS.prefixFemale) : pick(NAME_POOLS.prefixMale);
 
-  // Format weights: 25% first, 5% surname, 40% first+alias+surname, 20% alias+surname, 10% prefix+first
-  const roll = Math.random();
   if (roll < 0.25) return firstName;
-  if (roll < 0.30) return surname;
+  if (roll < 0.35) return surname;
   if (roll < 0.70) return `${firstName} "${alias}" ${surname}`;
   if (roll < 0.90) return `${alias} ${surname}`;
-  // prefix + first — hyphen for ≤5-char names (Mange → Lill-Mange), space otherwise
-  const prefix = pickRandom(prefixes);
-  return firstName.length <= 5
-    ? `${prefix}-${firstName}`
-    : `${prefix} ${firstName}`;
+  return `${prefix} ${firstName}`;
 }
 
 function suggestPlayerNames(count: number, side?: string): string[] {
@@ -1397,8 +1389,8 @@ const SEEDED_NPC_NAMES: Array<{ name: string; side: 'eastside' | 'westside' }> =
   { name: 'Glenn "Järnet" Andersson',   side: 'westside' },
   { name: 'Roger "Blixten" Svensson',   side: 'westside' },
   { name: 'Sigge "Räven" Larsson',      side: 'westside' },
-  { name: 'Robban "Kranen" Lindström',  side: 'westside' },
-  { name: 'Micke "Boxarn" Nilsson',     side: 'westside' },
+  { name: 'Robban "Kranen" Lindström',  side: 'eastside' },
+  { name: 'Micke "Boxarn" Nilsson',     side: 'eastside' },
   { name: 'Bosse "Fimpen" Holm',        side: 'westside' },
   { name: 'Kenneth "Smilen" Berglund',  side: 'westside' },
   { name: 'Amir "Skuggan"',             side: 'eastside' },
@@ -1407,9 +1399,9 @@ const SEEDED_NPC_NAMES: Array<{ name: string; side: 'eastside' | 'westside' }> =
   { name: 'Milan "Pantern" Lundberg',   side: 'eastside' },
   { name: 'Alex "Baxarn" Ekström',      side: 'eastside' },
   { name: 'Bella "Kobran" Dahlberg',    side: 'eastside' },
-  { name: 'Sussan "Mörkret" Holmberg',  side: 'eastside' },
+  { name: 'Sussan "Mörkret" Holmberg',  side: 'westside' },
   { name: 'Nadia "Duvan" Söderberg',    side: 'eastside' },
-  { name: 'Maggan "Tassen" Nyström',    side: 'eastside' },
+  { name: 'Maggan "Tassen" Nyström',    side: 'westside' },
   { name: 'Leila "Stålet" Forsberg',    side: 'eastside' },
 ];
 
