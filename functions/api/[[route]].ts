@@ -10,6 +10,7 @@ export interface Env {
   DB: D1Database;
   FILES: R2Bucket;
   AUTH_PASSWORD_HASH: string;
+  GAME_ADMIN_PASSWORD_HASH?: string;
   SPOTIFY_CLIENT_ID: string;
   SPOTIFY_CLIENT_SECRET: string;
   SPOTIFY_REDIRECT_URI: string;
@@ -1187,6 +1188,8 @@ function suggestPlayerNames(count: number, side?: string): string[] {
 const GAME_COOKIE = 'game_session';
 const GAME_ADMIN_COOKIE = 'game_admin_session';
 const GAME_ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
+let gameCasinoTablesEnsured = false;
+let gameBlackjackColumnsEnsured = false;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -1546,6 +1549,89 @@ async function ensureGameAdminTables(env: Env): Promise<void> {
     env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_admin_sessions_expires ON game_admin_sessions (expires_at)`),
     env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_admin_audit_created ON game_admin_audit (created_at DESC)`),
   ]);
+}
+
+async function ensureGameCasinoTables(env: Env): Promise<void> {
+  if (!gameCasinoTablesEnsured) {
+    await env.DB.batch([
+      env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS game_blackjack_hands (
+           id TEXT PRIMARY KEY,
+           player_id TEXT NOT NULL UNIQUE,
+           round_id TEXT NOT NULL,
+           bet INTEGER NOT NULL,
+           base_bet INTEGER DEFAULT 0,
+           deck_state TEXT NOT NULL,
+           player_hand TEXT NOT NULL,
+           dealer_hand TEXT NOT NULL,
+           state TEXT NOT NULL DEFAULT 'player_turn',
+           result TEXT,
+           message TEXT,
+           doubled INTEGER DEFAULT 0,
+           split_hand TEXT,
+           split_bet INTEGER DEFAULT 0,
+           split_result TEXT,
+           split_doubled INTEGER DEFAULT 0,
+           insurance_bet INTEGER DEFAULT 0,
+           created_at TEXT DEFAULT (datetime('now')),
+           updated_at TEXT DEFAULT (datetime('now'))
+         )`
+      ),
+      env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_blackjack_round ON game_blackjack_hands (round_id)`),
+      env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS game_holdem_tables (
+           id TEXT PRIMARY KEY,
+           player_id TEXT NOT NULL UNIQUE,
+           round_id TEXT NOT NULL,
+           buy_in INTEGER NOT NULL,
+           small_blind INTEGER NOT NULL DEFAULT 50,
+           big_blind INTEGER NOT NULL DEFAULT 100,
+           status TEXT NOT NULL DEFAULT 'active',
+           state_json TEXT NOT NULL,
+           created_at TEXT DEFAULT (datetime('now')),
+           updated_at TEXT DEFAULT (datetime('now'))
+         )`
+      ),
+      env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_holdem_round ON game_holdem_tables (round_id)`),
+      env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS game_roulette_spins (
+           id TEXT PRIMARY KEY,
+           player_id TEXT NOT NULL,
+           round_id TEXT NOT NULL,
+           winning_number INTEGER NOT NULL,
+           color TEXT NOT NULL,
+           total_stake INTEGER NOT NULL,
+           total_payout INTEGER NOT NULL,
+           net_result INTEGER NOT NULL,
+           bets_json TEXT NOT NULL,
+           created_at TEXT DEFAULT (datetime('now'))
+         )`
+      ),
+      env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_roulette_player_created ON game_roulette_spins (player_id, created_at DESC)`),
+      env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_roulette_round ON game_roulette_spins (round_id)`),
+    ]);
+    gameCasinoTablesEnsured = true;
+  }
+
+  if (gameBlackjackColumnsEnsured) return;
+
+  const info = await env.DB.prepare(`PRAGMA table_info(game_blackjack_hands)`).all<Row>();
+  const columns = new Set(info.results.map(row => String(row.name ?? '')));
+  const alters: D1PreparedStatement[] = [];
+  if (!columns.has('base_bet')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN base_bet INTEGER DEFAULT 0`));
+  if (!columns.has('split_hand')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN split_hand TEXT`));
+  if (!columns.has('split_bet')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN split_bet INTEGER DEFAULT 0`));
+  if (!columns.has('split_result')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN split_result TEXT`));
+  if (!columns.has('split_doubled')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN split_doubled INTEGER DEFAULT 0`));
+  if (!columns.has('insurance_bet')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN insurance_bet INTEGER DEFAULT 0`));
+  if (alters.length) await env.DB.batch(alters);
+  gameBlackjackColumnsEnsured = true;
+}
+
+function prepareGamePlayerCashDelta(env: Env, playerId: string, delta: number): D1PreparedStatement {
+  return env.DB
+    .prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
+    .bind(delta, playerId);
 }
 
 async function getGameAdminSession(request: Request, env: Env): Promise<{ token: string; expires_at: string } | null> {
@@ -2100,30 +2186,6 @@ async function gameCreateCharacter(request: Request, env: Env): Promise<Response
       `SELECT id FROM game_players WHERE name = ? AND round_id = ?`
     ).bind(name, round.id as string).first();
     if (existing) {
-      const roundPopulation = await env.DB
-        .prepare('SELECT COUNT(*) AS total FROM game_players WHERE round_id = ?')
-        .bind(round.id as string)
-        .first<{ total: number | string }>();
-
-      if (Number(roundPopulation?.total ?? 0) <= 1) {
-        const existingPlayer = await env.DB
-          .prepare('SELECT * FROM game_players WHERE id = ?')
-          .bind(existing.id as string)
-          .first<Row>();
-
-        if (existingPlayer) {
-          const player = await syncGamePlayerState(env, existingPlayer);
-          return new Response(JSON.stringify({ player, existing: true }), {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-              'Set-Cookie': setGameCookie(existing.id as string),
-              ...cors(),
-            },
-          });
-        }
-      }
-
       return gameJson({ error: 'Det namnet är upptaget. Välj ett annat.' }, 409);
     }
 
@@ -2526,7 +2588,20 @@ async function gameHallOfFame(env: Env): Promise<Response> {
 
 async function gameGetStatus(request: Request, env: Env): Promise<Response> {
   const round = await getActiveRound(env);
-  if (!round) return gameJson({ round_ended: true, top10: [], player_count: 0, self_rank: null, self: null });
+  if (!round) {
+    return gameJson({
+      round_ended: true,
+      top10: [],
+      player_count: 0,
+      self_rank: null,
+      self: null,
+      world_top10: [],
+      world_count: 0,
+      world_self_rank: null,
+      world_self: null,
+      world_leader: null,
+    });
+  }
 
   const endDate    = new Date(round.end_date as string).getTime();
   const secondsLeft = Math.max(0, Math.floor((endDate - Date.now()) / 1000));
@@ -2534,7 +2609,7 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
 
   if (roundEnded) await endRound(env, round);
 
-  const [topRes, countRes] = await Promise.all([
+  const [topRes, countRes, npcTopRes, npcCountRes] = await Promise.all([
     env.DB.prepare(
       `SELECT name, level, respect, side, profession
        FROM game_players WHERE round_id = ? AND is_alive = 1
@@ -2543,10 +2618,19 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
     env.DB.prepare(
       `SELECT COUNT(*) as cnt FROM game_players WHERE round_id = ? AND is_alive = 1`
     ).bind(round.id as string).first<{ cnt: number }>(),
+    env.DB.prepare(
+      `SELECT name, level, respect, side
+       FROM game_npcs WHERE round_id = ? AND is_alive = 1
+       ORDER BY respect DESC LIMIT 10`
+    ).bind(round.id as string).all<Row>(),
+    env.DB.prepare(
+      `SELECT COUNT(*) as cnt FROM game_npcs WHERE round_id = ? AND is_alive = 1`
+    ).bind(round.id as string).first<{ cnt: number }>(),
   ]);
 
   let self: Record<string, unknown> | null = null;
   let selfRank: number | null = null;
+  let worldSelfRank: number | null = null;
   const currentPid = getGameCookie(request);
   if (currentPid) {
     const selfRow = await env.DB.prepare(
@@ -2563,6 +2647,13 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
       ).bind(round.id as string, selfRow.respect as number).first<{ cnt: number | string }>();
 
       selfRank = Number(ahead?.cnt ?? 0) + 1;
+      const npcAhead = await env.DB.prepare(
+        `SELECT COUNT(*) as cnt
+         FROM game_npcs
+         WHERE round_id = ? AND is_alive = 1 AND respect > ?`
+      ).bind(round.id as string, selfRow.respect as number).first<{ cnt: number | string }>();
+
+      worldSelfRank = selfRank + Number(npcAhead?.cnt ?? 0);
       self = {
         name: selfRow.name,
         level: selfRow.level,
@@ -2572,6 +2663,13 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
       };
     }
   }
+
+  const worldTop10 = [
+    ...topRes.results.map(row => ({ ...row, is_npc: false })),
+    ...npcTopRes.results.map(row => ({ ...row, profession: 'NPC', is_npc: true })),
+  ]
+    .sort((a, b) => Number(b.respect ?? 0) - Number(a.respect ?? 0))
+    .slice(0, 10);
 
   return gameJson({
     round_ended: roundEnded,
@@ -2585,6 +2683,11 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
     player_count: countRes?.cnt ?? 0,
     self_rank:    selfRank,
     self,
+    world_top10: worldTop10,
+    world_count: Number(countRes?.cnt ?? 0) + Number(npcCountRes?.cnt ?? 0),
+    world_self_rank: worldSelfRank,
+    world_self: self,
+    world_leader: worldTop10[0] ?? null,
   });
 }
 
@@ -2652,17 +2755,7 @@ async function gameActionBlackjackStart(request: Request, env: Env): Promise<Res
       return gameJson({ error: 'En hand pågår redan.', ...buildBlackjackState(existing, player) }, 409);
     }
 
-    try {
-      await env.DB.prepare(`DELETE FROM game_blackjack_hands WHERE player_id = ?`).bind(player.id as string).run();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes('no such table')) {
-        return gameJson({ error: 'Blackjack-tabellen saknas. Kör game-migration-blackjack.sql mot D1.' }, 500);
-      }
-      throw e;
-    }
-    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(bet, player.id as string).run();
+    await ensureGameCasinoTables(env);
 
     const deck = shuffleBlackjackDeck(buildBlackjackDeck());
     const hand: BlackjackRuntimeHand = {
@@ -2685,7 +2778,11 @@ async function gameActionBlackjackStart(request: Request, env: Env): Promise<Res
       insuranceBet: 0,
     };
 
-    await saveBlackjackHand(env, hand);
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM game_blackjack_hands WHERE player_id = ?`).bind(player.id as string),
+      prepareGamePlayerCashDelta(env, player.id as string, -bet),
+      prepareSaveBlackjackHand(env, hand),
+    ]);
 
     const playerStats = blackjackTotals(hand.playerCards);
     const dealerStats = blackjackTotals(hand.dealerCards);
@@ -2791,13 +2888,12 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
       if (Number(player.cash ?? 0) < hand.splitBet) {
         return gameJson({ error: 'Du har inte råd att dubbla den här delade handen.' }, 400);
       }
-      await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-        .bind(hand.splitBet, player.id as string).run();
+      const extraStake = hand.splitBet;
       hand.splitBet *= 2;
       hand.splitDoubled = true;
       hand.splitCards.push(drawBlackjackCard(hand.deck));
       finishDealerHand(hand);
-      return finalizeBlackjackSplitHand(env, player, hand);
+      return finalizeBlackjackSplitHand(env, player, hand, { pendingStakeCharge: extraStake });
     }
 
     if (hand.doubled || hand.playerCards.length !== 2) {
@@ -2807,28 +2903,29 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
       return gameJson({ error: 'Du har inte råd att dubbla den här handen.' }, 400);
     }
 
-    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(hand.bet, player.id as string).run();
-
+    const extraStake = hand.bet;
     hand.bet *= 2;
     hand.doubled = true;
     hand.playerCards.push(drawBlackjackCard(hand.deck));
     const playerStats = blackjackTotals(hand.playerCards);
     if (playerStats.busted) {
-      return finalizeBlackjackHand(env, player, hand, 'bust');
+      return finalizeBlackjackHand(env, player, hand, 'bust', { pendingStakeCharge: extraStake });
     }
 
     // If split exists, transition to split_turn instead of dealer
     if (hand.splitCards.length > 0) {
       hand.state = 'split_turn';
       hand.message = 'Dubblade och fick ett kort. Spela nu din delade hand.';
-      await saveBlackjackHand(env, hand);
+      await env.DB.batch([
+        prepareSaveBlackjackHand(env, hand),
+        prepareGamePlayerCashDelta(env, player.id as string, -extraStake),
+      ]);
       const fp = await loadGamePlayerById(env, player.id as string);
       return gameJson(buildBlackjackState(hand, fp));
     }
 
     finishDealerHand(hand);
-    return finalizeBlackjackHand(env, player, hand, settleBlackjack(hand));
+    return finalizeBlackjackHand(env, player, hand, settleBlackjack(hand), { pendingStakeCharge: extraStake });
   } catch (e) {
     return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
   }
@@ -2893,15 +2990,10 @@ async function gameActionRouletteSpin(request: Request, env: Env): Promise<Respo
     };
     spin.message = rouletteSpinMessage(spin);
 
-    if (netResult !== 0) {
-      await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
-        .bind(netResult, player.id as string).run();
-    } else {
-      await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
-        .bind(player.id as string).run();
-    }
-
-    await saveRouletteSpin(env, player, spin);
+    await env.DB.batch([
+      prepareGamePlayerCashDelta(env, player.id as string, netResult),
+      prepareSaveRouletteSpin(env, player, spin),
+    ]);
     const summary = bets.slice(0, 3).map(bet => `${bet.label} (${fmtCurrency(bet.stake)} kr)`).join(', ');
     const suffix = bets.length > 3 ? ` + ${bets.length - 3} till` : '';
     await logAction(
@@ -2951,6 +3043,7 @@ async function finalizeBlackjackSplitHand(
   env: Env,
   player: Row,
   hand: BlackjackRuntimeHand,
+  options: { pendingStakeCharge?: number } = {},
 ): Promise<Response> {
   const mainOutcome = settleBlackjack(hand);
   const splitOutcome = settleSplitHand(hand.splitCards, hand.dealerCards);
@@ -2965,17 +3058,13 @@ async function finalizeBlackjackSplitHand(
   const mainNet  = blackjackNet(mainOutcome,  hand.bet);
   const splitNet = blackjackNet(splitOutcome, hand.splitBet);
   const totalNet = mainNet + splitNet;
+  const pendingStakeCharge = Math.max(0, Math.floor(Number(options.pendingStakeCharge ?? 0)));
 
   hand.message = splitResultMessage(mainOutcome, splitOutcome, hand.bet, hand.splitBet, totalNet);
-  await saveBlackjackHand(env, hand);
-
-  if (totalPayout > 0) {
-    await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(totalPayout, player.id as string).run();
-  } else {
-    await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
-      .bind(player.id as string).run();
-  }
+  await env.DB.batch([
+    prepareSaveBlackjackHand(env, hand),
+    prepareGamePlayerCashDelta(env, player.id as string, totalPayout - pendingStakeCharge),
+  ]);
 
   await logAction(env, player.id as string, 'casino', hand.message, totalNet, 0, 0, totalNet >= 0);
   const freshPlayer = await loadGamePlayerById(env, player.id as string);
@@ -2995,24 +3084,25 @@ async function gameActionBlackjackSplit(request: Request, env: Env): Promise<Res
     if (hand.state !== 'player_turn')
       return gameJson({ error: 'Du kan bara dela i spelarturen.' }, 400);
     if (hand.splitCards.length > 0)
-      return gameJson({ error: 'Du kan bara dela en gång.' }, 400);
+      return gameJson({ error: 'Du kan bara dela en g\u00e5ng.' }, 400);
     if (hand.playerCards.length !== 2)
       return gameJson({ error: 'Du kan bara dela direkt efter given.' }, 400);
     if (blackjackRank(hand.playerCards[0]) !== blackjackRank(hand.playerCards[1]))
-      return gameJson({ error: 'Du kan bara dela ett par (två likadana kort).' }, 400);
+      return gameJson({ error: 'Du kan bara dela ett par (tv\u00e5 likadana kort).' }, 400);
     if (Number(player.cash ?? 0) < hand.baseBet)
-      return gameJson({ error: 'Du har inte råd att dela handen.' }, 400);
+      return gameJson({ error: 'Du har inte r\u00e5d att dela handen.' }, 400);
 
-    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(hand.baseBet, player.id as string).run();
-
+    const extraStake = hand.baseBet;
     const secondCard = hand.playerCards.pop()!;
     hand.splitCards = [secondCard];
     hand.playerCards.push(drawBlackjackCard(hand.deck));
     hand.splitCards.push(drawBlackjackCard(hand.deck));
-    hand.splitBet = hand.baseBet;
-    hand.message = 'Handen delad. Spela din första hand.';
-    await saveBlackjackHand(env, hand);
+    hand.splitBet = extraStake;
+    hand.message = 'Handen delad. Spela din f\u00f6rsta hand.';
+    await env.DB.batch([
+      prepareGamePlayerCashDelta(env, player.id as string, -extraStake),
+      prepareSaveBlackjackHand(env, hand),
+    ]);
 
     const freshPlayer = await loadGamePlayerById(env, player.id as string);
     return gameJson(buildBlackjackState(hand, freshPlayer));
@@ -3032,20 +3122,18 @@ async function gameActionBlackjackInsurance(request: Request, env: Env): Promise
     catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 400); }
 
     if (hand.state !== 'player_turn')
-      return gameJson({ error: 'Du kan bara ta försäkring i spelarturen.' }, 400);
+      return gameJson({ error: 'Du kan bara ta f\u00f6rs\u00e4kring i spelarturen.' }, 400);
     if (hand.insuranceBet > 0)
-      return gameJson({ error: 'Du har redan tagit försäkring.' }, 400);
+      return gameJson({ error: 'Du har redan tagit f\u00f6rs\u00e4kring.' }, 400);
     if (hand.playerCards.length !== 2)
-      return gameJson({ error: 'Du kan bara ta försäkring direkt efter given.' }, 400);
+      return gameJson({ error: 'Du kan bara ta f\u00f6rs\u00e4kring direkt efter given.' }, 400);
     if (blackjackRank(hand.dealerCards[0]) !== 'A')
-      return gameJson({ error: 'Försäkring erbjuds bara när dealern visar ett ess.' }, 400);
+      return gameJson({ error: 'F\u00f6rs\u00e4kring erbjuds bara n\u00e4r dealern visar ett ess.' }, 400);
 
     const insuranceBet = Math.floor(hand.baseBet / 2);
     if (Number(player.cash ?? 0) < insuranceBet)
-      return gameJson({ error: `Försäkringen kostar ${fmtCurrency(insuranceBet)} kr.` }, 400);
+      return gameJson({ error: `F\u00f6rs\u00e4kringen kostar ${fmtCurrency(insuranceBet)} kr.` }, 400);
 
-    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(insuranceBet, player.id as string).run();
     hand.insuranceBet = insuranceBet;
 
     const dealerStats = blackjackTotals(hand.dealerCards);
@@ -3056,25 +3144,28 @@ async function gameActionBlackjackInsurance(request: Request, env: Env): Promise
       let mainPayout = 0;
       if (playerStats.blackjack) {
         mainOutcome = 'push';
-        mainPayout  = hand.bet;
+        mainPayout = hand.bet;
       }
-      await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
-        .bind(insurancePayout + mainPayout, player.id as string).run();
-
       const net = (insurancePayout - insuranceBet) + (mainPayout - hand.bet);
       hand.message = playerStats.blackjack
-        ? `Försäkringen vann (${fmtCurrency(insuranceBet * 2)} kr netto). Push — bägge har blackjack.`
-        : `Dealern hade blackjack. Försäkringen vann ${fmtCurrency(insuranceBet * 2)} kr netto. Insatsen gick förlorad.`;
+        ? `F\u00f6rs\u00e4kringen vann (${fmtCurrency(insuranceBet * 2)} kr netto). Push - b\u00e5gge har blackjack.`
+        : `Dealern hade blackjack. F\u00f6rs\u00e4kringen vann ${fmtCurrency(insuranceBet * 2)} kr netto. Insatsen gick f\u00f6rlorad.`;
       hand.state = 'finished';
       hand.result = mainOutcome;
-      await saveBlackjackHand(env, hand);
+      await env.DB.batch([
+        prepareSaveBlackjackHand(env, hand),
+        prepareGamePlayerCashDelta(env, player.id as string, insurancePayout + mainPayout - insuranceBet),
+      ]);
       await logAction(env, player.id as string, 'casino', hand.message, net, 0, 0, net >= 0);
       const fp = await loadGamePlayerById(env, player.id as string);
       return gameJson(buildBlackjackState(hand, fp));
     }
 
-    hand.message = 'Dealern saknar blackjack. Försäkringen är förlorad. Spela vidare.';
-    await saveBlackjackHand(env, hand);
+    hand.message = 'Dealern saknar blackjack. F\u00f6rs\u00e4kringen \u00e4r f\u00f6rlorad. Spela vidare.';
+    await env.DB.batch([
+      prepareSaveBlackjackHand(env, hand),
+      prepareGamePlayerCashDelta(env, player.id as string, -insuranceBet),
+    ]);
     const freshPlayer = await loadGamePlayerById(env, player.id as string);
     return gameJson(buildBlackjackState(hand, freshPlayer));
   } catch (e) {
@@ -3593,6 +3684,9 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
   }
 
   if (action === 'heal') {
+    if (!player.in_hospital) {
+      return gameJson({ error: 'Du måste vara på sjukhuset för att betala för vård.' }, 400);
+    }
     if (hp >= hpMax) return gameJson({ message: 'Du har fullt HP.', hp, hp_max: hpMax });
     const missing  = hpMax - hp;
     const healCost = Math.max(100, missing * 10); // $10/HP, min $100
@@ -3608,6 +3702,9 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
   }
 
   if (action === 'boost') {
+    if (!player.in_hospital) {
+      return gameJson({ error: 'Stat-boost finns bara under sjukhusvistelsen.' }, 400);
+    }
     const stat = body.stat ?? '';
     if (!['strength', 'intelligence', 'charisma', 'stealth'].includes(stat))
       return gameJson({ error: 'Ogiltigt stat för boost.' }, 400);
@@ -4074,6 +4171,7 @@ function rowToBlackjackHand(row: Row): BlackjackRuntimeHand {
 
 async function getBlackjackHandForPlayer(env: Env, player: Row): Promise<BlackjackRuntimeHand | null> {
   try {
+    await ensureGameCasinoTables(env);
     const row = await env.DB.prepare(
       `SELECT * FROM game_blackjack_hands WHERE player_id = ? AND round_id = ? LIMIT 1`
     ).bind(player.id as string, player.round_id as string).first<Row>();
@@ -4087,50 +4185,55 @@ async function getBlackjackHandForPlayer(env: Env, player: Row): Promise<Blackja
   }
 }
 
+function prepareSaveBlackjackHand(env: Env, hand: BlackjackRuntimeHand): D1PreparedStatement {
+  return env.DB.prepare(
+    `INSERT INTO game_blackjack_hands
+       (id, player_id, round_id, bet, base_bet, deck_state, player_hand, dealer_hand, state, result,
+        message, doubled, split_hand, split_bet, split_result, split_doubled, insurance_bet,
+        created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(player_id) DO UPDATE SET
+       round_id = excluded.round_id,
+       bet = excluded.bet,
+       base_bet = excluded.base_bet,
+       deck_state = excluded.deck_state,
+       player_hand = excluded.player_hand,
+       dealer_hand = excluded.dealer_hand,
+       state = excluded.state,
+       result = excluded.result,
+       message = excluded.message,
+       doubled = excluded.doubled,
+       split_hand = excluded.split_hand,
+       split_bet = excluded.split_bet,
+       split_result = excluded.split_result,
+       split_doubled = excluded.split_doubled,
+       insurance_bet = excluded.insurance_bet,
+       updated_at = datetime('now')`
+  ).bind(
+    hand.id,
+    hand.playerId,
+    hand.roundId,
+    hand.bet,
+    hand.baseBet,
+    JSON.stringify(hand.deck),
+    JSON.stringify(hand.playerCards),
+    JSON.stringify(hand.dealerCards),
+    hand.state,
+    hand.result,
+    hand.message,
+    hand.doubled ? 1 : 0,
+    hand.splitCards.length ? JSON.stringify(hand.splitCards) : null,
+    hand.splitBet,
+    hand.splitResult,
+    hand.splitDoubled ? 1 : 0,
+    hand.insuranceBet,
+  );
+}
+
 async function saveBlackjackHand(env: Env, hand: BlackjackRuntimeHand): Promise<void> {
   try {
-    await env.DB.prepare(
-      `INSERT INTO game_blackjack_hands
-         (id, player_id, round_id, bet, base_bet, deck_state, player_hand, dealer_hand, state, result,
-          message, doubled, split_hand, split_bet, split_result, split_doubled, insurance_bet,
-          created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-       ON CONFLICT(player_id) DO UPDATE SET
-         round_id = excluded.round_id,
-         bet = excluded.bet,
-         base_bet = excluded.base_bet,
-         deck_state = excluded.deck_state,
-         player_hand = excluded.player_hand,
-         dealer_hand = excluded.dealer_hand,
-         state = excluded.state,
-         result = excluded.result,
-         message = excluded.message,
-         doubled = excluded.doubled,
-         split_hand = excluded.split_hand,
-         split_bet = excluded.split_bet,
-         split_result = excluded.split_result,
-         split_doubled = excluded.split_doubled,
-         insurance_bet = excluded.insurance_bet,
-         updated_at = datetime('now')`
-    ).bind(
-      hand.id,
-      hand.playerId,
-      hand.roundId,
-      hand.bet,
-      hand.baseBet,
-      JSON.stringify(hand.deck),
-      JSON.stringify(hand.playerCards),
-      JSON.stringify(hand.dealerCards),
-      hand.state,
-      hand.result,
-      hand.message,
-      hand.doubled ? 1 : 0,
-      hand.splitCards.length ? JSON.stringify(hand.splitCards) : null,
-      hand.splitBet,
-      hand.splitResult,
-      hand.splitDoubled ? 1 : 0,
-      hand.insuranceBet,
-    ).run();
+    await ensureGameCasinoTables(env);
+    await prepareSaveBlackjackHand(env, hand).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
@@ -4261,21 +4364,18 @@ async function finalizeBlackjackHand(
   env: Env,
   player: Row,
   hand: BlackjackRuntimeHand,
-  outcome: Exclude<BlackjackOutcome, null>
+  outcome: Exclude<BlackjackOutcome, null>,
+  options: { pendingStakeCharge?: number } = {}
 ): Promise<Response> {
   hand.state = 'finished';
   hand.result = outcome;
   hand.message = blackjackResultMessage(outcome, hand.bet, hand.doubled);
-  await saveBlackjackHand(env, hand);
-
   const payout = blackjackPayout(outcome, hand.bet);
-  if (payout > 0) {
-    await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(payout, player.id as string).run();
-  } else {
-    await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
-      .bind(player.id as string).run();
-  }
+  const pendingStakeCharge = Math.max(0, Math.floor(Number(options.pendingStakeCharge ?? 0)));
+  await env.DB.batch([
+    prepareSaveBlackjackHand(env, hand),
+    prepareGamePlayerCashDelta(env, player.id as string, payout - pendingStakeCharge),
+  ]);
 
   await logAction(
     env,
@@ -4534,6 +4634,7 @@ function rowToRouletteSpin(row: Row): RouletteSpinRecord {
 
 async function getRouletteHistory(env: Env, player: Row): Promise<RouletteSpinRecord[]> {
   try {
+    await ensureGameCasinoTables(env);
     const result = await env.DB.prepare(
       `SELECT * FROM game_roulette_spins WHERE player_id = ? AND round_id = ? ORDER BY created_at DESC LIMIT 12`
     ).bind(player.id as string, player.round_id as string).all<Row>();
@@ -4547,23 +4648,28 @@ async function getRouletteHistory(env: Env, player: Row): Promise<RouletteSpinRe
   }
 }
 
+function prepareSaveRouletteSpin(env: Env, player: Row, record: RouletteSpinRecord): D1PreparedStatement {
+  return env.DB.prepare(
+    `INSERT INTO game_roulette_spins
+      (id, player_id, round_id, winning_number, color, total_stake, total_payout, net_result, bets_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+  ).bind(
+    record.id,
+    player.id as string,
+    player.round_id as string,
+    record.winning_number,
+    record.color,
+    record.total_stake,
+    record.total_payout,
+    record.net_result,
+    JSON.stringify(record.bets)
+  );
+}
+
 async function saveRouletteSpin(env: Env, player: Row, record: RouletteSpinRecord): Promise<void> {
   try {
-    await env.DB.prepare(
-      `INSERT INTO game_roulette_spins
-        (id, player_id, round_id, winning_number, color, total_stake, total_payout, net_result, bets_json, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
-    ).bind(
-      record.id,
-      player.id as string,
-      player.round_id as string,
-      record.winning_number,
-      record.color,
-      record.total_stake,
-      record.total_payout,
-      record.net_result,
-      JSON.stringify(record.bets)
-    ).run();
+    await ensureGameCasinoTables(env);
+    await prepareSaveRouletteSpin(env, player, record).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
@@ -5367,6 +5473,7 @@ function rowToHoldemTable(row: Row): HoldemRuntimeTable {
 
 async function getHoldemTableForPlayer(env: Env, player: Row): Promise<HoldemRuntimeTable | null> {
   try {
+    await ensureGameCasinoTables(env);
     const row = await env.DB.prepare(
       `SELECT * FROM game_holdem_tables WHERE player_id = ? AND round_id = ? LIMIT 1`
     ).bind(player.id as string, player.round_id as string).first<Row>();
@@ -5380,30 +5487,35 @@ async function getHoldemTableForPlayer(env: Env, player: Row): Promise<HoldemRun
   }
 }
 
+function prepareSaveHoldemTable(env: Env, table: HoldemRuntimeTable): D1PreparedStatement {
+  return env.DB.prepare(
+    `INSERT INTO game_holdem_tables
+       (id, player_id, round_id, buy_in, small_blind, big_blind, status, state_json, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(player_id) DO UPDATE SET
+       round_id = excluded.round_id,
+       buy_in = excluded.buy_in,
+       small_blind = excluded.small_blind,
+       big_blind = excluded.big_blind,
+       status = excluded.status,
+       state_json = excluded.state_json,
+       updated_at = datetime('now')`
+  ).bind(
+    table.id,
+    table.playerId,
+    table.roundId,
+    table.buyIn,
+    table.smallBlind,
+    table.bigBlind,
+    table.street === 'table_over' ? 'finished' : 'active',
+    JSON.stringify(table)
+  );
+}
+
 async function saveHoldemTable(env: Env, table: HoldemRuntimeTable): Promise<void> {
   try {
-    await env.DB.prepare(
-      `INSERT INTO game_holdem_tables
-         (id, player_id, round_id, buy_in, small_blind, big_blind, status, state_json, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-       ON CONFLICT(player_id) DO UPDATE SET
-         round_id = excluded.round_id,
-         buy_in = excluded.buy_in,
-         small_blind = excluded.small_blind,
-         big_blind = excluded.big_blind,
-         status = excluded.status,
-         state_json = excluded.state_json,
-         updated_at = datetime('now')`
-    ).bind(
-      table.id,
-      table.playerId,
-      table.roundId,
-      table.buyIn,
-      table.smallBlind,
-      table.bigBlind,
-      table.street === 'table_over' ? 'finished' : 'active',
-      JSON.stringify(table)
-    ).run();
+    await ensureGameCasinoTables(env);
+    await prepareSaveHoldemTable(env, table).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
@@ -5413,9 +5525,14 @@ async function saveHoldemTable(env: Env, table: HoldemRuntimeTable): Promise<voi
   }
 }
 
+function prepareDeleteHoldemTable(env: Env, playerId: string): D1PreparedStatement {
+  return env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ?`).bind(playerId);
+}
+
 async function deleteHoldemTable(env: Env, playerId: string): Promise<void> {
   try {
-    await env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ?`).bind(playerId).run();
+    await ensureGameCasinoTables(env);
+    await prepareDeleteHoldemTable(env, playerId).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
@@ -5541,13 +5658,14 @@ async function gameActionHoldemStart(request: Request, env: Env): Promise<Respon
       return gameJson({ error: 'Du sitter redan vid ett bord. Spela klart eller lämna bordet först.', ...buildHoldemState(existing, player) }, 409);
     }
 
-    await env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ? AND round_id != ?`)
-      .bind(player.id as string, player.round_id as string).run();
-    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(buyIn, player.id as string).run();
-
     const table = await createHoldemTable(env, player, buyIn);
-    await saveHoldemTable(env, table);
+    await ensureGameCasinoTables(env);
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ? AND round_id != ?`)
+        .bind(player.id as string, player.round_id as string),
+      prepareGamePlayerCashDelta(env, player.id as string, -buyIn),
+      prepareSaveHoldemTable(env, table),
+    ]);
     await logAction(env, player.id as string, 'casino', `Köpte in dig i Texas Hold'em med ${fmtCurrency(buyIn)} kr i marker.`, -buyIn, 0, 0, true);
 
     const freshPlayer = await loadGamePlayerById(env, player.id as string);
@@ -5652,14 +5770,10 @@ async function gameActionHoldemLeave(request: Request, env: Env): Promise<Respon
 
     const stack = Math.max(0, Math.floor(Number(table.seats[table.playerSeat]?.stack ?? 0)));
     const net = stack - table.buyIn;
-    if (stack > 0) {
-      await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
-        .bind(stack, player.id as string).run();
-    } else {
-      await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
-        .bind(player.id as string).run();
-    }
-    await deleteHoldemTable(env, player.id as string);
+    await env.DB.batch([
+      prepareGamePlayerCashDelta(env, player.id as string, stack),
+      prepareDeleteHoldemTable(env, player.id as string),
+    ]);
 
     const description = net > 0
       ? `Lämnade Texas Hold'em-bordet med ${fmtCurrency(stack)} kr i marker. Nettot blev +${fmtCurrency(net)} kr.`
@@ -5679,17 +5793,17 @@ async function gameAdminAuth(request: Request, env: Env): Promise<Response> {
   await ensureGameAdminTables(env);
   const body = await request.json<{ password?: string }>().catch(() => ({} as { password?: string }));
   if (!body.password || typeof body.password !== 'string') {
-    return gameJson({ error: 'password required.' }, 400);
+    return gameJson({ error: 'Adminl\u00f6senord kr\u00e4vs.' }, 400);
   }
-  const hashConfig = inspectPasswordHash(env.AUTH_PASSWORD_HASH);
+  const hashConfig = inspectPasswordHash(env.GAME_ADMIN_PASSWORD_HASH);
   if (!hashConfig.isUsable) {
-    return gameJson({ error: 'Admin auth not configured.' }, 500);
+    return gameJson({ error: 'Adminl\u00f6senord \u00e4r inte konfigurerat.' }, 500);
   }
   const valid = await verifyPassword(body.password, hashConfig.value);
   if (!valid) {
     await sleep(150 + Math.random() * 150);
     await logGameAdminAudit(env, { command: 'unlock', outcome: 'error', details: 'Wrong admin password.' });
-    return gameJson({ error: 'Wrong password.' }, 401);
+    return gameJson({ error: 'Fel adminl\u00f6senord.' }, 401);
   }
 
   const token = crypto.randomUUID();

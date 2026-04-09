@@ -8,3 +8,4 @@
 # Do not include `AUTH_PASSWORD_HASH=` or wrapping quotes.
 
 AUTH_PASSWORD_HASH=pbkdf2:100000:<saltHex>:<hashHex>
+GAME_ADMIN_PASSWORD_HASH=pbkdf2:100000:<saltHex>:<hashHex>
