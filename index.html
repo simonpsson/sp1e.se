@@ -523,17 +523,15 @@
     right: 1.5rem;
     top: 50%;
     transform: translateY(-50%);
-    width: 152px;
-    height: 52vh;
-    min-height: 260px;
-    max-height: 500px;
+    width: 162px;
+    height: 56vh;
+    min-height: 300px;
+    max-height: 540px;
     z-index: 5;
     overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 4px;
-    background: rgba(0,0,0,0.60);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 6px;
+    background: rgba(0,0,0,0.82);
     display: flex;
     flex-direction: column;
     pointer-events: none;
@@ -543,13 +541,13 @@
   @media (max-width: 960px) { #ad-banner { display: none; } }
 
   .ad-header {
-    padding: 8px 12px 6px;
+    padding: 9px 14px 7px;
     font-family: 'DM Mono', monospace;
-    font-size: 0.55rem;
-    letter-spacing: 0.16em;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.35);
-    border-bottom: 1px solid rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.50);
+    border-bottom: 1px solid rgba(255,255,255,0.09);
     text-align: center;
     flex-shrink: 0;
   }
@@ -560,7 +558,6 @@
     position: relative;
   }
 
-  /* No CSS animation — JS drives the scroll after content is inserted */
   .ad-scroll-inner {
     display: flex;
     flex-direction: column;
@@ -568,40 +565,39 @@
   }
 
   .ad-item {
-    padding: 10px 12px 9px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 11px 14px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
     flex-shrink: 0;
   }
-  .ad-item-star .ad-drink-name  { color: rgba(255,255,255,0.95); }
-  .ad-item-star .ad-drink-recipe { color: rgba(255,255,255,0.60); }
+  .ad-item-star .ad-drink-name  { color: #fff; }
+  .ad-item-star .ad-drink-recipe { color: rgba(255,255,255,0.68); }
 
   .ad-drink-name {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 0.90rem;
+    font-size: 1.05rem;
     font-weight: 300;
     font-style: italic;
-    color: rgba(255,255,255,0.82);
-    margin-bottom: 4px;
-    letter-spacing: 0.02em;
+    color: rgba(255,255,255,0.92);
+    margin-bottom: 5px;
   }
 
   .ad-drink-recipe {
     font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.03em;
-    color: rgba(255,255,255,0.48);
-    line-height: 1.65;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.6;
   }
 
   .ad-sponsor {
-    padding: 7px 12px 8px;
+    padding: 8px 14px 9px;
     font-family: 'DM Mono', monospace;
-    font-size: 0.55rem;
-    letter-spacing: 0.09em;
-    color: rgba(255,255,255,0.30);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.45);
     text-align: center;
     text-transform: uppercase;
-    border-top: 1px solid rgba(255,255,255,0.07);
+    border-top: 1px solid rgba(255,255,255,0.09);
     flex-shrink: 0;
     line-height: 1.65;
   }
@@ -1300,24 +1296,22 @@ if (spDisconnect) spDisconnect.addEventListener('click', e => { e.stopPropagatio
   // Double the list for seamless looping
   inner.innerHTML = renderItems(all10) + renderItems(all10);
 
-  // JS-driven scroll — CSS translateY(%) would compute to 0 while the element
-  // is still empty, so we drive it via rAF after content is inserted.
-  // offset goes halfH→0 per cycle; translateY(-offset) scrolls content downward
-  // (items enter from top, exit at bottom = "uppifrån och ned").
-  requestAnimationFrame(function waitLayout() {
-    const halfH = inner.scrollHeight / 2;
-    if (halfH <= 0) { requestAnimationFrame(waitLayout); return; }
-
-    const CYCLE_MS = 110_000;
-    const t0 = performance.now();
-
-    function tick(now) {
-      const elapsed = (now - t0) % CYCLE_MS;
-      const offset  = halfH * (1 - elapsed / CYCLE_MS); // halfH→0 per cycle
-      inner.style.transform = 'translateY(' + (-offset) + 'px)';
-      requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
+  // JS-driven scroll after content insertion.
+  // Two nested rAF calls guarantee layout is complete before measuring scrollHeight.
+  // phase goes 0→1 per cycle; translateY = halfH*(phase-1) goes -halfH→0.
+  // Inner div moves downward → items enter from top, exit at bottom (uppifrån→ned).
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      var halfH = inner.scrollHeight / 2;
+      if (!halfH) return;
+      var CYCLE = 110000;
+      var t0 = performance.now();
+      (function tick(now) {
+        var phase = ((now - t0) % CYCLE) / CYCLE;
+        inner.style.transform = 'translateY(' + (halfH * (phase - 1)) + 'px)';
+        requestAnimationFrame(tick);
+      })(t0);
+    });
   });
 })();
 </script>
