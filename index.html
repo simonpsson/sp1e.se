@@ -531,7 +531,7 @@
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.07);
     border-radius: 4px;
-    background: rgba(0,0,0,0.40);
+    background: rgba(0,0,0,0.60);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     display: flex;
@@ -545,11 +545,11 @@
   .ad-header {
     padding: 8px 12px 6px;
     font-family: 'DM Mono', monospace;
-    font-size: 0.50rem;
+    font-size: 0.55rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.28);
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.35);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
     text-align: center;
     flex-shrink: 0;
   }
@@ -560,52 +560,48 @@
     position: relative;
   }
 
+  /* No CSS animation — JS drives the scroll after content is inserted */
   .ad-scroll-inner {
     display: flex;
     flex-direction: column;
-    animation: ad-fall 110s linear infinite;
-  }
-
-  @keyframes ad-fall {
-    from { transform: translateY(-50%); }
-    to   { transform: translateY(0); }
+    will-change: transform;
   }
 
   .ad-item {
     padding: 10px 12px 9px;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
     flex-shrink: 0;
   }
-  .ad-item-star .ad-drink-name { color: rgba(255,255,255,0.90); }
-  .ad-item-star .ad-drink-recipe { color: rgba(255,255,255,0.45); }
+  .ad-item-star .ad-drink-name  { color: rgba(255,255,255,0.95); }
+  .ad-item-star .ad-drink-recipe { color: rgba(255,255,255,0.60); }
 
   .ad-drink-name {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 0.80rem;
+    font-size: 0.90rem;
     font-weight: 300;
     font-style: italic;
-    color: rgba(255,255,255,0.72);
+    color: rgba(255,255,255,0.82);
     margin-bottom: 4px;
     letter-spacing: 0.02em;
   }
 
   .ad-drink-recipe {
     font-family: 'DM Mono', monospace;
-    font-size: 0.49rem;
+    font-size: 0.62rem;
     letter-spacing: 0.03em;
-    color: rgba(255,255,255,0.32);
+    color: rgba(255,255,255,0.48);
     line-height: 1.65;
   }
 
   .ad-sponsor {
     padding: 7px 12px 8px;
     font-family: 'DM Mono', monospace;
-    font-size: 0.46rem;
+    font-size: 0.55rem;
     letter-spacing: 0.09em;
-    color: rgba(255,255,255,0.20);
+    color: rgba(255,255,255,0.30);
     text-align: center;
     text-transform: uppercase;
-    border-top: 1px solid rgba(255,255,255,0.05);
+    border-top: 1px solid rgba(255,255,255,0.07);
     flex-shrink: 0;
     line-height: 1.65;
   }
@@ -1303,6 +1299,26 @@ if (spDisconnect) spDisconnect.addEventListener('click', e => { e.stopPropagatio
 
   // Double the list for seamless looping
   inner.innerHTML = renderItems(all10) + renderItems(all10);
+
+  // JS-driven scroll — CSS translateY(%) would compute to 0 while the element
+  // is still empty, so we drive it via rAF after content is inserted.
+  // offset goes halfH→0 per cycle; translateY(-offset) scrolls content downward
+  // (items enter from top, exit at bottom = "uppifrån och ned").
+  requestAnimationFrame(function waitLayout() {
+    const halfH = inner.scrollHeight / 2;
+    if (halfH <= 0) { requestAnimationFrame(waitLayout); return; }
+
+    const CYCLE_MS = 110_000;
+    const t0 = performance.now();
+
+    function tick(now) {
+      const elapsed = (now - t0) % CYCLE_MS;
+      const offset  = halfH * (1 - elapsed / CYCLE_MS); // halfH→0 per cycle
+      inner.style.transform = 'translateY(' + (-offset) + 'px)';
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  });
 })();
 </script>
 </body>
