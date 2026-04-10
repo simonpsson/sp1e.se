@@ -159,10 +159,9 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       return importDaxMeasures(env);
     }
 
-    // ── Game (Mosquito) — public; individual routes guard themselves ──────────
+    // ── Game (Mosquito) — requires site auth + game session cookie ───────────
     if (resource === 'game') {
-      if (id === 'register'         && method === 'POST') return gameRegister(request, env);
-      if (id === 'login'            && method === 'POST') return gameLogin(request, env);
+      await requireAuth(request, env);
       if (id === 'create-character' && method === 'POST') return gameCreateCharacter(request, env);
       if (id === 'player'           && method === 'GET')  return gameGetPlayer(request, env);
       if (id === 'status'           && method === 'GET')  return gameGetStatus(request, env);
@@ -172,7 +171,6 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'hall-of-fame'     && method === 'GET')  return gameHallOfFame(env);
       if (id === 'suggest-names'    && method === 'GET')  return gameSuggestNames(request);
       if (id === 'weapons'          && method === 'GET')  return gameGetWeapons(request);
-      if (id === 'ammo'             && method === 'GET')  return gameGetAmmo(request, env);
       if (id === 'inventory'        && method === 'GET')  return gameGetInventory(request, env);
       if (id === 'quests'           && method === 'GET')  return gameGetQuests(request, env);
       if (id === 'new-round'        && method === 'POST') return gameNewRound(request, env);
@@ -185,7 +183,6 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'casino' && sub === 'roulette' && action === 'state' && method === 'GET') {
         return gameGetRouletteState(request, env);
       }
-      if (id === 'logout'           && method === 'POST') return gameLogout(request, env);
       if (id === 'admin-auth'       && method === 'POST') return gameAdminAuth(request, env);
       if (id === 'admin-status'     && method === 'GET')  return gameAdminStatus(request, env);
       if (id === 'admin-logout'     && method === 'POST') return gameAdminLogout(request, env);
@@ -221,7 +218,6 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
         if (sub === 'buy-vehicle'      && method === 'POST') return gameActionBuyVehicle(request, env);
         if (sub === 'race'             && method === 'POST') return gameActionRace(request, env);
         if (sub === 'buy-weapon'                       && method === 'POST') return gameActionBuyWeapon(request, env);
-        if (sub === 'buy-ammo'                         && method === 'POST') return gameActionBuyAmmo(request, env);
         if (sub === 'quest-respond'                    && method === 'POST') return gameActionQuestRespond(request, env);
         if (sub === 'inventory' && action === 'equip' && method === 'POST') return gameActionInventoryEquip(request, env);
         if (sub === 'inventory' && action === 'sell'  && method === 'POST') return gameActionInventorySell(request, env);
@@ -1094,75 +1090,86 @@ async function getArtworks(env: Env): Promise<Response> {
 
 // ─── Game (Mosquito) ─────────────────────────────────────────────────────────
 
-// ============================================
-// MOSQUITO NAME SYSTEM — DO NOT MODIFY
-// ============================================
+// ── Name generation ──────────────────────────────────────────────────────────
 
-const NAME_POOLS = {
-  maleClassic: [
-    'Ronny','Conny','Tommy','Mange','Bengan','Patrik','Robban',
-    'Niklas','Fredde','Macke','Sigge','Rolle','Stefan','Kenneth',
-    'Glenn','Roger','Jonny','Micke','Henke','Bosse','Pelle',
-    'Kurre','Lasse','Hasse','Leif','Christer','Kent','Jocke',
-    'Ante','Matte','Tobbe','Kenta','Putte','Roffe','Lennie',
-  ],
-  maleUrban: [
-    'Alex','Marcus','Viktor','Felix','Eddie','Dennis','Martin',
-    'Joel','Tony','Carlo','Rico','Bruno','Milan','Amir','Hassan',
-    'Samir','Adnan','Nico','Diego','Kevin','Robin','Marko',
-    'Leon','Dino','Ivan','Adis','Nermin','Armin','Tarik','Yousef',
-  ],
-  female: [
-    'Bella','Maggan','Sussan','Jenny','Sandra','Jessica','Linda',
-    'Mia','Nilla','Anki','Nettan','Kicki','Bettan','Carro',
-    'Fia','Sara','Lena','Anna','Sofia','Nadia','Leila',
-    'Amina','Yasmin','Mona','Frida','Elin','Julia','Lotta',
-    'Malin','Emma','Lina','Tessan','Tanja','Veronica','Nina',
-  ],
-  aliases: [
-    'Vargen','Räven','Falken','Kobran','Skuggan','Kungen',
-    'Kulan','Blixten','Kniven','Kocken','Boxarn','Slaktarn',
-    'Järnet','Turbo','Kranen','Fimpen','Tunnan','Smilen',
-    'Krossarn','Kexet','Zäta','Röken','Iskall','Hårda',
-    'Tjacket','Mörkret','Duvan','Pantern','Betongen','Masken',
-    'Hajen','Kedjan','Raketen','Spiken','Stålet','Sotarn',
-    'Baxarn','Muren','Tassen','Lodjuret',
-  ],
-  prefixMale:   ['Lille','Store','Gamle','Unga'],
-  prefixFemale: ['Lilla','Stora','Gamla','Unga'],
-  surnames: [
-    'Andersson','Johansson','Karlsson','Nilsson','Eriksson',
-    'Larsson','Olsson','Persson','Svensson','Gustafsson',
-    'Pettersson','Jonsson','Jansson','Hansson','Bengtsson',
-    'Jönsson','Lindberg','Jakobsson','Magnusson','Olofsson',
-    'Lindström','Lindqvist','Lundberg','Berglund','Bergman',
-    'Holm','Holmberg','Nyström','Dahlberg','Söderberg',
-  ],
-};
+const MALE_FIRST_CLASSIC = [
+  'Ronny','Conny','Tommy','Mange','Bengan','Patrik','Robban',
+  'Niklas','Fredde','Macke','Sigge','Rolle','Stefan','Kenneth',
+  'Glenn','Roger','Jonny','Micke','Henke','Bosse','Pelle',
+  'Kurre','Lasse','Hasse','Leif','Christer','Kent','Jocke',
+  'Ante','Matte','Tobbe','Kenta','Putte','Roffe','Lennie',
+];
+
+const MALE_FIRST_URBAN = [
+  'Alex','Marcus','Viktor','Felix','Eddie','Dennis','Martin',
+  'Joel','Tony','Carlo','Rico','Bruno','Milan','Amir','Hassan',
+  'Samir','Adnan','Nico','Diego','Kevin','Robin','Marko',
+  'Leon','Dino','Ivan','Adis','Nermin','Armin','Tarik','Yousef',
+];
+
+const FEMALE_FIRST = [
+  'Bella','Maggan','Sussan','Jenny','Sandra','Jessica','Linda',
+  'Mia','Nilla','Anki','Nettan','Kicki','Bettan','Carro',
+  'Fia','Sara','Lena','Anna','Sofia','Nadia','Leila',
+  'Amina','Yasmin','Mona','Frida','Elin','Julia','Lotta',
+  'Malin','Emma','Lina','Tessan','Tanja','Veronica','Nina',
+];
+
+const ALIASES_EASTSIDE = [
+  'Kobran','Skuggan','Kniven','Turbo','Kranen','Pantern','Baxarn',
+  'Röken','Kedjan','Raketen','Spiken','Stålet','Hajen','Masken',
+  'Betongen','Iskall','Tjacket','Sotarn','Muren','Lodjuret',
+];
+
+const ALIASES_WESTSIDE = [
+  'Vargen','Räven','Kulan','Blixten','Järnet','Smilen','Fimpen',
+  'Falken','Duvan','Kungen','Boxarn','Slaktarn','Kocken',
+  'Zäta','Kexet','Mörkret','Tassen','Hårda','Tunnan','Krossarn',
+];
+
+const PREFIXES_MALE   = ['Lille','Store','Gamle','Unga','Norr','Söder','Dumme','Fule'];
+const PREFIXES_FEMALE = ['Lilla','Stora','Gamla','Unga','Norr','Söder'];
+
+const SURNAMES = [
+  'Andersson','Johansson','Karlsson','Nilsson','Eriksson',
+  'Larsson','Olsson','Persson','Svensson','Gustafsson',
+  'Pettersson','Jonsson','Jansson','Hansson','Bengtsson',
+  'Jönsson','Lindberg','Jakobsson','Magnusson','Olofsson',
+  'Lindström','Lindqvist','Lundberg','Berglund','Bergman',
+  'Holm','Holmberg','Nyström','Dahlberg','Söderberg',
+  'Sundberg','Forsberg','Ekström','Wallin','Berg',
+  'Lundqvist','Blomqvist','Eklund','Malmberg','Åberg',
+];
 
 function generateNpcName(side: string): string {
-  const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-  const roll = Math.random();
+  const eastside = side === 'eastside';
+  const female   = Math.random() < 0.20;
 
-  const isFemale = Math.random() < 0.25;
   let firstName: string;
-  if (isFemale) {
-    firstName = pick(NAME_POOLS.female);
-  } else if (side === 'eastside') {
-    firstName = Math.random() < 0.6 ? pick(NAME_POOLS.maleUrban) : pick(NAME_POOLS.maleClassic);
+  if (female) {
+    firstName = pickRandom(FEMALE_FIRST);
+  } else if (eastside) {
+    firstName = Math.random() < 0.65 ? pickRandom(MALE_FIRST_URBAN) : pickRandom(MALE_FIRST_CLASSIC);
   } else {
-    firstName = Math.random() < 0.6 ? pick(NAME_POOLS.maleClassic) : pick(NAME_POOLS.maleUrban);
+    firstName = Math.random() < 0.65 ? pickRandom(MALE_FIRST_CLASSIC) : pickRandom(MALE_FIRST_URBAN);
   }
 
-  const alias   = pick(NAME_POOLS.aliases);
-  const surname = pick(NAME_POOLS.surnames);
-  const prefix  = isFemale ? pick(NAME_POOLS.prefixFemale) : pick(NAME_POOLS.prefixMale);
+  const aliases  = eastside ? ALIASES_EASTSIDE : ALIASES_WESTSIDE;
+  const prefixes = female ? PREFIXES_FEMALE : PREFIXES_MALE;
+  const alias    = pickRandom(aliases);
+  const surname  = pickRandom(SURNAMES);
 
+  // Format weights: 25% first, 10% surname, 35% first+alias+surname, 20% alias+surname, 10% prefix+first
+  const roll = Math.random();
   if (roll < 0.25) return firstName;
   if (roll < 0.35) return surname;
   if (roll < 0.70) return `${firstName} "${alias}" ${surname}`;
   if (roll < 0.90) return `${alias} ${surname}`;
-  return `${prefix} ${firstName}`;
+  // prefix + first — hyphen for ≤5-char names (Mange → Lill-Mange), space otherwise
+  const prefix = pickRandom(prefixes);
+  return firstName.length <= 5
+    ? `${prefix}-${firstName}`
+    : `${prefix} ${firstName}`;
 }
 
 function suggestPlayerNames(count: number, side?: string): string[] {
@@ -1181,6 +1188,8 @@ function suggestPlayerNames(count: number, side?: string): string[] {
 const GAME_COOKIE = 'game_session';
 const GAME_ADMIN_COOKIE = 'game_admin_session';
 const GAME_ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
+let gameCasinoTablesEnsured = false;
+let gameBlackjackColumnsEnsured = false;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -1196,52 +1205,6 @@ function setGameCookie(playerId: string): string {
 
 function clearGameCookie(): string {
   return `${GAME_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
-}
-
-// ── Token-based session cookies (account system) ──────────────────────────────
-const GAME_TOKEN_COOKIE = 'game_token';
-const ADMIN_EMAIL = 'simon.pn@protonmail.com';
-
-function getTokenCookie(request: Request): string | null {
-  const cookie = request.headers.get('Cookie') ?? '';
-  const match  = cookie.match(/(?:^|;\s*)game_token=([^;]+)/);
-  return match ? match[1] : null;
-}
-
-function setTokenCookie(token: string): string {
-  return `${GAME_TOKEN_COOKIE}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${60 * 60 * 24 * 30}`;
-}
-
-function clearTokenCookie(): string {
-  return `${GAME_TOKEN_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
-}
-
-async function hashGamePassword(password: string): Promise<string> {
-  const saltBytes = new Uint8Array(16);
-  crypto.getRandomValues(saltBytes);
-  const saltHex = toHex(saltBytes);
-  const km = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
-  );
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' }, km, 256
-  );
-  return `pbkdf2:100000:${saltHex}:${toHex(new Uint8Array(bits))}`;
-}
-
-async function lookupSession(env: Env, request: Request): Promise<{ account: Row; player: Row } | null> {
-  const token = getTokenCookie(request);
-  if (!token) return null;
-  const session = await env.DB.prepare(
-    `SELECT * FROM game_sessions WHERE token = ? AND expires_at > datetime('now')`
-  ).bind(token).first<Row>();
-  if (!session) return null;
-  const [account, player] = await Promise.all([
-    env.DB.prepare('SELECT * FROM game_accounts WHERE id = ?').bind(session.account_id as string).first<Row>(),
-    env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(session.player_id as string).first<Row>(),
-  ]);
-  if (!account || !player) return null;
-  return { account, player };
 }
 
 function getGameAdminCookie(request: Request): string | null {
@@ -1302,12 +1265,13 @@ async function syncGamePlayerState(env: Env, player: Row): Promise<Row> {
 }
 
 async function requireGamePlayer(request: Request, env: Env): Promise<Row> {
-  const session = await lookupSession(env, request);
-  if (!session) throw new GameError('Ingen aktiv session. Logga in först.', 401);
+  const pid = getGameCookie(request);
+  if (!pid) throw new GameError('Ingen aktiv karaktär. Skapa en först.', 401);
   const round = await ensureActiveRound(env, { createIfMissing: false });
-  const { player } = session;
+  const player = await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>();
+  if (!player) throw new GameError('Karaktären hittades inte.', 404);
   if ((player.round_id as string) !== (round.id as string)) {
-    throw new GameError('Rundan har avslutats. Logga in igen för att starta nästa runda.', 409);
+    throw new GameError('Rundan har avslutats. Starta en ny karaktär för nästa runda.', 409);
   }
   return syncGamePlayerState(env, player);
 }
@@ -1343,18 +1307,6 @@ async function updateEnergy(env: Env, playerId: string, currentEnergy: number, c
   return newEnergy;
 }
 
-async function touchGamePlayer(env: Env, playerId: string): Promise<void> {
-  await env.DB.prepare(
-    `UPDATE game_players SET last_action = datetime('now') WHERE id = ?`
-  ).bind(playerId).run();
-}
-
-async function adjustGamePlayerCash(env: Env, playerId: string, delta: number): Promise<void> {
-  await env.DB.prepare(
-    `UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`
-  ).bind(delta, playerId).run();
-}
-
 function getActiveRound(env: Env): Promise<Row | null> {
   return env.DB.prepare(`SELECT * FROM game_rounds WHERE is_active = 1 ORDER BY round_number DESC LIMIT 1`).first<Row>();
 }
@@ -1382,29 +1334,6 @@ const NPC_TIERS = [
 
 const NPC_PERSONALITIES = ['aggressive','passive','defensive','trader'] as const;
 
-const SEEDED_NPC_NAMES: Array<{ name: string; side: 'eastside' | 'westside' }> = [
-  { name: 'Ronny "Vargen" Pettersson',  side: 'westside' },
-  { name: 'Conny "Kulan" Karlsson',     side: 'westside' },
-  { name: 'Lill-Mange',                 side: 'westside' },
-  { name: 'Glenn "Järnet" Andersson',   side: 'westside' },
-  { name: 'Roger "Blixten" Svensson',   side: 'westside' },
-  { name: 'Sigge "Räven" Larsson',      side: 'westside' },
-  { name: 'Robban "Kranen" Lindström',  side: 'eastside' },
-  { name: 'Micke "Boxarn" Nilsson',     side: 'eastside' },
-  { name: 'Bosse "Fimpen" Holm',        side: 'westside' },
-  { name: 'Kenneth "Smilen" Berglund',  side: 'westside' },
-  { name: 'Amir "Skuggan"',             side: 'eastside' },
-  { name: 'Hassan "Kniven" Jönsson',    side: 'eastside' },
-  { name: 'Rico "Turbo" Wallin',        side: 'eastside' },
-  { name: 'Milan "Pantern" Lundberg',   side: 'eastside' },
-  { name: 'Alex "Baxarn" Ekström',      side: 'eastside' },
-  { name: 'Bella "Kobran" Dahlberg',    side: 'eastside' },
-  { name: 'Sussan "Mörkret" Holmberg',  side: 'westside' },
-  { name: 'Nadia "Duvan" Söderberg',    side: 'eastside' },
-  { name: 'Maggan "Tassen" Nyström',    side: 'westside' },
-  { name: 'Leila "Stålet" Forsberg',    side: 'eastside' },
-];
-
 async function createGameRound(env: Env, roundNumber: number): Promise<Row> {
   const id = `round-${String(roundNumber).padStart(3, '0')}`;
   const startDate = new Date();
@@ -1414,11 +1343,12 @@ async function createGameRound(env: Env, roundNumber: number): Promise<Row> {
      VALUES (?, ?, ?, ?, 1)`
   ).bind(id, roundNumber, startDate.toISOString(), endDate.toISOString()).run();
 
-  // Seed 20 NPCs with curated names across tiers
+  // Seed 20 NPCs with generated names across tiers
   const npcStmts = Array.from({ length: 20 }, (_, i) => {
-    const { name, side } = SEEDED_NPC_NAMES[i];
+    const side  = i < 10 ? 'eastside' : 'westside';
     const tier  = NPC_TIERS[Math.min(i % NPC_TIERS.length, NPC_TIERS.length - 1)];
     const [lvl, resp, str, cash, hp] = tier;
+    const name  = generateNpcName(side);
     const pers  = pickRandom([...NPC_PERSONALITIES]);
     const npcId = `${id}-npc-${String(i + 1).padStart(2, '0')}`;
     return env.DB.prepare(
@@ -1621,6 +1551,89 @@ async function ensureGameAdminTables(env: Env): Promise<void> {
   ]);
 }
 
+async function ensureGameCasinoTables(env: Env): Promise<void> {
+  if (!gameCasinoTablesEnsured) {
+    await env.DB.batch([
+      env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS game_blackjack_hands (
+           id TEXT PRIMARY KEY,
+           player_id TEXT NOT NULL UNIQUE,
+           round_id TEXT NOT NULL,
+           bet INTEGER NOT NULL,
+           base_bet INTEGER DEFAULT 0,
+           deck_state TEXT NOT NULL,
+           player_hand TEXT NOT NULL,
+           dealer_hand TEXT NOT NULL,
+           state TEXT NOT NULL DEFAULT 'player_turn',
+           result TEXT,
+           message TEXT,
+           doubled INTEGER DEFAULT 0,
+           split_hand TEXT,
+           split_bet INTEGER DEFAULT 0,
+           split_result TEXT,
+           split_doubled INTEGER DEFAULT 0,
+           insurance_bet INTEGER DEFAULT 0,
+           created_at TEXT DEFAULT (datetime('now')),
+           updated_at TEXT DEFAULT (datetime('now'))
+         )`
+      ),
+      env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_blackjack_round ON game_blackjack_hands (round_id)`),
+      env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS game_holdem_tables (
+           id TEXT PRIMARY KEY,
+           player_id TEXT NOT NULL UNIQUE,
+           round_id TEXT NOT NULL,
+           buy_in INTEGER NOT NULL,
+           small_blind INTEGER NOT NULL DEFAULT 50,
+           big_blind INTEGER NOT NULL DEFAULT 100,
+           status TEXT NOT NULL DEFAULT 'active',
+           state_json TEXT NOT NULL,
+           created_at TEXT DEFAULT (datetime('now')),
+           updated_at TEXT DEFAULT (datetime('now'))
+         )`
+      ),
+      env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_holdem_round ON game_holdem_tables (round_id)`),
+      env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS game_roulette_spins (
+           id TEXT PRIMARY KEY,
+           player_id TEXT NOT NULL,
+           round_id TEXT NOT NULL,
+           winning_number INTEGER NOT NULL,
+           color TEXT NOT NULL,
+           total_stake INTEGER NOT NULL,
+           total_payout INTEGER NOT NULL,
+           net_result INTEGER NOT NULL,
+           bets_json TEXT NOT NULL,
+           created_at TEXT DEFAULT (datetime('now'))
+         )`
+      ),
+      env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_roulette_player_created ON game_roulette_spins (player_id, created_at DESC)`),
+      env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_game_roulette_round ON game_roulette_spins (round_id)`),
+    ]);
+    gameCasinoTablesEnsured = true;
+  }
+
+  if (gameBlackjackColumnsEnsured) return;
+
+  const info = await env.DB.prepare(`PRAGMA table_info(game_blackjack_hands)`).all<Row>();
+  const columns = new Set(info.results.map(row => String(row.name ?? '')));
+  const alters: D1PreparedStatement[] = [];
+  if (!columns.has('base_bet')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN base_bet INTEGER DEFAULT 0`));
+  if (!columns.has('split_hand')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN split_hand TEXT`));
+  if (!columns.has('split_bet')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN split_bet INTEGER DEFAULT 0`));
+  if (!columns.has('split_result')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN split_result TEXT`));
+  if (!columns.has('split_doubled')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN split_doubled INTEGER DEFAULT 0`));
+  if (!columns.has('insurance_bet')) alters.push(env.DB.prepare(`ALTER TABLE game_blackjack_hands ADD COLUMN insurance_bet INTEGER DEFAULT 0`));
+  if (alters.length) await env.DB.batch(alters);
+  gameBlackjackColumnsEnsured = true;
+}
+
+function prepareGamePlayerCashDelta(env: Env, playerId: string, delta: number): D1PreparedStatement {
+  return env.DB
+    .prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
+    .bind(delta, playerId);
+}
+
 async function getGameAdminSession(request: Request, env: Env): Promise<{ token: string; expires_at: string } | null> {
   await ensureGameAdminTables(env);
   await env.DB.prepare(`DELETE FROM game_admin_sessions WHERE expires_at <= datetime('now')`).run().catch(() => {});
@@ -1683,8 +1696,6 @@ function adminHelp(): { message: string; commands: string[] } {
       'maxout',
       'legend',
       'chaos',
-      'regen-npcs',
-      'import-assets',
     ],
   };
 }
@@ -1970,76 +1981,54 @@ interface Weapon {
   name: string;
   category: 'melee' | 'pistol' | 'smg' | 'rifle' | 'shotgun';
   damage: number;
-  accuracy: number;   // 1–100 base hit-chance percent
-  fire_rate: number;  // shots per attack
+  accuracy: number;  // 1–100 base hit-chance percent
+  fire_rate: number; // shots per attack
   buy_price: number;
   level_req: number;
   flavor: string;
-  ammo_type: string | null; // null = melee (no ammo needed)
 }
-
-interface AmmoCatalogEntry {
-  type: string;       // display name / key used in game_inventory item_name
-  caliber: string;    // real-world caliber label
-  buy_price: number;  // cost per pack
-  qty: number;        // rounds per pack
-}
-
-const AMMO_CATALOG: AmmoCatalogEntry[] = [
-  { type: '.22 LR',           caliber: '.22 Long Rifle',        buy_price: 80,  qty: 50 },
-  { type: '9mm Parabellum',   caliber: '9×19mm Luger',          buy_price: 150, qty: 50 },
-  { type: '.357 Magnum',      caliber: '.357 Magnum',           buy_price: 200, qty: 30 },
-  { type: '.50 AE',           caliber: '.50 Action Express',    buy_price: 400, qty: 20 },
-  { type: '7.65mm Browning',  caliber: '7.65×17mm',             buy_price: 120, qty: 50 },
-  { type: '7.62×25mm Tokarev',caliber: '7.62mm Tokarev',        buy_price: 130, qty: 50 },
-  { type: '5.56×45mm NATO',   caliber: '5.56mm NATO',           buy_price: 180, qty: 30 },
-  { type: '7.62×39mm',        caliber: '7.62×39mm Soviet',      buy_price: 160, qty: 30 },
-  { type: '7.62×51mm NATO',   caliber: '.308 Winchester',       buy_price: 220, qty: 20 },
-  { type: '.50 BMG',          caliber: '.50 Browning',          buy_price: 600, qty: 10 },
-  { type: '12 gauge',         caliber: '12 gauge buckshot',     buy_price: 200, qty: 20 },
-];
 
 const WEAPON_CATALOG: Weapon[] = [
   // ── Melee ────────────────────────────────────────────────────────────────
-  { id:'kniv',      name:'Kniv',            category:'melee',   damage:8,  accuracy:88, fire_rate:1, buy_price:500,   level_req:1,  flavor:'Snabb, tyst, effektiv.',                           ammo_type:null },
-  { id:'knogjarn',  name:'Knogjärn',        category:'melee',   damage:10, accuracy:90, fire_rate:1, buy_price:800,   level_req:1,  flavor:'Bärs i fickan, tas fram utan varning.',            ammo_type:null },
-  { id:'baseboll',  name:'Basebollträ',     category:'melee',   damage:14, accuracy:82, fire_rate:1, buy_price:1200,  level_req:2,  flavor:'Sportutrustning med dubbel användning.',           ammo_type:null },
-  { id:'slagga',    name:'Slägga',          category:'melee',   damage:20, accuracy:65, fire_rate:1, buy_price:2500,  level_req:3,  flavor:'Tungt. Enkelt. Övertygande.',                      ammo_type:null },
-  { id:'machete',   name:'Machete',         category:'melee',   damage:24, accuracy:76, fire_rate:1, buy_price:4000,  level_req:5,  flavor:'Lång räckvidd, läskig profil.',                    ammo_type:null },
-  { id:'stiletter', name:'Stiletter ×2',    category:'melee',   damage:16, accuracy:92, fire_rate:2, buy_price:6000,  level_req:6,  flavor:'Dubbla blad — en i varje hand.',                   ammo_type:null },
-  { id:'katana',    name:'Katana',          category:'melee',   damage:32, accuracy:84, fire_rate:1, buy_price:9000,  level_req:8,  flavor:'Smugglad från Göteborg. Förmodligen äkta.',        ammo_type:null },
+  { id:'kniv',      name:'Kniv',            category:'melee',   damage:8,  accuracy:88, fire_rate:1, buy_price:500,   level_req:1,  flavor:'Snabb, tyst, effektiv.' },
+  { id:'knogjarn',  name:'Knogjärn',        category:'melee',   damage:10, accuracy:90, fire_rate:1, buy_price:800,   level_req:1,  flavor:'Bärs i fickan, tas fram utan varning.' },
+  { id:'baseboll',  name:'Basebollträ',     category:'melee',   damage:14, accuracy:82, fire_rate:1, buy_price:1200,  level_req:2,  flavor:'Sportutrustning med dubbel användning.' },
+  { id:'slagga',    name:'Slägga',          category:'melee',   damage:20, accuracy:65, fire_rate:1, buy_price:2500,  level_req:3,  flavor:'Tungt. Enkelt. Övertygande.' },
+  { id:'machete',   name:'Machete',         category:'melee',   damage:24, accuracy:76, fire_rate:1, buy_price:4000,  level_req:5,  flavor:'Lång räckvidd, läskig profil.' },
+  { id:'stiletter', name:'Stiletter ×2',    category:'melee',   damage:16, accuracy:92, fire_rate:2, buy_price:6000,  level_req:6,  flavor:'Dubbla blad — en i varje hand.' },
+  { id:'katana',    name:'Katana',          category:'melee',   damage:32, accuracy:84, fire_rate:1, buy_price:9000,  level_req:8,  flavor:'Smugglad från Göteborg. Förmodligen äkta.' },
 
   // ── Pistol ───────────────────────────────────────────────────────────────
-  { id:'rev22',     name:'.22 Revolver',    category:'pistol',  damage:14, accuracy:72, fire_rate:1, buy_price:3000,  level_req:3,  flavor:'Gammal men pålitlig.',                             ammo_type:'.22 LR' },
-  { id:'glock17',   name:'Glock 17',        category:'pistol',  damage:22, accuracy:76, fire_rate:1, buy_price:5500,  level_req:5,  flavor:'Plastfantasins mästerverk.',                       ammo_type:'9mm Parabellum' },
-  { id:'beretta',   name:'Beretta 92',      category:'pistol',  damage:24, accuracy:79, fire_rate:1, buy_price:7000,  level_req:6,  flavor:'Stilren. Precis. Dyr.',                            ammo_type:'9mm Parabellum' },
-  { id:'magnum357', name:'.357 Magnum',     category:'pistol',  damage:30, accuracy:71, fire_rate:1, buy_price:8500,  level_req:7,  flavor:'Varje skott låter som en detonation.',             ammo_type:'.357 Magnum' },
-  { id:'deagle',    name:'Desert Eagle',    category:'pistol',  damage:36, accuracy:66, fire_rate:1, buy_price:11000, level_req:8,  flavor:'Överdriven. Perfekt.',                             ammo_type:'.50 AE' },
+  { id:'rev22',     name:'.22 Revolver',    category:'pistol',  damage:14, accuracy:72, fire_rate:1, buy_price:3000,  level_req:3,  flavor:'Gammal men pålitlig.' },
+  { id:'glock17',   name:'Glock 17',        category:'pistol',  damage:22, accuracy:76, fire_rate:1, buy_price:5500,  level_req:5,  flavor:'Plastfantasins mästerverk.' },
+  { id:'beretta',   name:'Beretta 92',      category:'pistol',  damage:24, accuracy:79, fire_rate:1, buy_price:7000,  level_req:6,  flavor:'Stilren. Precis. Dyr.' },
+  { id:'magnum357', name:'.357 Magnum',     category:'pistol',  damage:30, accuracy:71, fire_rate:1, buy_price:8500,  level_req:7,  flavor:'Varje skott låter som en detonation.' },
+  { id:'deagle',    name:'Desert Eagle',    category:'pistol',  damage:36, accuracy:66, fire_rate:1, buy_price:11000, level_req:8,  flavor:'Överdriven. Perfekt.' },
 
   // ── SMG ──────────────────────────────────────────────────────────────────
-  { id:'scorpion',  name:'Škorpion vz. 61', category:'smg',     damage:14, accuracy:60, fire_rate:3, buy_price:6000,  level_req:6,  flavor:'Tre skott innan han hinner reagera.',              ammo_type:'7.65mm Browning' },
-  { id:'uzi',       name:'Uzi',             category:'smg',     damage:18, accuracy:56, fire_rate:3, buy_price:8000,  level_req:7,  flavor:'Klassikern. Oöverskådlig nyttjanderätt.',          ammo_type:'9mm Parabellum' },
-  { id:'mac10',     name:'MAC-10',          category:'smg',     damage:17, accuracy:51, fire_rate:3, buy_price:9000,  level_req:7,  flavor:'Hög eldhastighet, låg träffsäkerhet. Fungerar.',   ammo_type:'9mm Parabellum' },
-  { id:'pp19',      name:'PP-19 Bizon',     category:'smg',     damage:22, accuracy:63, fire_rate:2, buy_price:11000, level_req:8,  flavor:'Ryskt skumgummi i stålform.',                     ammo_type:'7.62×25mm Tokarev' },
-  { id:'mp5',       name:'MP5',             category:'smg',     damage:25, accuracy:67, fire_rate:2, buy_price:13000, level_req:9,  flavor:'Exklusiv men inte svårflörtad.',                   ammo_type:'9mm Parabellum' },
+  { id:'scorpion',  name:'Škorpion vz. 61', category:'smg',     damage:14, accuracy:60, fire_rate:3, buy_price:6000,  level_req:6,  flavor:'Tre skott innan han hinner reagera.' },
+  { id:'uzi',       name:'Uzi',             category:'smg',     damage:18, accuracy:56, fire_rate:3, buy_price:8000,  level_req:7,  flavor:'Klassikern. Oöverskådlig nyttjanderätt.' },
+  { id:'mac10',     name:'MAC-10',          category:'smg',     damage:17, accuracy:51, fire_rate:3, buy_price:9000,  level_req:7,  flavor:'Hög eldhastighet, låg träffsäkerhet. Fungerar.' },
+  { id:'pp19',      name:'PP-19 Bizon',     category:'smg',     damage:22, accuracy:63, fire_rate:2, buy_price:11000, level_req:8,  flavor:'Ryskt skumgummi i stålform.' },
+  { id:'mp5',       name:'MP5',             category:'smg',     damage:25, accuracy:67, fire_rate:2, buy_price:13000, level_req:9,  flavor:'Exklusiv men inte svårflörtad.' },
 
   // ── Rifle ────────────────────────────────────────────────────────────────
-  { id:'famas',     name:'FAMAS',           category:'rifle',   damage:28, accuracy:79, fire_rate:2, buy_price:11000, level_req:9,  flavor:'Franskt ingenjörskonst med attityd.',              ammo_type:'5.56×45mm NATO' },
-  { id:'ar15',      name:'AR-15',           category:'rifle',   damage:32, accuracy:73, fire_rate:2, buy_price:13000, level_req:9,  flavor:'Modulär, tillförlitlig, diskuterad.',              ammo_type:'5.56×45mm NATO' },
-  { id:'m16',       name:'M16A2',           category:'rifle',   damage:34, accuracy:76, fire_rate:2, buy_price:15000, level_req:10, flavor:'Armékvalitet på gatunivå.',                        ammo_type:'5.56×45mm NATO' },
-  { id:'galil',     name:'Galil ACE',       category:'rifle',   damage:36, accuracy:71, fire_rate:2, buy_price:14500, level_req:10, flavor:'Israelisk precision, kompromisslös design.',       ammo_type:'5.56×45mm NATO' },
-  { id:'ak47',      name:'AK-47',           category:'rifle',   damage:38, accuracy:69, fire_rate:2, buy_price:16000, level_req:10, flavor:'Tio miljoner kan inte ha fel.',                    ammo_type:'7.62×39mm' },
-  { id:'hkg36',     name:'H&K G36',         category:'rifle',   damage:40, accuracy:77, fire_rate:2, buy_price:22000, level_req:12, flavor:'Tyskt hantverk. Ingen ursäkt.',                    ammo_type:'5.56×45mm NATO' },
-  { id:'fnscar',    name:'FN SCAR-H',       category:'rifle',   damage:44, accuracy:75, fire_rate:2, buy_price:26000, level_req:13, flavor:'Nato-standard. Svart marknad.',                    ammo_type:'7.62×51mm NATO' },
-  { id:'barrett',   name:'Barrett .50 Cal', category:'rifle',   damage:65, accuracy:56, fire_rate:1, buy_price:42000, level_req:15, flavor:'Ett skott. Ingen uppföljning behövs.',             ammo_type:'.50 BMG' },
+  { id:'famas',     name:'FAMAS',           category:'rifle',   damage:28, accuracy:79, fire_rate:2, buy_price:11000, level_req:9,  flavor:'Franskt ingenjörskonst med attityd.' },
+  { id:'ar15',      name:'AR-15',           category:'rifle',   damage:32, accuracy:73, fire_rate:2, buy_price:13000, level_req:9,  flavor:'Modulär, tillförlitlig, diskuterad.' },
+  { id:'m16',       name:'M16A2',           category:'rifle',   damage:34, accuracy:76, fire_rate:2, buy_price:15000, level_req:10, flavor:'Armékvalitet på gatunivå.' },
+  { id:'galil',     name:'Galil ACE',       category:'rifle',   damage:36, accuracy:71, fire_rate:2, buy_price:14500, level_req:10, flavor:'Israelisk precision, kompromisslös design.' },
+  { id:'ak47',      name:'AK-47',           category:'rifle',   damage:38, accuracy:69, fire_rate:2, buy_price:16000, level_req:10, flavor:'Tio miljoner kan inte ha fel.' },
+  { id:'hkg36',     name:'H&K G36',         category:'rifle',   damage:40, accuracy:77, fire_rate:2, buy_price:22000, level_req:12, flavor:'Tyskt hantverk. Ingen ursäkt.' },
+  { id:'fnscar',    name:'FN SCAR-H',       category:'rifle',   damage:44, accuracy:75, fire_rate:2, buy_price:26000, level_req:13, flavor:'Nato-standard. Svart marknad.' },
+  { id:'barrett',   name:'Barrett .50 Cal', category:'rifle',   damage:65, accuracy:56, fire_rate:1, buy_price:42000, level_req:15, flavor:'Ett skott. Ingen uppföljning behövs.' },
 
   // ── Shotgun ──────────────────────────────────────────────────────────────
-  { id:'rem870',    name:'Remington 870',   category:'shotgun', damage:44, accuracy:53, fire_rate:1, buy_price:8000,  level_req:7,  flavor:'Pumphagelgevär. Talar klarspråk.',                 ammo_type:'12 gauge' },
-  { id:'moss500',   name:'Mossberg 500',    category:'shotgun', damage:48, accuracy:51, fire_rate:1, buy_price:9000,  level_req:7,  flavor:'Tillförlitlig som en hammare.',                    ammo_type:'12 gauge' },
-  { id:'spas12',    name:'SPAS-12',         category:'shotgun', damage:54, accuracy:46, fire_rate:1, buy_price:15000, level_req:10, flavor:'Halvautomatisk förstörelse.',                      ammo_type:'12 gauge' },
-  { id:'saiga12',   name:'Saiga-12K',       category:'shotgun', damage:42, accuracy:49, fire_rate:2, buy_price:13500, level_req:9,  flavor:'Magasin. Dubbel förmåga.',                        ammo_type:'12 gauge' },
-  { id:'sweeper',   name:'Street Sweeper',  category:'shotgun', damage:44, accuracy:43, fire_rate:3, buy_price:20000, level_req:12, flavor:'Trummor. Kaos. Effektivt.',                        ammo_type:'12 gauge' },
-  { id:'minigun',   name:'Minigun',         category:'smg',     damage:28, accuracy:41, fire_rate:3, buy_price:55000, level_req:15, flavor:'För dem som inte längre bryr sig om subtilitet.',  ammo_type:'9mm Parabellum' },
+  { id:'rem870',    name:'Remington 870',   category:'shotgun', damage:44, accuracy:53, fire_rate:1, buy_price:8000,  level_req:7,  flavor:'Pumphagelgevär. Talar klarspråk.' },
+  { id:'moss500',   name:'Mossberg 500',    category:'shotgun', damage:48, accuracy:51, fire_rate:1, buy_price:9000,  level_req:7,  flavor:'Tillförlitlig som en hammare.' },
+  { id:'spas12',    name:'SPAS-12',         category:'shotgun', damage:54, accuracy:46, fire_rate:1, buy_price:15000, level_req:10, flavor:'Halvautomatisk förstörelse.' },
+  { id:'saiga12',   name:'Saiga-12K',       category:'shotgun', damage:42, accuracy:49, fire_rate:2, buy_price:13500, level_req:9,  flavor:'Magasin. Dubbel förmåga.' },
+  { id:'sweeper',   name:'Street Sweeper',  category:'shotgun', damage:44, accuracy:43, fire_rate:3, buy_price:20000, level_req:12, flavor:'Trummor. Kaos. Effektivt.' },
+  { id:'minigun',   name:'Minigun',         category:'smg',     damage:28, accuracy:41, fire_rate:3, buy_price:55000, level_req:15, flavor:'För dem som inte längre bryr sig om subtilitet.' },
 ];
 
 function gameGetWeapons(request: Request): Response {
@@ -2114,83 +2103,6 @@ async function gameActionBuyWeapon(request: Request, env: Env): Promise<Response
   } catch (e) {
     return gameJson({ error: 'Köp misslyckades.' }, 500);
   }
-}
-
-async function gameGetAmmo(request: Request, env: Env): Promise<Response> {
-  let player: Row;
-  try { player = await requireGamePlayer(request, env); }
-  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
-
-  const pid = player.id as string;
-  const owned = await env.DB.prepare(
-    `SELECT item_name, quantity FROM game_inventory WHERE player_id = ? AND item_type = 'ammo'`
-  ).bind(pid).all<{ item_name: string; quantity: number }>();
-
-  const ownedMap: Record<string, number> = {};
-  for (const row of owned.results) {
-    ownedMap[row.item_name] = (ownedMap[row.item_name] ?? 0) + row.quantity;
-  }
-
-  const catalog = AMMO_CATALOG.map(entry => ({
-    ...entry,
-    owned: ownedMap[entry.type] ?? 0,
-  }));
-
-  return gameJson({ ammo: catalog });
-}
-
-async function gameActionBuyAmmo(request: Request, env: Env): Promise<Response> {
-  let player: Row;
-  try { player = await requireGamePlayer(request, env); }
-  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
-
-  if (player.in_prison) return gameJson({ error: 'Du sitter i fängelse.' }, 400);
-  if (!player.is_alive) return gameJson({ error: 'Du är eliminerad.' }, 400);
-
-  const body = await request.json<{ ammo_type?: string; quantity?: number }>().catch(() => ({} as { ammo_type?: string; quantity?: number }));
-  const ammoType = (body.ammo_type ?? '').trim();
-  const packs    = Math.max(1, Math.floor(Number(body.quantity ?? 1)));
-
-  const entry = AMMO_CATALOG.find(a => a.type === ammoType);
-  if (!entry) return gameJson({ error: 'Okänd ammotyp.' }, 400);
-
-  const totalCost  = entry.buy_price * packs;
-  const totalRounds = entry.qty * packs;
-  const cash = (player.cash as number) ?? 0;
-  if (cash < totalCost)
-    return gameJson({ error: `Inte tillräckligt med cash. Behöver ${totalCost.toLocaleString('sv')} kr.` }, 400);
-
-  const pid = player.id as string;
-
-  // Upsert ammo in inventory
-  const existing = await env.DB.prepare(
-    `SELECT id, quantity FROM game_inventory WHERE player_id = ? AND item_type = 'ammo' AND item_name = ? LIMIT 1`
-  ).bind(pid, ammoType).first<{ id: string; quantity: number }>();
-
-  if (existing) {
-    await env.DB.batch([
-      env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-        .bind(totalCost, pid),
-      env.DB.prepare(`UPDATE game_inventory SET quantity = quantity + ? WHERE id = ?`)
-        .bind(totalRounds, existing.id),
-    ]);
-  } else {
-    await env.DB.batch([
-      env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-        .bind(totalCost, pid),
-      env.DB.prepare(
-        `INSERT INTO game_inventory (id, player_id, item_type, item_name, quantity, buy_price, source)
-         VALUES (?, ?, 'ammo', ?, ?, ?, 'shop')`
-      ).bind(crypto.randomUUID(), pid, ammoType, totalRounds, entry.buy_price),
-    ]);
-  }
-
-  return gameJson({
-    ok: true,
-    message: `Köpte ${totalRounds} ${ammoType}-patroner för ${totalCost.toLocaleString('sv')} kr.`,
-    ammo_type: ammoType,
-    rounds_added: totalRounds,
-  });
 }
 
 const ASSAULT_WIN_LINES = [
@@ -2274,26 +2186,7 @@ async function gameCreateCharacter(request: Request, env: Env): Promise<Response
       `SELECT id FROM game_players WHERE name = ? AND round_id = ?`
     ).bind(name, round.id as string).first();
     if (existing) {
-      // Allow reclaim only if caller has no active cookie (logged out) or already owns this character.
-      // Reject if they have a cookie for a DIFFERENT character (prevents name stealing).
-      const currentCookie = getGameCookie(request);
-      if (currentCookie && currentCookie !== (existing.id as string)) {
-        return gameJson({ error: 'Det namnet är upptaget. Välj ett annat.' }, 409);
-      }
-      const existingPlayer = await env.DB
-        .prepare('SELECT * FROM game_players WHERE id = ?')
-        .bind(existing.id as string).first<Row>();
-      if (existingPlayer) {
-        const player = await syncGamePlayerState(env, existingPlayer);
-        return new Response(JSON.stringify({ player, existing: true }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Set-Cookie': setGameCookie(existing.id as string),
-            ...cors(),
-          },
-        });
-      }
+      return gameJson({ error: 'Det namnet är upptaget. Välj ett annat.' }, 409);
     }
 
     const pid = crypto.randomUUID();
@@ -2657,9 +2550,9 @@ async function gameNewRound(request: Request, env: Env): Promise<Response> {
   }
 
   const round = await createGameRound(env, await nextRoundNumber(env));
+  const staleGameCookie = getGameCookie(request);
   const headers = new Headers({ 'Content-Type': 'application/json', ...cors() });
-  if (getGameCookie(request)) headers.append('Set-Cookie', clearGameCookie());
-  if (getTokenCookie(request)) headers.append('Set-Cookie', clearTokenCookie());
+  if (staleGameCookie) headers.append('Set-Cookie', clearGameCookie());
   return new Response(JSON.stringify({
     round_id: round.id,
     round_number: round.round_number,
@@ -2703,71 +2596,64 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
       self_rank: null,
       self: null,
       world_top10: [],
-      world_self_rank: null,
       world_count: 0,
+      world_self_rank: null,
+      world_self: null,
+      world_leader: null,
     });
   }
 
-  const endDate = new Date(round.end_date as string).getTime();
+  const endDate    = new Date(round.end_date as string).getTime();
   const secondsLeft = Math.max(0, Math.floor((endDate - Date.now()) / 1000));
-  const roundEnded = secondsLeft === 0;
+  const roundEnded  = secondsLeft === 0;
 
   if (roundEnded) await endRound(env, round);
 
-  const [playerRes, npcRes] = await Promise.all([
+  const [topRes, countRes, npcTopRes, npcCountRes] = await Promise.all([
     env.DB.prepare(
-      `SELECT id, name, level, respect, side, profession
+      `SELECT name, level, respect, side, profession
        FROM game_players WHERE round_id = ? AND is_alive = 1
-       ORDER BY respect DESC`
+       ORDER BY respect DESC LIMIT 10`
     ).bind(round.id as string).all<Row>(),
     env.DB.prepare(
-      `SELECT id, name, level, respect, side, personality
+      `SELECT COUNT(*) as cnt FROM game_players WHERE round_id = ? AND is_alive = 1`
+    ).bind(round.id as string).first<{ cnt: number }>(),
+    env.DB.prepare(
+      `SELECT name, level, respect, side
        FROM game_npcs WHERE round_id = ? AND is_alive = 1
-       ORDER BY respect DESC`
+       ORDER BY respect DESC LIMIT 10`
     ).bind(round.id as string).all<Row>(),
+    env.DB.prepare(
+      `SELECT COUNT(*) as cnt FROM game_npcs WHERE round_id = ? AND is_alive = 1`
+    ).bind(round.id as string).first<{ cnt: number }>(),
   ]);
-
-  const players = playerRes.results ?? [];
-  const npcs = npcRes.results ?? [];
-  const topPlayers = players.slice(0, 10).map(row => ({
-    name: row.name,
-    level: row.level,
-    respect: row.respect,
-    side: row.side,
-    profession: row.profession,
-  }));
-  const worldRows = [
-    ...players.map(row => ({
-      id: row.id,
-      name: row.name,
-      level: row.level,
-      respect: row.respect,
-      side: row.side,
-      profession: row.profession,
-      is_npc: false,
-    })),
-    ...npcs.map(row => ({
-      id: row.id,
-      name: row.name,
-      level: row.level,
-      respect: row.respect,
-      side: row.side,
-      profession: 'NPC',
-      personality: row.personality,
-      is_npc: true,
-    })),
-  ].sort((a, b) => Number(b.respect ?? 0) - Number(a.respect ?? 0));
 
   let self: Record<string, unknown> | null = null;
   let selfRank: number | null = null;
   let worldSelfRank: number | null = null;
-  const tokenSession = await lookupSession(env, request).catch(() => null);
-  const currentPid = tokenSession?.player?.id ? String(tokenSession.player.id) : getGameCookie(request);
+  const currentPid = getGameCookie(request);
   if (currentPid) {
-    const selfRow = players.find(row => String(row.id) === currentPid) ?? null;
+    const selfRow = await env.DB.prepare(
+      `SELECT name, level, respect, side, profession
+       FROM game_players WHERE id = ? AND round_id = ? AND is_alive = 1
+       LIMIT 1`
+    ).bind(currentPid, round.id as string).first<Row>();
+
     if (selfRow) {
-      selfRank = players.findIndex(row => String(row.id) === currentPid) + 1;
-      worldSelfRank = worldRows.findIndex(row => String(row.id) === currentPid && !row.is_npc) + 1;
+      const ahead = await env.DB.prepare(
+        `SELECT COUNT(*) as cnt
+         FROM game_players
+         WHERE round_id = ? AND is_alive = 1 AND respect > ?`
+      ).bind(round.id as string, selfRow.respect as number).first<{ cnt: number | string }>();
+
+      selfRank = Number(ahead?.cnt ?? 0) + 1;
+      const npcAhead = await env.DB.prepare(
+        `SELECT COUNT(*) as cnt
+         FROM game_npcs
+         WHERE round_id = ? AND is_alive = 1 AND respect > ?`
+      ).bind(round.id as string, selfRow.respect as number).first<{ cnt: number | string }>();
+
+      worldSelfRank = selfRank + Number(npcAhead?.cnt ?? 0);
       self = {
         name: selfRow.name,
         level: selfRow.level,
@@ -2778,21 +2664,30 @@ async function gameGetStatus(request: Request, env: Env): Promise<Response> {
     }
   }
 
+  const worldTop10 = [
+    ...topRes.results.map(row => ({ ...row, is_npc: false })),
+    ...npcTopRes.results.map(row => ({ ...row, profession: 'NPC', is_npc: true })),
+  ]
+    .sort((a, b) => Number(b.respect ?? 0) - Number(a.respect ?? 0))
+    .slice(0, 10);
+
   return gameJson({
     round_ended: roundEnded,
     round: {
-      number: round.round_number,
-      start: round.start_date,
-      end: round.end_date,
+      number:       round.round_number,
+      start:        round.start_date,
+      end:          round.end_date,
       seconds_left: secondsLeft,
     },
-    top10: topPlayers,
-    player_count: players.length,
-    self_rank: selfRank,
+    top10:        topRes.results,
+    player_count: countRes?.cnt ?? 0,
+    self_rank:    selfRank,
     self,
-    world_top10: worldRows.slice(0, 10),
+    world_top10: worldTop10,
+    world_count: Number(countRes?.cnt ?? 0) + Number(npcCountRes?.cnt ?? 0),
     world_self_rank: worldSelfRank,
-    world_count: worldRows.length,
+    world_self: self,
+    world_leader: worldTop10[0] ?? null,
   });
 }
 
@@ -2810,7 +2705,6 @@ async function gameGetBlackjackState(request: Request, env: Env): Promise<Respon
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
-    await ensureCasinoStorage(env, 'blackjack');
     const hand = await getBlackjackHandForPlayer(env, player);
     return gameJson(buildBlackjackState(hand, player));
   } catch (e) {
@@ -2841,7 +2735,6 @@ async function gameActionBlackjackStart(request: Request, env: Env): Promise<Res
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
-    await ensureCasinoStorage(env, 'blackjack');
     if (player.in_prison) return gameJson({ error: 'Kasinoet släpper inte in folk från kåken.' }, 400);
     if (player.in_hospital) return gameJson({ error: 'Du är fortfarande på sjukhuset.' }, 400);
 
@@ -2862,15 +2755,8 @@ async function gameActionBlackjackStart(request: Request, env: Env): Promise<Res
       return gameJson({ error: 'En hand pågår redan.', ...buildBlackjackState(existing, player) }, 409);
     }
 
-    try {
-      await env.DB.prepare(`DELETE FROM game_blackjack_hands WHERE player_id = ?`).bind(player.id as string).run();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes('no such table')) {
-        return gameJson({ error: 'Blackjack-tabellen saknas. Kör game-migration-blackjack.sql mot D1.' }, 500);
-      }
-      throw e;
-    }
+    await ensureGameCasinoTables(env);
+
     const deck = shuffleBlackjackDeck(buildBlackjackDeck());
     const hand: BlackjackRuntimeHand = {
       id: crypto.randomUUID(),
@@ -2892,13 +2778,11 @@ async function gameActionBlackjackStart(request: Request, env: Env): Promise<Res
       insuranceBet: 0,
     };
 
-    await saveBlackjackHand(env, hand);
-    try {
-      await adjustGamePlayerCash(env, player.id as string, -bet);
-    } catch (e) {
-      await env.DB.prepare(`DELETE FROM game_blackjack_hands WHERE player_id = ?`).bind(player.id as string).run().catch(() => {});
-      throw e;
-    }
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM game_blackjack_hands WHERE player_id = ?`).bind(player.id as string),
+      prepareGamePlayerCashDelta(env, player.id as string, -bet),
+      prepareSaveBlackjackHand(env, hand),
+    ]);
 
     const playerStats = blackjackTotals(hand.playerCards);
     const dealerStats = blackjackTotals(hand.dealerCards);
@@ -2991,7 +2875,6 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
   try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
-  let extraStake = 0;
   try {
     let hand: BlackjackRuntimeHand;
     try { hand = await requireActiveBlackjackHand(env, player); }
@@ -3002,20 +2885,15 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
       if (hand.splitDoubled || hand.splitCards.length !== 2) {
         return gameJson({ error: 'Du kan bara dubbla direkt efter given.' }, 400);
       }
-      const splitDoubleCost = hand.splitBet;
-      if (Number(player.cash ?? 0) < splitDoubleCost) {
+      if (Number(player.cash ?? 0) < hand.splitBet) {
         return gameJson({ error: 'Du har inte råd att dubbla den här delade handen.' }, 400);
       }
-      extraStake = hand.splitBet;
-      await adjustGamePlayerCash(env, player.id as string, -extraStake);
+      const extraStake = hand.splitBet;
       hand.splitBet *= 2;
       hand.splitDoubled = true;
       hand.splitCards.push(drawBlackjackCard(hand.deck));
       finishDealerHand(hand);
-      // Deduct before finalizing (finalize saves state internally)
-      await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-        .bind(splitDoubleCost, player.id as string).run();
-      return finalizeBlackjackSplitHand(env, player, hand);
+      return finalizeBlackjackSplitHand(env, player, hand, { pendingStakeCharge: extraStake });
     }
 
     if (hand.doubled || hand.playerCards.length !== 2) {
@@ -3025,41 +2903,30 @@ async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Re
       return gameJson({ error: 'Du har inte råd att dubbla den här handen.' }, 400);
     }
 
-    extraStake = hand.bet;
-    await adjustGamePlayerCash(env, player.id as string, -extraStake);
-
+    const extraStake = hand.bet;
     hand.bet *= 2;
     hand.doubled = true;
     hand.playerCards.push(drawBlackjackCard(hand.deck));
     const playerStats = blackjackTotals(hand.playerCards);
     if (playerStats.busted) {
-      // Deduct before finalizing bust (finalize saves state internally)
-      await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-        .bind(doubleBet, player.id as string).run();
-      return finalizeBlackjackHand(env, player, hand, 'bust');
+      return finalizeBlackjackHand(env, player, hand, 'bust', { pendingStakeCharge: extraStake });
     }
 
     // If split exists, transition to split_turn instead of dealer
     if (hand.splitCards.length > 0) {
       hand.state = 'split_turn';
       hand.message = 'Dubblade och fick ett kort. Spela nu din delade hand.';
-      await saveBlackjackHand(env, hand);
-      // Deduct only after hand is durably saved
-      await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-        .bind(doubleBet, player.id as string).run();
+      await env.DB.batch([
+        prepareSaveBlackjackHand(env, hand),
+        prepareGamePlayerCashDelta(env, player.id as string, -extraStake),
+      ]);
       const fp = await loadGamePlayerById(env, player.id as string);
       return gameJson(buildBlackjackState(hand, fp));
     }
 
-    // Deduct before finalizing (finalize saves state internally)
-    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(doubleBet, player.id as string).run();
     finishDealerHand(hand);
-    return finalizeBlackjackHand(env, player, hand, settleBlackjack(hand));
+    return finalizeBlackjackHand(env, player, hand, settleBlackjack(hand), { pendingStakeCharge: extraStake });
   } catch (e) {
-    if (extraStake > 0) {
-      await adjustGamePlayerCash(env, player.id as string, extraStake).catch(() => {});
-    }
     return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
   }
 }
@@ -3123,14 +2990,10 @@ async function gameActionRouletteSpin(request: Request, env: Env): Promise<Respo
     };
     spin.message = rouletteSpinMessage(spin);
 
-    await saveRouletteSpin(env, player, spin);
-    try {
-      if (netResult !== 0) await adjustGamePlayerCash(env, player.id as string, netResult);
-      else await touchGamePlayer(env, player.id as string);
-    } catch (e) {
-      await env.DB.prepare(`DELETE FROM game_roulette_spins WHERE id = ?`).bind(spin.id).run().catch(() => {});
-      throw e;
-    }
+    await env.DB.batch([
+      prepareGamePlayerCashDelta(env, player.id as string, netResult),
+      prepareSaveRouletteSpin(env, player, spin),
+    ]);
     const summary = bets.slice(0, 3).map(bet => `${bet.label} (${fmtCurrency(bet.stake)} kr)`).join(', ');
     const suffix = bets.length > 3 ? ` + ${bets.length - 3} till` : '';
     await logAction(
@@ -3142,7 +3005,7 @@ async function gameActionRouletteSpin(request: Request, env: Env): Promise<Respo
       0,
       0,
       netResult >= 0
-    ).catch(() => {});
+    );
 
     const freshPlayer = await loadGamePlayerById(env, player.id as string);
     const recent = [spin, ...(await getRouletteHistory(env, freshPlayer)).filter(entry => entry.id !== spin.id)].slice(0, 12);
@@ -3180,6 +3043,7 @@ async function finalizeBlackjackSplitHand(
   env: Env,
   player: Row,
   hand: BlackjackRuntimeHand,
+  options: { pendingStakeCharge?: number } = {},
 ): Promise<Response> {
   const mainOutcome = settleBlackjack(hand);
   const splitOutcome = settleSplitHand(hand.splitCards, hand.dealerCards);
@@ -3194,19 +3058,15 @@ async function finalizeBlackjackSplitHand(
   const mainNet  = blackjackNet(mainOutcome,  hand.bet);
   const splitNet = blackjackNet(splitOutcome, hand.splitBet);
   const totalNet = mainNet + splitNet;
+  const pendingStakeCharge = Math.max(0, Math.floor(Number(options.pendingStakeCharge ?? 0)));
 
   hand.message = splitResultMessage(mainOutcome, splitOutcome, hand.bet, hand.splitBet, totalNet);
-  await saveBlackjackHand(env, hand);
+  await env.DB.batch([
+    prepareSaveBlackjackHand(env, hand),
+    prepareGamePlayerCashDelta(env, player.id as string, totalPayout - pendingStakeCharge),
+  ]);
 
-  if (totalPayout > 0) {
-    await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(totalPayout, player.id as string).run();
-  } else {
-    await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
-      .bind(player.id as string).run();
-  }
-
-  await logAction(env, player.id as string, 'casino', hand.message, totalNet, 0, 0, totalNet >= 0).catch(() => {});
+  await logAction(env, player.id as string, 'casino', hand.message, totalNet, 0, 0, totalNet >= 0);
   const freshPlayer = await loadGamePlayerById(env, player.id as string);
   return gameJson(buildBlackjackState(hand, freshPlayer));
 }
@@ -3216,7 +3076,6 @@ async function gameActionBlackjackSplit(request: Request, env: Env): Promise<Res
   try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
-  let extraStake = 0;
   try {
     let hand: BlackjackRuntimeHand;
     try { hand = await requireActiveBlackjackHand(env, player); }
@@ -3225,34 +3084,29 @@ async function gameActionBlackjackSplit(request: Request, env: Env): Promise<Res
     if (hand.state !== 'player_turn')
       return gameJson({ error: 'Du kan bara dela i spelarturen.' }, 400);
     if (hand.splitCards.length > 0)
-      return gameJson({ error: 'Du kan bara dela en gång.' }, 400);
+      return gameJson({ error: 'Du kan bara dela en g\u00e5ng.' }, 400);
     if (hand.playerCards.length !== 2)
       return gameJson({ error: 'Du kan bara dela direkt efter given.' }, 400);
     if (blackjackRank(hand.playerCards[0]) !== blackjackRank(hand.playerCards[1]))
-      return gameJson({ error: 'Du kan bara dela ett par (två likadana kort).' }, 400);
+      return gameJson({ error: 'Du kan bara dela ett par (tv\u00e5 likadana kort).' }, 400);
     if (Number(player.cash ?? 0) < hand.baseBet)
-      return gameJson({ error: 'Du har inte råd att dela handen.' }, 400);
+      return gameJson({ error: 'Du har inte r\u00e5d att dela handen.' }, 400);
 
-    extraStake = hand.baseBet;
-    await adjustGamePlayerCash(env, player.id as string, -extraStake);
-
+    const extraStake = hand.baseBet;
     const secondCard = hand.playerCards.pop()!;
     hand.splitCards = [secondCard];
     hand.playerCards.push(drawBlackjackCard(hand.deck));
     hand.splitCards.push(drawBlackjackCard(hand.deck));
-    hand.splitBet = hand.baseBet;
-    hand.message = 'Handen delad. Spela din första hand.';
-    await saveBlackjackHand(env, hand);
-    // Deduct only after hand is durably saved
-    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(hand.baseBet, player.id as string).run();
+    hand.splitBet = extraStake;
+    hand.message = 'Handen delad. Spela din f\u00f6rsta hand.';
+    await env.DB.batch([
+      prepareGamePlayerCashDelta(env, player.id as string, -extraStake),
+      prepareSaveBlackjackHand(env, hand),
+    ]);
 
     const freshPlayer = await loadGamePlayerById(env, player.id as string);
     return gameJson(buildBlackjackState(hand, freshPlayer));
   } catch (e) {
-    if (extraStake > 0) {
-      await adjustGamePlayerCash(env, player.id as string, extraStake).catch(() => {});
-    }
     return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
   }
 }
@@ -3262,27 +3116,24 @@ async function gameActionBlackjackInsurance(request: Request, env: Env): Promise
   try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
-  let insuranceStake = 0;
   try {
     let hand: BlackjackRuntimeHand;
     try { hand = await requireActiveBlackjackHand(env, player); }
     catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 400); }
 
     if (hand.state !== 'player_turn')
-      return gameJson({ error: 'Du kan bara ta försäkring i spelarturen.' }, 400);
+      return gameJson({ error: 'Du kan bara ta f\u00f6rs\u00e4kring i spelarturen.' }, 400);
     if (hand.insuranceBet > 0)
-      return gameJson({ error: 'Du har redan tagit försäkring.' }, 400);
+      return gameJson({ error: 'Du har redan tagit f\u00f6rs\u00e4kring.' }, 400);
     if (hand.playerCards.length !== 2)
-      return gameJson({ error: 'Du kan bara ta försäkring direkt efter given.' }, 400);
+      return gameJson({ error: 'Du kan bara ta f\u00f6rs\u00e4kring direkt efter given.' }, 400);
     if (blackjackRank(hand.dealerCards[0]) !== 'A')
-      return gameJson({ error: 'Försäkring erbjuds bara när dealern visar ett ess.' }, 400);
+      return gameJson({ error: 'F\u00f6rs\u00e4kring erbjuds bara n\u00e4r dealern visar ett ess.' }, 400);
 
     const insuranceBet = Math.floor(hand.baseBet / 2);
     if (Number(player.cash ?? 0) < insuranceBet)
-      return gameJson({ error: `Försäkringen kostar ${fmtCurrency(insuranceBet)} kr.` }, 400);
+      return gameJson({ error: `F\u00f6rs\u00e4kringen kostar ${fmtCurrency(insuranceBet)} kr.` }, 400);
 
-    insuranceStake = insuranceBet;
-    await adjustGamePlayerCash(env, player.id as string, -insuranceStake);
     hand.insuranceBet = insuranceBet;
 
     const dealerStats = blackjackTotals(hand.dealerCards);
@@ -3293,32 +3144,31 @@ async function gameActionBlackjackInsurance(request: Request, env: Env): Promise
       let mainPayout = 0;
       if (playerStats.blackjack) {
         mainOutcome = 'push';
-        mainPayout  = hand.bet;
+        mainPayout = hand.bet;
       }
       const net = (insurancePayout - insuranceBet) + (mainPayout - hand.bet);
       hand.message = playerStats.blackjack
-        ? `Försäkringen vann (${fmtCurrency(insuranceBet * 2)} kr netto). Push — bägge har blackjack.`
-        : `Dealern hade blackjack. Försäkringen vann ${fmtCurrency(insuranceBet * 2)} kr netto. Insatsen gick förlorad.`;
+        ? `F\u00f6rs\u00e4kringen vann (${fmtCurrency(insuranceBet * 2)} kr netto). Push - b\u00e5gge har blackjack.`
+        : `Dealern hade blackjack. F\u00f6rs\u00e4kringen vann ${fmtCurrency(insuranceBet * 2)} kr netto. Insatsen gick f\u00f6rlorad.`;
       hand.state = 'finished';
       hand.result = mainOutcome;
-      // Save hand first, then settle cash atomically (deduct premium + pay out winnings)
-      await saveBlackjackHand(env, hand);
-      await logAction(env, player.id as string, 'casino', hand.message, net, 0, 0, net >= 0).catch(() => {});
+      await env.DB.batch([
+        prepareSaveBlackjackHand(env, hand),
+        prepareGamePlayerCashDelta(env, player.id as string, insurancePayout + mainPayout - insuranceBet),
+      ]);
+      await logAction(env, player.id as string, 'casino', hand.message, net, 0, 0, net >= 0);
       const fp = await loadGamePlayerById(env, player.id as string);
       return gameJson(buildBlackjackState(hand, fp));
     }
 
-    // No dealer blackjack — insurance lost, save hand then charge premium
-    hand.message = 'Dealern saknar blackjack. Försäkringen är förlorad. Spela vidare.';
-    await saveBlackjackHand(env, hand);
-    await env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(insuranceBet, player.id as string).run();
+    hand.message = 'Dealern saknar blackjack. F\u00f6rs\u00e4kringen \u00e4r f\u00f6rlorad. Spela vidare.';
+    await env.DB.batch([
+      prepareSaveBlackjackHand(env, hand),
+      prepareGamePlayerCashDelta(env, player.id as string, -insuranceBet),
+    ]);
     const freshPlayer = await loadGamePlayerById(env, player.id as string);
     return gameJson(buildBlackjackState(hand, freshPlayer));
   } catch (e) {
-    if (insuranceStake > 0) {
-      await adjustGamePlayerCash(env, player.id as string, insuranceStake).catch(() => {});
-    }
     return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
   }
 }
@@ -3640,7 +3490,6 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   let weaponDmg      = 0;
   let weaponAccuracy = 50; // base hit-chance %
   let weaponFireRate = 1;
-  let weaponAmmoType: string | null = null;
   if (weaponRow?.effects) {
     try {
       const fx = JSON.parse(weaponRow.effects as string);
@@ -3649,25 +3498,6 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
       weaponFireRate = fx.fire_rate   ?? 1;
       weaponName     = weaponRow.item_name as string ?? '';
     } catch {}
-  }
-  // Resolve ammo_type from catalog for equipped weapon
-  if (weaponName) {
-    const catalogEntry = WEAPON_CATALOG.find(w => w.name === weaponName);
-    weaponAmmoType = catalogEntry?.ammo_type ?? null;
-  }
-
-  // Ammo check — ranged weapons require enough ammo in inventory
-  if (weaponAmmoType !== null) {
-    const ammoRow = await env.DB.prepare(
-      `SELECT quantity FROM game_inventory WHERE player_id = ? AND item_type = 'ammo' AND item_name = ? LIMIT 1`
-    ).bind(pid, weaponAmmoType).first<{ quantity: number }>();
-    const ammoOwned = ammoRow?.quantity ?? 0;
-    if (ammoOwned < weaponFireRate) {
-      return gameJson({
-        error: `Inte tillräckligt med ammunition (${weaponAmmoType}). Behöver ${weaponFireRate} patron${weaponFireRate > 1 ? 'er' : ''} — köp mer i vapenshopen.`,
-      }, 400);
-    }
-    // Consume ammo after check passes (done in batch with other writes below via flag)
   }
 
   const attackerStr  = effectiveStat(player, 'strength');
@@ -3740,14 +3570,6 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   }
 
   await updateEnergy(env, pid, energy, COST);
-
-  // Consume ammo for ranged weapons
-  if (weaponAmmoType !== null) {
-    await env.DB.prepare(
-      `UPDATE game_inventory SET quantity = MAX(0, quantity - ?)
-       WHERE player_id = ? AND item_type = 'ammo' AND item_name = ?`
-    ).bind(weaponFireRate, pid, weaponAmmoType).run();
-  }
 
   // Upsert cooldown
   await env.DB.prepare(
@@ -3862,7 +3684,9 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
   }
 
   if (action === 'heal') {
-    if (!player.in_hospital) return gameJson({ error: 'Du är inte inlagd just nu.' }, 400);
+    if (!player.in_hospital) {
+      return gameJson({ error: 'Du måste vara på sjukhuset för att betala för vård.' }, 400);
+    }
     if (hp >= hpMax) return gameJson({ message: 'Du har fullt HP.', hp, hp_max: hpMax });
     const missing  = hpMax - hp;
     const healCost = Math.max(100, missing * 10); // $10/HP, min $100
@@ -3874,11 +3698,13 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
     ).bind(hpMax, healCost, pid).run();
 
     await logAction(env, pid, 'hospital', `Helades till full h\u00e4lsa f\u00f6r ${healCost} kr.`, -healCost, 0, 0, true);
-    return gameJson({ healed: true, cost: healCost, new_hp: hpMax, new_cash: cash - healCost, message: `Du betalade ${healCost} kr och lämnade sjukhuset fullt läkt.` });
+    return gameJson({ healed: true, cost: healCost, new_hp: hpMax, new_cash: cash - healCost });
   }
 
   if (action === 'boost') {
-    if (!player.in_hospital) return gameJson({ error: 'Stat-boost finns bara på sjukhuset.' }, 400);
+    if (!player.in_hospital) {
+      return gameJson({ error: 'Stat-boost finns bara under sjukhusvistelsen.' }, 400);
+    }
     const stat = body.stat ?? '';
     if (!['strength', 'intelligence', 'charisma', 'stealth'].includes(stat))
       return gameJson({ error: 'Ogiltigt stat för boost.' }, 400);
@@ -3889,7 +3715,7 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
       `UPDATE game_players SET ${stat} = ?, cash = cash - ?, last_action = datetime('now') WHERE id = ?`
     ).bind(newVal, BOOST_COST, pid).run();
     await logAction(env, pid, 'hospital', `K\u00f6pte stat-boost: ${stat} +1.`, -BOOST_COST, 0, 0, true);
-    return gameJson({ boosted: stat, new_value: newVal, cost: BOOST_COST, new_cash: cash - BOOST_COST, message: `${stat} ökade till ${newVal} för ${BOOST_COST} kr.` });
+    return gameJson({ boosted: stat, new_value: newVal, cost: BOOST_COST, new_cash: cash - BOOST_COST });
   }
 
   return gameJson({ error: 'Ogiltig sjukhusåtgärd.' }, 400);
@@ -4343,91 +4169,15 @@ function rowToBlackjackHand(row: Row): BlackjackRuntimeHand {
   };
 }
 
-const CASINO_STORAGE_SQL: Record<'blackjack' | 'holdem' | 'roulette', string[]> = {
-  blackjack: [
-    `CREATE TABLE IF NOT EXISTS game_blackjack_hands (
-      id            TEXT PRIMARY KEY,
-      player_id     TEXT NOT NULL UNIQUE,
-      round_id      TEXT NOT NULL,
-      bet           INTEGER NOT NULL,
-      base_bet      INTEGER DEFAULT 0,
-      deck_state    TEXT NOT NULL,
-      player_hand   TEXT NOT NULL,
-      dealer_hand   TEXT NOT NULL,
-      state         TEXT NOT NULL DEFAULT 'player_turn',
-      result        TEXT,
-      message       TEXT,
-      doubled       INTEGER DEFAULT 0,
-      split_hand    TEXT,
-      split_bet     INTEGER DEFAULT 0,
-      split_result  TEXT,
-      split_doubled INTEGER DEFAULT 0,
-      insurance_bet INTEGER DEFAULT 0,
-      created_at    TEXT DEFAULT (datetime('now')),
-      updated_at    TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (player_id) REFERENCES game_players(id),
-      FOREIGN KEY (round_id) REFERENCES game_rounds(id)
-    )`,
-    `CREATE INDEX IF NOT EXISTS idx_game_blackjack_round ON game_blackjack_hands (round_id)`,
-  ],
-  holdem: [
-    `CREATE TABLE IF NOT EXISTS game_holdem_tables (
-      id          TEXT PRIMARY KEY,
-      player_id   TEXT NOT NULL UNIQUE,
-      round_id    TEXT NOT NULL,
-      buy_in      INTEGER NOT NULL,
-      small_blind INTEGER NOT NULL DEFAULT 50,
-      big_blind   INTEGER NOT NULL DEFAULT 100,
-      status      TEXT NOT NULL DEFAULT 'active',
-      state_json  TEXT NOT NULL,
-      created_at  TEXT DEFAULT (datetime('now')),
-      updated_at  TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (player_id) REFERENCES game_players(id),
-      FOREIGN KEY (round_id) REFERENCES game_rounds(id)
-    )`,
-    `CREATE INDEX IF NOT EXISTS idx_game_holdem_round ON game_holdem_tables (round_id)`,
-  ],
-  roulette: [
-    `CREATE TABLE IF NOT EXISTS game_roulette_spins (
-      id             TEXT PRIMARY KEY,
-      player_id      TEXT NOT NULL,
-      round_id       TEXT NOT NULL,
-      winning_number INTEGER NOT NULL,
-      color          TEXT NOT NULL,
-      total_stake    INTEGER NOT NULL,
-      total_payout   INTEGER NOT NULL,
-      net_result     INTEGER NOT NULL,
-      bets_json      TEXT NOT NULL,
-      created_at     TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (player_id) REFERENCES game_players(id),
-      FOREIGN KEY (round_id) REFERENCES game_rounds(id)
-    )`,
-    `CREATE INDEX IF NOT EXISTS idx_game_roulette_player_created ON game_roulette_spins (player_id, created_at DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_game_roulette_round ON game_roulette_spins (round_id)`,
-  ],
-};
-
-async function ensureCasinoStorage(env: Env, kind: 'blackjack' | 'holdem' | 'roulette'): Promise<void> {
-  for (const sql of CASINO_STORAGE_SQL[kind]) {
-    await env.DB.prepare(sql).run();
-  }
-}
-
 async function getBlackjackHandForPlayer(env: Env, player: Row): Promise<BlackjackRuntimeHand | null> {
-  const run = async (): Promise<BlackjackRuntimeHand | null> => {
+  try {
+    await ensureGameCasinoTables(env);
     const row = await env.DB.prepare(
       `SELECT * FROM game_blackjack_hands WHERE player_id = ? AND round_id = ? LIMIT 1`
     ).bind(player.id as string, player.round_id as string).first<Row>();
     return row ? rowToBlackjackHand(row) : null;
-  };
-  try {
-    return await run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes('no such table')) {
-      await ensureCasinoStorage(env, 'blackjack');
-      return await run();
-    }
     if (msg.includes('no such table')) {
       throw new GameError('Blackjack-tabellen saknas. Kör game-migration-blackjack.sql mot D1.', 500);
     }
@@ -4435,98 +4185,57 @@ async function getBlackjackHandForPlayer(env: Env, player: Row): Promise<Blackja
   }
 }
 
+function prepareSaveBlackjackHand(env: Env, hand: BlackjackRuntimeHand): D1PreparedStatement {
+  return env.DB.prepare(
+    `INSERT INTO game_blackjack_hands
+       (id, player_id, round_id, bet, base_bet, deck_state, player_hand, dealer_hand, state, result,
+        message, doubled, split_hand, split_bet, split_result, split_doubled, insurance_bet,
+        created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(player_id) DO UPDATE SET
+       round_id = excluded.round_id,
+       bet = excluded.bet,
+       base_bet = excluded.base_bet,
+       deck_state = excluded.deck_state,
+       player_hand = excluded.player_hand,
+       dealer_hand = excluded.dealer_hand,
+       state = excluded.state,
+       result = excluded.result,
+       message = excluded.message,
+       doubled = excluded.doubled,
+       split_hand = excluded.split_hand,
+       split_bet = excluded.split_bet,
+       split_result = excluded.split_result,
+       split_doubled = excluded.split_doubled,
+       insurance_bet = excluded.insurance_bet,
+       updated_at = datetime('now')`
+  ).bind(
+    hand.id,
+    hand.playerId,
+    hand.roundId,
+    hand.bet,
+    hand.baseBet,
+    JSON.stringify(hand.deck),
+    JSON.stringify(hand.playerCards),
+    JSON.stringify(hand.dealerCards),
+    hand.state,
+    hand.result,
+    hand.message,
+    hand.doubled ? 1 : 0,
+    hand.splitCards.length ? JSON.stringify(hand.splitCards) : null,
+    hand.splitBet,
+    hand.splitResult,
+    hand.splitDoubled ? 1 : 0,
+    hand.insuranceBet,
+  );
+}
+
 async function saveBlackjackHand(env: Env, hand: BlackjackRuntimeHand): Promise<void> {
   try {
-    await env.DB.prepare(
-      `INSERT INTO game_blackjack_hands
-         (id, player_id, round_id, bet, base_bet, deck_state, player_hand, dealer_hand, state, result,
-          message, doubled, split_hand, split_bet, split_result, split_doubled, insurance_bet,
-          created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-       ON CONFLICT(player_id) DO UPDATE SET
-         round_id = excluded.round_id,
-         bet = excluded.bet,
-         base_bet = excluded.base_bet,
-         deck_state = excluded.deck_state,
-         player_hand = excluded.player_hand,
-         dealer_hand = excluded.dealer_hand,
-         state = excluded.state,
-         result = excluded.result,
-         message = excluded.message,
-         doubled = excluded.doubled,
-         split_hand = excluded.split_hand,
-         split_bet = excluded.split_bet,
-         split_result = excluded.split_result,
-         split_doubled = excluded.split_doubled,
-         insurance_bet = excluded.insurance_bet,
-         updated_at = datetime('now')`
-    ).bind(
-      hand.id,
-      hand.playerId,
-      hand.roundId,
-      hand.bet,
-      hand.baseBet,
-      JSON.stringify(hand.deck),
-      JSON.stringify(hand.playerCards),
-      JSON.stringify(hand.dealerCards),
-      hand.state,
-      hand.result,
-      hand.message,
-      hand.doubled ? 1 : 0,
-      hand.splitCards.length ? JSON.stringify(hand.splitCards) : null,
-      hand.splitBet,
-      hand.splitResult,
-      hand.splitDoubled ? 1 : 0,
-      hand.insuranceBet,
-    ).run();
+    await ensureGameCasinoTables(env);
+    await prepareSaveBlackjackHand(env, hand).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes('no such table')) {
-      await ensureCasinoStorage(env, 'blackjack');
-      await env.DB.prepare(
-        `INSERT INTO game_blackjack_hands
-           (id, player_id, round_id, bet, base_bet, deck_state, player_hand, dealer_hand, state, result,
-            message, doubled, split_hand, split_bet, split_result, split_doubled, insurance_bet,
-            created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-         ON CONFLICT(player_id) DO UPDATE SET
-           round_id = excluded.round_id,
-           bet = excluded.bet,
-           base_bet = excluded.base_bet,
-           deck_state = excluded.deck_state,
-           player_hand = excluded.player_hand,
-           dealer_hand = excluded.dealer_hand,
-           state = excluded.state,
-           result = excluded.result,
-           message = excluded.message,
-           doubled = excluded.doubled,
-           split_hand = excluded.split_hand,
-           split_bet = excluded.split_bet,
-           split_result = excluded.split_result,
-           split_doubled = excluded.split_doubled,
-           insurance_bet = excluded.insurance_bet,
-           updated_at = datetime('now')`
-      ).bind(
-        hand.id,
-        hand.playerId,
-        hand.roundId,
-        hand.bet,
-        hand.baseBet,
-        JSON.stringify(hand.deck),
-        JSON.stringify(hand.playerCards),
-        JSON.stringify(hand.dealerCards),
-        hand.state,
-        hand.result,
-        hand.message,
-        hand.doubled ? 1 : 0,
-        hand.splitCards.length ? JSON.stringify(hand.splitCards) : null,
-        hand.splitBet,
-        hand.splitResult,
-        hand.splitDoubled ? 1 : 0,
-        hand.insuranceBet,
-      ).run();
-      return;
-    }
     if (msg.includes('no such table')) {
       throw new GameError('Blackjack-tabellen saknas. Kör game-migration-blackjack.sql mot D1.', 500);
     }
@@ -4655,21 +4364,18 @@ async function finalizeBlackjackHand(
   env: Env,
   player: Row,
   hand: BlackjackRuntimeHand,
-  outcome: Exclude<BlackjackOutcome, null>
+  outcome: Exclude<BlackjackOutcome, null>,
+  options: { pendingStakeCharge?: number } = {}
 ): Promise<Response> {
   hand.state = 'finished';
   hand.result = outcome;
   hand.message = blackjackResultMessage(outcome, hand.bet, hand.doubled);
-  await saveBlackjackHand(env, hand);
-
   const payout = blackjackPayout(outcome, hand.bet);
-  if (payout > 0) {
-    await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(payout, player.id as string).run();
-  } else {
-    await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
-      .bind(player.id as string).run();
-  }
+  const pendingStakeCharge = Math.max(0, Math.floor(Number(options.pendingStakeCharge ?? 0)));
+  await env.DB.batch([
+    prepareSaveBlackjackHand(env, hand),
+    prepareGamePlayerCashDelta(env, player.id as string, payout - pendingStakeCharge),
+  ]);
 
   await logAction(
     env,
@@ -4680,7 +4386,7 @@ async function finalizeBlackjackHand(
     0,
     0,
     outcome === 'blackjack' || outcome === 'win' || outcome === 'push'
-  ).catch(() => {});
+  );
 
   const freshPlayer = await loadGamePlayerById(env, player.id as string);
   return gameJson(buildBlackjackState(hand, freshPlayer));
@@ -4928,6 +4634,7 @@ function rowToRouletteSpin(row: Row): RouletteSpinRecord {
 
 async function getRouletteHistory(env: Env, player: Row): Promise<RouletteSpinRecord[]> {
   try {
+    await ensureGameCasinoTables(env);
     const result = await env.DB.prepare(
       `SELECT * FROM game_roulette_spins WHERE player_id = ? AND round_id = ? ORDER BY created_at DESC LIMIT 12`
     ).bind(player.id as string, player.round_id as string).all<Row>();
@@ -4935,57 +4642,36 @@ async function getRouletteHistory(env: Env, player: Row): Promise<RouletteSpinRe
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
-      await ensureCasinoStorage(env, 'roulette');
-      const result = await env.DB.prepare(
-        `SELECT * FROM game_roulette_spins WHERE player_id = ? AND round_id = ? ORDER BY created_at DESC LIMIT 12`
-      ).bind(player.id as string, player.round_id as string).all<Row>();
-      return result.results.map(rowToRouletteSpin);
-    }
-    if (msg.includes('no such table')) {
       throw new GameError('Roulette-tabellen saknas. Kör game-migration-roulette.sql mot D1.', 500);
     }
     throw e;
   }
 }
 
+function prepareSaveRouletteSpin(env: Env, player: Row, record: RouletteSpinRecord): D1PreparedStatement {
+  return env.DB.prepare(
+    `INSERT INTO game_roulette_spins
+      (id, player_id, round_id, winning_number, color, total_stake, total_payout, net_result, bets_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+  ).bind(
+    record.id,
+    player.id as string,
+    player.round_id as string,
+    record.winning_number,
+    record.color,
+    record.total_stake,
+    record.total_payout,
+    record.net_result,
+    JSON.stringify(record.bets)
+  );
+}
+
 async function saveRouletteSpin(env: Env, player: Row, record: RouletteSpinRecord): Promise<void> {
   try {
-    await env.DB.prepare(
-      `INSERT INTO game_roulette_spins
-        (id, player_id, round_id, winning_number, color, total_stake, total_payout, net_result, bets_json, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
-    ).bind(
-      record.id,
-      player.id as string,
-      player.round_id as string,
-      record.winning_number,
-      record.color,
-      record.total_stake,
-      record.total_payout,
-      record.net_result,
-      JSON.stringify(record.bets)
-    ).run();
+    await ensureGameCasinoTables(env);
+    await prepareSaveRouletteSpin(env, player, record).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes('no such table')) {
-      await ensureCasinoStorage(env, 'roulette');
-      await env.DB.prepare(
-        `INSERT INTO game_roulette_spins
-          (id, player_id, round_id, winning_number, color, total_stake, total_payout, net_result, bets_json, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
-      ).bind(
-        record.id,
-        player.id as string,
-        player.round_id as string,
-        record.winning_number,
-        record.color,
-        record.total_stake,
-        record.total_payout,
-        record.net_result,
-        JSON.stringify(record.bets)
-      ).run();
-      return;
-    }
     if (msg.includes('no such table')) {
       throw new GameError('Roulette-tabellen saknas. Kör game-migration-roulette.sql mot D1.', 500);
     }
@@ -5787,6 +5473,7 @@ function rowToHoldemTable(row: Row): HoldemRuntimeTable {
 
 async function getHoldemTableForPlayer(env: Env, player: Row): Promise<HoldemRuntimeTable | null> {
   try {
+    await ensureGameCasinoTables(env);
     const row = await env.DB.prepare(
       `SELECT * FROM game_holdem_tables WHERE player_id = ? AND round_id = ? LIMIT 1`
     ).bind(player.id as string, player.round_id as string).first<Row>();
@@ -5794,71 +5481,43 @@ async function getHoldemTableForPlayer(env: Env, player: Row): Promise<HoldemRun
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes('no such table')) {
-      await ensureCasinoStorage(env, 'holdem');
-      const row = await env.DB.prepare(
-        `SELECT * FROM game_holdem_tables WHERE player_id = ? AND round_id = ? LIMIT 1`
-      ).bind(player.id as string, player.round_id as string).first<Row>();
-      return row ? rowToHoldemTable(row) : null;
-    }
-    if (msg.includes('no such table')) {
       throw new GameError('Hold’em-tabellen saknas. Kör game-migration-holdem.sql mot D1.', 500);
     }
     throw e;
   }
+}
+
+function prepareSaveHoldemTable(env: Env, table: HoldemRuntimeTable): D1PreparedStatement {
+  return env.DB.prepare(
+    `INSERT INTO game_holdem_tables
+       (id, player_id, round_id, buy_in, small_blind, big_blind, status, state_json, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(player_id) DO UPDATE SET
+       round_id = excluded.round_id,
+       buy_in = excluded.buy_in,
+       small_blind = excluded.small_blind,
+       big_blind = excluded.big_blind,
+       status = excluded.status,
+       state_json = excluded.state_json,
+       updated_at = datetime('now')`
+  ).bind(
+    table.id,
+    table.playerId,
+    table.roundId,
+    table.buyIn,
+    table.smallBlind,
+    table.bigBlind,
+    table.street === 'table_over' ? 'finished' : 'active',
+    JSON.stringify(table)
+  );
 }
 
 async function saveHoldemTable(env: Env, table: HoldemRuntimeTable): Promise<void> {
   try {
-    await env.DB.prepare(
-      `INSERT INTO game_holdem_tables
-         (id, player_id, round_id, buy_in, small_blind, big_blind, status, state_json, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-       ON CONFLICT(player_id) DO UPDATE SET
-         round_id = excluded.round_id,
-         buy_in = excluded.buy_in,
-         small_blind = excluded.small_blind,
-         big_blind = excluded.big_blind,
-         status = excluded.status,
-         state_json = excluded.state_json,
-         updated_at = datetime('now')`
-    ).bind(
-      table.id,
-      table.playerId,
-      table.roundId,
-      table.buyIn,
-      table.smallBlind,
-      table.bigBlind,
-      table.street === 'table_over' ? 'finished' : 'active',
-      JSON.stringify(table)
-    ).run();
+    await ensureGameCasinoTables(env);
+    await prepareSaveHoldemTable(env, table).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes('no such table')) {
-      await ensureCasinoStorage(env, 'holdem');
-      await env.DB.prepare(
-        `INSERT INTO game_holdem_tables
-           (id, player_id, round_id, buy_in, small_blind, big_blind, status, state_json, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-         ON CONFLICT(player_id) DO UPDATE SET
-           round_id = excluded.round_id,
-           buy_in = excluded.buy_in,
-           small_blind = excluded.small_blind,
-           big_blind = excluded.big_blind,
-           status = excluded.status,
-           state_json = excluded.state_json,
-           updated_at = datetime('now')`
-      ).bind(
-        table.id,
-        table.playerId,
-        table.roundId,
-        table.buyIn,
-        table.smallBlind,
-        table.bigBlind,
-        table.street === 'table_over' ? 'finished' : 'active',
-        JSON.stringify(table)
-      ).run();
-      return;
-    }
     if (msg.includes('no such table')) {
       throw new GameError('Hold’em-tabellen saknas. Kör game-migration-holdem.sql mot D1.', 500);
     }
@@ -5866,16 +5525,16 @@ async function saveHoldemTable(env: Env, table: HoldemRuntimeTable): Promise<voi
   }
 }
 
+function prepareDeleteHoldemTable(env: Env, playerId: string): D1PreparedStatement {
+  return env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ?`).bind(playerId);
+}
+
 async function deleteHoldemTable(env: Env, playerId: string): Promise<void> {
   try {
-    await env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ?`).bind(playerId).run();
+    await ensureGameCasinoTables(env);
+    await prepareDeleteHoldemTable(env, playerId).run();
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes('no such table')) {
-      await ensureCasinoStorage(env, 'holdem');
-      await env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ?`).bind(playerId).run();
-      return;
-    }
     if (msg.includes('no such table')) {
       throw new GameError('Hold’em-tabellen saknas. Kör game-migration-holdem.sql mot D1.', 500);
     }
@@ -5999,16 +5658,14 @@ async function gameActionHoldemStart(request: Request, env: Env): Promise<Respon
       return gameJson({ error: 'Du sitter redan vid ett bord. Spela klart eller lämna bordet först.', ...buildHoldemState(existing, player) }, 409);
     }
 
-    await env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ? AND round_id != ?`)
-      .bind(player.id as string, player.round_id as string).run();
     const table = await createHoldemTable(env, player, buyIn);
-    await saveHoldemTable(env, table);
-    try {
-      await adjustGamePlayerCash(env, player.id as string, -buyIn);
-    } catch (e) {
-      await deleteHoldemTable(env, player.id as string).catch(() => {});
-      throw e;
-    }
+    await ensureGameCasinoTables(env);
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM game_holdem_tables WHERE player_id = ? AND round_id != ?`)
+        .bind(player.id as string, player.round_id as string),
+      prepareGamePlayerCashDelta(env, player.id as string, -buyIn),
+      prepareSaveHoldemTable(env, table),
+    ]);
     await logAction(env, player.id as string, 'casino', `Köpte in dig i Texas Hold'em med ${fmtCurrency(buyIn)} kr i marker.`, -buyIn, 0, 0, true);
 
     const freshPlayer = await loadGamePlayerById(env, player.id as string);
@@ -6113,14 +5770,10 @@ async function gameActionHoldemLeave(request: Request, env: Env): Promise<Respon
 
     const stack = Math.max(0, Math.floor(Number(table.seats[table.playerSeat]?.stack ?? 0)));
     const net = stack - table.buyIn;
-    if (stack > 0) {
-      await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
-        .bind(stack, player.id as string).run();
-    } else {
-      await env.DB.prepare(`UPDATE game_players SET last_action = datetime('now') WHERE id = ?`)
-        .bind(player.id as string).run();
-    }
-    await deleteHoldemTable(env, player.id as string);
+    await env.DB.batch([
+      prepareGamePlayerCashDelta(env, player.id as string, stack),
+      prepareDeleteHoldemTable(env, player.id as string),
+    ]);
 
     const description = net > 0
       ? `Lämnade Texas Hold'em-bordet med ${fmtCurrency(stack)} kr i marker. Nettot blev +${fmtCurrency(net)} kr.`
@@ -6140,18 +5793,17 @@ async function gameAdminAuth(request: Request, env: Env): Promise<Response> {
   await ensureGameAdminTables(env);
   const body = await request.json<{ password?: string }>().catch(() => ({} as { password?: string }));
   if (!body.password || typeof body.password !== 'string') {
-    return gameJson({ error: 'Ange adminlösenordet först.' }, 400);
+    return gameJson({ error: 'Adminl\u00f6senord kr\u00e4vs.' }, 400);
   }
-  const hashConfig = inspectPasswordHash(String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim());
+  const hashConfig = inspectPasswordHash(env.GAME_ADMIN_PASSWORD_HASH);
   if (!hashConfig.isUsable) {
-    await logGameAdminAudit(env, { command: 'unlock', outcome: 'error', details: 'Admin password hash missing.' });
-    return gameJson({ error: 'Adminlösenordet är inte konfigurerat ännu.' }, 500);
+    return gameJson({ error: 'Adminl\u00f6senord \u00e4r inte konfigurerat.' }, 500);
   }
   const valid = await verifyPassword(body.password, hashConfig.value);
   if (!valid) {
     await sleep(150 + Math.random() * 150);
     await logGameAdminAudit(env, { command: 'unlock', outcome: 'error', details: 'Wrong admin password.' });
-    return gameJson({ error: 'Fel adminlösenord.' }, 401);
+    return gameJson({ error: 'Fel adminl\u00f6senord.' }, 401);
   }
 
   const token = crypto.randomUUID();
@@ -6176,163 +5828,7 @@ async function gameAdminStatus(request: Request, env: Env): Promise<Response> {
   return gameJson({
     authenticated: !!session,
     expires_at: session?.expires_at ?? null,
-    configured: inspectPasswordHash(String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim()).isUsable,
   });
-}
-
-async function gameRegister(request: Request, env: Env): Promise<Response> {
-  let body: { email?: string; password?: string; name?: string; side?: string };
-  try { body = await request.json<typeof body>(); }
-  catch { return gameJson({ error: 'Ogiltig förfrågan.' }, 400); }
-
-  const email    = (body.email ?? '').trim().toLowerCase();
-  const password = body.password ?? '';
-  const name     = (body.name ?? '').trim().slice(0, 24);
-  const side     = body.side === 'westside' ? 'westside' : 'eastside';
-
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    return gameJson({ error: 'Ange en giltig e-postadress.' }, 400);
-  if (password.length < 6)
-    return gameJson({ error: 'Lösenordet måste vara minst 6 tecken.' }, 400);
-  if (!name || name.length < 2)
-    return gameJson({ error: 'Karaktärsnamnet måste vara 2–24 tecken.' }, 400);
-  if (!/^[\w\s\u00C0-\u024F"'-]+$/u.test(name))
-    return gameJson({ error: 'Namnet innehåller otillåtna tecken.' }, 400);
-
-  const isAdmin = email === ADMIN_EMAIL;
-
-  try {
-    const existingAccount = await env.DB.prepare('SELECT id, is_admin FROM game_accounts WHERE email = ?')
-      .bind(email).first<Row>();
-
-    let accountId: string;
-    let adminFlag: number;
-
-    if (existingAccount && !isAdmin) {
-      return gameJson({ error: 'E-postadressen är redan registrerad. Logga in istället.' }, 409);
-    } else if (existingAccount) {
-      // Admin re-creating a character with the same email
-      accountId = existingAccount.id as string;
-      adminFlag = existingAccount.is_admin as number;
-    } else {
-      const hash = await hashGamePassword(password);
-      accountId  = crypto.randomUUID();
-      adminFlag  = isAdmin ? 1 : 0;
-      try {
-        await env.DB.prepare(
-          `INSERT INTO game_accounts (id, email, password_hash, password_salt, is_admin)
-           VALUES (?, ?, ?, ?, ?)`
-        ).bind(accountId, email, hash, '', adminFlag).run();
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (msg.includes('UNIQUE')) return gameJson({ error: 'E-postadressen är redan registrerad.' }, 409);
-        throw e;
-      }
-    }
-
-    const round = await ensureActiveRound(env);
-
-    const existingName = await env.DB.prepare(
-      `SELECT id FROM game_players WHERE name = ? AND round_id = ?`
-    ).bind(name, round.id as string).first<Row>();
-    if (existingName) return gameJson({ error: 'Det namnet är redan taget. Välj ett annat.' }, 409);
-
-    const pid = crypto.randomUUID();
-    await env.DB.prepare(
-      `INSERT INTO game_players (id, round_id, name, side, account_id) VALUES (?, ?, ?, ?, ?)`
-    ).bind(pid, round.id as string, name, side, accountId).run();
-
-    const token     = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    await env.DB.prepare(
-      `INSERT INTO game_sessions (token, account_id, player_id, expires_at) VALUES (?, ?, ?, ?)`
-    ).bind(token, accountId, pid, expiresAt).run();
-
-    const player = await env.DB.prepare('SELECT * FROM game_players WHERE id = ?').bind(pid).first<Row>();
-    return new Response(JSON.stringify({
-      player,
-      account: { email, is_admin: adminFlag },
-    }), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json', 'Set-Cookie': setTokenCookie(token), ...cors() },
-    });
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes('no such table'))
-      return gameJson({ error: 'Speldatabasen är inte initierad. Kör game-schema.sql.' }, 500);
-    throw e;
-  }
-}
-
-async function gameLogin(request: Request, env: Env): Promise<Response> {
-  let body: { email?: string; password?: string };
-  try { body = await request.json<typeof body>(); }
-  catch { return gameJson({ error: 'Ogiltig förfrågan.' }, 400); }
-
-  const email    = (body.email ?? '').trim().toLowerCase();
-  const password = body.password ?? '';
-
-  if (!email)    return gameJson({ error: 'Ange e-postadress.' }, 400);
-  if (!password) return gameJson({ error: 'Ange lösenord.' }, 400);
-
-  try {
-    const account = await env.DB.prepare('SELECT * FROM game_accounts WHERE email = ?')
-      .bind(email).first<Row>();
-    if (!account) {
-      await sleep(300);
-      return gameJson({ error: 'Fel e-postadress eller lösenord.' }, 401);
-    }
-
-    const valid = await verifyPassword(password, account.password_hash as string);
-    if (!valid) {
-      await sleep(300);
-      return gameJson({ error: 'Fel e-postadress eller lösenord.' }, 401);
-    }
-
-    const round = await getActiveRound(env);
-    if (!round) return gameJson({ error: 'Ingen aktiv runda för tillfället.' }, 409);
-
-    const player = await env.DB.prepare(
-      `SELECT * FROM game_players WHERE account_id = ? AND round_id = ?`
-    ).bind(account.id as string, round.id as string).first<Row>();
-    if (!player) {
-      return gameJson({
-        error: 'Ingen karaktär hittades för denna runda. Det kan bero på att rundan nyligen startades om.',
-        no_character: true,
-      }, 404);
-    }
-
-    const token     = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    await env.DB.prepare(
-      `INSERT INTO game_sessions (token, account_id, player_id, expires_at) VALUES (?, ?, ?, ?)`
-    ).bind(token, account.id as string, player.id as string, expiresAt).run();
-
-    const syncedPlayer = await syncGamePlayerState(env, player);
-    return new Response(JSON.stringify({
-      player: syncedPlayer,
-      account: { email, is_admin: account.is_admin },
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', 'Set-Cookie': setTokenCookie(token), ...cors() },
-    });
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes('no such table'))
-      return gameJson({ error: 'Speldatabasen är inte initierad. Kör game-schema.sql.' }, 500);
-    throw e;
-  }
-}
-
-async function gameLogout(request: Request, env: Env): Promise<Response> {
-  const token = getTokenCookie(request);
-  if (token) {
-    await env.DB.prepare('DELETE FROM game_sessions WHERE token = ?').bind(token).run().catch(() => {});
-  }
-  const headers = new Headers({ 'Content-Type': 'application/json', ...cors() });
-  headers.append('Set-Cookie', clearTokenCookie());
-  headers.append('Set-Cookie', clearGameCookie());
-  return new Response(JSON.stringify({ success: true }), { status: 200, headers });
 }
 
 async function gameAdminLogout(request: Request, env: Env): Promise<Response> {
@@ -6628,56 +6124,6 @@ async function gameAdminCommand(request: Request, env: Env): Promise<Response> {
     const message = `Chaos slog till: ${cashDelta >= 0 ? '+' : ''}${cashDelta} cash, ${respectDelta >= 0 ? '+' : ''}${respectDelta} respect, HP ${hp}, energi ${energy}.`;
     await logAction(env, pid, 'admin', message, cashDelta, respectDelta, 0, true);
     return ok(message);
-  }
-
-  if (cmd === 'import-assets') {
-    // Reads /asset-manifest.json (built separately), upserts rows into game_assets.
-    // Create the manifest with: node scripts/build-asset-manifest.js
-    let manifest: Array<{ id: string; name: string; category: string; tags?: string[]; file_path: string; web_path: string; format: string; width?: number; height?: number }>;
-    try {
-      const url = new URL('/asset-manifest.json', request.url);
-      const resp = await fetch(url.toString());
-      if (!resp.ok) return err('asset-manifest.json not found. Run: node scripts/build-asset-manifest.js');
-      manifest = await resp.json() as typeof manifest;
-    } catch {
-      return err('Failed to fetch asset-manifest.json. Ensure the file is deployed to /asset-manifest.json.');
-    }
-    if (!Array.isArray(manifest) || !manifest.length) return ok('asset-manifest.json is empty — nothing to import.');
-    const stmts = manifest.map(a =>
-      env.DB.prepare(
-        `INSERT INTO game_assets (id, name, category, tags, file_path, web_path, format, width, height)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(file_path) DO UPDATE SET
-           name = excluded.name, category = excluded.category, tags = excluded.tags,
-           web_path = excluded.web_path, format = excluded.format,
-           width = excluded.width, height = excluded.height`
-      ).bind(
-        a.id ?? crypto.randomUUID(), a.name, a.category,
-        a.tags ? JSON.stringify(a.tags) : null,
-        a.file_path, a.web_path, a.format,
-        a.width ?? null, a.height ?? null
-      )
-    );
-    await env.DB.batch(stmts);
-    return ok(`Importerade ${stmts.length} assets till game_assets.`);
-  }
-
-  if (cmd === 'regen-npcs') {
-    const round = await env.DB.prepare(
-      `SELECT id FROM game_rounds WHERE is_active = 1 ORDER BY round_number DESC LIMIT 1`
-    ).first<{ id: string }>();
-    if (!round) return err('Ingen aktiv runda.');
-    const npcs = await env.DB.prepare(
-      `SELECT id, side FROM game_npcs WHERE round_id = ?`
-    ).bind(round.id).all<{ id: string; side: string }>();
-    if (!npcs.results.length) return ok('Inga NPCs i aktiv runda.');
-    const stmts = npcs.results.map(npc =>
-      env.DB.prepare(`UPDATE game_npcs SET name = ? WHERE id = ?`)
-        .bind(generateNpcName(npc.side ?? 'eastside'), npc.id)
-    );
-    await env.DB.batch(stmts);
-    await logAction(env, pid, 'admin', `Admin regenererade NPC-namn (${stmts.length} st).`, 0, 0, 0, true);
-    return ok(`Regenererade namn för ${stmts.length} NPCs.`);
   }
 
   return err('Unknown command. Run "help" for available commands.');
