@@ -1,17 +1,20 @@
--- sp1e.se Mosquito — seed game data
--- Run AFTER game-schema.sql:
--- npx wrangler d1 execute sp1e-db --remote --file=game-seed.sql
+-- sp1e.se Mosquito — full round reset
+-- WARNING: Wipes all player and game data. Run in D1 console:
+-- npx wrangler d1 execute sp1e-db --remote --file=game-reset.sql
 
--- ─── Active round 1 ──────────────────────────────────────────────────────────
+DELETE FROM game_action_log;
+DELETE FROM game_inventory;
+DELETE FROM game_properties;
+DELETE FROM game_quests;
+DELETE FROM game_npcs;
+DELETE FROM game_players;
+DELETE FROM game_rounds;
+DELETE FROM game_leaderboard;
 
-INSERT OR IGNORE INTO game_rounds (id, round_number, start_date, end_date, is_active)
-VALUES (
-  'round-001',
-  1,
-  datetime('now'),
-  datetime('now', '+30 days'),
-  1
-);
+-- ─── Fresh round 1 ───────────────────────────────────────────────────────────
+
+INSERT INTO game_rounds (id, round_number, start_date, end_date, is_active)
+VALUES ('round-001', 1, datetime('now'), datetime('now', '+30 days'), 1);
 
 -- ─── 20 NPC rivals ───────────────────────────────────────────────────────────
 

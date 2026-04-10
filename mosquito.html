@@ -45,12 +45,19 @@ button.primary:hover:not(:disabled){background:rgba(194,58,34,.14);color:var(--w
 .round-entry strong{color:var(--white);}
 .round-entry span{font-size:11px;color:var(--dim);}
 
-/* ─── Create ──────────────────────────────────────────────────────────────── */
-#screen-create{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
+/* ─── Auth (login / register) ─────────────────────────────────────────────── */
+#screen-auth{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
 .cr-logo{font-size:32px;font-weight:500;color:var(--red);letter-spacing:4px;}
 .cr-sub{color:var(--dim);font-size:11px;letter-spacing:2px;}
 .cr-box{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;}
 .cr-label{font-size:11px;color:var(--dim);letter-spacing:1px;margin-bottom:4px;}
+.auth-tabs{display:flex;gap:0;}
+.auth-tab{flex:1;padding:8px;font-size:11px;letter-spacing:1px;background:var(--bg3);border:1px solid var(--border);color:var(--dim);cursor:pointer;}
+.auth-tab.active{background:var(--bg2);color:var(--white);border-bottom-color:var(--bg2);}
+.auth-panel{display:none;flex-direction:column;gap:14px;}
+.auth-panel.active{display:flex;}
+.auth-input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--white);padding:8px 10px;font-size:12px;letter-spacing:.3px;outline:none;box-sizing:border-box;}
+.auth-input:focus{border-color:var(--txt);}
 .side-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .side-card{border:2px solid var(--border);border-radius:0;padding:16px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg3);}
 .side-card:hover{border-color:var(--txt);}
@@ -232,7 +239,16 @@ select:focus{border-color:var(--red);}
 .casino-bet-row label{font-size:11px;color:var(--dim);width:84px;flex-shrink:0;}
 .casino-bet-row input{max-width:160px;}
 .casino-chipbar{display:flex;gap:8px;flex-wrap:wrap;}
-.casino-chip{border-radius:2px;padding:7px 12px;background:#17131b;}
+.casino-chip{display:inline-flex;align-items:center;gap:8px;border-radius:2px;padding:7px 12px 7px 8px;background:#17131b;}
+.casino-chip::before{content:'';width:26px;height:26px;flex:0 0 26px;background-image:url('/assets/poker-pack/fiches%20addon%20(Poker%20Cards).png');background-repeat:no-repeat;background-size:800% 400%;background-position:var(--chip-x,0%) var(--chip-y,0%);filter:drop-shadow(0 4px 10px rgba(0,0,0,.35));}
+.casino-chip[data-chip-color="red"]{--chip-x:0%;--chip-y:0%;}
+.casino-chip[data-chip-color="blue"]{--chip-x:57.1429%;--chip-y:0%;}
+.casino-chip[data-chip-color="white"]{--chip-x:0%;--chip-y:33.3333%;}
+.casino-chip[data-chip-color="purple"]{--chip-x:57.1429%;--chip-y:33.3333%;}
+.casino-chip[data-chip-color="green"]{--chip-x:0%;--chip-y:66.6667%;}
+.casino-chip[data-chip-color="pink"]{--chip-x:57.1429%;--chip-y:66.6667%;}
+.casino-chip[data-chip-color="black"]{--chip-x:0%;--chip-y:100%;}
+.casino-chip[data-chip-color="gold"]{--chip-x:57.1429%;--chip-y:100%;}
 .casino-chip.active{border-color:var(--amber);color:var(--white);background:#221811;}
 .casino-modebar{display:flex;gap:10px;flex-wrap:wrap;}
 .casino-mode{padding:8px 14px;border-radius:2px;background:#15131a;border:1px solid var(--border);letter-spacing:1px;}
@@ -321,14 +337,16 @@ select:focus{border-color:var(--red);}
 .bj-name{font-size:11px;color:var(--dim);letter-spacing:1px;}
 .bj-total{font-size:13px;color:var(--white);}
 .bj-cards{display:flex;gap:10px;flex-wrap:wrap;}
-.bj-card{width:74px;aspect-ratio:5/7;border-radius:2px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);}
+.bj-card{--card-scale:1.5;width:72px;height:96px;border-radius:2px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);}
 .bj-card img{width:100%;height:100%;display:block;object-fit:cover;background:#fff;}
+.bj-card.sprite-card{background:linear-gradient(180deg,#f6f2eb,#d8d2c8);}
 .bj-card.hidden{background:
   radial-gradient(circle at 30% 30%,rgba(255,255,255,.08),transparent 30%),
   linear-gradient(160deg,#211824,#15101a 55%,#0d0a10);
   border-color:#3a2c39;
   box-shadow:0 10px 24px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.04);
 }
+.bj-card.hidden.sprite-card{background:linear-gradient(160deg,#13202a,#0d131a 55%,#090c11);border-color:#314758;}
 .bj-card.hidden::before{
   content:'MOSQ';
   position:absolute;
@@ -340,11 +358,14 @@ select:focus{border-color:var(--red);}
   font-size:12px;
   letter-spacing:4px;
 }
-.bj-card-fallback{display:none;width:100%;height:100%;padding:10px;background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;flex-direction:column;justify-content:space-between;}
+.bj-card.hidden.sprite-card::before{display:none;content:none;}
+.bj-card-fallback{display:none;width:100%;height:100%;padding:10px;background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;flex-direction:column;justify-content:space-between;position:relative;z-index:1;}
 .bj-card.fallback .bj-card-fallback{display:flex;}
+.bj-card.sprite-card .bj-card-fallback{display:flex;}
 .bj-card-fallback.red{color:#b32025;}
 .bj-rank{font-size:17px;font-weight:500;line-height:1;}
 .bj-suit{font-size:15px;align-self:flex-end;}
+.poker-card-sprite{position:absolute;top:0;left:0;z-index:2;display:block;width:48px;height:64px;background-image:url('/assets/poker-pack/1.2%20Poker%20cards.png');background-repeat:no-repeat;background-size:944px 385px;background-position:var(--pc-x,0px) var(--pc-y,0px);transform:scale(var(--card-scale));transform-origin:top left;image-rendering:pixelated;}
 .bj-actions{display:flex;gap:10px;flex-wrap:wrap;}
 .bj-banner{min-height:42px;border:1px solid var(--border);border-radius:0;background:var(--bg2);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .bj-banner strong{font-size:13px;color:var(--white);}
@@ -384,7 +405,7 @@ select:focus{border-color:var(--red);}
   #mob-nav{display:flex;}
   #main-area{padding:12px;padding-bottom:70px;}
   button{min-height:44px;}
-  .bj-card{width:64px;}
+  .bj-card{--card-scale:1.25;width:60px;height:80px;}
 }
 
 /* ─── Animations ──────────────────────────────────────────────────────────── */
@@ -465,11 +486,7 @@ select:focus{border-color:var(--red);}
 <!-- ─── Boot Screen ────────────────────────────────────────────────────────── -->
 <div id="screen-boot" class="screen" style="display:flex;">
   <div class="boot-logo">MOSQUITO</div>
-  <div id="boot-copy" class="boot-copy">Kontrollerar samma lösenordssession som sp1e-hubben.</div>
-  <div class="boot-actions">
-    <button id="boot-login-btn" class="primary" style="display:none;">LÅS UPP MOSQUITO</button>
-    <button id="boot-refresh-btn">FÖRSÖK IGEN</button>
-  </div>
+  <div id="boot-copy" class="boot-copy">Ansluter...</div>
   <div id="boot-msg" class="amsg"></div>
 </div>
 
@@ -489,35 +506,65 @@ select:focus{border-color:var(--red);}
   </div>
 </div>
 
-<!-- ─── Create Screen ─────────────────────────────────────────────────────── -->
-<div id="screen-create" class="screen" style="display:none;">
+<!-- ─── Auth Screen (login / register) ────────────────────────────────────── -->
+<div id="screen-auth" class="screen" style="display:none;">
   <div class="cr-logo">MOSQUITO</div>
   <div class="cr-sub">CRIME SIMULATOR &mdash; STHLM</div>
   <div class="cr-box">
-    <div>
-      <div class="cr-label">SPELNAMN</div>
-      <input id="inp-name" type="text" placeholder="Ditt gängsnamn..." maxlength="20" autocomplete="off">
-      <div id="name-suggestions" style="margin-top:6px;display:none;">
-        <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">FÖRSLAG &mdash; klicka för att välja</div>
-        <div id="name-sugg-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-      </div>
-      <button id="sugg-btn" style="margin-top:6px;font-size:10px;padding:4px 10px;" type="button">NAMNF&Ouml;RSLAG</button>
+    <div class="auth-tabs">
+      <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">SKAPA KONTO</button>
+      <button class="auth-tab" id="tab-login"    onclick="switchAuthTab('login')">LOGGA IN</button>
     </div>
-    <div>
-      <div class="cr-label">VÄLJ SIDA</div>
-      <div class="side-row">
-        <div class="side-card active" data-side="eastside">
-          <div class="s-name">EASTSIDE</div>
-          <div class="s-desc">Aggressiv. Stark.</div>
+
+    <!-- Register panel -->
+    <div id="auth-panel-register" class="auth-panel">
+      <div>
+        <div class="cr-label">E-POST</div>
+        <input id="reg-email" class="auth-input" type="email" placeholder="din@email.com" autocomplete="email">
+      </div>
+      <div>
+        <div class="cr-label">L&Ouml;SENORD (min. 6 tecken)</div>
+        <input id="reg-password" class="auth-input" type="password" placeholder="Lösenord..." autocomplete="new-password">
+      </div>
+      <div>
+        <div class="cr-label">KARAKTÄRSNAMN</div>
+        <input id="reg-name" class="auth-input" type="text" placeholder="Ditt gängsnamn..." maxlength="24" autocomplete="off">
+        <div id="reg-name-suggestions" style="margin-top:6px;display:none;">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">FÖRSLAG &mdash; klicka för att välja</div>
+          <div id="reg-sugg-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         </div>
-        <div class="side-card" data-side="westside">
-          <div class="s-name">WESTSIDE</div>
-          <div class="s-desc">Listig. Snabb.</div>
+        <button id="reg-sugg-btn" style="margin-top:6px;font-size:10px;padding:4px 10px;" type="button">NAMNF&Ouml;RSLAG</button>
+      </div>
+      <div>
+        <div class="cr-label">V&Auml;LJ SIDA</div>
+        <div class="side-row">
+          <div class="side-card active" data-side="eastside">
+            <div class="s-name">EASTSIDE</div>
+            <div class="s-desc">Aggressiv. Stark.</div>
+          </div>
+          <div class="side-card" data-side="westside">
+            <div class="s-name">WESTSIDE</div>
+            <div class="s-desc">Listig. Snabb.</div>
+          </div>
         </div>
       </div>
+      <button id="reg-btn" class="primary">SKAPA KONTO &amp; SPELA</button>
     </div>
-    <button id="create-btn" class="primary">SKAPA KARAKTÄR</button>
-    <div id="create-err" class="amsg"></div>
+
+    <!-- Login panel -->
+    <div id="auth-panel-login" class="auth-panel">
+      <div>
+        <div class="cr-label">E-POST</div>
+        <input id="login-email" class="auth-input" type="email" placeholder="din@email.com" autocomplete="email">
+      </div>
+      <div>
+        <div class="cr-label">L&Ouml;SENORD</div>
+        <input id="login-password" class="auth-input" type="password" placeholder="Lösenord..." autocomplete="current-password">
+      </div>
+      <button id="login-btn" class="primary">LOGGA IN</button>
+    </div>
+
+    <div id="auth-err" class="amsg"></div>
   </div>
 </div>
 
@@ -562,18 +609,17 @@ select:focus{border-color:var(--red);}
       <button id="hosp-heal-btn" class="primary" data-hospital="heal">
         BETALA FÖR VÅRD &mdash; <span id="hosp-heal-cost">...</span> kr
       </button>
-      <label for="hosp-boost-stat" style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;">
-        STAT FÖR BOOST
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <select id="hosp-boost-stat" style="min-width:150px;">
           <option value="strength">Styrka</option>
           <option value="intelligence">Intelligens</option>
           <option value="charisma">Karisma</option>
-          <option value="stealth">Smyg</option>
+          <option value="stealth">Smidighet</option>
         </select>
-      </label>
-      <button id="hosp-boost-btn" data-hospital="boost">
-        STAT-BOOST &mdash; <span id="hosp-boost-cost">5 000</span> kr
-      </button>
+        <button id="hosp-boost-btn" data-hospital="boost">
+          STAT-BOOST &mdash; 5 000 kr
+        </button>
+      </div>
       <button id="hosp-wait-btn" data-hospital="wait">
         UPPDATERA STATUS
       </button>
@@ -597,6 +643,7 @@ select:focus{border-color:var(--red);}
       <span id="nrg-txt">100/100</span>
       <span id="nrg-hint"></span>
     </div>
+    <button id="char-logout-btn" style="background:none;border:1px solid var(--border);color:var(--dim);font-size:10px;letter-spacing:.5px;padding:4px 8px;cursor:pointer;flex-shrink:0;border-radius:0;">[LOGGA UT]</button>
   </div>
 
   <!-- Layout -->
@@ -664,6 +711,7 @@ select:focus{border-color:var(--red);}
         <button class="nav-btn nv" data-s="fastigheter">[FASTIGHETER]</button>
         <button class="nav-btn nv" data-s="race">[RACE]</button>
         <button class="nav-btn nv" data-s="ranking">[RANKING]</button>
+        <button class="nav-btn nv" data-s="karta">[KARTA]</button>
       </div>
       <div class="sb-back"><a href="/">&larr; Tillbaka</a></div>
     </div>
@@ -758,6 +806,12 @@ select:focus{border-color:var(--red);}
         </div>
         <div id="vapen-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;"></div>
         <div id="vapen-msg" class="amsg"></div>
+        <!-- Ammo section -->
+        <div style="margin-top:20px;">
+          <div class="sec-title" style="font-size:13px;margin-bottom:8px;">AMMUNITION</div>
+          <div class="sec-sub" style="margin-bottom:10px;">Skjutvapen kräver ammunition. Melee-vapen behöver inga patroner.</div>
+          <div id="ammo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;"></div>
+        </div>
       </div>
 
       <!-- Traning -->
@@ -1035,7 +1089,7 @@ select:focus{border-color:var(--red);}
         <div class="sec-title">DEV CONSOLE <span class="dev-tag">ADMIN</span></div>
         <div class="sec-sub">Serverstyrda admin-kommandon f&ouml;r den aktuella karakt&auml;ren. Dev console kr&auml;ver en kort admin-uppl&aring;sning ovanp&aring; hubb-sessionen.</div>
         <div id="dev-lock" class="dev-lock">
-          <div class="dev-meta">L&aring;s upp adminl&auml;get med det separata adminl&ouml;senordet. Sessionen lever i 2 timmar och kan l&aring;sas manuellt.</div>
+          <div class="dev-meta">Lås upp adminläget med ett separat adminlösenord. Sessionen lever i 2 timmar och kan låsas manuellt.</div>
           <div class="dev-row">
             <input id="dev-password" type="password" placeholder="Adminlösenord" autocomplete="current-password" spellcheck="false">
             <button id="dev-unlock-btn" class="primary">LÅS UPP</button>
@@ -1138,6 +1192,61 @@ select:focus{border-color:var(--red);}
           <tbody id="rank-tbody"></tbody>
         </table>
       </div>
+
+      <!-- Karta -->
+      <div id="s-karta" class="g-sec">
+        <div class="sec-title">KARTA — STOCKHOLM</div>
+        <div class="sec-sub">Fiktiv karta &ouml;ver stadens distrikt. F&auml;rgerna visar faktionskontroll.</div>
+        <div id="karta-legend" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:11px;">
+          <span><span style="display:inline-block;width:10px;height:10px;background:#4a7fc1;margin-right:4px;vertical-align:middle;"></span>Eastside</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#b84a2e;margin-right:4px;vertical-align:middle;"></span>Westside</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#555;margin-right:4px;vertical-align:middle;"></span>Neutral</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#7a5c9e;margin-right:4px;vertical-align:middle;"></span>Omstridd</span>
+        </div>
+        <svg id="sthlm-map" viewBox="0 0 600 480" style="width:100%;max-width:600px;border:1px solid var(--border);background:#0d0d0d;display:block;" xmlns="http://www.w3.org/2000/svg">
+          <!-- Nya Stan (neutral market zone) -->
+          <polygon points="240,200 290,180 330,210 310,260 260,270 230,245" fill="#333" stroke="#555" stroke-width="1.5"/>
+          <text x="270" y="232" text-anchor="middle" fill="#aaa" font-size="10" font-family="monospace">NYA STAN</text>
+          <text x="270" y="244" text-anchor="middle" fill="#666" font-size="8" font-family="monospace">Neutral</text>
+
+          <!-- Söder (westside stronghold) -->
+          <polygon points="230,280 310,275 330,330 290,380 230,370 200,320" fill="#6b2a1a" stroke="#b84a2e" stroke-width="1.5"/>
+          <text x="265" y="328" text-anchor="middle" fill="#e08070" font-size="10" font-family="monospace">SÖDER</text>
+          <text x="265" y="340" text-anchor="middle" fill="#b84a2e" font-size="8" font-family="monospace">Westside</text>
+
+          <!-- Norr (westside commerce) -->
+          <polygon points="180,100 270,90 280,160 240,190 190,170 160,140" fill="#5a2015" stroke="#b84a2e" stroke-width="1.5"/>
+          <text x="220" y="145" text-anchor="middle" fill="#e08070" font-size="10" font-family="monospace">NORR</text>
+          <text x="220" y="157" text-anchor="middle" fill="#b84a2e" font-size="8" font-family="monospace">Westside</text>
+
+          <!-- Östra Hamnen (eastside elite) -->
+          <polygon points="340,160 420,140 450,190 430,250 360,260 330,215" fill="#1a3a5a" stroke="#4a7fc1" stroke-width="1.5"/>
+          <text x="385" y="205" text-anchor="middle" fill="#7ab0e0" font-size="10" font-family="monospace">ÖSTRA HAMNEN</text>
+          <text x="385" y="217" text-anchor="middle" fill="#4a7fc1" font-size="8" font-family="monospace">Eastside</text>
+
+          <!-- Vasen (eastside residential) -->
+          <polygon points="340,270 430,260 460,320 430,370 360,375 320,335" fill="#162d45" stroke="#4a7fc1" stroke-width="1.5"/>
+          <text x="385" y="320" text-anchor="middle" fill="#7ab0e0" font-size="10" font-family="monospace">VASEN</text>
+          <text x="385" y="332" text-anchor="middle" fill="#4a7fc1" font-size="8" font-family="monospace">Eastside</text>
+
+          <!-- Kungen (contested) -->
+          <polygon points="100,200 190,180 230,230 210,280 140,290 90,255" fill="#3a2a4a" stroke="#9a6abf" stroke-width="1.5"/>
+          <text x="160" y="240" text-anchor="middle" fill="#c09ae0" font-size="10" font-family="monospace">KUNGEN</text>
+          <text x="160" y="252" text-anchor="middle" fill="#7a5c9e" font-size="8" font-family="monospace">Omstridd</text>
+
+          <!-- Lidö (neutral suburban) -->
+          <polygon points="460,80 540,90 550,160 490,180 440,150 440,100" fill="#252525" stroke="#555" stroke-width="1.5"/>
+          <text x="493" y="133" text-anchor="middle" fill="#aaa" font-size="10" font-family="monospace">LID&Ouml;</text>
+          <text x="493" y="145" text-anchor="middle" fill="#666" font-size="8" font-family="monospace">Neutral</text>
+
+          <!-- Water / background detail -->
+          <ellipse cx="300" cy="440" rx="280" ry="30" fill="#0a1520" stroke="#1a2a3a" stroke-width="1"/>
+          <text x="300" y="445" text-anchor="middle" fill="#1e3a50" font-size="9" font-family="monospace">M&Auml;LAREN</text>
+        </svg>
+        <div style="margin-top:12px;font-size:11px;color:var(--dim);">
+          Interaktiva distrikt (statistik, kontroll, aktioner) — kommer snart.
+        </div>
+      </div>
     </div><!-- /#main-area -->
   </div><!-- /#game-layout -->
 </div><!-- /#screen-game -->
@@ -1159,6 +1268,7 @@ select:focus{border-color:var(--red);}
     <button class="mb" data-s="fastigheter">FAST.</button>
     <button class="mb" data-s="race">RACE</button>
     <button class="mb" data-s="ranking">RANK</button>
+    <button class="mb" data-s="karta">KARTA</button>
   </div>
 </div>
 
@@ -1189,7 +1299,7 @@ function casinoStore(mode){
 }
 
 const G={
-  player:null,extra:{},status:null,prices:{},npcs:[],
+  player:null,account:null,extra:{},status:null,prices:{},npcs:[],
   section:'gatan',busy:false,selectedSide:'eastside',
   drugSel:'marijuana',drugQty:1,casinoBet:500,holdemBuyIn:2000,rouletteStake:100,rouletteBets:[],
   errors:{player:null,status:null,prices:null,npcs:null,casino:null},
@@ -1199,11 +1309,9 @@ const G={
   casino:defaultCasinoState(),
   world:{events:[],loading:false,lastLoaded:0},
   devHistory:['> help'],
-  siteAuthenticated:false,
   hallOfFame:null,
-  admin:{authenticated:false,expiresAt:null}
+  admin:{authenticated:false,expiresAt:null,configured:true}
 };
-const AUTH_REDIRECT='/?next=%2Fmosquito';
 const WORLD_PULSE_CACHE_KEY='mosquito-world-pulse-v1';
 const WORLD_PULSE_TTL_MS=90*1000;
 
@@ -1213,11 +1321,6 @@ async function api(path,opts={}){
     if(opts.body) cfg.headers={'Content-Type':'application/json'};
     const r=await fetch('/api/game/'+path,cfg);
     const data=await r.json().catch(()=>({}));
-    if(r.status===401&&data.error==='Unauthorized'){
-      G.siteAuthenticated=false;
-      showLockedState('Mosquito är låst. Logga in med samma lösenord som sp1e-hubben för att spela vidare.');
-      return {...data,_status:r.status};
-    }
     return {...data,_status:r.status};
   }catch{return{error:'Kunde inte nå servern',_status:0};}
 }
@@ -1270,31 +1373,6 @@ function normalizeWorldEvents(res){
 }
 
 document.addEventListener('DOMContentLoaded',init);
-function showLockedState(msg){
-  const copy=document.getElementById('boot-copy');
-  if(copy) copy.textContent=msg||'Logga in med samma lösenordssession som sp1e-hubben för att öppna Mosquito.';
-  setMsg('boot-msg',msg?'':'Kontrollerar åtkomst...',msg?'':'info');
-  const loginBtn=document.getElementById('boot-login-btn');
-  if(loginBtn) loginBtn.style.display='inline-flex';
-  showScreen('boot');
-}
-
-async function ensureSiteAuth(){
-  setMsg('boot-msg','Kontrollerar åtkomst...','info');
-  try{
-    const r=await fetch('/api/auth/check',{credentials:'same-origin'});
-    const d=await r.json().catch(()=>({}));
-    if(r.ok&&d.authenticated){
-      G.siteAuthenticated=true;
-      setMsg('boot-msg','','');
-      const loginBtn=document.getElementById('boot-login-btn');
-      if(loginBtn) loginBtn.style.display='none';
-      return true;
-    }
-  }catch{}
-  showLockedState('Mosquito kräver samma lösenord som sp1e-hubben. Fortsätt till låsskärmen och kom tillbaka hit när sessionen är öppen.');
-  return false;
-}
 function apiError(res,fallback){
   if(!res) return fallback;
   if(res.error) return res.error;
@@ -1302,11 +1380,22 @@ function apiError(res,fallback){
   return '';
 }
 
+function bindCharLogout(){
+  const btn=document.getElementById('char-logout-btn');
+  if(!btn) return;
+  btn.addEventListener('click',async()=>{
+    if(!confirm('Logga ut karaktären? Du kan alltid logga in igen med samma karaktär senare.')) return;
+    await fetch('/api/game/logout',{method:'POST',credentials:'same-origin'});
+    location.reload();
+  });
+}
+
 async function init(){
   showScreen('boot');
   restoreWorldPulseCache();
   bindShellControls();
-  if(!(await ensureSiteAuth())) return;
+  bindCharLogout();
+  applyPokerChipSkins();
   bindCreate();
   bindDrugForm();
   bindDevConsole();
@@ -1323,10 +1412,10 @@ async function init(){
     showScreen('round');
     return;
   }else if(r.error&&r._status&&r._status!==401){
-    setMsg('create-err',r.error,'err');
+    setMsg('auth-err',r.error,'err');
   }
   if(!G.player){
-    showScreen('create');
+    showScreen('auth');
     return;
   }
   await loadAll();
@@ -1428,7 +1517,8 @@ async function syncAdminStatus(){
   const res=await api('admin-status');
   G.admin={
     authenticated: !!res.authenticated,
-    expiresAt: res.expires_at||null
+    expiresAt: res.expires_at||null,
+    configured: res.configured!==false
   };
   return G.admin.authenticated;
 }
@@ -1449,21 +1539,15 @@ function applyCondition(){
 
 function showScreen(name){
   if(name!=='game') clearPropertyTicks();
-  ['boot','round','create','prison','hospital','game'].forEach(s=>{
+  ['boot','round','auth','prison','hospital','game'].forEach(s=>{
     const el=document.getElementById('screen-'+s);
-    if(el) el.style.display=s===name?(s==='game'?'flex':'flex'):'none';
+    if(el) el.style.display=s===name?'flex':'none';
   });
   const mn=document.getElementById('mob-nav');
   if(mn) mn.style.display=name==='game'?'flex':'none';
 }
 
 function bindShellControls(){
-  const loginBtn=document.getElementById('boot-login-btn');
-  if(loginBtn) loginBtn.addEventListener('click',()=>{location.href=AUTH_REDIRECT;});
-  const refreshBtn=document.getElementById('boot-refresh-btn');
-  if(refreshBtn) refreshBtn.addEventListener('click',async()=>{
-    if(await ensureSiteAuth()) location.reload();
-  });
   const roundRefresh=document.getElementById('round-refresh-btn');
   if(roundRefresh) roundRefresh.addEventListener('click',async()=>{
     setMsg('round-msg','Uppdaterar hall of fame...','info');
@@ -1529,11 +1613,10 @@ async function startNextRound(){
   G.rouletteBets=[];
   G.hallOfFame=null;
   G.selectedSide='eastside';
-  const nameInput=document.getElementById('inp-name');
-  if(nameInput) nameInput.value='';
   selectSide('eastside');
-  setMsg('create-err',res.message||'Ny runda startad. Skapa din karaktär.','info');
-  showScreen('create');
+  switchAuthTab('register');
+  setMsg('auth-err',res.message||'Ny runda startad. Registrera dig för att spela.','info');
+  showScreen('auth');
 }
 
 function calcEnergy(){
@@ -1629,7 +1712,7 @@ function renderSection(s){
   document.querySelectorAll('.g-sec').forEach(el=>el.style.display='none');
   const el=document.getElementById('s-'+s);
   document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
-  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,vapen:renderVapen,traning:renderTraning,profession:renderProfession,bank:renderBank,casino:renderCasino,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking,forrad:renderForrad};
+  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,vapen:renderVapen,traning:renderTraning,profession:renderProfession,bank:renderBank,casino:renderCasino,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking,forrad:renderForrad,karta:()=>{}};
   setSectionError('');
   if(!el){
     setSectionError('Sektionen kunde inte hittas.');
@@ -1707,8 +1790,11 @@ function renderWorldStrip(id){
     el.innerHTML='<span>Världen laddar fortfarande. Håll låg profil tills siffrorna är på plats.</span>';
     return;
   }
-  const leader=G.status.world_leader||null;
-  const selfRank=G.status.world_self_rank?`#${G.status.world_self_rank}`:'Oplacerad';
+  const worldTop=(G.status.world_top10||[]);
+  const leader=worldTop[0]||(G.status.top10||[])[0];
+  const rival=leader?`${leader.name} leder med ${fmtCash(leader.respect||0)} respect`:'Ingen ledare ännu';
+  const rankValue=G.status.world_self_rank??G.status.self_rank??null;
+  const selfRank=rankValue?`#${rankValue}`:'Oplacerad';
   const latestWorld=(G.world.events||[])[0];
   const bits=[
     `<span><strong>Runda ${esc(String(G.status.round.number||'?'))}</strong> pågår</span>`,
@@ -2049,10 +2135,16 @@ async function renderVapen(){
     const cls     = owned ? 'owned' : (locked ? 'locked' : '');
     const btnTxt  = owned ? 'ÄGER' : (locked ? `LV ${w.level_req}` : `${w.buy_price.toLocaleString('sv')} kr`);
     const btnDisabled = owned || locked;
+    const ammoBadge = w.ammo_type
+      ? `<span style="font-size:10px;color:var(--dim);background:var(--bg2);border:1px solid var(--border);padding:1px 5px;border-radius:2px;">${esc(w.ammo_type)}</span>`
+      : `<span style="font-size:10px;color:var(--dim);">Melee</span>`;
     return `<div class="weapon-card ${cls}">
-      <div>
-        <div class="weapon-cat">${CAT_LABEL[w.category]||w.category}</div>
-        <div class="weapon-name">${esc(w.name)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px;">
+        <div>
+          <div class="weapon-cat">${CAT_LABEL[w.category]||w.category}</div>
+          <div class="weapon-name">${esc(w.name)}</div>
+        </div>
+        ${ammoBadge}
       </div>
       <div class="weapon-stats">
         <div>DMG <strong>${w.damage}</strong></div>
@@ -2068,6 +2160,8 @@ async function renderVapen(){
     </div>`;
   }).join('') || '<div class="feed-empty">Inga vapen i denna kategori.</div>';
 
+  renderAmmo();
+
   // Category filter buttons
   document.querySelectorAll('.vapen-cat-btn').forEach(btn=>{
     btn.classList.toggle('active', btn.dataset.vcat === G_VAPEN_CAT);
@@ -2079,11 +2173,10 @@ async function renderVapen(){
 }
 
 async function doBuyWeapon(weaponId){
-  const msg = document.getElementById('vapen-msg');
-  setMsg(msg,'','');
-  const r = await api('action/buy-weapon','POST',{weapon_id:weaponId});
-  if(r.error){ setMsg(msg,r.error,'err'); return; }
-  setMsg(msg,r.message||'Klart.','ok');
+  setMsg('vapen-msg','','');
+  const r = await post('action/buy-weapon',{weapon_id:weaponId});
+  if(r.error){ setMsg('vapen-msg',r.error,'err'); return; }
+  setMsg('vapen-msg',r.message||'Klart.','ok');
   addLog(r.message||`Köpte vapen`,'ok');
   const pr = await api('player');
   if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
@@ -2092,9 +2185,39 @@ async function doBuyWeapon(weaponId){
   renderVapen();
 }
 
+let G_AMMO = [];
+async function renderAmmo(){
+  const grid = document.getElementById('ammo-grid');
+  if(!grid) return;
+  const r = await api('ammo');
+  if(r.ammo) G_AMMO = r.ammo;
+  grid.innerHTML = G_AMMO.map(a=>`
+    <div style="border:1px solid var(--border);background:var(--bg2);padding:10px 12px;font-size:12px;">
+      <div style="font-weight:700;color:var(--white);margin-bottom:2px;">${esc(a.type)}</div>
+      <div style="color:var(--dim);font-size:11px;margin-bottom:6px;">${esc(a.caliber)} · ${a.qty} patroner/förp.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+        <span style="color:var(--accent);">Lager: <strong>${a.owned}</strong></span>
+        <button data-buy-ammo="${esc(a.type)}" style="font-size:11px;padding:3px 8px;">${a.buy_price.toLocaleString('sv')} kr</button>
+      </div>
+    </div>`).join('');
+}
+
+async function doBuyAmmo(ammoType){
+  setMsg('vapen-msg','','');
+  const r = await post('action/buy-ammo',{ammo_type:ammoType,quantity:1});
+  if(r.error){ setMsg('vapen-msg',r.error,'err'); return; }
+  setMsg('vapen-msg',r.message||'Klart.','ok');
+  const pr = await api('player');
+  if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+  renderTopbar();
+  renderAmmo();
+}
+
 document.addEventListener('click',e=>{
   const bw = e.target.closest('[data-buy-weapon]');
   if(bw) return void doBuyWeapon(bw.dataset.buyWeapon);
+  const ba = e.target.closest('[data-buy-ammo]');
+  if(ba) return void doBuyAmmo(ba.dataset.buyAmmo);
 });
 
 /* ─── Traning ─────────────────────────────────────────────────────────────── */
@@ -2297,49 +2420,81 @@ async function loadCasinoState(force=false){
   renderCasino();
 }
 
-function blackjackBannerClass(result){
-  if(result==='blackjack'||result==='win'||result==='table_clear') return 'bj-banner win';
-  if(result==='push'||result==='split') return 'bj-banner push';
-  if(result==='lose'||result==='bust'||result==='dealer_blackjack'||result==='busted') return 'bj-banner lose';
-  return 'bj-banner';
+const POKER_CARD_COLS=15;
+const POKER_CARD_ROWS=5;
+const POKER_CARD_CELL_W=48;
+const POKER_CARD_CELL_H=64;
+const POKER_SPRITE_W=944;
+const POKER_SPRITE_H=385;
+const POKER_CARD_BACK={col:4,row:4};
+const POKER_RANK_ORDER=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const POKER_SUIT_ROW={H:0,D:1,S:2,C:3};
+
+function pokerCardMeta(code){
+  const match=String(code||'').toUpperCase().match(/^(A|[2-9]|10|J|Q|K)([HDSC])$/);
+  if(!match) return null;
+  const col=POKER_RANK_ORDER.indexOf(match[1]);
+  const row=POKER_SUIT_ROW[match[2]];
+  if(col<0||row===undefined) return null;
+  return {col,row};
 }
 
-const BLACKJACK_CARD_ASSET_BASE='/assets/blackjack/cards';
-const BLACKJACK_FALLBACK_CODES=new Set(['10H','JH']);
-const FRONTEND_ROULETTE_RED=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+function pokerCardSpriteStyle(col,row){
+  // Use actual spritesheet cell strides, not the display clip size
+  const sx=(POKER_SPRITE_W/POKER_CARD_COLS)*col;
+  const sy=(POKER_SPRITE_H/POKER_CARD_ROWS)*row;
+  return `--pc-x:${-sx.toFixed(2)}px;--pc-y:${-sy.toFixed(2)}px;`;
+}
 
-function blackjackCardAsset(code){
-  return `${BLACKJACK_CARD_ASSET_BASE}/${encodeURIComponent(code)}.jpg`;
+function pokerCardSpriteHtml(card){
+  const label=esc(card&&card.label?card.label:(card&&card.code)||'Kort');
+  if(card&&card.hidden){
+    return `<div class="bj-card hidden sprite-card" aria-label="Dolt kort"><span class="poker-card-sprite" style="${pokerCardSpriteStyle(POKER_CARD_BACK.col,POKER_CARD_BACK.row)}"></span></div>`;
+  }
+  const code=String(card&&card.code||'');
+  const sprite=pokerCardMeta(code);
+  const fallback=`<div class="bj-card-fallback${card&&card.color==='red'?' red':''}">
+      <div class="bj-rank">${esc(card&&card.rank||'?')}</div>
+      <div class="bj-suit">${esc(card&&card.suit||'')}</div>
+    </div>`;
+  if(!sprite){
+    return `<div class="bj-card fallback" aria-label="${label}">${fallback}</div>`;
+  }
+  return `<div class="bj-card sprite-card" aria-label="${label}">
+      ${fallback}
+      <span class="poker-card-sprite" style="${pokerCardSpriteStyle(sprite.col,sprite.row)}"></span>
+    </div>`;
+}
+
+function pokerChipColorForValue(value){
+  const stake=Math.max(0,Math.floor(Number(value)||0));
+  if(stake<=50) return 'white';
+  if(stake<=100) return 'red';
+  if(stake<=250) return 'green';
+  if(stake<=500) return 'blue';
+  if(stake<=1000) return 'black';
+  if(stake<=2500) return 'purple';
+  if(stake<=6000) return 'pink';
+  return 'gold';
+}
+
+function applyPokerChipSkins(){
+  document.querySelectorAll('.casino-chip').forEach(btn=>{
+    const value=Number(btn.dataset.casinoBet||btn.dataset.holdemBuyin||btn.dataset.rouletteStake||0);
+    btn.dataset.chipColor=pokerChipColorForValue(value);
+  });
 }
 
 function blackjackCardsHtml(cards){
   if(!cards||!cards.length){
     return '<div class="bj-empty">Inga kort p&aring; bordet &auml;n.</div>';
   }
-  return cards.map(card=>{
-    if(card.hidden){
-      return '<div class="bj-card hidden" aria-label="Dolt kort"></div>';
-    }
-    const code=String(card.code||'');
-    const label=esc(card.label||code||'Kort');
-    const fallback=`<div class="bj-card-fallback${card.color==='red'?' red':''}">
-        <div class="bj-rank">${esc(card.rank||'')}</div>
-        <div class="bj-suit">${esc(card.suit||'')}</div>
-      </div>`;
-    if(!code||BLACKJACK_FALLBACK_CODES.has(code)){
-      return `<div class="bj-card fallback" aria-label="${label}">${fallback}</div>`;
-    }
-    return `<div class="bj-card" aria-label="${label}">
-        ${fallback}
-        <img src="${blackjackCardAsset(code)}" alt="${label}" decoding="async" onerror="this.remove();this.parentElement.classList.add('fallback')">
-      </div>`;
-  }).join('');
+  el.innerHTML=cards.map(pokerCardSpriteHtml).join('');
 }
 
-function renderBlackjackCards(id,cards){
-  const el=document.getElementById(id);
-  if(!el) return;
-  el.innerHTML=blackjackCardsHtml(cards);
+function casinoStore(mode){
+  const key=mode==='holdem'||mode==='roulette'?mode:'blackjack';
+  return G.casino[key];
 }
 
 function setCasinoMode(mode){
@@ -2585,6 +2740,70 @@ function renderCasinoRoulette(){
   if(clearBtn) clearBtn.disabled=G.busy||!G.rouletteBets.length;
   if(addBtn) addBtn.disabled=G.busy;
   if(spinBtn) spinBtn.disabled=G.busy||!G.rouletteBets.length||totalStake>maxTotal;
+}
+
+function setHoldemBuyIn(value){
+  const next=Math.max(2000,Math.min(10000,Math.floor(Number(value)||0)));
+  G.holdemBuyIn=next||2000;
+  const input=document.getElementById('holdem-buyin-input');
+  if(input) input.value=String(G.holdemBuyIn);
+  document.querySelectorAll('[data-holdem-buyin]').forEach(btn=>{
+    btn.classList.toggle('active',Number(btn.dataset.holdemBuyin)===G.holdemBuyIn);
+  });
+}
+
+async function loadCasinoState(force=false){
+  const mode=G.casino.mode==='holdem'||G.casino.mode==='roulette'?G.casino.mode:'blackjack';
+  const store=casinoStore(mode);
+  if(store.loading||(!force&&store.loaded)) return;
+  store.loading=true;
+  const path=mode==='holdem'
+    ? 'casino/holdem/state'
+    : mode==='roulette'
+      ? 'casino/roulette/state'
+      : 'casino/blackjack/state';
+  const res=await api(path);
+  store.loading=false;
+  store.loaded=true;
+  G.errors.casino=apiError(
+    res,
+    mode==='holdem'
+      ? 'Kunde inte ladda pokerbordet.'
+      : mode==='roulette'
+        ? 'Kunde inte ladda roulettebordet.'
+        : 'Kunde inte ladda blackjackbordet.'
+  );
+  if(!res.error){
+    store.state=res;
+    if(mode==='blackjack'&&res.hand&&res.hand.bet) G.casinoBet=res.hand.bet;
+    if(mode==='holdem'&&res.table&&res.table.buy_in) G.holdemBuyIn=res.table.buy_in;
+    if(mode==='roulette'&&Number.isFinite(Number(res.min_stake))&&!G.rouletteBets.length){
+      setRouletteStake(Math.max(50,Math.floor(Number(res.min_stake)||100)));
+    }
+  }else if(force){
+    store.state=null;
+  }
+  renderCasino();
+}
+
+function blackjackBannerClass(result){
+  if(result==='blackjack'||result==='win'||result==='table_clear') return 'bj-banner win';
+  if(result==='push'||result==='split') return 'bj-banner push';
+  if(result==='lose'||result==='bust'||result==='dealer_blackjack'||result==='busted') return 'bj-banner lose';
+  return 'bj-banner';
+}
+
+function blackjackCardsHtml(cards){
+  if(!cards||!cards.length){
+    return '<div class="bj-empty">Inga kort p&aring; bordet &auml;n.</div>';
+  }
+  return cards.map(pokerCardSpriteHtml).join('');
+}
+
+function renderBlackjackCards(id,cards){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.innerHTML=blackjackCardsHtml(cards);
 }
 
 function holdemStreetLabel(street){
@@ -3032,7 +3251,12 @@ function renderDev(){
   if(shell) shell.style.display=G.admin.authenticated?'flex':'none';
   if(logoutBtn) logoutBtn.style.display=G.admin.authenticated?'inline-flex':'none';
   if(!p) return;
-  if(!G.admin.authenticated) return;
+  if(!G.admin.authenticated){
+    if(G.admin.configured===false){
+      setMsg('dev-auth-msg','Adminlösenordet är inte konfigurerat ännu. Lägg in GAME_ADMIN_PASSWORD_HASH först.','err');
+    }
+    return;
+  }
   const meta=document.getElementById('dev-meta');
   if(meta){
     const expires=G.admin.expiresAt?new Date(G.admin.expiresAt):null;
@@ -3060,7 +3284,7 @@ async function unlockAdmin(){
     return;
   }
   if(input) input.value='';
-  G.admin={authenticated:true,expiresAt:res.expires_at||null};
+  G.admin={authenticated:true,expiresAt:res.expires_at||null,configured:true};
   setMsg('dev-auth-msg','Adminläget är upplåst.','ok');
   setMsg('dev-msg','','');
   renderDev();
@@ -3075,7 +3299,7 @@ async function lockAdmin(){
     setMsg('dev-auth-msg',res.error,'err');
     return;
   }
-  G.admin={authenticated:false,expiresAt:null};
+  G.admin={authenticated:false,expiresAt:null,configured:G.admin.configured!==false};
   setMsg('dev-auth-msg','Adminläget låstes.','ok');
   renderDev();
 }
@@ -3095,7 +3319,7 @@ async function runDevCommand(raw){
   G.busy=false;
   if(r.error){
     if(r._status===403){
-      G.admin={authenticated:false,expiresAt:null};
+      G.admin={authenticated:false,expiresAt:null,configured:G.admin.configured!==false};
       setMsg('dev-auth-msg',r.error,'err');
     }
     G.devHistory.unshift(`> ${command}\nERROR: ${r.error}`);
@@ -3252,15 +3476,31 @@ function renderRanking(){
     const roundNumber=(s.round&&s.round.number)||s.round_number||'?';
     ri.innerHTML=`<span>Runda <strong>${roundNumber}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>I stan: <strong>${playerCount}</strong></span>`;
   }
+  // Build combined player+NPC list first so self-rank reflects true combined position
+  const players=(G.status&&G.status.top10)||[];
+  const npcsRank=[...G.npcs].sort((a,b)=>(b.respect||0)-(a.respect||0)).slice(0,10).map(n=>({
+    name:n.name,level:n.level,respect:n.respect,profession:'NPC',side:n.side,isNpc:true
+  }));
+  const playerRows=players.map(p=>({
+    name:p.name,level:p.level,respect:p.respect,profession:p.profession||'none',side:p.side,isNpc:false
+  }));
+  const all=[...playerRows,...npcsRank].sort((a,b)=>b.respect-a.respect).slice(0,20);
+  const myName=G.player?G.player.name:'';
+  const myPosInAll=myName?all.findIndex(r=>!r.isNpc&&r.name===myName):-1;
+  // Self-rank derived from the combined list so it matches the displayed table
+  const selfRank=myPosInAll>=0?`#${myPosInAll+1}`:(G.status&&G.status.self_rank?`#${G.status.self_rank}`:'Oplacerad');
+  const combinedLeader=all[0]||null;
+
   const meta=document.getElementById('rank-meta');
   if(meta){
     if(G.status&&G.status.round){
-      const self=G.status.world_self||G.status.self||null;
-      const selfRank=G.status.world_self_rank?`#${G.status.world_self_rank}`:'Oplacerad';
-      const leader=G.status.world_leader||null;
+      const self=G.status.self||null;
+      const rankValue=G.status.world_self_rank??G.status.self_rank??null;
+      const selfRank=rankValue?`#${rankValue}`:'Oplacerad';
+      const leader=(G.status.world_top10||[])[0]||(G.status.top10||[])[0];
       meta.innerHTML=[
         `<span>30 dagar att bli kung. <strong>Din plats: ${esc(selfRank)}</strong></span>`,
-        leader?`<span>Toppen hålls av <strong>${esc(leader.name)}</strong> på ${fmtCash(leader.respect||0)} respect</span>`:'<span>Ingen ledare ännu. Perfekt läge att ta första platsen.</span>',
+        combinedLeader?`<span>Toppen hålls av <strong>${esc(combinedLeader.name)}</strong>${combinedLeader.isNpc?' [NPC]':''} på ${fmtCash(combinedLeader.respect||0)} respect</span>`:'<span>Ingen ledare ännu. Perfekt läge att ta första platsen.</span>',
         self?`<span>Du spelar som <strong>${esc(self.name)}</strong></span>`:'<span>Skapa en karaktär för att kliva in i tabellen.</span>'
       ].join('');
     }else{
@@ -3269,22 +3509,35 @@ function renderRanking(){
   }
   const tbody=document.getElementById('rank-tbody');
   if(!tbody) return;
-  const rows=(G.status&&G.status.world_top10)||[];
-  const self=G.status&&((G.status.world_self)||G.status.self)||null;
-  const selfRank=(G.status&&G.status.world_self_rank)||null;
-  const myName=G.player?G.player.name:'';
-  const hasSelf=!!myName&&rows.some(row=>row.name===myName);
-  const rowsHtml=rows.map((row,i)=>{
-    const isNpc=!!row.isNpc;
-    const isMe=row.name===myName;
+  const worldTop=(G.status&&G.status.world_top10)||null;
+  const fallbackRows=[
+    ...players.map(p=>({
+      name:p.name,level:p.level,respect:p.respect,profession:p.profession||'none',side:p.side,isNpc:false
+    })),
+    ...[...G.npcs].sort((a,b)=>(b.respect||0)-(a.respect||0)).slice(0,10).map(n=>({
+      name:n.name,level:n.level,respect:n.respect,profession:'NPC',side:n.side,isNpc:true
+    }))
+  ].sort((a,b)=>b.respect-a.respect).slice(0,20);
+  const tableRows=((worldTop&&worldTop.length)?worldTop:fallbackRows).map(row=>({
+    ...row,
+    isNpc: !!(row.isNpc??row.is_npc)
+  }));
+  const self=G.status&&G.status.self;
+  const hasSelf=!!myName&&myPosInAll>=0;
+  const rowsHtml=tableRows.map((row,i)=>{
+    const isMe=!row.isNpc&&row.name===myName;
     const sideLabel=row.side==='westside'?'WEST':'EAST';
     const prof=isNpc?'NPC':(professionName(row.profession)||'?');
     return `<tr${isMe?' class="me"':''}><td>${i+1}</td><td>${esc(row.name)}${isNpc?' <span style="color:var(--dim);font-size:10px;">[NPC]</span>':''}</td><td>Lv${row.level}</td><td>${fmtCash(row.respect||0)}</td><td>${prof}</td><td>${sideLabel}</td></tr>`;
   }).join('');
-  const selfHtml=(!hasSelf&&self&&selfRank)
-    ? `<tr class="rank-gap"><td colspan="6">DIN PLACERING</td></tr><tr class="me"><td>${selfRank}</td><td>${esc(self.name)}</td><td>Lv${self.level}</td><td>${fmtCash(self.respect||0)}</td><td>${self.isNpc?'NPC':(professionName(self.profession)||'?')}</td><td>${self.side==='westside'?'WEST':'EAST'}</td></tr>`
+  const selfRankValue=G.status&&((G.status.world_self_rank??G.status.self_rank)??null);
+  const selfHtml=(!hasSelf&&self&&selfRankValue)
+    ? `<tr class="rank-gap"><td colspan="6">DIN PLACERING</td></tr><tr class="me"><td>${G.status.self_rank}</td><td>${esc(self.name)}</td><td>Lv${self.level}</td><td>${fmtCash(self.respect)}</td><td>${professionName(self.profession)||'—'}</td><td>${self.side==='westside'?'WEST':'EAST'}</td></tr>`
     : '';
-  tbody.innerHTML=rowsHtml+selfHtml;
+  const resolvedSelfHtml=(selfHtml&&G.status&&G.status.self_rank&&selfRankValue)
+    ? selfHtml.replace(`>${G.status.self_rank}<`,`>${selfRankValue}<`)
+    : selfHtml;
+  tbody.innerHTML=rowsHtml+resolvedSelfHtml;
 }
 
 function renderPrisonScreen(){
@@ -3358,8 +3611,8 @@ async function doHospital(action){
   if(G.busy) return;G.busy=true;
   const body={action};
   if(action==='boost'){
-    const boostStat=document.getElementById('hosp-boost-stat');
-    body.stat=(boostStat&&boostStat.value)||'strength';
+    const statSel=document.getElementById('hosp-boost-stat');
+    body.stat=(statSel&&statSel.value)||'strength';
   }
   const r=await post('action/hospital',body);
   G.busy=false;
@@ -3373,7 +3626,7 @@ async function doHospital(action){
   }
 }
 
-/* ─── Create ──────────────────────────────────────────────────────────────── */
+/* ─── Auth (login / register) ────────────────────────────────────────────── */
 function selectSide(side){
   document.querySelectorAll('.side-card').forEach(c=>c.classList.remove('active'));
   const card=document.querySelector('.side-card[data-side="'+side+'"]');
@@ -3381,61 +3634,99 @@ function selectSide(side){
   G.selectedSide=side;
 }
 
+function switchAuthTab(tab){
+  ['register','login'].forEach(t=>{
+    const btn=document.getElementById('tab-'+t);
+    const panel=document.getElementById('auth-panel-'+t);
+    if(btn) btn.classList.toggle('active',t===tab);
+    if(panel) panel.classList.toggle('active',t===tab);
+  });
+}
+
 function bindCreate(){
   document.querySelectorAll('.side-card').forEach(card=>{
     card.addEventListener('click',()=>selectSide(card.dataset.side));
   });
-  const inp=document.getElementById('inp-name');
-  if(inp) inp.addEventListener('keydown',e=>{if(e.key==='Enter') doCreate();});
-  const btn=document.getElementById('create-btn');
-  if(btn) btn.addEventListener('click',doCreate);
-  const suggBtn=document.getElementById('sugg-btn');
+  const regBtn=document.getElementById('reg-btn');
+  if(regBtn) regBtn.addEventListener('click',doRegister);
+  const regNameInp=document.getElementById('reg-name');
+  if(regNameInp) regNameInp.addEventListener('keydown',e=>{if(e.key==='Enter') doRegister();});
+  const loginBtn=document.getElementById('login-btn');
+  if(loginBtn) loginBtn.addEventListener('click',doLogin);
+  const loginPwInp=document.getElementById('login-password');
+  if(loginPwInp) loginPwInp.addEventListener('keydown',e=>{if(e.key==='Enter') doLogin();});
+  const suggBtn=document.getElementById('reg-sugg-btn');
   if(suggBtn) suggBtn.addEventListener('click',loadNameSuggestions);
+  // Default: show register tab
+  switchAuthTab('register');
 }
 
 async function loadNameSuggestions(){
-  const wrap=document.getElementById('name-suggestions');
-  const list=document.getElementById('name-sugg-list');
+  const wrap=document.getElementById('reg-name-suggestions');
+  const list=document.getElementById('reg-sugg-list');
   if(!wrap||!list) return;
   list.innerHTML='<span style="color:var(--dim);font-size:10px;">Laddar...</span>';
   wrap.style.display='block';
   const r=await api('suggest-names?count=5&side='+encodeURIComponent(G.selectedSide));
   if(r.names&&r.names.length){
-    list.innerHTML=r.names.map(n=>`<button type="button" style="font-size:11px;padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--txt);cursor:pointer;border-radius:0;" onclick="document.getElementById('inp-name').value=${JSON.stringify(n)};document.getElementById('name-suggestions').style.display='none';">${esc(n)}</button>`).join('');
+    list.innerHTML=r.names.map(n=>`<button type="button" style="font-size:11px;padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--txt);cursor:pointer;border-radius:0;" onclick="document.getElementById('reg-name').value=${JSON.stringify(n)};document.getElementById('reg-name-suggestions').style.display='none';">${esc(n)}</button>`).join('');
   }else{
     list.innerHTML='<span style="color:var(--dim);font-size:10px;">Inga förslag tillgängliga.</span>';
   }
 }
 
-async function doCreate(){
+async function enterGame(r){
+  setMsg('auth-err','','');
+  G.player=r.player;G.extra={player:r.player};G._fetchedAt=Date.now();
+  G.account=r.account||null;
+  G.casino=defaultCasinoState();
+  G.holdemBuyIn=2000;
+  G.rouletteStake=100;
+  G.rouletteBets=[];
+  await loadAll();
+  applyCondition();
+  startTimers();
+  if(!G._pollTimer) G._pollTimer=setInterval(softReload,30000);
+  if(!G._pricePoll) G._pricePoll=setInterval(refreshPrices,60000);
+}
+
+async function doRegister(){
   if(G.busy) return;
-  const name=(document.getElementById('inp-name').value||'').trim();
-  if(!name){setMsg('create-err','Ange ett namn','err');return;}
-  setMsg('create-err','Skapar karaktär...','info');
+  const email=(document.getElementById('reg-email')?.value||'').trim();
+  const password=(document.getElementById('reg-password')?.value||'');
+  const name=(document.getElementById('reg-name')?.value||'').trim();
+  if(!email){setMsg('auth-err','Ange e-postadress.','err');return;}
+  if(!password){setMsg('auth-err','Ange lösenord.','err');return;}
+  if(!name){setMsg('auth-err','Ange ett karaktärsnamn.','err');return;}
+  setMsg('auth-err','Skapar konto...','info');
   G.busy=true;
   let r;
-  try{
-    r=await post('create-character',{name,side:G.selectedSide});
-  }catch(e){
-    setMsg('create-err','Nätverksfel: '+e,'err');
-    G.busy=false;return;
-  }
+  try{r=await post('register',{email,password,name,side:G.selectedSide});}
+  catch(e){setMsg('auth-err','Nätverksfel: '+e,'err');G.busy=false;return;}
   G.busy=false;
-  if(r.error){setMsg('create-err',r.error,'err');}
-  else if(!r.player){setMsg('create-err','Oväntat svar från servern','err');}
-  else{
-    setMsg('create-err','','');
-    G.player=r.player;G.extra={player:r.player};G._fetchedAt=Date.now();
-    G.casino=defaultCasinoState();
-    G.holdemBuyIn=2000;
-    G.rouletteStake=100;
-    G.rouletteBets=[];
-    await loadAll();
-    applyCondition();
-    startTimers();
-    if(!G._pollTimer) G._pollTimer=setInterval(softReload,30000);
-    if(!G._pricePoll) G._pricePoll=setInterval(refreshPrices,60000);
-  }
+  if(r.error){setMsg('auth-err',r.error,'err');}
+  else if(!r.player){setMsg('auth-err','Oväntat svar från servern.','err');}
+  else{await enterGame(r);}
+}
+
+async function doLogin(){
+  if(G.busy) return;
+  const email=(document.getElementById('login-email')?.value||'').trim();
+  const password=(document.getElementById('login-password')?.value||'');
+  if(!email){setMsg('auth-err','Ange e-postadress.','err');return;}
+  if(!password){setMsg('auth-err','Ange lösenord.','err');return;}
+  setMsg('auth-err','Loggar in...','info');
+  G.busy=true;
+  let r;
+  try{r=await post('login',{email,password});}
+  catch(e){setMsg('auth-err','Nätverksfel: '+e,'err');G.busy=false;return;}
+  G.busy=false;
+  if(r.no_character){
+    setMsg('auth-err','Ingen karaktär i pågående runda. Skapa ett nytt konto för att spela.','err');
+    switchAuthTab('register');
+  }else if(r.error){setMsg('auth-err',r.error,'err');}
+  else if(!r.player){setMsg('auth-err','Oväntat svar från servern.','err');}
+  else{await enterGame(r);}
 }
 
 /* ─── Level-up ───────────────────────────────────────────────────────────── */
