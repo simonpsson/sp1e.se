@@ -1307,8 +1307,12 @@ async function updateEnergy(env: Env, playerId: string, currentEnergy: number, c
   return newEnergy;
 }
 
-function getActiveRound(env: Env): Promise<Row | null> {
-  return env.DB.prepare(`SELECT * FROM game_rounds WHERE is_active = 1 ORDER BY round_number DESC LIMIT 1`).first<Row>();
+async function getActiveRound(env: Env): Promise<Row | null> {
+  const round = await env.DB.prepare(
+    `SELECT * FROM game_rounds WHERE is_active = 1 ORDER BY round_number DESC LIMIT 1`
+  ).first<Row>();
+  if (round) await ensureCuratedNpcNames(env, String(round.id));
+  return round;
 }
 
 async function nextRoundNumber(env: Env): Promise<number> {
@@ -1333,6 +1337,32 @@ const NPC_TIERS = [
 ] as const;
 
 const NPC_PERSONALITIES = ['aggressive','passive','defensive','trader'] as const;
+const CURATED_NPC_SEEDS = [
+  { name: 'Amir "Skuggan" Hassan', side: 'eastside', personality: 'aggressive', level: 3, respect: 120, strength: 22, cash: 800, hp: 30 },
+  { name: 'Rico "Turbo" Wallin', side: 'eastside', personality: 'passive', level: 1, respect: 30, strength: 12, cash: 200, hp: 15 },
+  { name: 'Hassan "Kniven" Jönsson', side: 'eastside', personality: 'aggressive', level: 7, respect: 580, strength: 45, cash: 4200, hp: 70 },
+  { name: 'Milan "Pantern" Lundberg', side: 'eastside', personality: 'trader', level: 5, respect: 300, strength: 35, cash: 2000, hp: 50 },
+  { name: 'Alex "Baxarn" Ekström', side: 'eastside', personality: 'defensive', level: 4, respect: 200, strength: 28, cash: 1200, hp: 40 },
+  { name: 'Kranen Karlsson', side: 'eastside', personality: 'passive', level: 2, respect: 75, strength: 15, cash: 400, hp: 20 },
+  { name: 'Kobran Nilsson', side: 'eastside', personality: 'aggressive', level: 10, respect: 1200, strength: 62, cash: 9000, hp: 100 },
+  { name: 'Bella "Kobran" Dahlberg', side: 'eastside', personality: 'trader', level: 6, respect: 450, strength: 38, cash: 3000, hp: 60 },
+  { name: 'Nadia "Duvan" Söderberg', side: 'eastside', personality: 'defensive', level: 9, respect: 1050, strength: 56, cash: 7200, hp: 90 },
+  { name: 'Leila "Stålet" Forsberg', side: 'eastside', personality: 'aggressive', level: 12, respect: 1900, strength: 70, cash: 13000, hp: 120 },
+  { name: 'Ronny "Vargen" Pettersson', side: 'westside', personality: 'defensive', level: 3, respect: 110, strength: 20, cash: 700, hp: 30 },
+  { name: 'Conny "Kulan" Karlsson', side: 'westside', personality: 'passive', level: 2, respect: 60, strength: 13, cash: 250, hp: 20 },
+  { name: 'Lill-Mange', side: 'westside', personality: 'aggressive', level: 8, respect: 820, strength: 52, cash: 5800, hp: 80 },
+  { name: 'Glenn "Järnet" Andersson', side: 'westside', personality: 'aggressive', level: 15, respect: 3400, strength: 83, cash: 26000, hp: 150 },
+  { name: 'Roger "Blixten" Svensson', side: 'westside', personality: 'trader', level: 4, respect: 190, strength: 26, cash: 1100, hp: 40 },
+  { name: 'Sigge "Räven" Larsson', side: 'westside', personality: 'passive', level: 1, respect: 25, strength: 11, cash: 150, hp: 15 },
+  { name: 'Robban "Kranen" Lindström', side: 'westside', personality: 'trader', level: 6, respect: 430, strength: 38, cash: 2900, hp: 60 },
+  { name: 'Micke "Boxarn" Nilsson', side: 'westside', personality: 'aggressive', level: 7, respect: 580, strength: 44, cash: 4200, hp: 70 },
+  { name: 'Bosse "Fimpen" Holm', side: 'westside', personality: 'aggressive', level: 11, respect: 1800, strength: 68, cash: 12000, hp: 110 },
+  { name: 'Maggan "Tassen" Nyström', side: 'westside', personality: 'defensive', level: 5, respect: 290, strength: 33, cash: 1900, hp: 50 },
+] as const;
+const LEGACY_NPC_NAMES = new Set([
+  'Knansen','Räkansen','Smulansen','Löansen','Kansen','Fansen','Blansen','Jansen','Dransen','Spansen',
+  'Muransen','Plansen','Gransen','Vransen','Skansen','Tansen','Klansen','Nansen','Transen','Snansen',
+]);
 
 async function createGameRound(env: Env, roundNumber: number): Promise<Row> {
   const id = `round-${String(roundNumber).padStart(3, '0')}`;
@@ -1343,18 +1373,23 @@ async function createGameRound(env: Env, roundNumber: number): Promise<Row> {
      VALUES (?, ?, ?, ?, 1)`
   ).bind(id, roundNumber, startDate.toISOString(), endDate.toISOString()).run();
 
-  // Seed 20 NPCs with generated names across tiers
-  const npcStmts = Array.from({ length: 20 }, (_, i) => {
-    const side  = i < 10 ? 'eastside' : 'westside';
-    const tier  = NPC_TIERS[Math.min(i % NPC_TIERS.length, NPC_TIERS.length - 1)];
-    const [lvl, resp, str, cash, hp] = tier;
-    const name  = generateNpcName(side);
-    const pers  = pickRandom([...NPC_PERSONALITIES]);
+  const npcStmts = CURATED_NPC_SEEDS.map((npc, i) => {
     const npcId = `${id}-npc-${String(i + 1).padStart(2, '0')}`;
     return env.DB.prepare(
       `INSERT OR IGNORE INTO game_npcs (id, round_id, name, level, respect, strength, cash, hp, side, personality, is_alive)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
-    ).bind(npcId, id, name, lvl, resp, str, cash, hp, side, pers);
+    ).bind(
+      npcId,
+      id,
+      npc.name,
+      npc.level,
+      npc.respect,
+      npc.strength,
+      npc.cash,
+      npc.hp,
+      npc.side,
+      npc.personality,
+    );
   });
   try { await env.DB.batch(npcStmts); } catch { /* ignore if already seeded */ }
 
@@ -1379,6 +1414,59 @@ async function ensureActiveRound(env: Env, options: { createIfMissing?: boolean 
   }
 
   return createGameRound(env, await nextRoundNumber(env));
+}
+
+function isLegacyNpcName(name: string): boolean {
+  return LEGACY_NPC_NAMES.has(name.trim());
+}
+
+async function ensureCuratedNpcNames(env: Env, roundId: string): Promise<void> {
+  const res = await env.DB.prepare(
+    `SELECT id, name, side
+       FROM game_npcs
+      WHERE round_id = ?
+      ORDER BY side ASC, id ASC`
+  ).bind(roundId).all<Row>();
+  if (!res.results.length) return;
+
+  const curatedBySide = {
+    eastside: CURATED_NPC_SEEDS.filter(npc => npc.side === 'eastside').map(npc => npc.name),
+    westside: CURATED_NPC_SEEDS.filter(npc => npc.side === 'westside').map(npc => npc.name),
+  };
+  const usedNames = new Set(
+    res.results
+      .map(row => String(row.name ?? '').trim())
+      .filter(name => name && !isLegacyNpcName(name))
+  );
+
+  const updates: Array<{ id: string; name: string }> = [];
+  for (const row of res.results) {
+    const currentName = String(row.name ?? '').trim();
+    if (!currentName || !isLegacyNpcName(currentName)) continue;
+
+    const side = String(row.side ?? 'eastside') === 'westside' ? 'westside' : 'eastside';
+    const curatedPool = curatedBySide[side];
+    let replacement = curatedPool.find(name => !usedNames.has(name)) ?? '';
+    if (!replacement) {
+      for (let i = 0; i < 40; i += 1) {
+        const candidate = generateNpcName(side);
+        if (!usedNames.has(candidate)) {
+          replacement = candidate;
+          break;
+        }
+      }
+    }
+    if (!replacement || replacement === currentName) continue;
+    usedNames.add(replacement);
+    updates.push({ id: String(row.id), name: replacement });
+  }
+
+  if (!updates.length) return;
+  await env.DB.batch(
+    updates.map(update =>
+      env.DB.prepare(`UPDATE game_npcs SET name = ? WHERE id = ?`).bind(update.name, update.id)
+    )
+  );
 }
 
 function rand(min: number, max: number): number {
@@ -5795,7 +5883,8 @@ async function gameAdminAuth(request: Request, env: Env): Promise<Response> {
   if (!body.password || typeof body.password !== 'string') {
     return gameJson({ error: 'Adminl\u00f6senord kr\u00e4vs.' }, 400);
   }
-  const hashConfig = inspectPasswordHash(env.GAME_ADMIN_PASSWORD_HASH);
+  const adminHashSource = env.GAME_ADMIN_PASSWORD_HASH?.trim() ? env.GAME_ADMIN_PASSWORD_HASH : env.AUTH_PASSWORD_HASH;
+  const hashConfig = inspectPasswordHash(adminHashSource);
   if (!hashConfig.isUsable) {
     return gameJson({ error: 'Adminl\u00f6senord \u00e4r inte konfigurerat.' }, 500);
   }
