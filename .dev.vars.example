@@ -8,4 +8,5 @@
 # Do not include `AUTH_PASSWORD_HASH=` or wrapping quotes.
 
 AUTH_PASSWORD_HASH=pbkdf2:100000:<saltHex>:<hashHex>
+# Optional. If omitted, Mosquito dev console falls back to AUTH_PASSWORD_HASH.
 GAME_ADMIN_PASSWORD_HASH=pbkdf2:100000:<saltHex>:<hashHex>
