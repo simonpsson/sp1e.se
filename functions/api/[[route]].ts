@@ -77,34 +77,6 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     // ── Unprotected ──────────────────────────────────────────────────────────
     if (resource === 'health' && !id && method === 'GET') return json({ status: 'ok' });
 
-    if (resource === 'auth' && id === 'debug' && method === 'GET') {
-      const raw    = env.AUTH_PASSWORD_HASH ?? '';
-      const config = inspectPasswordHash(raw);
-
-      // D1 health: verify sessions table exists
-      let d1Status = 'unknown';
-      try {
-        await env.DB.prepare('SELECT 1 FROM sessions LIMIT 1').first();
-        d1Status = 'sessions table ok';
-      } catch (e: unknown) {
-        d1Status = `error: ${e instanceof Error ? e.message : String(e)}`;
-      }
-
-      return json({
-        hashExists:        raw.length > 0,
-        hashLength:        raw.length,
-        normalizedLen:     config.value.length,
-        hasWhitespace:     raw !== raw.trim() || /[\n\r\t ]/.test(raw),
-        hasVarPrefix:      config.hasVarPrefix,
-        hasWrappingQuotes: config.hasWrappingQuotes,
-        formatValid:       config.isValid,
-        isKnownFallback:   config.isKnownFallback,
-        hashUsable:        config.isUsable,
-        d1:                d1Status,
-        envKeys:           Object.keys(env),
-      });
-    }
-
     if (resource === 'auth') {
       if (id === 'login'  && method === 'POST') return handleLogin(request, env);
       if (id === 'logout' && method === 'POST') return handleLogout(request, env);
@@ -168,7 +140,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'status'           && method === 'GET')  return gameGetStatus(request, env);
       if (id === 'drug-prices'      && method === 'GET')  return gameGetDrugPrices();
       if (id === 'npcs'             && method === 'GET')  return gameGetNpcs(env);
-      if (id === 'simulate'         && method === 'GET')  return gameSimulate(request, env);
+      if (id === 'simulate'         && method === 'POST') return gameSimulate(request, env);
       if (id === 'hall-of-fame'     && method === 'GET')  return gameHallOfFame(env);
       if (id === 'suggest-names'    && method === 'GET')  return gameSuggestNames(request);
       if (id === 'weapons'          && method === 'GET')  return gameGetWeapons(request);
@@ -744,14 +716,28 @@ async function downloadFile(id: string, request: Request, env: Env): Promise<Res
 }
 
 // Fetch page title + favicon from an external URL (best-effort).
+function isAllowedBookmarkUrl(raw: string): boolean {
+  let parsed: URL;
+  try { parsed = new URL(raw); } catch { return false; }
+  if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+  const host = parsed.hostname.toLowerCase();
+  if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1') return false;
+  if (host.startsWith('192.168.') || host.startsWith('10.') || host.endsWith('.local') || host.endsWith('.internal')) return false;
+  // Block 172.16.0.0/12
+  const m172 = host.match(/^172\.(\d+)\./);
+  if (m172 && Number(m172[1]) >= 16 && Number(m172[1]) <= 31) return false;
+  return true;
+}
+
 async function fetchBookmarkMeta(request: Request): Promise<Response> {
   let body: { url?: string };
   try { body = await request.json(); }
   catch { return json({ title: '', favicon_url: '' }); }
   if (!body.url || typeof body.url !== 'string') return json({ title: '', favicon_url: '' });
+  if (!isAllowedBookmarkUrl(body.url)) return json({ error: 'URL not allowed.' }, 400);
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 6000);
+  const timer = setTimeout(() => controller.abort(), 5000);
   try {
     const res = await fetch(body.url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; sp1e-meta/1.0)', 'Accept': 'text/html,*/*' },
@@ -763,7 +749,9 @@ async function fetchBookmarkMeta(request: Request): Promise<Response> {
     const ct = res.headers.get('Content-Type') ?? '';
     if (!ct.includes('text/html')) return json({ title: '', favicon_url: '' });
 
-    const html = await res.text();
+    const raw = await res.arrayBuffer();
+    if (raw.byteLength > 1_048_576) { clearTimeout(timer); return json({ title: '', favicon_url: '' }); }
+    const html = new TextDecoder().decode(raw);
 
     const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     const title = titleMatch
@@ -2479,8 +2467,8 @@ const QUEST_TEMPLATES: { title: string; description: string; reward_mult: number
 ];
 
 async function gameSimulate(request: Request, env: Env): Promise<Response> {
-  try { await requireGamePlayer(request, env); }
-  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+  try { await requireGameAdmin(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 403); }
 
   const round = await getActiveRound(env);
   if (!round) return gameJson({ activity: [] });
