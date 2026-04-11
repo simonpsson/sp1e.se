@@ -518,6 +518,13 @@ select:focus{border-color:var(--red);}
     </div>
     <button id="create-btn" class="primary">SKAPA KARAKTÄR</button>
     <div id="create-err" class="amsg"></div>
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+      <div class="cr-label" style="margin-bottom:8px;">HAR DU REDAN ETT KONTO?</div>
+      <input id="login-email" type="email" placeholder="E-postadress" autocomplete="email" style="margin-bottom:8px;">
+      <input id="login-password" type="password" placeholder="Lösenord" autocomplete="current-password" style="margin-bottom:8px;">
+      <button id="login-btn" style="width:100%;">LOGGA IN</button>
+      <div id="login-err" class="amsg" style="margin-top:6px;"></div>
+    </div>
   </div>
 </div>
 
@@ -1354,6 +1361,15 @@ async function softReload(){
   G.errors.player=apiError(pr,'Kunde inte uppdatera karaktären.');
   G.errors.status=apiError(sr,'Kunde inte uppdatera ranking.');
   G.errors.prices=apiError(dr,'Kunde inte uppdatera drogmarknaden.');
+  if(pr._status===401&&pr.error&&pr.error.includes('aktiv session')){
+    // Session expired mid-game: clear stale state and return to create/login screen
+    G.player=null;G.extra={};
+    clearInterval(G._pollTimer);G._pollTimer=null;
+    clearInterval(G._pricePoll);G._pricePoll=null;
+    showScreen('create');
+    setMsg('create-err','Din session har gått ut. Logga in igen eller skapa ny karaktär.','err');
+    return;
+  }
   if(pr._status===409||sr.round_ended){
     G.player=null;
     G.extra={};
@@ -3397,6 +3413,32 @@ function bindCreate(){
   if(btn) btn.addEventListener('click',doCreate);
   const suggBtn=document.getElementById('sugg-btn');
   if(suggBtn) suggBtn.addEventListener('click',loadNameSuggestions);
+  const loginBtn=document.getElementById('login-btn');
+  if(loginBtn) loginBtn.addEventListener('click',doLogin);
+  const loginPw=document.getElementById('login-password');
+  if(loginPw) loginPw.addEventListener('keydown',e=>{if(e.key==='Enter') doLogin();});
+}
+
+async function doLogin(){
+  if(G.busy) return;
+  const email=(document.getElementById('login-email').value||'').trim();
+  const password=document.getElementById('login-password').value||'';
+  if(!email||!password){setMsg('login-err','Ange e-postadress och lösenord.','err');return;}
+  setMsg('login-err','Loggar in...','info');
+  G.busy=true;
+  const r=await post('login',{email,password});
+  G.busy=false;
+  if(r.error){setMsg('login-err',r.error,'err');return;}
+  if(!r.player){setMsg('login-err','Oväntat svar från servern.','err');return;}
+  setMsg('login-err','','');
+  G.player=r.player;G.extra={player:r.player};G._fetchedAt=Date.now();
+  G.casino=defaultCasinoState();
+  G.holdemBuyIn=2000;G.rouletteStake=100;G.rouletteBets=[];
+  await loadAll();
+  applyCondition();
+  startTimers();
+  if(!G._pollTimer) G._pollTimer=setInterval(softReload,30000);
+  if(!G._pricePoll) G._pricePoll=setInterval(refreshPrices,60000);
 }
 
 async function loadNameSuggestions(){

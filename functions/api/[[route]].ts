@@ -1302,12 +1302,23 @@ async function syncGamePlayerState(env: Env, player: Row): Promise<Row> {
 
 async function requireGamePlayer(request: Request, env: Env): Promise<Row> {
   const session = await lookupSession(env, request);
-  if (!session) throw new GameError('Ingen aktiv session. Logga in först.', 401);
-  const round = await ensureActiveRound(env, { createIfMissing: false });
-  const { player } = session;
-  if ((player.round_id as string) !== (round.id as string)) {
-    throw new GameError('Rundan har avslutats. Logga in igen för att starta nästa runda.', 409);
+  if (session) {
+    const round = await ensureActiveRound(env, { createIfMissing: false });
+    const { player } = session;
+    if ((player.round_id as string) !== (round.id as string)) {
+      throw new GameError('Rundan har avslutats. Logga in igen för att starta nästa runda.', 409);
+    }
+    return syncGamePlayerState(env, player);
   }
+
+  // Fallback: anonymous game_session cookie (set by gameCreateCharacter)
+  const pid = getGameCookie(request);
+  if (!pid) throw new GameError('Ingen aktiv session. Logga in först.', 401);
+  const round = await ensureActiveRound(env, { createIfMissing: false });
+  const player = await env.DB.prepare(
+    'SELECT * FROM game_players WHERE id = ? AND round_id = ?'
+  ).bind(pid, round.id as string).first<Row>();
+  if (!player) throw new GameError('Karaktären hittades inte för denna runda. Skapa en ny.', 401);
   return syncGamePlayerState(env, player);
 }
 
