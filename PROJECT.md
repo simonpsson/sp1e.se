@@ -25,13 +25,13 @@
 |---|---|---|
 | `/` | `index.html` | Landing page — logo, Mosquito + Σ.Π. cards, painting background, Immersion mode |
 | `/hub` | `hub.html` | Private hub — categories, gallery, search, recent items |
-| `/mosquito` | `mosquito.html` | Public game hub — placeholder, game card grid ready for content |
+| `/mosquito` | `mosquito.html` | Mosquito game — character creation, crime, robbery, casino (blackjack, roulette, hold'em), gang, properties, leaderboard |
 | `/hub/note/*` | `hub/note/index.html` | Note detail/edit view |
 | `/visitor` | (redirect) | Redirects to `/mosquito` |
 
 ## Landing Page Features
 
-- **Background gallery** — impressionist paintings from Art Institute of Chicago public API (`/api/art` proxy), rotating every 28 s, shared sessionStorage cache `sp1e-gallery-v3`
+- **Background gallery** — impressionist paintings from Art Institute of Chicago public API (`/api/art` proxy), rotating every 28 s, shared sessionStorage/localStorage cache `sp1e-gallery-v6`
 - **Immersion mode** — full-screen `object-fit: contain` painting view; ‹ › navigation arrows; idle auto-hide (3 s); painting info caption (artist, title, year); exits on × or Escape
 - **Entry points** — "Mosquito" → `/mosquito`; "Σ.Π." → password modal → `/hub`
 - **Password modal** — bare input, Enter submits, Escape/backdrop closes, red flash on wrong password; no teal anywhere
@@ -47,7 +47,6 @@
 | POST | `auth/login` | — | Password → session cookie |
 | POST | `auth/logout` | — | Clears session cookie |
 | GET | `auth/check` | — | Returns `{ authenticated: bool }` |
-| GET | `auth/debug` | — | Hash + D1 diagnostics (dev only) |
 | GET | `categories` | ✓ | All categories with item counts |
 | GET | `subcategories` | ✓ | Subcategories (optionally by category) |
 | GET | `recent` | ✓ | 20 most recently updated items |
@@ -92,10 +91,8 @@ Notes:
 ## Known Issues / TODO
 
 - [ ] File upload to R2 not tested end-to-end
-- [ ] Snippets CRUD needs end-to-end testing
 - [ ] Bookmarks auto-fetch-meta needs testing
 - [ ] Search full-text ranking may need tuning
-- [ ] Mosquito game hub is placeholder only — no games yet
 - [ ] Mobile responsive testing needed across all pages
 - [ ] `/visitor` redirect to `/mosquito` not implemented (old links will 404)
 - [ ] Light theme in hub not fully tested with all components

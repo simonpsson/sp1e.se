@@ -605,7 +605,12 @@ function deleteNote() {
   showConfirm(`Radera "${NOTE.title ?? 'anteckningen'}"?`, async () => {
     startProgress();
     try {
-      await fetch(`/api/notes/${NOTE.id}`, { method: 'DELETE', credentials: 'same-origin' });
+      const res = await fetch(`/api/notes/${NOTE.id}`, { method: 'DELETE', credentials: 'same-origin' });
+      if (!res.ok) {
+        showToast('Kunde inte ta bort anteckningen. Försök igen.');
+        stopProgress();
+        return;
+      }
       location.href = NOTE.category_id ? `/hub/category/?id=${NOTE.category_id}` : '/hub';
     } catch {
       showToast('Kunde inte ta bort anteckningen.');

@@ -257,8 +257,11 @@ function showToast(msg) {
 let allTags = [];
 let activeTags = new Set();
 
-const tagParam = new URLSearchParams(location.search).get('tag');
+const _urlP = new URLSearchParams(location.search);
+const tagParam = _urlP.get('tag');
 if (tagParam) activeTags.add(tagParam);
+const tagsParam = _urlP.get('tags');
+if (tagsParam) tagsParam.split(',').map(t => t.trim()).filter(Boolean).forEach(t => activeTags.add(t));
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async () => {
