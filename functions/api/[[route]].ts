@@ -159,6 +159,12 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       }
       if (id === 'logout'           && method === 'POST') return gameLogout(request, env);
       if (id === 'delete-character' && method === 'DELETE') return gameDeleteCharacter(request, env);
+      if (id === 'talents') {
+        if (!sub                   && method === 'GET')  return gameGetAllTalents(request, env);
+        if (sub === 'player'       && method === 'GET')  return gameGetPlayerTalents(request, env);
+        if (sub === 'unlock'       && method === 'POST') return gameUnlockTalent(request, env);
+        if (sub === 'respec'       && method === 'POST') return gameRespecTalents(request, env);
+      }
       if (id === 'admin-auth'       && method === 'POST') return gameAdminAuth(request, env);
       if (id === 'admin-status'     && method === 'GET')  return gameAdminStatus(request, env);
       if (id === 'admin-logout'     && method === 'POST') return gameAdminLogout(request, env);
@@ -3393,7 +3399,10 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
   if (energy < cfg.energy)
     return gameJson({ error: `Inte tillräckligt med energi. Behöver ${cfg.energy}, har ${energy}.` }, 400);
 
-  const successChance = Math.min(95, cfg.baseChance + stealth * 0.5 + intelligence * 0.3 + level * 2);
+  // ── Talent bonuses (robbery) ──────────────────────────────────────────────
+  const tfx = await getPlayerTalentEffects(env, pid);
+  const successChance = Math.min(95, cfg.baseChance + stealth * 0.5 + intelligence * 0.3 + level * 2
+    + (tfx.robbery_success_bonus ?? 0) * 100);
   const roll          = Math.random() * 100;
   const success       = roll < successChance;
 
@@ -3406,20 +3415,30 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
 
   if (success) {
     cashGained    = rand(cfg.minCash, cfg.maxCash);
-    cashGained    = Math.round(cashGained * (1 + profBonus(profession, 'robbery_cash')));
-    respectGained = cfg.respect;
+    cashGained    = Math.round(cashGained * (1
+      + profBonus(profession, 'robbery_cash')
+      + (tfx.robbery_cash_bonus ?? 0)
+      + (tfx.crew_cash_bonus ?? 0)));
+    respectGained = Math.round(cfg.respect * (1 + (tfx.robbery_respect_bonus ?? 0)));
     xpGained      = xpWithBonus(player, cfg.xp);
     const flavorOk = pickRandom(ROBBERY_FLAVOR_SUCCESS[target] ?? [cfg.label + '.']);
     message       = `\u2713 ${flavorOk} +${cashGained.toLocaleString('sv')} kr.`;
   } else {
     // Missed; chance of getting caught
+    const effectivePrisonChance = cfg.prisonChance * (1 - (tfx.prison_chance_reduction ?? 0));
     const caughtRoll = Math.random() * 100;
-    caught = caughtRoll < cfg.prisonChance;
+    caught = caughtRoll < effectivePrisonChance;
+    // Fantomen: 50% chance to avoid prison entirely
+    if (caught && (tfx.prison_avoid_chance ?? 0) > 0 && Math.random() < tfx.prison_avoid_chance) {
+      caught = false;
+    }
     xpGained = xpWithBonus(player, Math.floor(cfg.xp * 0.2));
     const flavorBad = pickRandom(ROBBERY_FLAVOR_FAIL[target] ?? [cfg.label + ' misslyckades.']);
     if (caught) {
       let mins = PRISON_SENTENCES[target] ?? 10;
-      mins = Math.max(1, Math.round(mins * (1 + profBonus(profession, 'prison_time'))));
+      mins = Math.max(1, Math.round(mins
+        * (1 + profBonus(profession, 'prison_time'))
+        * (1 - Math.min(0.75, (tfx.prison_time_reduction ?? 0) + (tfx.prison_hospital_halved ?? 0) * 0.5))));
       prisonMinutes = mins;
       message = `\u2717 ${flavorBad} ${prisonMinutes} min i f\u00e4ngelse.`;
     } else {
@@ -3647,7 +3666,9 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
     return gameJson({ error: `Strid mot ${isNpc ? 'NPC' : 'spelare'} l\u00e5ses upp vid level ${assaultReq}.` }, 400);
 
   const profession = activeProfession(player);
-  const COST  = 15;
+  // ── Talent bonuses (assault) ──────────────────────────────────────────────
+  const tfxA = await getPlayerTalentEffects(env, player.id as string);
+  const COST  = Math.max(5, Math.round(15 * (1 - (tfxA.assault_energy_reduction ?? 0))));
   const energy = calcEnergy(player);
   if (energy < COST) return gameJson({ error: `Inte tillräckligt med energi. Behöver ${COST}.` }, 400);
 
@@ -3716,7 +3737,9 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   const attackerStr  = effectiveStat(player, 'strength');
   const attackerSte  = effectiveStat(player, 'stealth');
   const targetStr    = isNpc ? ((target.strength as number) ?? 10) : effectiveStat(target, 'strength');
-  const dmgMult      = 1 + profBonus(profession, 'assault_damage');
+  const berserkerBonus = ((player.hp as number) ?? 100) / Math.max(1, (player.hp_max as number) ?? 100) < 0.30
+    ? (tfxA.berserker_damage_bonus ?? 0) : 0;
+  const dmgMult = 1 + profBonus(profession, 'assault_damage') + (tfxA.assault_damage_bonus ?? 0) + berserkerBonus;
 
   // Multi-shot resolution: each shot checks hit independently
   let totalShotDmg = 0;
@@ -3743,7 +3766,7 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   if (success) {
     damageDelt    = Math.max(5, rand(8, 30) + Math.round(totalShotDmg * 0.4));
     cashStolen    = Math.floor(((target.cash as number) ?? 0) * (rand(10, 30) / 100));
-    respectGained = Math.max(1, Math.floor(cashStolen / 200));
+    respectGained = Math.max(1, Math.floor(cashStolen / 200 * (1 + (tfxA.assault_respect_mult ?? 0) * 2)));
     message       = `\u2713 Slog ner ${target.name as string}. Stal ${cashStolen.toLocaleString('sv')} kr.`;
     combatLines   = ASSAULT_WIN_LINES.map(l => l.replace(/\{name\}/g, target.name as string));
     if (weaponName && hits > 0) combatLines.unshift(`${hits > 1 ? `${hits} träffar` : '1 träff'} med ${weaponName}.`);
@@ -6177,6 +6200,213 @@ async function gameActionHoldemLeave(request: Request, env: Env): Promise<Respon
   } catch (e) {
     return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 500);
   }
+}
+
+// ── Talent tree ───────────────────────────────────────────────────────────────
+
+async function ensureGameTalentTables(env: Env): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_talents (
+      id TEXT PRIMARY KEY, profession TEXT NOT NULL, tier INTEGER NOT NULL,
+      name TEXT NOT NULL, description TEXT NOT NULL, icon TEXT DEFAULT '',
+      effects TEXT NOT NULL DEFAULT '{}', prerequisites TEXT DEFAULT '[]',
+      max_rank INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0
+    )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_player_talents (
+      id TEXT PRIMARY KEY, player_id TEXT NOT NULL, talent_id TEXT NOT NULL,
+      rank INTEGER DEFAULT 1, unlocked_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (player_id) REFERENCES game_players(id),
+      FOREIGN KEY (talent_id) REFERENCES game_talents(id),
+      UNIQUE(player_id, talent_id)
+    )`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_gpt_player ON game_player_talents(player_id)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_gt_prof_tier ON game_talents(profession, tier, sort_order)`),
+  ]);
+  await env.DB.prepare(`ALTER TABLE game_players ADD COLUMN talent_points_spent INTEGER DEFAULT 0`).run().catch(() => {});
+}
+
+/** Aggregate all unlocked talent effects for a player into a flat bonus map.
+ *  Multi-rank talents are multiplied: rank=2 on a talent with {"robbery_cash_bonus":0.10}
+ *  contributes 0.20 total.
+ */
+async function getPlayerTalentEffects(env: Env, playerId: string): Promise<Record<string, number>> {
+  try {
+    const rows = await env.DB.prepare(`
+      SELECT gt.effects, gpt.rank
+      FROM game_player_talents gpt
+      JOIN game_talents gt ON gt.id = gpt.talent_id
+      WHERE gpt.player_id = ?
+    `).bind(playerId).all<{ effects: string; rank: number }>();
+    const totals: Record<string, number> = {};
+    for (const row of rows.results) {
+      try {
+        const fx = JSON.parse(row.effects) as Record<string, number>;
+        for (const [key, val] of Object.entries(fx)) {
+          totals[key] = (totals[key] ?? 0) + val * (row.rank ?? 1);
+        }
+      } catch {}
+    }
+    return totals;
+  } catch {
+    return {};
+  }
+}
+
+async function gameGetAllTalents(request: Request, env: Env): Promise<Response> {
+  try { await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+  await ensureGameTalentTables(env);
+  const rows = await env.DB.prepare(
+    `SELECT * FROM game_talents ORDER BY profession, tier, sort_order`
+  ).all<Row>();
+  return gameJson({ talents: rows.results });
+}
+
+async function gameGetPlayerTalents(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+  await ensureGameTalentTables(env);
+  const pid     = player.id as string;
+  const spent   = (player.talent_points_spent as number) ?? 0;
+  const baseTotal = Math.max(0, ((player.level as number) ?? 1) - 1);
+  // bed-t3-prodigy doubles points — check if they have it
+  const hasProdigy = await env.DB.prepare(
+    `SELECT rank FROM game_player_talents WHERE player_id = ? AND talent_id = 'bed-t3-prodigy'`
+  ).bind(pid).first<{ rank: number }>();
+  const totalPoints = hasProdigy ? baseTotal * 2 : baseTotal;
+  const available   = Math.max(0, totalPoints - spent);
+  const rows = await env.DB.prepare(
+    `SELECT talent_id, rank, unlocked_at FROM game_player_talents WHERE player_id = ?`
+  ).bind(pid).all<{ talent_id: string; rank: number; unlocked_at: string }>();
+  const talentMap: Record<string, { rank: number; unlocked_at: string }> = {};
+  for (const t of rows.results) talentMap[t.talent_id] = { rank: t.rank, unlocked_at: t.unlocked_at };
+  return gameJson({
+    talent_points_total:     totalPoints,
+    talent_points_spent:     spent,
+    talent_points_available: available,
+    player_talents:          talentMap,
+    profession:              activeProfession(player),
+  });
+}
+
+async function gameUnlockTalent(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+  await ensureGameTalentTables(env);
+
+  const body     = await request.json<{ talent_id?: string }>().catch(() => ({} as { talent_id?: string }));
+  const talentId = (body.talent_id ?? '').trim();
+  if (!talentId) return gameJson({ error: 'talent_id required.' }, 400);
+
+  const talent = await env.DB.prepare(`SELECT * FROM game_talents WHERE id = ?`).bind(talentId).first<Row>();
+  if (!talent) return gameJson({ error: 'Okänt talent.' }, 404);
+
+  const pid        = player.id as string;
+  const profession = activeProfession(player);
+  // cross-profession costs 2; bed-t4-ghost removes that penalty
+  const hasGhost = await env.DB.prepare(
+    `SELECT rank FROM game_player_talents WHERE player_id = ? AND talent_id = 'bed-t4-ghost'`
+  ).bind(pid).first<{ rank: number }>();
+  const isSameProfession = (talent.profession as string) === profession;
+  const pointCost = (isSameProfession || hasGhost) ? 1 : 2;
+
+  // Available points (bed-t3-prodigy doubles total)
+  const spent      = (player.talent_points_spent as number) ?? 0;
+  const baseTotal  = Math.max(0, ((player.level as number) ?? 1) - 1);
+  const hasProdigy = await env.DB.prepare(
+    `SELECT rank FROM game_player_talents WHERE player_id = ? AND talent_id = 'bed-t3-prodigy'`
+  ).bind(pid).first<{ rank: number }>();
+  const totalPoints = hasProdigy ? baseTotal * 2 : baseTotal;
+  const available   = Math.max(0, totalPoints - spent);
+  if (available < pointCost) {
+    return gameJson({ error: `Inte tillräckligt med talent-poäng. Behöver ${pointCost}, har ${available}.` }, 400);
+  }
+
+  // Tier gate: count points already spent in this profession tree
+  const tier    = talent.tier as number;
+  const tierReq = ({ 1: 0, 2: 5, 3: 12, 4: 20 } as Record<number, number>)[tier] ?? 0;
+  if (tierReq > 0) {
+    const profSpent = await env.DB.prepare(`
+      SELECT COALESCE(SUM(gpt.rank), 0) AS pts
+      FROM game_player_talents gpt
+      JOIN game_talents gt ON gt.id = gpt.talent_id
+      WHERE gpt.player_id = ? AND gt.profession = ?
+    `).bind(pid, talent.profession as string).first<{ pts: number }>();
+    if ((profSpent?.pts ?? 0) < tierReq) {
+      return gameJson({ error: `Kräver ${tierReq} poäng i ${talent.profession}-treet. Du har ${profSpent?.pts ?? 0}.` }, 400);
+    }
+  }
+
+  // Prerequisites check
+  const prereqsRaw = (talent.prerequisites as string) ?? '[]';
+  if (prereqsRaw && prereqsRaw !== '[]') {
+    try {
+      const prereqs = JSON.parse(prereqsRaw) as string[];
+      for (const preq of prereqs) {
+        const [preqId, minRankStr] = preq.split(':');
+        const minRank = minRankStr ? parseInt(minRankStr, 10) : 1;
+        const preqRow = await env.DB.prepare(
+          `SELECT rank FROM game_player_talents WHERE player_id = ? AND talent_id = ?`
+        ).bind(pid, preqId).first<{ rank: number }>();
+        if (!preqRow || (preqRow.rank ?? 0) < minRank) {
+          const preqT = await env.DB.prepare(`SELECT name FROM game_talents WHERE id = ?`).bind(preqId).first<{ name: string }>();
+          return gameJson({ error: `Kräver: ${preqT?.name ?? preqId}${minRank > 1 ? ` rank ${minRank}` : ''}.` }, 400);
+        }
+      }
+    } catch {}
+  }
+
+  // Current rank
+  const existing    = await env.DB.prepare(
+    `SELECT rank FROM game_player_talents WHERE player_id = ? AND talent_id = ?`
+  ).bind(pid, talentId).first<{ rank: number }>();
+  const currentRank = existing?.rank ?? 0;
+  const maxRank     = (talent.max_rank as number) ?? 1;
+  if (currentRank >= maxRank) return gameJson({ error: 'Talent är redan maxad.' }, 400);
+
+  const newRank = currentRank + 1;
+  if (existing) {
+    await env.DB.prepare(
+      `UPDATE game_player_talents SET rank = ? WHERE player_id = ? AND talent_id = ?`
+    ).bind(newRank, pid, talentId).run();
+  } else {
+    await env.DB.prepare(
+      `INSERT INTO game_player_talents (id, player_id, talent_id, rank) VALUES (?, ?, ?, ?)`
+    ).bind(crypto.randomUUID(), pid, talentId, newRank).run();
+  }
+  await env.DB.prepare(
+    `UPDATE game_players SET talent_points_spent = talent_points_spent + ? WHERE id = ?`
+  ).bind(pointCost, pid).run();
+
+  return gameJson({
+    success:          true,
+    talent_id:        talentId,
+    new_rank:         newRank,
+    points_available: available - pointCost,
+    message:          `${talent.name as string} låst upp (rank ${newRank}/${maxRank}).`,
+  });
+}
+
+async function gameRespecTalents(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+  await ensureGameTalentTables(env);
+
+  const pid         = player.id as string;
+  const RESPEC_COST = 50_000;
+  if ((player.cash as number) < RESPEC_COST) {
+    return gameJson({ error: `Respec kostar ${RESPEC_COST.toLocaleString('sv')} kr. Du har ${((player.cash as number) ?? 0).toLocaleString('sv')} kr.` }, 400);
+  }
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM game_player_talents WHERE player_id = ?`).bind(pid),
+    env.DB.prepare(`UPDATE game_players SET talent_points_spent = 0, cash = cash - ? WHERE id = ?`).bind(RESPEC_COST, pid),
+  ]);
+  await logAction(env, pid, 'respec', `Talents återställda för ${RESPEC_COST.toLocaleString('sv')} kr.`, -RESPEC_COST, 0, 0, true);
+  const baseTotal   = Math.max(0, ((player.level as number) ?? 1) - 1);
+  return gameJson({ success: true, points_available: baseTotal, message: `Alla talents återställda. ${baseTotal} poäng tillgängliga.` });
 }
 
 async function gameAdminAuth(request: Request, env: Env): Promise<Response> {
