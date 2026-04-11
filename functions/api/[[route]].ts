@@ -1085,7 +1085,14 @@ async function getArtworks(env: Env): Promise<Response> {
     [items[i], items[j]] = [items[j], items[i]];
   }
 
-  return json({ data: items });
+  return new Response(JSON.stringify({ data: items }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=3600, s-maxage=7200, stale-while-revalidate=86400',
+      ...cors(),
+    },
+  });
 }
 
 // ─── Game (Mosquito) ─────────────────────────────────────────────────────────
