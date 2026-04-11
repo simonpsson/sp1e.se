@@ -158,6 +158,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
         return gameGetRouletteState(request, env);
       }
       if (id === 'logout'           && method === 'POST') return gameLogout(request, env);
+      if (id === 'delete-character' && method === 'DELETE') return gameDeleteCharacter(request, env);
       if (id === 'admin-auth'       && method === 'POST') return gameAdminAuth(request, env);
       if (id === 'admin-status'     && method === 'GET')  return gameAdminStatus(request, env);
       if (id === 'admin-logout'     && method === 'POST') return gameAdminLogout(request, env);
@@ -6184,7 +6185,11 @@ async function gameAdminAuth(request: Request, env: Env): Promise<Response> {
   if (!body.password || typeof body.password !== 'string') {
     return gameJson({ error: 'Ange adminlösenordet först.' }, 400);
   }
-  const hashConfig = inspectPasswordHash(String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim());
+  // Use GAME_ADMIN_PASSWORD_HASH if configured, otherwise fall back to AUTH_PASSWORD_HASH.
+  const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim();
+  const hashConfig = adminRaw
+    ? inspectPasswordHash(adminRaw)
+    : inspectPasswordHash(String(env.AUTH_PASSWORD_HASH ?? '').trim());
   if (!hashConfig.isUsable) {
     await logGameAdminAudit(env, { command: 'unlock', outcome: 'error', details: 'Admin password hash missing.' });
     return gameJson({ error: 'Adminlösenordet är inte konfigurerat ännu.' }, 500);
@@ -6218,7 +6223,12 @@ async function gameAdminStatus(request: Request, env: Env): Promise<Response> {
   return gameJson({
     authenticated: !!session,
     expires_at: session?.expires_at ?? null,
-    configured: inspectPasswordHash(String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim()).isUsable,
+    configured: (() => {
+      const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim();
+      return adminRaw
+        ? inspectPasswordHash(adminRaw).isUsable
+        : inspectPasswordHash(String(env.AUTH_PASSWORD_HASH ?? '').trim()).isUsable;
+    })(),
   });
 }
 
@@ -6365,6 +6375,23 @@ async function gameLogout(request: Request, env: Env): Promise<Response> {
   if (token) {
     await env.DB.prepare('DELETE FROM game_sessions WHERE token = ?').bind(token).run().catch(() => {});
   }
+  const headers = new Headers({ 'Content-Type': 'application/json', ...cors() });
+  headers.append('Set-Cookie', clearTokenCookie());
+  headers.append('Set-Cookie', clearGameCookie());
+  return new Response(JSON.stringify({ success: true }), { status: 200, headers });
+}
+
+async function gameDeleteCharacter(request: Request, env: Env): Promise<Response> {
+  let player: Row;
+  try { player = await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
+  // Delete the player row; cascade handles logs/activity tied to player_id via their own cleanup.
+  await env.DB.prepare('DELETE FROM game_players WHERE id = ?').bind(player.id as string).run().catch(() => {});
+
+  // Also invalidate any game_session entry pointing to this player.
+  await env.DB.prepare('DELETE FROM game_sessions WHERE player_id = ?').bind(player.id as string).run().catch(() => {});
+
   const headers = new Headers({ 'Content-Type': 'application/json', ...cors() });
   headers.append('Set-Cookie', clearTokenCookie());
   headers.append('Set-Cookie', clearGameCookie());
