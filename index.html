@@ -1151,7 +1151,12 @@ function gShowFirst(art) {
   };
   bgFront.onerror = () => {
     bgFront.onerror = null;
-    gSetImmersionReady(false);
+    if (bgArtworks.length > 1) {
+      bgCurrent = (bgCurrent + 1) % bgArtworks.length;
+      gShowFirst(bgArtworks[bgCurrent]);
+    } else {
+      gSetImmersionReady(false);
+    }
   };
 }
 
@@ -1160,6 +1165,7 @@ function gCrossfade(art) {
   bgBack.src = gUrl(art);
   bgBack.onload = () => {
     bgBack.onload = null;
+    bgBack.onerror = null;
     bgBack.style.zIndex = '2';
     bgBack.style.opacity = '1';
     setTimeout(() => {
@@ -1170,6 +1176,11 @@ function gCrossfade(art) {
         bgFront.style.zIndex = '1';
       }, GFADE + 100);
     }, 50);
+  };
+  bgBack.onerror = () => {
+    bgBack.onerror = null;
+    bgBack.onload = null;
+    gAdvance(1);
   };
 }
 
