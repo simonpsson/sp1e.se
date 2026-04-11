@@ -103,6 +103,24 @@
   /* ── Cards ────────────────────────────────────────── */
   .cards { display: flex; gap: 1rem; }
 
+  .hub-card { padding: 0; }
+  .hub-symbol {
+    width: 64px;
+    height: 28px;
+    display: block;
+  }
+  .hub-symbol path,
+  .hub-symbol polyline,
+  .hub-symbol line {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 4.5;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+    vector-effect: non-scaling-stroke;
+  }
+
+
   .card {
     display: flex;
     align-items: center;
@@ -129,6 +147,88 @@
     box-shadow: 0 0 20px rgba(255,255,255,0.04);
     outline: none;
   }
+
+
+  #cocktail-ad {
+    position: fixed;
+    top: 50%;
+    right: 1.35rem;
+    transform: translateY(-50%);
+    z-index: 4;
+    width: 188px;
+    height: min(72vh, 640px);
+    display: flex;
+    flex-direction: column;
+    background: rgba(8,10,14,0.86);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    overflow: hidden;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  #cocktail-ad-header {
+    padding: 0.85rem 0.95rem 0.65rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .cocktail-ad-kicker {
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.56);
+  }
+  .cocktail-ad-title {
+    display: block;
+    margin-top: 0.35rem;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.15rem;
+    color: rgba(255,255,255,0.92);
+  }
+  #cocktail-ad-viewport {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    padding: 0.85rem 0.85rem 0.65rem;
+  }
+  #cocktail-ad-track {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    will-change: transform;
+    padding: 0.85rem 0.85rem 0.65rem;
+  }
+  .cocktail-ad-item {
+    padding: 0.7rem 0.1rem 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .cocktail-ad-item:last-child { border-bottom: none; }
+  .cocktail-ad-item.is-thule .cocktail-ad-name {
+    color: rgba(255,237,179,0.96);
+  }
+  .cocktail-ad-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.92rem;
+    letter-spacing: 0.03em;
+    color: rgba(255,255,255,0.92);
+  }
+  .cocktail-ad-recipe {
+    margin-top: 0.35rem;
+    font-size: 0.74rem;
+    line-height: 1.48;
+    color: rgba(255,255,255,0.66);
+  }
+  #cocktail-ad-footer {
+    padding: 0.7rem 0.95rem 0.82rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.52);
+  }
+  body.immersive #cocktail-ad { opacity: 0; pointer-events: none; }
 
   /* ── Modal ────────────────────────────────────────── */
   #modal {
@@ -355,6 +455,29 @@
   #sp-hint:hover { color: rgba(255,255,255,0.42); }
   #sp-hint.hidden { display: none; }
   body.immersive #sp-hint { opacity: 0; pointer-events: none; }
+  #sp-notice {
+    position: fixed;
+    right: 3.4rem;
+    bottom: 1.9rem;
+    z-index: 10;
+    max-width: 240px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.56);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+    text-align: right;
+  }
+  #sp-notice.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  #sp-notice.err { color: rgba(255,148,148,0.92); }
+  #sp-notice.ok { color: rgba(170,230,190,0.92); }
+  body.immersive #sp-notice { opacity: 0; pointer-events: none; }
 
   /* ── Immersion button ─────────────────────────────── */
   #immersion-btn {
@@ -369,11 +492,17 @@
     border-radius: 20px;
     cursor: pointer;
     white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
+    opacity: 0.72;
+    pointer-events: all;
     transition: opacity 0.8s ease, border-color 0.25s, color 0.25s;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+  }
+  #immersion-btn.loading,
+  #immersion-btn:disabled {
+    opacity: 0.42;
+    pointer-events: none;
+    cursor: default;
   }
   #immersion-btn.ready { opacity: 1; pointer-events: all; }
   #immersion-btn:hover { border-color: rgba(255,255,255,0.30); color: rgba(255,255,255,0.80); }
@@ -478,6 +607,7 @@
 
   /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 768px) {
+    #cocktail-ad { display: none; }
     #bottom-bar {
       bottom: 0;
       left: 0;
@@ -508,99 +638,6 @@
     #imm-prev { left: 0.75rem; }
     #imm-next { right: 0.75rem; }
   }
-
-  /* ── Personal logo (hub button) ──────────────────── */
-  .sp-logo {
-    width: 54px;
-    height: auto;
-    display: block;
-    overflow: visible;
-  }
-
-  /* ── Cocktail ad banner ───────────────────────────── */
-  #ad-banner {
-    position: fixed;
-    right: 1.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 162px;
-    height: 56vh;
-    min-height: 300px;
-    max-height: 540px;
-    z-index: 5;
-    overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 6px;
-    background: rgba(0,0,0,0.82);
-    display: flex;
-    flex-direction: column;
-    pointer-events: none;
-    transition: opacity 0.7s ease;
-  }
-  body.immersive #ad-banner { opacity: 0; }
-  @media (max-width: 960px) { #ad-banner { display: none; } }
-
-  .ad-header {
-    padding: 9px 14px 7px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.50);
-    border-bottom: 1px solid rgba(255,255,255,0.09);
-    text-align: center;
-    flex-shrink: 0;
-  }
-
-  .ad-scroll-wrap {
-    flex: 1;
-    overflow: hidden;
-    position: relative;
-  }
-
-  .ad-scroll-inner {
-    display: flex;
-    flex-direction: column;
-    will-change: transform;
-  }
-
-  .ad-item {
-    padding: 11px 14px 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.07);
-    flex-shrink: 0;
-  }
-  .ad-item-star .ad-drink-name  { color: #fff; }
-  .ad-item-star .ad-drink-recipe { color: rgba(255,255,255,0.68); }
-
-  .ad-drink-name {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 1.05rem;
-    font-weight: 300;
-    font-style: italic;
-    color: rgba(255,255,255,0.92);
-    margin-bottom: 5px;
-  }
-
-  .ad-drink-recipe {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.02em;
-    color: rgba(255,255,255,0.55);
-    line-height: 1.6;
-  }
-
-  .ad-sponsor {
-    padding: 8px 14px 9px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.08em;
-    color: rgba(255,255,255,0.45);
-    text-align: center;
-    text-transform: uppercase;
-    border-top: 1px solid rgba(255,255,255,0.09);
-    flex-shrink: 0;
-    line-height: 1.65;
-  }
 </style>
 </head>
 <body>
@@ -620,27 +657,26 @@
   <div class="rule"></div>
   <nav class="cards">
     <a class="card" id="mosquito-btn" href="/mosquito">Mosquito</a>
-    <button class="card" id="hub-btn">
-      <svg class="sp-logo" viewBox="0 0 88 40" xmlns="http://www.w3.org/2000/svg"
-           aria-label="Σ.Π." fill="none" stroke="currentColor"
-           stroke-width="2.5" stroke-linejoin="miter" stroke-linecap="square">
-        <!-- Σ: top bar → diagonal to center-left → diagonal back → bottom bar -->
-        <polyline points="4,4 32,4 14,20 32,36 4,36"/>
-        <!-- Π: top bar, right vertical, partial bottom -->
-        <polyline points="44,4 84,4 84,36 64,36"/>
+    <button class="card hub-card" id="hub-btn" aria-label="S.P. hub">
+      <svg class="hub-symbol" viewBox="0 0 92 44" aria-hidden="true" focusable="false">
+        <path d="M8 8 H42 L26 22 L42 36 H8 L24 22 Z"></path>
+        <path d="M42 8 H82 V36"></path>
+        <line x1="42" y1="8" x2="42" y2="36"></line>
       </svg>
     </button>
   </nav>
 </main>
 
-<!-- Cocktail ad banner -->
-<div id="ad-banner" aria-hidden="true">
-  <div class="ad-header">Sommarens Cocktails</div>
-  <div class="ad-scroll-wrap">
-    <div class="ad-scroll-inner" id="ad-scroll-inner"></div>
+<aside id="cocktail-ad" aria-label="Sommarcocktails">
+  <div id="cocktail-ad-header">
+    <span class="cocktail-ad-kicker">Sommartips</span>
+    <span class="cocktail-ad-title">10 cocktails i kväll</span>
   </div>
-  <div class="ad-sponsor">Sponsrad av<br>Vadstena Örtagård</div>
-</div>
+  <div id="cocktail-ad-viewport">
+    <div id="cocktail-ad-track"></div>
+  </div>
+  <div id="cocktail-ad-footer">Sponsrad av Vadstena Örtagård</div>
+</aside>
 
 <!-- Password modal -->
 <div id="modal" role="dialog" aria-modal="true" aria-label="Ange lösenord">
@@ -676,6 +712,7 @@
 
 <!-- ♫ hint — visible when Spotify not linked -->
 <button id="sp-hint" aria-label="Länka Spotify">♫</button>
+<div id="sp-notice" aria-live="polite"></div>
 
 <!-- Immersion controls -->
 <button id="immersion-close" aria-label="Exit immersion">×</button>
@@ -714,6 +751,175 @@ const input  = document.getElementById('pw-input');
 const hubBtn = document.getElementById('hub-btn');
 const mosquitoBtn = document.getElementById('mosquito-btn');
 const stage  = document.querySelector('.stage');
+
+const cocktailViewport = document.getElementById('cocktail-ad-viewport');
+const cocktailTrack = document.getElementById('cocktail-ad-track');
+const DR_THULE = { name: 'Dr. Thule', recipe: ['Norrlands Guld', 'Amaretto'] };
+
+function buildCocktailPool() {
+  const classics = [
+    ['Americano',['Campari','Söt vermouth','Sodavatten']],
+    ['Aperol Spritz',['Aperol','Prosecco','Soda']],
+    ['Bellini',['Prosecco','Persikopuré','Citronzest']],
+    ['Bicicletta',['Campari','Torrt vitt vin','Soda']],
+    ['Bramble',['Gin','Citron','Crème de mûre']],
+    ['Caipirinha',['Cachaça','Lime','Rörsocker']],
+    ['Clover Club',['Gin','Hallon','Citron']],
+    ['Corpse Reviver',['Gin','Cointreau','Lillet Blanc']],
+    ['Daiquiri',['Ljus rom','Lime','Sockerlag']],
+    ['Dark & Stormy',['Mörk rom','Ginger beer','Lime']],
+    ['Eastside',['Gin','Lime','Gurka']],
+    ['French 75',['Gin','Citron','Mousserande']],
+    ['Garibaldi',['Campari','Apelsinjuice','Apelsinzest']],
+    ['Gin Fizz',['Gin','Citron','Soda']],
+    ['Gin Rickey',['Gin','Lime','Soda']],
+    ['Hugo',['Fläderlikör','Prosecco','Mynta']],
+    ['Jasmine',['Gin','Campari','Cointreau']],
+    ['John Collins',['Gin','Citron','Soda']],
+    ['Kir Royale',['Crème de cassis','Mousserande','Citronolja']],
+    ['Mai Tai',['Mörk rom','Orgeat','Lime']],
+    ['Margarita',['Tequila','Lime','Cointreau']],
+    ['Mojito',['Vit rom','Mynta','Soda']],
+    ['Negroni',['Gin','Campari','Söt vermouth']],
+    ['Old Cuban',['Rom','Mynta','Mousserande']],
+    ['Paloma',['Tequila','Grapefruit','Soda']],
+    ['Paper Plane',['Bourbon','Aperol','Amaro']],
+    ['Pisco Sour',['Pisco','Citron','Sockerlag']],
+    ["Planter's Punch",['Mörk rom','Lime','Angostura']],
+    ['Sidecar',['Cognac','Cointreau','Citron']],
+    ['Southside',['Gin','Mynta','Lime']],
+    ['Tom Collins',['Gin','Citron','Soda']],
+    ["Tommy's Margarita",['Tequila','Lime','Agave']],
+    ['Vesper',['Gin','Vodka','Lillet Blanc']],
+    ['Whiskey Sour',['Bourbon','Citron','Sockerlag']],
+    ['White Lady',['Gin','Cointreau','Citron']],
+  ];
+  const spritzLiqueurs = ['Aperol','Italiensk bitter','Fläderlikör','Rabarberlikör','Persikolikör'];
+  const spritzFruits = ['Blodapelsin','Rabarber','Persika','Hallon','Fläder','Citron'];
+  const coolerSpirits = ['Gin','Vodka','Vit rom','Tequila','Pisco'];
+  const coolerMixers = ['Tonic','Soda','Ginger beer','Lemonad','Citronläsk'];
+  const coolerFruits = ['Gurka','Jordgubb','Björnbär','Passionsfrukt','Vattenmelon','Grapefrukt'];
+  const smashHerbs = ['Basilika','Rosmarin','Mynta','Timjan','Salvia'];
+  const smashFruits = ['Persika','Nektarin','Hallon','Aprikos','Citron'];
+  const highballSpirits = ['Bourbon','Rågwhiskey','Mörk rom','Tequila reposado','Gin'];
+  const highballTops = ['Soda','Ginger ale','Ginger beer','Tonic','Äppelmust'];
+  const pool = classics.map(([name, recipe])=>({name, recipe}));
+
+  spritzLiqueurs.forEach((liqueur, li) => {
+    spritzFruits.forEach((fruit, fi) => {
+      pool.push({
+        name: `${fruit} ${liqueur} Spritz`,
+        recipe: [liqueur, `${fruit} cordial`, fi % 2 === 0 ? 'Prosecco' : 'Crémant']
+      });
+    });
+  });
+
+  coolerSpirits.forEach((spirit, si) => {
+    coolerMixers.forEach((mixer, mi) => {
+      const fruit = coolerFruits[(si + mi) % coolerFruits.length];
+      pool.push({
+        name: `${fruit} ${spirit} Cooler`,
+        recipe: [spirit, `${fruit} syrup`, mixer]
+      });
+    });
+  });
+
+  smashHerbs.forEach((herb, hi) => {
+    smashFruits.forEach((fruit, fi) => {
+      pool.push({
+        name: `${fruit} & ${herb} Smash`,
+        recipe: [fi % 2 === 0 ? 'Gin' : 'Bourbon', fruit, herb]
+      });
+    });
+  });
+
+  highballSpirits.forEach((spirit, hi) => {
+    highballTops.forEach((top, ti) => {
+      const garnish = ['Citronolja','Lime','Grapefruktzest','Äppelskiva','Mynta'][(hi + ti) % 5];
+      pool.push({
+        name: `${spirit} Highball ${ti+1}`,
+        recipe: [spirit, top, garnish]
+      });
+    });
+  });
+
+  return pool.slice(0,150);
+}
+
+const COCKTAIL_POOL = buildCocktailPool();
+
+function cocktailRng(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s ^= s << 13;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    return (s >>> 0) / 4294967295;
+  };
+}
+
+function todaysCocktails() {
+  const day = Math.floor(Date.now() / 86400000);
+  const rand = cocktailRng(day ^ 0x5f3759df);
+  const pool = [...COCKTAIL_POOL];
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const picks = pool.slice(0, 9);
+  const insertAt = Math.floor(rand() * 10);
+  return [...picks.slice(0, insertAt), DR_THULE, ...picks.slice(insertAt)];
+}
+
+function renderCocktailItems(items) {
+  return items.map(item => {
+    const isThule = item.name === DR_THULE.name;
+    return `<article class="cocktail-ad-item${isThule ? ' is-thule' : ''}"><div class="cocktail-ad-name">${item.name}</div><div class="cocktail-ad-recipe">${item.recipe.join('<br>')}</div></article>`;
+  }).join('');
+}
+
+function initCocktailBanner() {
+  if (!cocktailViewport || !cocktailTrack) return;
+  const items = todaysCocktails();
+  const rendered = renderCocktailItems(items);
+  cocktailTrack.innerHTML = rendered + rendered;
+  const cycleMs = 110000;
+  let half = 0;
+  let start = 0;
+  let raf = 0;
+
+  const measure = () => {
+    half = cocktailTrack.scrollHeight / 2;
+  };
+
+  const loop = now => {
+    if (!start) start = now;
+    if (!half) measure();
+    if (half) {
+      const progress = ((now - start) % cycleMs) / cycleMs;
+      cocktailTrack.style.transform = `translateY(${(-half + (half * progress)).toFixed(2)}px)`;
+    }
+    raf = requestAnimationFrame(loop);
+  };
+
+  const kick = () => {
+    measure();
+    if (raf) cancelAnimationFrame(raf);
+    start = 0;
+    raf = requestAnimationFrame(loop);
+  };
+
+  requestAnimationFrame(() => requestAnimationFrame(kick));
+  window.addEventListener('resize', kick, { passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      return;
+    }
+    kick();
+  });
+}
 
 let submitting = false;
 let errorTimer = null;
@@ -755,7 +961,16 @@ async function attemptLogin() {
       credentials: 'same-origin',
       body: JSON.stringify({ password }),
     });
-    if (res.ok) window.location.href = loginTarget;
+    if (res.ok) {
+      closeModal();
+      if (pendingAfterLogin) {
+        const action = pendingAfterLogin;
+        pendingAfterLogin = null;
+        await action();
+      } else {
+        window.location.href = loginTarget;
+      }
+    }
     else flashError();
   } catch { flashError(); }
   finally { submitting = false; input.disabled = false; }
@@ -768,6 +983,8 @@ input.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+initCocktailBanner();
 
 (async () => {
   const next = sanitizeTarget(new URLSearchParams(location.search).get('next'));
@@ -884,7 +1101,8 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Background gallery ────────────────────────────────────────────────────────
-const GCACHE = 'sp1e-gallery-v5';
+const GCACHE = 'sp1e-gallery-v6';
+const GCACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const GFADE  = 3000;
 const GBASE  = 'https://www.artic.edu/iiif/2';
 
@@ -895,6 +1113,15 @@ let bgIntervalMs = 28_000;
 
 const bgImgA = document.getElementById('bg-img-a');
 const bgImgB = document.getElementById('bg-img-b');
+
+function gSetImmersionReady(ready) {
+  if (!immBtn) return;
+  immBtn.disabled = !ready;
+  immBtn.classList.toggle('loading', !ready);
+  immBtn.classList.toggle('ready', !!ready);
+}
+
+gSetImmersionReady(false);
 
 function gUrl(art) {
   if (art.image_url) return art.image_url;
@@ -920,7 +1147,11 @@ function gShowFirst(art) {
   bgFront.onload = () => {
     bgFront.onload = null;
     bgFront.style.opacity = '1';
-    immBtn.classList.add('ready');
+    gSetImmersionReady(true);
+  };
+  bgFront.onerror = () => {
+    bgFront.onerror = null;
+    gSetImmersionReady(false);
   };
 }
 
@@ -959,15 +1190,51 @@ function gSchedule() {
   }, bgIntervalMs);
 }
 
-async function gFetch() {
-  const c = sessionStorage.getItem(GCACHE);
-  if (c) { try { return JSON.parse(c); } catch {} }
-  const res = await fetch('/api/art');
+function gReadCache() {
+  const now = Date.now();
+  try {
+    const sessionRaw = sessionStorage.getItem(GCACHE);
+    if (sessionRaw) {
+      const parsed = JSON.parse(sessionRaw);
+      if (Array.isArray(parsed.items) && parsed.items.length && now - Number(parsed.savedAt || 0) < GCACHE_TTL_MS) {
+        return parsed.items;
+      }
+    }
+  } catch {}
+  try {
+    const localRaw = localStorage.getItem(GCACHE);
+    if (localRaw) {
+      const parsed = JSON.parse(localRaw);
+      if (Array.isArray(parsed.items) && parsed.items.length && now - Number(parsed.savedAt || 0) < GCACHE_TTL_MS) {
+        return parsed.items;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function gWriteCache(items) {
+  const payload = JSON.stringify({ savedAt: Date.now(), items });
+  try { sessionStorage.setItem(GCACHE, payload); } catch {}
+  try { localStorage.setItem(GCACHE, payload); } catch {}
+}
+
+async function gFetchFresh() {
+  const res = await fetch('/api/art', { cache: 'force-cache' });
   if (!res.ok) return [];
   const data = await res.json();
   const items = (data.data ?? []).filter(d => d.image_id || d.image_url);
-  if (items.length) sessionStorage.setItem(GCACHE, JSON.stringify(items));
+  if (items.length) gWriteCache(items);
   return items;
+}
+
+async function gFetch() {
+  const cached = gReadCache();
+  if (cached && cached.length) {
+    setTimeout(() => { void gFetchFresh().catch(() => {}); }, 0);
+    return cached;
+  }
+  return gFetchFresh();
 }
 
 async function gInit() {
@@ -994,10 +1261,14 @@ const spBtnNext    = document.getElementById('sp-next');
 const spLinkEl     = document.getElementById('sp-link');
 const spHintEl     = document.getElementById('sp-hint');
 const spDisconnect = document.getElementById('sp-disconnect');
+const spNoticeEl   = document.getElementById('sp-notice');
 
 let spPollIv  = null;
 let spLastArt = '';
 let spVisible = false;
+let pendingAfterLogin = null;
+let spAuthBusy = false;
+let spNoticeTimer = null;
 
 function hasCookie(name) {
   return document.cookie.split(';').some(c => c.trim().startsWith(name + '='));
@@ -1033,6 +1304,57 @@ function spShow(isPlaying) {
 function spHide() {
   spPlayerEl.classList.remove('sp-shown', 'sp-visible', 'sp-mini');
   spVisible = false;
+}
+
+function spNotice(message, type = '') {
+  if (!spNoticeEl) return;
+  if (spNoticeTimer) clearTimeout(spNoticeTimer);
+  spNoticeEl.textContent = message || '';
+  spNoticeEl.className = message ? `show${type ? ' ' + type : ''}` : '';
+  if (!message) return;
+  spNoticeTimer = setTimeout(() => {
+    spNoticeEl.textContent = '';
+    spNoticeEl.className = '';
+  }, type === 'err' ? 5000 : 3200);
+}
+
+async function startSpotifyLink(opts = {}) {
+  const retryAfterLogin = !!opts.retryAfterLogin;
+  if (spAuthBusy) return;
+  spAuthBusy = true;
+  if (spHintEl) spHintEl.style.pointerEvents = 'none';
+  spNotice('Spotify öppnas …');
+  try {
+    const authCheck = await fetch('/api/auth/check', { credentials: 'same-origin' });
+    const authPayload = authCheck.ok ? await authCheck.json().catch(() => null) : null;
+    if (!authPayload || !authPayload.authenticated) {
+      pendingAfterLogin = () => startSpotifyLink({ retryAfterLogin: true });
+      spNotice('Logga in först för att länka Spotify.', 'err');
+      openModal();
+      return;
+    }
+
+    const res = await fetch('/api/spotify/auth-url', { credentials: 'same-origin' });
+    let payload = null;
+    try { payload = await res.json(); } catch {}
+    if (!res.ok || !payload || !payload.url) {
+      const msg = payload && payload.error ? payload.error : 'Spotify kunde inte öppnas just nu.';
+      spNotice(msg, 'err');
+      return;
+    }
+    pendingAfterLogin = null;
+    location.href = payload.url;
+  } catch {
+    spNotice(
+      retryAfterLogin
+        ? 'Spotify kunde inte öppnas efter inloggning.'
+        : 'Spotify kunde inte öppnas just nu.',
+      'err'
+    );
+  } finally {
+    spAuthBusy = false;
+    if (spHintEl) spHintEl.style.pointerEvents = '';
+  }
 }
 
 async function spPoll() {
@@ -1074,15 +1396,7 @@ if (spLinked) {
 
 // ♫ hint: fetch auth URL then navigate to Spotify (same tab → returns to sp1e.se/)
 if (spHintEl) {
-  spHintEl.addEventListener('click', async () => {
-    try {
-      const res = await fetch('/api/spotify/auth-url', { credentials: 'same-origin' });
-      if (res.status === 401) { openModal(); return; } // need to log in first
-      if (!res.ok) return;
-      const { url } = await res.json();
-      location.href = url; // navigate to accounts.spotify.com, returns here after auth
-    } catch {}
-  });
+  spHintEl.addEventListener('click', () => { void startSpotifyLink(); });
 }
 
 // Controls (auth checked server-side via session cookie)
@@ -1119,201 +1433,6 @@ async function doDisconnect() {
 }
 
 if (spDisconnect) spDisconnect.addEventListener('click', e => { e.stopPropagation(); doDisconnect(); });
-
-// ── Cocktail ad banner ────────────────────────────────────────────────────────
-(function () {
-  const DR_THULE = { name: 'Dr. Thule', recipe: 'Norrlands guld\nAmaretto' };
-
-  const POOL = [
-    { name: 'Negroni',              recipe: 'Gin\nCampari\nSöt vermouth' },
-    { name: 'Old Fashioned',        recipe: 'Bourbon\nAngostura\nSocker' },
-    { name: 'Margarita',            recipe: 'Tequila\nTriple sec\nLime' },
-    { name: 'Daiquiri',             recipe: 'Vitt rom\nLimejuice\nSocker' },
-    { name: 'Moscow Mule',          recipe: 'Vodka\nIngefärsbrygg\nLime' },
-    { name: 'Aperol Spritz',        recipe: 'Aperol\nProsecco\nSoda' },
-    { name: 'Mojito',               recipe: 'Rom\nLime\nMynta\nSocker\nSoda' },
-    { name: 'Gin & Tonic',          recipe: 'Gin\nTonicvatten\nLime' },
-    { name: 'Cosmopolitan',         recipe: 'Vodka\nTriple sec\nTranbär\nLime' },
-    { name: 'Whiskey Sour',         recipe: 'Bourbon\nCitronsaft\nSocker\nÄggvita' },
-    { name: 'Bellini',              recipe: 'Prosecco\nPersikopuré' },
-    { name: 'Kir Royale',           recipe: 'Champagne\nCrème de cassis' },
-    { name: 'Manhattan',            recipe: 'Rye\nSöt vermouth\nAngostura' },
-    { name: 'Dry Martini',          recipe: 'Gin\nTorr vermouth\nOliv' },
-    { name: 'Paloma',               recipe: 'Tequila\nGrapefruktsoda\nLime' },
-    { name: 'Piña Colada',          recipe: 'Rom\nAnanasjuice\nKokosgrädde' },
-    { name: 'Tequila Sunrise',      recipe: 'Tequila\nApelsinjuice\nGrenadin' },
-    { name: 'Blue Lagoon',          recipe: 'Vodka\nBlå curaçao\nLemonad' },
-    { name: 'Frosé',                recipe: 'Fryst rosé\nJordgubbar\nCitron' },
-    { name: 'Watermelon Cooler',    recipe: 'Vodka\nVattenmelon\nLime\nMynta' },
-    { name: 'Peach Sangria',        recipe: 'Vitt vin\nPersikoscnapps\nPersika' },
-    { name: 'Strawberry Smash',     recipe: 'Gin\nJordgubbar\nBasilika\nCitron' },
-    { name: 'Cucumber Gimlet',      recipe: 'Gin\nGurka\nLimejuice\nSocker' },
-    { name: 'Tropical Punch',       recipe: 'Rom\nAnanas\nMango\nLime' },
-    { name: 'Lemon Drop',           recipe: 'Vodka\nTriple sec\nCitronsaft' },
-    { name: 'Lavender Lemonade',    recipe: 'Gin\nLavendel\nCitron\nSoda' },
-    { name: 'Mango Tango',          recipe: 'Tequila\nMangojuice\nChili\nLime' },
-    { name: 'Passion Fruit Martini',recipe: 'Vodka\nPassionsfrukt\nVanilj' },
-    { name: 'Coconut Mojito',       recipe: 'Rom\nKokosmjölk\nLime\nMynta' },
-    { name: 'Raspberry Lemonade',   recipe: 'Vodka\nHallon\nCitron\nSocker' },
-    { name: 'Frozen Margarita',     recipe: 'Tequila\nTriple sec\nLime\nIs' },
-    { name: 'Hurricane',            recipe: 'Rom\nPassionsfruktssirap\nLime' },
-    { name: 'Jungle Bird',          recipe: 'Rom\nCampari\nAnanasjuice\nLime' },
-    { name: 'Pink Gin Lemonade',    recipe: 'Rosa gin\nLemonad\nFläder' },
-    { name: 'Lychee Martini',       recipe: 'Vodka\nLychéejuice\nCitron' },
-    { name: 'Blood Orange Spritz',  recipe: 'Aperol\nBlodapelsin\nProsecco' },
-    { name: 'Singapore Sling',      recipe: 'Gin\nKörsbärsliqueur\nAnanas\nLime' },
-    { name: 'Tom Collins',          recipe: 'Gin\nCitronsaft\nSocker\nSoda' },
-    { name: 'Gimlet',               recipe: 'Gin\nLimejuice\nSockerlag' },
-    { name: 'Boulevardier',         recipe: 'Bourbon\nCampari\nSöt vermouth' },
-    { name: 'Bramble',              recipe: 'Gin\nBjörnbärsliqueur\nCitronsaft' },
-    { name: 'French 75',            recipe: 'Gin\nCitronsaft\nSocker\nChampagne' },
-    { name: 'Sidecar',              recipe: 'Cognac\nTriple sec\nCitronsaft' },
-    { name: 'Last Word',            recipe: 'Gin\nChartreuse\nMaraschino\nLime' },
-    { name: 'Paper Plane',          recipe: 'Bourbon\nAperol\nAmaro Nonino\nCitron' },
-    { name: 'Aquavit Sour',         recipe: 'Aquavit\nCitron\nSocker\nÄggvita' },
-    { name: 'Nordic Negroni',       recipe: 'Aquavit\nCampari\nSuze' },
-    { name: 'Lingonberry Fizz',     recipe: 'Vodka\nLingon\nCitron\nSoda' },
-    { name: 'Cloudberry Sling',     recipe: 'Gin\nHjortronslikör\nLime' },
-    { name: 'Smultron Daiquiri',    recipe: 'Rom\nSmultron\nLime' },
-    { name: 'Björnbärsmojito',      recipe: 'Rom\nBjörnbär\nLime\nMynta' },
-    { name: 'Midsommar',            recipe: 'Aquavit\nGurka\nDill\nCitron' },
-    { name: 'Arctic Breeze',        recipe: 'Vodka\nBlåbärsjuice\nCitron\nIngefära' },
-    { name: 'Shandy',               recipe: 'Öl\nLemonad' },
-    { name: 'Michelada',            recipe: 'Öl\nLimejuice\nTabasco\nSalt' },
-    { name: 'Black Velvet',         recipe: 'Stout\nChampagne' },
-    { name: 'Beergarita',           recipe: 'Öl\nTequila\nLimejuice\nTriple sec' },
-    { name: 'Sommar Lager',         recipe: 'Lager\nFläder\nLimejuice' },
-    { name: 'Aperol Gin Fizz',      recipe: 'Aperol\nGin\nCitron\nSoda' },
-    { name: 'White Sangria',        recipe: 'Vitt vin\nPersika\nMango\nMynta' },
-    { name: 'Frozen Strawberry Daiquiri', recipe: 'Rom\nJordgubbar\nLime\nIs' },
-    { name: 'Pineapple Mojito',     recipe: 'Rom\nAnanas\nMynta\nLime' },
-    { name: 'Blue Hawaiian',        recipe: 'Rom\nBlå curaçao\nAnanasjuice' },
-    { name: 'Bahama Mama',          recipe: 'Rom\nKokosrom\nAnanas\nApelsin' },
-    { name: 'Mai Tai',              recipe: 'Rom\nTriple sec\nLime\nOrgeat' },
-    { name: 'Dark \'n\' Stormy',    recipe: 'Mörk rom\nIngefärsbrygg\nLime' },
-    { name: 'Painkiller',           recipe: 'Rom\nAnanas\nApelsin\nKokos' },
-    { name: 'El Diablo',            recipe: 'Tequila\nCrème de cassis\nIngefärsbrygg\nLime' },
-    { name: 'Mezcal Mule',          recipe: 'Mezcal\nIngefärsbrygg\nLime' },
-    { name: 'Espresso Martini',     recipe: 'Vodka\nKahlúa\nEspresso' },
-    { name: 'Elderflower Collins',  recipe: 'Gin\nFläder\nCitronsaft\nSoda' },
-    { name: 'Hibiscus Margarita',   recipe: 'Tequila\nHibiskussirap\nLime\nTriple sec' },
-    { name: 'Grapefruit Negroni',   recipe: 'Gin\nCampari\nVermouth\nGrapefrukt' },
-    { name: 'Thyme Gin Fizz',       recipe: 'Gin\nTimjansirap\nCitron\nÄggvita\nSoda' },
-    { name: 'Americano',            recipe: 'Campari\nSöt vermouth\nSoda' },
-    { name: 'Garibaldi',            recipe: 'Campari\nApelsinjuice' },
-    { name: 'White Negroni',        recipe: 'Gin\nLillet Blanc\nSuze' },
-    { name: 'Vesper',               recipe: 'Gin\nVodka\nLillet Blanc' },
-    { name: 'Bee\'s Knees',         recipe: 'Gin\nHonungssirap\nCitronsaft' },
-    { name: 'Gold Rush',            recipe: 'Bourbon\nHonungssirap\nCitronsaft' },
-    { name: 'Penicillin',           recipe: 'Scotch\nHonungssirap\nIngefära\nIslay float' },
-    { name: 'Naked and Famous',     recipe: 'Mezcal\nAperol\nChartreuse\nLime' },
-    { name: 'Jack Rose',            recipe: 'Applejack\nGrenadin\nCitronsaft' },
-    { name: 'Hanky Panky',          recipe: 'Gin\nSöt vermouth\nFernet-Branca' },
-    { name: 'Corpse Reviver #2',    recipe: 'Gin\nCointreau\nLillet\nCitron' },
-    { name: 'Breakfast Martini',    recipe: 'Gin\nTriple sec\nCitronsaft\nMarmelad' },
-    { name: 'Harvey Wallbanger',    recipe: 'Vodka\nApelsinjuice\nGalliano' },
-    { name: 'Sloe Gin Fizz',        recipe: 'Sloe gin\nCitronsaft\nSocker\nSoda' },
-    { name: 'Pisco Sour',           recipe: 'Pisco\nCitronsaft\nSocker\nÄggvita' },
-    { name: 'Caipirinha',           recipe: 'Cachaça\nLime\nSocker' },
-    { name: 'Caipiroska',           recipe: 'Vodka\nLime\nSocker' },
-    { name: 'Sazerac',              recipe: 'Rye\nAbsint\nAngostura\nSocker' },
-    { name: 'Vieux Carré',          recipe: 'Rye\nCognac\nSöt vermouth\nBénédictine' },
-    { name: 'Blood and Sand',       recipe: 'Scotch\nKirsch\nSöt vermouth\nApelsin' },
-    { name: 'Stinger',              recipe: 'Cognac\nVit crème de menthe' },
-    { name: 'Brandy Alexander',     recipe: 'Cognac\nCrème de cacao\nGrädde' },
-    { name: 'Rusty Nail',           recipe: 'Scotch\nDrambuie' },
-    { name: 'Godfather',            recipe: 'Scotch\nAmaretto' },
-    { name: 'Godmother',            recipe: 'Vodka\nAmaretto' },
-    { name: 'Amaretto Sour',        recipe: 'Amaretto\nCitronsaft\nSocker\nÄggvita' },
-    { name: 'Irish Coffee',         recipe: 'Irländskt whiskey\nKaffe\nVispgrädde' },
-    { name: 'Mimosa',               recipe: 'Champagne\nApelsinjuice' },
-    { name: 'Champagne Cocktail',   recipe: 'Champagne\nSockerbit\nAngostura\nCognac' },
-    { name: 'Air Mail',             recipe: 'Rom\nHonung\nLime\nChampagne' },
-    { name: 'French Connection',    recipe: 'Cognac\nAmaretto' },
-    { name: 'Grasshopper',          recipe: 'Crème de menthe\nCrème de cacao\nGrädde' },
-    { name: 'Blue Moon',            recipe: 'Gin\nCrème de violette\nCitronsaft' },
-    { name: 'Aviation',             recipe: 'Gin\nMaraschino\nCrème de violette\nCitron' },
-    { name: 'Bijou',                recipe: 'Gin\nSöt vermouth\nChartreuse\nBitter' },
-    { name: 'Clover Club',          recipe: 'Gin\nHallonsirap\nCitronsaft\nÄggvita' },
-    { name: 'Between the Sheets',   recipe: 'Rom\nCognac\nTriple sec\nCitron' },
-    { name: 'Spritz Veneziano',     recipe: 'Prosecco\nAperol\nSodavatten' },
-    { name: 'Perfect Manhattan',    recipe: 'Rye\nSöt vermouth\nTorr vermouth\nBitter' },
-    { name: 'Zombie',               recipe: 'Tre sorters rom\nFruktsafter\nGrenadin' },
-    { name: 'Golden Cadillac',      recipe: 'Galliano\nCrème de cacao\nGrädde' },
-    { name: 'Casino',               recipe: 'Gin\nMaraschino\nApelsinbitter\nCitron' },
-    { name: 'Toronto',              recipe: 'Rye\nFernet-Branca\nAngostura\nSocker' },
-    { name: 'Trinidad Sour',        recipe: 'Angostura\nRye\nOrgeat\nCitron' },
-    { name: 'Bamboo',               recipe: 'Torr sherry\nSöt vermouth\nAngostura' },
-    { name: 'Tuxedo',               recipe: 'Gin\nTorr vermouth\nMaraschino\nAbsint' },
-    { name: 'Honey Bee',            recipe: 'Rom\nHonung\nCitronsaft' },
-    { name: 'Sunsplash',            recipe: 'Vodka\nApelsin\nMango\nIngefära' },
-    { name: 'Verde Cruz',           recipe: 'Tequila\nGurka\nJalapeño\nLime' },
-    { name: 'Baltic Breeze',        recipe: 'Aquavit\nBlåbär\nCitron\nSoda' },
-    { name: 'Rose Petal Fizz',      recipe: 'Gin\nRosvatten\nCitron\nSoda\nÄggvita' },
-    { name: 'Midnight Clover',      recipe: 'Bourbon\nHonung\nTimjan\nCitron' },
-    { name: 'Oaxacan Old Fashioned',recipe: 'Mezcal\nTequila\nAgave\nMole bitter' },
-    { name: 'Greenpoint',           recipe: 'Rye\nSöt vermouth\nJaune Chartreuse\nBitter' },
-    { name: 'Lion\'s Tail',         recipe: 'Bourbon\nAllspice Dram\nCitron\nAngostura' },
-    { name: 'Adonis',               recipe: 'Torr sherry\nSöt vermouth\nApelsinbitter' },
-    { name: 'Corpse Reviver #1',    recipe: 'Cognac\nCalvados\nSöt vermouth' },
-    { name: 'Polar Bear',           recipe: 'Vodka\nVit crème de menthe\nKokos' },
-    { name: 'Salty Dog',            recipe: 'Vodka\nGrapefruktsaft\nSalt' },
-    { name: 'Velvet Hammer',        recipe: 'Vodka\nCrème de cacao\nGrädde' },
-    { name: 'Toreador',             recipe: 'Tequila\nCrème de cacao\nGrädde' },
-    { name: 'Solero',               recipe: 'Vodka\nApelsinjuice\nKokosgrädde\nVanilj' },
-    { name: 'Polarexpressen',       recipe: 'Vodka\nBlåbär\nFläder\nLime' },
-    { name: 'Planter\'s Punch',     recipe: 'Rom\nApelsinjuice\nAnanas\nGrenadin' },
-    { name: 'Paradise',             recipe: 'Gin\nAprikosbrännvin\nApelsinjuice' },
-    { name: 'Rattlesnake',          recipe: 'Bourbon\nCitronsaft\nSocker\nÄggvita\nAbsint' },
-  ];
-
-  // Xorshift seeded by UTC day — same day gives same 9 picks
-  const dayN = Math.floor(Date.now() / 86_400_000);
-  let s = (dayN ^ 0x5f3759df) >>> 0;
-  function rng() {
-    s ^= s << 13; s ^= s >>> 17; s ^= s << 5;
-    return (s >>> 0) / 0xffffffff;
-  }
-
-  const shuffled = [...POOL].sort(() => rng() - 0.5);
-  const picks = shuffled.slice(0, 9);
-
-  // Insert Dr. Thule at a deterministic daily position
-  const pos = Math.floor(rng() * 10);
-  const all10 = [...picks.slice(0, pos), DR_THULE, ...picks.slice(pos)];
-
-  const inner = document.getElementById('ad-scroll-inner');
-  if (!inner) return;
-
-  function renderItems(items) {
-    return items.map(d => {
-      const star = d === DR_THULE ? ' ad-item-star' : '';
-      const lines = d.recipe.split('\n').join('<br>');
-      return `<div class="ad-item${star}"><div class="ad-drink-name">${d.name}</div><div class="ad-drink-recipe">${lines}</div></div>`;
-    }).join('');
-  }
-
-  // Double the list for seamless looping
-  inner.innerHTML = renderItems(all10) + renderItems(all10);
-
-  // JS-driven scroll after content insertion.
-  // Two nested rAF calls guarantee layout is complete before measuring scrollHeight.
-  // phase goes 0→1 per cycle; translateY = halfH*(phase-1) goes -halfH→0.
-  // Inner div moves downward → items enter from top, exit at bottom (uppifrån→ned).
-  requestAnimationFrame(function() {
-    requestAnimationFrame(function() {
-      var halfH = inner.scrollHeight / 2;
-      if (!halfH) return;
-      var CYCLE = 110000;
-      var t0 = performance.now();
-      (function tick(now) {
-        var phase = ((now - t0) % CYCLE) / CYCLE;
-        inner.style.transform = 'translateY(' + (halfH * (phase - 1)) + 'px)';
-        requestAnimationFrame(tick);
-      })(t0);
-    });
-  });
-})();
 </script>
 </body>
 </html>
