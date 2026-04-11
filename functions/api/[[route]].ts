@@ -168,7 +168,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'status'           && method === 'GET')  return gameGetStatus(request, env);
       if (id === 'drug-prices'      && method === 'GET')  return gameGetDrugPrices();
       if (id === 'npcs'             && method === 'GET')  return gameGetNpcs(env);
-      if (id === 'simulate'         && method === 'GET')  return gameSimulate(env);
+      if (id === 'simulate'         && method === 'GET')  return gameSimulate(request, env);
       if (id === 'hall-of-fame'     && method === 'GET')  return gameHallOfFame(env);
       if (id === 'suggest-names'    && method === 'GET')  return gameSuggestNames(request);
       if (id === 'weapons'          && method === 'GET')  return gameGetWeapons(request);
@@ -1200,7 +1200,6 @@ function clearGameCookie(): string {
 
 // ── Token-based session cookies (account system) ──────────────────────────────
 const GAME_TOKEN_COOKIE = 'game_token';
-const ADMIN_EMAIL = 'simon.pn@protonmail.com';
 
 function getTokenCookie(request: Request): string | null {
   const cookie = request.headers.get('Cookie') ?? '';
@@ -2432,7 +2431,10 @@ const QUEST_TEMPLATES: { title: string; description: string; reward_mult: number
   { personality:'passive',    title:'Schysst deal',  description:'Köp {qty} portioner marijuana och sälj för mig. Del av vinst.',     reward_mult:0.12 },
 ];
 
-async function gameSimulate(env: Env): Promise<Response> {
+async function gameSimulate(request: Request, env: Env): Promise<Response> {
+  try { await requireGamePlayer(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
+
   const round = await getActiveRound(env);
   if (!round) return gameJson({ activity: [] });
 
@@ -2647,6 +2649,9 @@ async function endRound(env: Env, round: Row): Promise<boolean> {
 }
 
 async function gameNewRound(request: Request, env: Env): Promise<Response> {
+  try { await requireGameAdmin(request, env); }
+  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 403); }
+
   const active = await getActiveRound(env);
   if (active) {
     const secondsLeft = Math.max(0, Math.floor((new Date(active.end_date as string).getTime() - Date.now()) / 1000));
@@ -6199,8 +6204,6 @@ async function gameRegister(request: Request, env: Env): Promise<Response> {
   if (!/^[\w\s\u00C0-\u024F"'-]+$/u.test(name))
     return gameJson({ error: 'Namnet innehåller otillåtna tecken.' }, 400);
 
-  const isAdmin = email === ADMIN_EMAIL;
-
   try {
     const existingAccount = await env.DB.prepare('SELECT id, is_admin FROM game_accounts WHERE email = ?')
       .bind(email).first<Row>();
@@ -6208,16 +6211,12 @@ async function gameRegister(request: Request, env: Env): Promise<Response> {
     let accountId: string;
     let adminFlag: number;
 
-    if (existingAccount && !isAdmin) {
+    if (existingAccount) {
       return gameJson({ error: 'E-postadressen är redan registrerad. Logga in istället.' }, 409);
-    } else if (existingAccount) {
-      // Admin re-creating a character with the same email
-      accountId = existingAccount.id as string;
-      adminFlag = existingAccount.is_admin as number;
     } else {
       const hash = await hashGamePassword(password);
       accountId  = crypto.randomUUID();
-      adminFlag  = isAdmin ? 1 : 0;
+      adminFlag  = 0;
       try {
         await env.DB.prepare(
           `INSERT INTO game_accounts (id, email, password_hash, password_salt, is_admin)
