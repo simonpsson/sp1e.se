@@ -87,6 +87,8 @@ button.primary:hover:not(:disabled){background:rgba(194,58,34,.14);color:var(--w
 #nrg-txt{font-size:10px;color:var(--dim);white-space:nowrap;}
 #nrg-hint{font-size:10px;color:var(--dim);white-space:nowrap;display:none;}
 @media(min-width:600px){#nrg-hint{display:block;}}
+#tb-logout-btn{font-size:10px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--dim);cursor:pointer;letter-spacing:1px;flex-shrink:0;transition:color .15s,border-color .15s;}
+#tb-logout-btn:hover{color:var(--red);border-color:var(--red);}
 
 /* ─── Game layout ─────────────────────────────────────────────────────────── */
 #screen-game{display:none;flex-direction:column;height:100dvh;}
@@ -604,6 +606,7 @@ select:focus{border-color:var(--red);}
       <span id="nrg-txt">100/100</span>
       <span id="nrg-hint"></span>
     </div>
+    <button id="tb-logout-btn" title="Logga ut karaktär">LOGGA UT</button>
   </div>
 
   <!-- Layout -->
@@ -654,6 +657,7 @@ select:focus{border-color:var(--red);}
             <div id="sb-xp-fill" style="height:100%;background:var(--amber);border-radius:2px;width:0%;transition:width .4s;"></div>
           </div>
         </div>
+        <button id="sb-delete-btn" style="margin-top:10px;font-size:10px;padding:3px 8px;background:none;border:1px solid rgba(255,85,85,0.25);color:rgba(255,85,85,0.5);cursor:pointer;letter-spacing:1px;width:100%;transition:color .15s,border-color .15s;" onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.color='rgba(255,85,85,0.5)';this.style.borderColor='rgba(255,85,85,0.25)'">[RADERA KARAKTÄR]</button>
       </div>
       <!-- Nav -->
       <div style="padding:8px 0;">
@@ -1473,6 +1477,30 @@ function showScreen(name){
   if(mn) mn.style.display=name==='game'?'flex':'none';
 }
 
+async function doGameLogout(){
+  if(!confirm('Logga ut? Du kan återta karaktären med samma namn nästa gång.')) return;
+  await api('logout',{method:'POST'});
+  G.player=null;G.extra={};
+  clearInterval(G._pollTimer);G._pollTimer=null;
+  clearInterval(G._pricePoll);G._pricePoll=null;
+  showScreen('create');
+  setMsg('create-err','Du är utloggad.','ok');
+}
+
+async function doDeleteCharacter(){
+  if(!confirm('Radera karaktären permanent? Allt cash, XP och items försvinner för alltid.')) return;
+  const r=await api('delete-character',{method:'DELETE'});
+  if(r._status&&r._status>=400){
+    alert(r.error||'Kunde inte radera karaktären.');
+    return;
+  }
+  G.player=null;G.extra={};
+  clearInterval(G._pollTimer);G._pollTimer=null;
+  clearInterval(G._pricePoll);G._pricePoll=null;
+  showScreen('create');
+  setMsg('create-err','Karaktären är raderad.','ok');
+}
+
 function bindShellControls(){
   const loginBtn=document.getElementById('boot-login-btn');
   if(loginBtn) loginBtn.addEventListener('click',()=>{location.href=AUTH_REDIRECT;});
@@ -1491,6 +1519,10 @@ function bindShellControls(){
   if(roundNext) roundNext.addEventListener('click',startNextRound);
   const lvlClose=document.getElementById('lvlup-close');
   if(lvlClose) lvlClose.addEventListener('click',()=>document.getElementById('lvlup-overlay').classList.remove('show'));
+  const tbLogout=document.getElementById('tb-logout-btn');
+  if(tbLogout) tbLogout.addEventListener('click',doGameLogout);
+  const sbDelete=document.getElementById('sb-delete-btn');
+  if(sbDelete) sbDelete.addEventListener('click',doDeleteCharacter);
 }
 
 function latestHallRound(){
