@@ -492,11 +492,17 @@
     border-radius: 20px;
     cursor: pointer;
     white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
+    opacity: 0.72;
+    pointer-events: all;
     transition: opacity 0.8s ease, border-color 0.25s, color 0.25s;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+  }
+  #immersion-btn.loading,
+  #immersion-btn:disabled {
+    opacity: 0.42;
+    pointer-events: none;
+    cursor: default;
   }
   #immersion-btn.ready { opacity: 1; pointer-events: all; }
   #immersion-btn:hover { border-color: rgba(255,255,255,0.30); color: rgba(255,255,255,0.80); }
@@ -1095,7 +1101,8 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Background gallery ────────────────────────────────────────────────────────
-const GCACHE = 'sp1e-gallery-v5';
+const GCACHE = 'sp1e-gallery-v6';
+const GCACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const GFADE  = 3000;
 const GBASE  = 'https://www.artic.edu/iiif/2';
 
@@ -1106,6 +1113,15 @@ let bgIntervalMs = 28_000;
 
 const bgImgA = document.getElementById('bg-img-a');
 const bgImgB = document.getElementById('bg-img-b');
+
+function gSetImmersionReady(ready) {
+  if (!immBtn) return;
+  immBtn.disabled = !ready;
+  immBtn.classList.toggle('loading', !ready);
+  immBtn.classList.toggle('ready', !!ready);
+}
+
+gSetImmersionReady(false);
 
 function gUrl(art) {
   if (art.image_url) return art.image_url;
@@ -1131,7 +1147,11 @@ function gShowFirst(art) {
   bgFront.onload = () => {
     bgFront.onload = null;
     bgFront.style.opacity = '1';
-    immBtn.classList.add('ready');
+    gSetImmersionReady(true);
+  };
+  bgFront.onerror = () => {
+    bgFront.onerror = null;
+    gSetImmersionReady(false);
   };
 }
 
@@ -1170,15 +1190,51 @@ function gSchedule() {
   }, bgIntervalMs);
 }
 
-async function gFetch() {
-  const c = sessionStorage.getItem(GCACHE);
-  if (c) { try { return JSON.parse(c); } catch {} }
-  const res = await fetch('/api/art');
+function gReadCache() {
+  const now = Date.now();
+  try {
+    const sessionRaw = sessionStorage.getItem(GCACHE);
+    if (sessionRaw) {
+      const parsed = JSON.parse(sessionRaw);
+      if (Array.isArray(parsed.items) && parsed.items.length && now - Number(parsed.savedAt || 0) < GCACHE_TTL_MS) {
+        return parsed.items;
+      }
+    }
+  } catch {}
+  try {
+    const localRaw = localStorage.getItem(GCACHE);
+    if (localRaw) {
+      const parsed = JSON.parse(localRaw);
+      if (Array.isArray(parsed.items) && parsed.items.length && now - Number(parsed.savedAt || 0) < GCACHE_TTL_MS) {
+        return parsed.items;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function gWriteCache(items) {
+  const payload = JSON.stringify({ savedAt: Date.now(), items });
+  try { sessionStorage.setItem(GCACHE, payload); } catch {}
+  try { localStorage.setItem(GCACHE, payload); } catch {}
+}
+
+async function gFetchFresh() {
+  const res = await fetch('/api/art', { cache: 'force-cache' });
   if (!res.ok) return [];
   const data = await res.json();
   const items = (data.data ?? []).filter(d => d.image_id || d.image_url);
-  if (items.length) sessionStorage.setItem(GCACHE, JSON.stringify(items));
+  if (items.length) gWriteCache(items);
   return items;
+}
+
+async function gFetch() {
+  const cached = gReadCache();
+  if (cached && cached.length) {
+    setTimeout(() => { void gFetchFresh().catch(() => {}); }, 0);
+    return cached;
+  }
+  return gFetchFresh();
 }
 
 async function gInit() {
