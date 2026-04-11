@@ -270,18 +270,18 @@ select:focus{border-color:var(--red);}
 .roulette-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.9fr);gap:16px;margin-top:14px;align-items:start;}
 .roulette-board-wrap{display:flex;flex-direction:column;gap:14px;}
 .roulette-grid{display:grid;grid-template-columns:72px repeat(12,minmax(0,1fr));gap:6px;}
-.roulette-zero{grid-row:span 3;min-height:162px;border-radius:10px;border:1px solid #315d4b;background:linear-gradient(180deg,#173026,#0f201a);color:#d8ffe8;font-size:18px;letter-spacing:2px;}
-.roulette-num{min-height:50px;border-radius:8px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+.roulette-zero{grid-row:span 3;min-height:162px;border-radius:0;border:1px solid #315d4b;background:linear-gradient(180deg,#173026,#0f201a);color:#d8ffe8;font-size:18px;letter-spacing:2px;}
+.roulette-num{min-height:50px;border-radius:0;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:700;}
 .roulette-num.red{background:#2a1418;color:#ffd8dc;border-color:#5d2630;}
 .roulette-num.black{background:#101216;color:#f4f4f4;border-color:#2e3540;}
 .roulette-num.green{background:#133125;color:#d6ffe4;border-color:#2f6a4b;}
 .roulette-num.active,.roulette-zero.active{box-shadow:0 0 0 1px rgba(242,74,74,.75) inset,0 0 0 1px rgba(242,74,74,.2),0 0 16px rgba(242,74,74,.16);}
 .roulette-outside{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}
-.roulette-outside button{min-height:44px;border-radius:8px;background:#14171d;}
+.roulette-outside button{min-height:44px;border-radius:2px;background:#14171d;}
 .roulette-outside button.red{background:#251317;border-color:#5d2630;color:#ffd8dc;}
 .roulette-outside button.black{background:#11151b;border-color:#384252;color:#f4f4f4;}
 .roulette-outside button.active{box-shadow:0 0 0 1px rgba(242,74,74,.75) inset,0 0 16px rgba(242,74,74,.14);color:var(--white);}
-.roulette-builder,.roulette-slip,.roulette-history{background:rgba(11,13,18,.88);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.roulette-builder,.roulette-slip,.roulette-history{background:rgba(11,13,18,.88);border:1px solid var(--border);border-radius:0;padding:14px;}
 .roulette-builder{display:flex;flex-direction:column;gap:12px;}
 .roulette-builder-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
 .roulette-builder-grid label,.roulette-slip label{display:flex;flex-direction:column;gap:6px;font-size:10px;color:var(--dim);letter-spacing:1px;}
@@ -289,7 +289,7 @@ select:focus{border-color:var(--red);}
 .roulette-builder-row input,.roulette-builder-row select{min-width:0;flex:1;}
 .roulette-slip-head,.roulette-history-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;}
 .roulette-slip-list,.roulette-history-list{display:flex;flex-direction:column;gap:8px;}
-.roulette-slip-item,.roulette-history-item{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:8px;background:#13161d;padding:10px;}
+.roulette-slip-item,.roulette-history-item{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:0;background:#13161d;padding:10px;}
 .roulette-slip-item strong,.roulette-history-item strong{font-size:12px;color:var(--white);}
 .roulette-slip-meta,.roulette-history-meta{font-size:10px;color:var(--dim);letter-spacing:.7px;line-height:1.5;}
 .roulette-chipbar{display:flex;gap:8px;flex-wrap:wrap;}
@@ -1707,9 +1707,10 @@ function renderWorldStrip(id){
     el.innerHTML='<span>Världen laddar fortfarande. Håll låg profil tills siffrorna är på plats.</span>';
     return;
   }
-  const leader=G.status.world_leader||null;
+  const leader=(G.status.world_top10&&G.status.world_top10[0])||G.status.world_leader||null;
   const selfRank=G.status.world_self_rank?`#${G.status.world_self_rank}`:'Oplacerad';
   const latestWorld=(G.world.events||[])[0];
+  const dom=G.status.side_dominance||null;
   const bits=[
     `<span><strong>Runda ${esc(String(G.status.round.number||'?'))}</strong> pågår</span>`,
     `<span>Tid kvar: <strong>${fmtFull(G.status.round.seconds_left||0)}</strong></span>`,
@@ -1719,6 +1720,11 @@ function renderWorldStrip(id){
       ? `<span>${esc(leader.name)} leder med <strong>${fmtCash(leader.respect||0)}</strong> respect</span>`
       : '<span>Ingen ledare ännu. Perfekt läge att ta första platsen.</span>'
   ];
+  if(dom&&(dom.eastside_count+dom.westside_count)>0){
+    const lead=dom.leading==='eastside'?'Eastside':'Westside';
+    const marginStr=dom.margin>0?`+${fmtCash(dom.margin)}`:'jämt';
+    bits.push(`<span>${lead} dominerar <strong>(${marginStr} resp)</strong></span>`);
+  }
   if(id==='gatan-world'){
     bits.push(latestWorld
       ? `<span>Senast på gatan: <strong>${esc(latestWorld.actor||'Stan')}</strong></span>`
@@ -1738,7 +1744,7 @@ function renderGatan(){
   const cliLog=G.log.map(l=>({ts:l.ts,desc:l.desc,ok:l.ok,kind:'player'}));
   const worldLog=(G.world.events||[]).map(evt=>({
     ts:evt.created_at,
-    desc:evt.description||'Stan rÃ¶rde pÃ¥ sig.',
+    desc:evt.description||'Stan rörde på sig.',
     ok:null,
     kind:'world',
     actor:evt.actor||'Stan',
@@ -3440,8 +3446,11 @@ async function doCreate(){
 
 /* ─── Level-up ───────────────────────────────────────────────────────────── */
 const LEVEL_UNLOCKS={
-  3:'Välj yrke',5:'Köp fordon',8:'Strid mot NPC:er',
-  10:'Fastigheter & Streetrace',15:'Bankrån',20:'Kasinorån',30:'Riksbanken'
+  2:'Fler brott',3:'Välj yrke',4:'Drogmarknad',5:'Köp fordon',
+  6:'Fler mål',7:'Bättre loot',8:'Strid mot NPC:er',9:'Kasino öppnar',
+  10:'Fastigheter & Streetrace',12:'Organiserad brottslighet',
+  15:'Bankrån',18:'Tunga vapen',20:'Kasinorån',
+  25:'Toppligan',30:'Riksbanken',40:'Legendstatus'
 };
 
 function showLevelUp(oldLevel,newLevel){
@@ -3452,9 +3461,15 @@ function showLevelUp(oldLevel,newLevel){
   if(lv) lv.textContent='Level '+newLevel;
   const unlocks=[];
   for(let l=oldLevel+1;l<=newLevel;l++) if(LEVEL_UNLOCKS[l]) unlocks.push(LEVEL_UNLOCKS[l]);
-  if(ul) ul.innerHTML=unlocks.length?'Upplåst: '+unlocks.join(', '):'';
+  let html=unlocks.length?'Upplåst: '+unlocks.join(', '):'';
+  if(G.player&&typeof G.player.xp==='number'&&newLevel<50){
+    const xpFloor=1000*newLevel*(newLevel+1)/2;
+    const xpToNext=xpFloor-G.player.xp;
+    if(xpToNext>0) html+=(html?'<br>':'')+xpToNext.toLocaleString('sv')+'\u00a0XP kvar till level '+(newLevel+1);
+  }
+  if(ul) ul.innerHTML=html;
   ov.classList.add('show');
-  setTimeout(()=>ov.classList.remove('show'),4000);
+  setTimeout(()=>ov.classList.remove('show'),5000);
   ov.onclick=()=>ov.classList.remove('show');
 }
 
