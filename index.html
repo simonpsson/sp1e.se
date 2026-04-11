@@ -455,6 +455,29 @@
   #sp-hint:hover { color: rgba(255,255,255,0.42); }
   #sp-hint.hidden { display: none; }
   body.immersive #sp-hint { opacity: 0; pointer-events: none; }
+  #sp-notice {
+    position: fixed;
+    right: 3.4rem;
+    bottom: 1.9rem;
+    z-index: 10;
+    max-width: 240px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.56);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+    text-align: right;
+  }
+  #sp-notice.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  #sp-notice.err { color: rgba(255,148,148,0.92); }
+  #sp-notice.ok { color: rgba(170,230,190,0.92); }
+  body.immersive #sp-notice { opacity: 0; pointer-events: none; }
 
   /* ── Immersion button ─────────────────────────────── */
   #immersion-btn {
@@ -683,6 +706,7 @@
 
 <!-- ♫ hint — visible when Spotify not linked -->
 <button id="sp-hint" aria-label="Länka Spotify">♫</button>
+<div id="sp-notice" aria-live="polite"></div>
 
 <!-- Immersion controls -->
 <button id="immersion-close" aria-label="Exit immersion">×</button>
@@ -931,7 +955,16 @@ async function attemptLogin() {
       credentials: 'same-origin',
       body: JSON.stringify({ password }),
     });
-    if (res.ok) window.location.href = loginTarget;
+    if (res.ok) {
+      closeModal();
+      if (pendingAfterLogin) {
+        const action = pendingAfterLogin;
+        pendingAfterLogin = null;
+        await action();
+      } else {
+        window.location.href = loginTarget;
+      }
+    }
     else flashError();
   } catch { flashError(); }
   finally { submitting = false; input.disabled = false; }
@@ -1172,10 +1205,14 @@ const spBtnNext    = document.getElementById('sp-next');
 const spLinkEl     = document.getElementById('sp-link');
 const spHintEl     = document.getElementById('sp-hint');
 const spDisconnect = document.getElementById('sp-disconnect');
+const spNoticeEl   = document.getElementById('sp-notice');
 
 let spPollIv  = null;
 let spLastArt = '';
 let spVisible = false;
+let pendingAfterLogin = null;
+let spAuthBusy = false;
+let spNoticeTimer = null;
 
 function hasCookie(name) {
   return document.cookie.split(';').some(c => c.trim().startsWith(name + '='));
@@ -1211,6 +1248,57 @@ function spShow(isPlaying) {
 function spHide() {
   spPlayerEl.classList.remove('sp-shown', 'sp-visible', 'sp-mini');
   spVisible = false;
+}
+
+function spNotice(message, type = '') {
+  if (!spNoticeEl) return;
+  if (spNoticeTimer) clearTimeout(spNoticeTimer);
+  spNoticeEl.textContent = message || '';
+  spNoticeEl.className = message ? `show${type ? ' ' + type : ''}` : '';
+  if (!message) return;
+  spNoticeTimer = setTimeout(() => {
+    spNoticeEl.textContent = '';
+    spNoticeEl.className = '';
+  }, type === 'err' ? 5000 : 3200);
+}
+
+async function startSpotifyLink(opts = {}) {
+  const retryAfterLogin = !!opts.retryAfterLogin;
+  if (spAuthBusy) return;
+  spAuthBusy = true;
+  if (spHintEl) spHintEl.style.pointerEvents = 'none';
+  spNotice('Spotify öppnas …');
+  try {
+    const authCheck = await fetch('/api/auth/check', { credentials: 'same-origin' });
+    const authPayload = authCheck.ok ? await authCheck.json().catch(() => null) : null;
+    if (!authPayload || !authPayload.authenticated) {
+      pendingAfterLogin = () => startSpotifyLink({ retryAfterLogin: true });
+      spNotice('Logga in först för att länka Spotify.', 'err');
+      openModal();
+      return;
+    }
+
+    const res = await fetch('/api/spotify/auth-url', { credentials: 'same-origin' });
+    let payload = null;
+    try { payload = await res.json(); } catch {}
+    if (!res.ok || !payload || !payload.url) {
+      const msg = payload && payload.error ? payload.error : 'Spotify kunde inte öppnas just nu.';
+      spNotice(msg, 'err');
+      return;
+    }
+    pendingAfterLogin = null;
+    location.href = payload.url;
+  } catch {
+    spNotice(
+      retryAfterLogin
+        ? 'Spotify kunde inte öppnas efter inloggning.'
+        : 'Spotify kunde inte öppnas just nu.',
+      'err'
+    );
+  } finally {
+    spAuthBusy = false;
+    if (spHintEl) spHintEl.style.pointerEvents = '';
+  }
 }
 
 async function spPoll() {
@@ -1252,15 +1340,7 @@ if (spLinked) {
 
 // ♫ hint: fetch auth URL then navigate to Spotify (same tab → returns to sp1e.se/)
 if (spHintEl) {
-  spHintEl.addEventListener('click', async () => {
-    try {
-      const res = await fetch('/api/spotify/auth-url', { credentials: 'same-origin' });
-      if (res.status === 401) { openModal(); return; } // need to log in first
-      if (!res.ok) return;
-      const { url } = await res.json();
-      location.href = url; // navigate to accounts.spotify.com, returns here after auth
-    } catch {}
-  });
+  spHintEl.addEventListener('click', () => { void startSpotifyLink(); });
 }
 
 // Controls (auth checked server-side via session cookie)

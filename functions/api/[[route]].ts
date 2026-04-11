@@ -7753,6 +7753,26 @@ function checkNowPlayingRateLimit(request: Request): boolean {
 // index.html detects ?code=&state= on load and exchanges via AJAX POST.
 const SPOTIFY_REDIRECT = 'https://sp1e.se/';
 
+function getSpotifyRedirect(env: Env): string {
+  return (env.SPOTIFY_REDIRECT_URI?.trim() || SPOTIFY_REDIRECT);
+}
+
+function hasSpotifyConfig(env: Env): boolean {
+  return !!(env.SPOTIFY_CLIENT_ID?.trim() && env.SPOTIFY_CLIENT_SECRET?.trim() && getSpotifyRedirect(env));
+}
+
+async function ensureSpotifyTokensTable(env: Env): Promise<void> {
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS spotify_tokens (
+      id TEXT PRIMARY KEY,
+      access_token TEXT NOT NULL,
+      refresh_token TEXT,
+      expires_at INTEGER NOT NULL,
+      updated_at TEXT NOT NULL
+    )`
+  ).run();
+}
+
 // In-memory cache for now-playing (10s).
 let nowPlayingCache: { data: unknown; expires: number } | null = null;
 
@@ -7760,11 +7780,15 @@ let nowPlayingCache: { data: unknown; expires: number } | null = null;
 // spotify-setup.html fetches this, then navigates to accounts.spotify.com.
 async function handleSpotifyAuthUrl(request: Request, env: Env): Promise<Response> {
   await requireAuth(request, env);
+  if (!hasSpotifyConfig(env)) {
+    return json({ error: 'Spotify är inte konfigurerat på servern.' }, 500);
+  }
+  const redirectUri = getSpotifyRedirect(env);
   const state = crypto.randomUUID();
   const params = new URLSearchParams({
     client_id:     env.SPOTIFY_CLIENT_ID,
     response_type: 'code',
-    redirect_uri:  SPOTIFY_REDIRECT,
+    redirect_uri:  redirectUri,
     state,
     scope: 'user-read-currently-playing user-read-playback-state user-modify-playback-state',
   });
@@ -7779,6 +7803,11 @@ async function handleSpotifyAuthUrl(request: Request, env: Env): Promise<Respons
 // Called via POST from spotify-setup.html. Requires site auth + verifies state cookie.
 async function handleSpotifyExchange(request: Request, env: Env): Promise<Response> {
   await requireAuth(request, env);
+  if (!hasSpotifyConfig(env)) {
+    return json({ success: false, error: 'spotify_not_configured' }, 500);
+  }
+  await ensureSpotifyTokensTable(env);
+  const redirectUri = getSpotifyRedirect(env);
 
   let body: { code?: string; state?: string };
   try { body = await request.json() as typeof body; }
@@ -7801,7 +7830,7 @@ async function handleSpotifyExchange(request: Request, env: Env): Promise<Respon
     body: new URLSearchParams({
       grant_type:   'authorization_code',
       code,
-      redirect_uri: SPOTIFY_REDIRECT,
+      redirect_uri: redirectUri,
     }),
   });
 
@@ -7844,6 +7873,7 @@ async function handleSpotifyNowPlaying(env: Env): Promise<Response> {
     });
   }
 
+  await ensureSpotifyTokensTable(env);
   const token = await getValidSpotifyToken(env);
   if (!token) {
     const data = { is_playing: false };
@@ -7961,6 +7991,7 @@ async function handleSpotifyControl(
 // Protected — removes stored tokens and clears the linked cookie.
 async function handleSpotifyDisconnect(request: Request, env: Env): Promise<Response> {
   await requireAuth(request, env);
+  await ensureSpotifyTokensTable(env);
   await env.DB.prepare(`DELETE FROM spotify_tokens WHERE id = 'main'`).run().catch(() => {});
   const h = new Headers({ 'Content-Type': 'application/json', ...cors() });
   h.append('Set-Cookie', 'spotify_linked=; Secure; SameSite=Strict; Path=/; Max-Age=0');
@@ -7970,6 +8001,7 @@ async function handleSpotifyDisconnect(request: Request, env: Env): Promise<Resp
 // ─── Spotify helpers ──────────────────────────────────────────────────────────
 
 async function getValidSpotifyToken(env: Env): Promise<string | null> {
+  await ensureSpotifyTokensTable(env);
   const row = await env.DB
     .prepare(`SELECT access_token, refresh_token, expires_at FROM spotify_tokens WHERE id = 'main'`)
     .first<{ access_token: string; refresh_token: string; expires_at: number }>();
@@ -7983,6 +8015,8 @@ async function getValidSpotifyToken(env: Env): Promise<string | null> {
 }
 
 async function refreshSpotifyToken(env: Env, refreshToken: string): Promise<string | null> {
+  if (!hasSpotifyConfig(env)) return null;
+  await ensureSpotifyTokensTable(env);
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
