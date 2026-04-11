@@ -205,6 +205,46 @@ select:focus{border-color:var(--red);}
 .buy-income{font-size:10px;color:var(--dim);margin-bottom:10px;}
 .collect-all-wrap{margin-bottom:12px;}
 
+/* ─── Talent Tree ──────────────────────────────────────────────────────────── */
+.talent-pts-bar{font-size:11px;color:var(--dim);margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.talent-pts-bar #talent-pts-avail{color:var(--accent);font-weight:500;}
+.talent-respec-btn{font-size:10px;padding:2px 8px;background:none;border:1px solid rgba(255,85,85,0.3);color:rgba(255,85,85,0.6);cursor:pointer;margin-left:auto;transition:color .15s,border-color .15s;}
+.talent-respec-btn:hover{color:var(--red);border-color:var(--red);}
+.talent-prof-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.talent-tab{font-size:10px;padding:4px 10px;background:none;border:1px solid var(--border);color:var(--dim);cursor:pointer;letter-spacing:1px;transition:all .15s;}
+.talent-tab.active,.talent-tab:hover{border-color:var(--accent);color:var(--white);}
+.talent-tab.my-prof{border-color:var(--accent);color:var(--accent);}
+.talent-tab.my-prof.active{background:rgba(74,242,200,.08);}
+.talent-tree-content{display:flex;flex-direction:column;gap:16px;}
+.talent-tier{margin-bottom:4px;}
+.talent-tier-hdr{font-size:10px;color:var(--dim);letter-spacing:1.5px;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:10px;}
+.talent-tier-hdr span{color:var(--amber);}
+.talent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;}
+.talent-card{border:1px solid var(--border);padding:10px 12px;cursor:pointer;transition:border-color .15s,background .15s;position:relative;}
+.talent-card.unlocked{border-color:var(--green);background:rgba(74,230,120,.05);}
+.talent-card.available{border:1px dashed var(--accent);}
+.talent-card.locked{opacity:.45;cursor:default;}
+.talent-card.capstone{border-color:#c4a44a;background:rgba(196,164,74,.04);}
+.talent-card.capstone.unlocked{border-color:#c4a44a;background:rgba(196,164,74,.10);}
+.talent-card-icon{font-size:16px;margin-bottom:4px;}
+.talent-card-name{font-size:11px;font-weight:500;color:var(--white);margin-bottom:3px;letter-spacing:.5px;}
+.talent-card.capstone .talent-card-name{color:#c4a44a;}
+.talent-card-rank{font-size:10px;color:var(--accent);position:absolute;top:8px;right:8px;}
+.talent-card.locked .talent-card-rank{color:var(--dim);}
+.talent-card-desc{font-size:10px;color:var(--dim);line-height:1.4;}
+.talent-lock-icon{position:absolute;bottom:6px;right:8px;font-size:11px;opacity:.5;}
+/* Tooltip */
+.talent-tooltip{position:fixed;bottom:80px;right:16px;width:280px;background:var(--bg2);border:1px solid var(--accent);padding:14px 16px;z-index:9999;box-shadow:0 4px 24px rgba(0,0,0,.5);}
+@media(max-width:640px){.talent-tooltip{bottom:64px;left:8px;right:8px;width:auto;}}
+.ttt-icon{font-size:22px;margin-bottom:6px;}
+.ttt-name{font-size:14px;color:var(--white);font-weight:500;margin-bottom:4px;}
+.ttt-rank{font-size:11px;color:var(--accent);margin-bottom:6px;}
+.ttt-desc{font-size:11px;color:var(--muted,var(--dim));line-height:1.5;margin-bottom:8px;}
+.ttt-prereq{font-size:10px;color:var(--red);margin-bottom:6px;}
+.ttt-cost{font-size:11px;color:var(--amber);margin-bottom:10px;}
+.ttt-actions{display:flex;gap:8px;}
+.ttt-actions button{font-size:10px;padding:4px 10px;}
+
 /* ─── Ranking ─────────────────────────────────────────────────────────────── */
 .rank-table{width:100%;border-collapse:collapse;font-size:12px;}
 .rank-table th{text-align:left;padding:6px 10px;color:var(--dim);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border);}
@@ -668,6 +708,7 @@ select:focus{border-color:var(--red);}
         <button class="nav-btn nv" data-s="vapen">[VAPEN]</button>
         <button class="nav-btn nv" data-s="traning">[TR&Auml;NING]</button>
         <button class="nav-btn nv" data-s="profession">[YRKE]</button>
+        <button class="nav-btn nv" data-s="talents">[TALENTS]</button>
         <button class="nav-btn nv" data-s="bank">[BANK]</button>
         <button class="nav-btn nv" data-s="casino">[CASINO]</button>
         <button class="nav-btn nv" data-s="dev">[DEV]</button>
@@ -789,6 +830,32 @@ select:focus{border-color:var(--red);}
           <div id="prof-grid" class="prof-grid"></div>
         </div>
         <div id="prof-msg" class="amsg"></div>
+      </div>
+
+      <!-- Talents -->
+      <div id="s-talents" class="g-sec">
+        <div class="sec-title">TALENT TREE</div>
+        <div id="talent-points-bar" class="talent-pts-bar">
+          <span id="talent-pts-avail">0</span> poäng tillgängliga &nbsp;·&nbsp;
+          <span id="talent-pts-spent">0</span> spenderade
+          <button id="talent-respec-btn" class="talent-respec-btn">RESPEC (50 000 kr)</button>
+        </div>
+        <div id="talent-prof-tabs" class="talent-prof-tabs"></div>
+        <div id="talent-tree-content" class="talent-tree-content"></div>
+        <div id="talent-msg" class="amsg"></div>
+        <!-- Unlock tooltip -->
+        <div id="talent-tooltip" class="talent-tooltip" style="display:none;">
+          <div class="ttt-icon" id="ttt-icon"></div>
+          <div class="ttt-name" id="ttt-name"></div>
+          <div class="ttt-rank" id="ttt-rank"></div>
+          <div class="ttt-desc" id="ttt-desc"></div>
+          <div class="ttt-prereq" id="ttt-prereq"></div>
+          <div class="ttt-cost" id="ttt-cost"></div>
+          <div class="ttt-actions">
+            <button id="ttt-unlock-btn" class="primary">LÅS UPP</button>
+            <button id="ttt-close-btn">STÄNG</button>
+          </div>
+        </div>
       </div>
 
       <!-- Bank -->
@@ -1163,6 +1230,7 @@ select:focus{border-color:var(--red);}
     <button class="mb" data-s="vapen">VAPEN</button>
     <button class="mb" data-s="traning">TR&Auml;NA</button>
     <button class="mb" data-s="profession">YRKE</button>
+    <button class="mb" data-s="talents">TALENTS</button>
     <button class="mb" data-s="bank">BANK</button>
     <button class="mb" data-s="casino">CASINO</button>
     <button class="mb" data-s="dev">DEV</button>
@@ -1391,6 +1459,7 @@ async function softReload(){
   if(G.section==='casino') renderCasino();
   if(G.section==='ranking') renderRanking();
   if(G.section==='profession') renderProfession();
+  if(G.section==='talents') void loadTalents();
   if(G.section==='bank') renderBank();
   if(G.section==='dev') renderDev();
   if(G.section==='fastigheter') renderFastigheter();
@@ -1684,6 +1753,7 @@ function renderSection(s){
     return;
   }
   el.style.display='block';
+  if(s==='talents'){ void loadTalents(); return; }
   if(sectionDependencyError(s)) setSectionError(sectionDependencyError(s));
   try{
     if(fns[s]) fns[s]();
@@ -3295,6 +3365,232 @@ async function doCollectOne(propId){
     renderTopbar();renderSidebar();renderFastigheter();
   }
 }
+
+/* ─── Talent Tree ──────────────────────────────────────────────────────────── */
+const PROF_LABELS={rånare:'RÅNARE',langare:'LANGARE',torped:'TORPED',hallick:'HALLICK',bedragare:'BEDRAGARE'};
+const TIER_NAMES={1:'TIER 1',2:'TIER 2',3:'TIER 3',4:'TIER 4 — CAPSTONE'};
+const TIER_REQ={1:0,2:5,3:12,4:20};
+
+let G_talents=[];          // all talent definitions
+let G_playerTalents={};    // {talent_id:{rank,unlocked_at}}
+let G_talentPts={total:0,spent:0,available:0};
+let G_talentProf='rånare'; // currently viewed profession tab
+let G_myProfession='none';
+let G_talentSelected=null; // talent object currently in tooltip
+
+async function loadTalents(){
+  const[all,mine]=await Promise.all([api('talents'),api('talents/player')]);
+  if(all.talents) G_talents=all.talents;
+  if(mine.player_talents) G_playerTalents=mine.player_talents;
+  G_talentPts={
+    total: mine.talent_points_total??0,
+    spent: mine.talent_points_spent??0,
+    available: mine.talent_points_available??0,
+  };
+  G_myProfession=mine.profession||activeProfStr();
+  renderTalents();
+}
+
+function activeProfStr(){
+  if(!G.player) return 'none';
+  const p=String(G.player.profession||'none').replace(/^changed:/,'');
+  return p==='none'?'none':p;
+}
+
+function renderTalents(){
+  // Points bar
+  set('talent-pts-avail',G_talentPts.available);
+  set('talent-pts-spent',G_talentPts.spent);
+
+  // Profession tabs
+  const tabs=document.getElementById('talent-prof-tabs');
+  const profs=['rånare','langare','torped','hallick','bedragare'];
+  if(tabs){
+    tabs.innerHTML=profs.map(p=>{
+      const isMine=p===G_myProfession;
+      const isActive=p===G_talentProf;
+      return `<button class="talent-tab${isActive?' active':''}${isMine?' my-prof':''}" data-prof="${p}">${PROF_LABELS[p]||p.toUpperCase()}${isMine?' ★':''}</button>`;
+    }).join('');
+    tabs.querySelectorAll('.talent-tab').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        G_talentProf=btn.dataset.prof;
+        renderTalents();
+      });
+    });
+  }
+
+  // Tree content
+  const content=document.getElementById('talent-tree-content');
+  if(!content) return;
+  const profTalents=G_talents.filter(t=>t.profession===G_talentProf);
+
+  // Count points spent in this profession tree
+  const profSpentPts=profTalents.reduce((sum,t)=>{
+    const pt=G_playerTalents[t.id];
+    return sum+(pt?pt.rank:0);
+  },0);
+
+  const tiers=[1,2,3,4];
+  content.innerHTML=tiers.map(tier=>{
+    const tierTalents=profTalents.filter(t=>t.tier===tier);
+    if(!tierTalents.length) return '';
+    const req=TIER_REQ[tier]??0;
+    const unlocked_tier=profSpentPts>=req;
+    const tierLabel=tier===4?'TIER 4 — CAPSTONE':
+      `TIER ${tier}${req>0?` <span>(kräver ${req} pts i treet — du har ${profSpentPts})</span>`:''}`;
+    const cards=tierTalents.map(t=>renderTalentCard(t,unlocked_tier)).join('');
+    return `<div class="talent-tier">
+      <div class="talent-tier-hdr">${tierLabel}</div>
+      <div class="talent-grid">${cards}</div>
+    </div>`;
+  }).join('');
+
+  // Bind card clicks
+  content.querySelectorAll('.talent-card:not(.locked)').forEach(card=>{
+    card.addEventListener('click',()=>{
+      const tid=card.dataset.talentId;
+      const t=G_talents.find(x=>x.id===tid);
+      if(t) showTalentTooltip(t);
+    });
+  });
+}
+
+function renderTalentCard(t,tierUnlocked){
+  const pt=G_playerTalents[t.id];
+  const rank=pt?pt.rank:0;
+  const maxRank=t.max_rank||1;
+  const isUnlocked=rank>0;
+  const isMaxed=rank>=maxRank;
+  const prereqsMet=checkPrereqs(t);
+  const isCap=t.tier===4;
+
+  let state='locked';
+  if(!tierUnlocked)state='locked';
+  else if(isUnlocked&&isMaxed)state=isCap?'capstone unlocked':'unlocked maxed';
+  else if(isUnlocked)state=isCap?'capstone unlocked':'unlocked';
+  else if(prereqsMet&&G_talentPts.available>0)state=isCap?'capstone available':'available';
+  else if(tierUnlocked&&!isUnlocked)state='locked';
+
+  const lockIcon=state==='locked'?'<span class="talent-lock-icon">🔒</span>':'';
+  const rankBadge=maxRank>1?`<span class="talent-card-rank">${rank}/${maxRank}</span>`
+    :(isUnlocked?'<span class="talent-card-rank">✓</span>':'');
+
+  return `<div class="talent-card ${state}" data-talent-id="${t.id}">
+    ${rankBadge}
+    <div class="talent-card-icon">${t.icon||'◆'}</div>
+    <div class="talent-card-name">${esc(t.name)}</div>
+    <div class="talent-card-desc">${esc(t.description.slice(0,70))}${t.description.length>70?'…':''}</div>
+    ${lockIcon}
+  </div>`;
+}
+
+function checkPrereqs(t){
+  try{
+    const prereqs=JSON.parse(t.prerequisites||'[]');
+    for(const p of prereqs){
+      const[pid,minRankStr]=p.split(':');
+      const minRank=minRankStr?parseInt(minRankStr,10):1;
+      const pt=G_playerTalents[pid];
+      if(!pt||(pt.rank||0)<minRank) return false;
+    }
+    return true;
+  }catch{return true;}
+}
+
+function showTalentTooltip(t){
+  G_talentSelected=t;
+  const pt=G_playerTalents[t.id];
+  const rank=pt?pt.rank:0;
+  const maxRank=t.max_rank||1;
+  const isSameProf=(t.profession===G_myProfession);
+  const cost=isSameProf?1:2;
+  const canUnlock=G_talentPts.available>=cost&&rank<maxRank&&checkPrereqs(t);
+
+  const tip=document.getElementById('talent-tooltip');
+  if(!tip) return;
+  set('ttt-icon',t.icon||'◆');
+  set('ttt-name',t.name);
+  set('ttt-rank',rank>0?`Rank ${rank}/${maxRank}`:(maxRank>1?`0/${maxRank}`:''));
+  set('ttt-desc',t.description);
+
+  // Prerequisites display
+  const prereqEl=document.getElementById('ttt-prereq');
+  try{
+    const prereqs=JSON.parse(t.prerequisites||'[]');
+    if(prereqs.length){
+      const lines=prereqs.map(p=>{
+        const[pid,minRankStr]=p.split(':');
+        const minRank=minRankStr?parseInt(minRankStr,10):1;
+        const pt2=G_playerTalents[pid];
+        const met=pt2&&(pt2.rank||0)>=minRank;
+        const def=G_talents.find(x=>x.id===pid);
+        return `${met?'✓':'✗'} ${def?def.name:pid}${minRank>1?' rank '+minRank:''}`;
+      });
+      if(prereqEl) prereqEl.textContent='Kräver: '+lines.join(', ');
+    } else {
+      if(prereqEl) prereqEl.textContent='';
+    }
+  }catch{ if(prereqEl) prereqEl.textContent=''; }
+
+  const profSpentPts=G_talents.filter(x=>x.profession===t.profession).reduce((s,x)=>{
+    const px=G_playerTalents[x.id]; return s+(px?px.rank:0);
+  },0);
+  const tierReq=TIER_REQ[t.tier]??0;
+  const tierMet=profSpentPts>=tierReq;
+
+  let costText=`Kostnad: ${cost} talent-poäng (${G_talentPts.available} tillgängliga)`;
+  if(!isSameProf) costText+=` [annan profession — 2x]`;
+  if(!tierMet) costText=`🔒 Kräver ${tierReq} pts i treet (du har ${profSpentPts})`;
+  if(rank>=maxRank) costText='✓ Maxad';
+  set('ttt-cost',costText);
+
+  const unlockBtn=document.getElementById('ttt-unlock-btn');
+  if(unlockBtn){
+    unlockBtn.disabled=!canUnlock||!tierMet||rank>=maxRank;
+    unlockBtn.textContent=rank>=maxRank?'MAXAD':rank>0?'UPPGRADERA':'LÅS UPP';
+  }
+  tip.style.display='block';
+}
+
+function hideTalentTooltip(){
+  const tip=document.getElementById('talent-tooltip');
+  if(tip) tip.style.display='none';
+  G_talentSelected=null;
+}
+
+async function doUnlockTalent(){
+  if(!G_talentSelected) return;
+  const btn=document.getElementById('ttt-unlock-btn');
+  if(btn) btn.disabled=true;
+  setMsg('talent-msg','','');
+  const r=await api('talents/unlock',{method:'POST',body:{talent_id:G_talentSelected.id}});
+  if(r.success){
+    setMsg('talent-msg',r.message,'ok');
+    hideTalentTooltip();
+    await loadTalents();
+  }else{
+    setMsg('talent-msg',r.error||'Kunde inte låsa upp talent.','err');
+    if(btn) btn.disabled=false;
+  }
+}
+
+async function doRespec(){
+  if(!confirm('Återställ ALLA talents för 50 000 kr?')) return;
+  const r=await api('talents/respec',{method:'POST'});
+  if(r.success){
+    setMsg('talent-msg',r.message,'ok');
+    await loadTalents();
+    await softReload();
+  }else{
+    setMsg('talent-msg',r.error||'Respec misslyckades.','err');
+  }
+}
+
+(function bindTalentUI(){
+  document.getElementById('ttt-close-btn')?.addEventListener('click',hideTalentTooltip);
+  document.getElementById('ttt-unlock-btn')?.addEventListener('click',doUnlockTalent);
+  document.getElementById('talent-respec-btn')?.addEventListener('click',doRespec);
+})();
 
 /* ─── Ranking ─────────────────────────────────────────────────────────────── */
 function renderRanking(){
