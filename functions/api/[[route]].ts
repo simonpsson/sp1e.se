@@ -3456,14 +3456,16 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
   if (caught) {
     const prisonUntil = new Date(Date.now() + prisonMinutes * 60 * 1000).toISOString();
     await env.DB.prepare(
-      `UPDATE game_players SET cash = ?, respect = respect + ?, xp = ?, level = ?,
+      `UPDATE game_players SET cash = ?, respect = respect + ?, xp = ?,
+       talent_points = talent_points + MAX(0, ? - level), level = ?,
        in_prison = 1, prison_until = ?, last_action = datetime('now') WHERE id = ?`
-    ).bind(currentCash, respectGained, currentXp, newLevel, prisonUntil, pid).run();
+    ).bind(currentCash, respectGained, currentXp, newLevel, newLevel, prisonUntil, pid).run();
   } else {
     await env.DB.prepare(
-      `UPDATE game_players SET cash = ?, respect = respect + ?, xp = ?, level = ?,
+      `UPDATE game_players SET cash = ?, respect = respect + ?, xp = ?,
+       talent_points = talent_points + MAX(0, ? - level), level = ?,
        last_action = datetime('now') WHERE id = ?`
-    ).bind(currentCash, respectGained, currentXp, newLevel, pid).run();
+    ).bind(currentCash, respectGained, currentXp, newLevel, newLevel, pid).run();
   }
 
   // Loot drop (only on success)
@@ -3521,8 +3523,9 @@ async function gameActionTrain(request: Request, env: Env): Promise<Response> {
 
   await updateEnergy(env, player.id as string, energy, COST);
   await env.DB.prepare(
-    `UPDATE game_players SET ${stat} = ?, xp = ?, level = ?, last_action = datetime('now') WHERE id = ?`
-  ).bind(newVal, currentXp, newLevel, player.id as string).run();
+    `UPDATE game_players SET ${stat} = ?, xp = ?,
+     talent_points = talent_points + MAX(0, ? - level), level = ?, last_action = datetime('now') WHERE id = ?`
+  ).bind(newVal, currentXp, newLevel, newLevel, player.id as string).run();
 
   const statSv: Record<string, string> = { strength: 'Styrka', intelligence: 'Intelligens', charisma: 'Karisma', stealth: 'Smygande' };
   const msg = `${statSv[stat] ?? stat} tränad. +${increase} (nu ${newVal}).`;
@@ -3601,8 +3604,9 @@ async function gameActionDrugDeal(request: Request, env: Env): Promise<Response>
     const newLevel = levelFromXp(currentXp);
     await updateEnergy(env, pid, energy, COST);
     await env.DB.prepare(
-      `UPDATE game_players SET cash = cash - ?, xp = ?, level = ?, last_action = datetime('now') WHERE id = ?`
-    ).bind(total, currentXp, newLevel, pid).run();
+      `UPDATE game_players SET cash = cash - ?, xp = ?,
+       talent_points = talent_points + MAX(0, ? - level), level = ?, last_action = datetime('now') WHERE id = ?`
+    ).bind(total, currentXp, newLevel, newLevel, pid).run();
 
     const msg = `K\u00f6per ${quantity}x ${drug} \u00e0 ${unitPrice} kr/st.`;
     await logAction(env, pid, 'drug_deal', msg, -total, 0, xpGained, true);
@@ -3634,9 +3638,10 @@ async function gameActionDrugDeal(request: Request, env: Env): Promise<Response>
     const currentXp = (player.xp as number) + xpGained;
     const newLevel  = levelFromXp(currentXp);
     await env.DB.prepare(
-      `UPDATE game_players SET cash = cash + ?, respect = respect + ?, xp = ?, level = ?,
+      `UPDATE game_players SET cash = cash + ?, respect = respect + ?, xp = ?,
+       talent_points = talent_points + MAX(0, ? - level), level = ?,
        last_action = datetime('now') WHERE id = ?`
-    ).bind(total, respectGained, currentXp, newLevel, pid).run();
+    ).bind(total, respectGained, currentXp, newLevel, newLevel, pid).run();
 
     const msg = `S\u00e4ljer ${quantity}x ${drug} \u00e0 ${unitPrice} kr/st.`;
     await logAction(env, pid, 'drug_deal', msg, total, respectGained, xpGained, true);
@@ -3790,8 +3795,9 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
     const currentXp = (player.xp as number) + xpGained;
     const newLevel  = levelFromXp(currentXp);
     await env.DB.prepare(
-      `UPDATE game_players SET cash = cash + ?, respect = respect + ?, xp = ?, level = ?, last_action = datetime('now') WHERE id = ?`
-    ).bind(cashStolen, respectGained, currentXp, newLevel, pid).run();
+      `UPDATE game_players SET cash = cash + ?, respect = respect + ?, xp = ?,
+       talent_points = talent_points + MAX(0, ? - level), level = ?, last_action = datetime('now') WHERE id = ?`
+    ).bind(cashStolen, respectGained, currentXp, newLevel, newLevel, pid).run();
   } else {
     damageTaken = rand(5, 25);
     message     = `\u2717 Attacken mot ${target.name as string} misslyckades. Du fick stryk.`;
@@ -3871,9 +3877,10 @@ async function gameActionPrisonEscape(request: Request, env: Env): Promise<Respo
     const newLevel = levelFromXp(currentXp);
     await env.DB.prepare(
       `UPDATE game_players
-       SET in_prison = 0, prison_until = NULL, respect = respect + 5, xp = ?, level = ?, last_action = datetime('now')
+       SET in_prison = 0, prison_until = NULL, respect = respect + 5, xp = ?,
+       talent_points = talent_points + MAX(0, ? - level), level = ?, last_action = datetime('now')
        WHERE id = ?`
-    ).bind(currentXp, newLevel, pid).run();
+    ).bind(currentXp, newLevel, newLevel, pid).run();
     await logAction(env, pid, 'prison', 'R\u00f6mde fr\u00e5n f\u00e4ngelset.', 0, 5, xpGained, true);
     return gameJson({
       success: true,
@@ -4071,8 +4078,9 @@ async function gameActionBuyProperty(request: Request, env: Env): Promise<Respon
       `INSERT INTO game_properties (id, player_id, property_type, property_name, level, income_per_hour)
        VALUES (?, ?, ?, ?, 1, ?)`
     ).bind(propId, pid, type, cfg.label, income),
-    env.DB.prepare(`UPDATE game_players SET cash = cash - ?, xp = ?, level = ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(cost, currentXp, newLevel, pid),
+    env.DB.prepare(`UPDATE game_players SET cash = cash - ?, xp = ?,
+      talent_points = talent_points + MAX(0, ? - level), level = ?, last_action = datetime('now') WHERE id = ?`)
+      .bind(cost, currentXp, newLevel, newLevel, pid),
   ]);
 
   await logAction(env, pid, 'property', `K\u00f6pte ${cfg.label} f\u00f6r ${cost} kr.`, -cost, 0, xpGained, true);
@@ -6207,22 +6215,23 @@ async function gameActionHoldemLeave(request: Request, env: Env): Promise<Respon
 async function ensureGameTalentTables(env: Env): Promise<void> {
   await env.DB.batch([
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_talents (
-      id TEXT PRIMARY KEY, profession TEXT NOT NULL, tier INTEGER NOT NULL,
-      name TEXT NOT NULL, description TEXT NOT NULL, icon TEXT DEFAULT '',
-      effects TEXT NOT NULL DEFAULT '{}', prerequisites TEXT DEFAULT '[]',
+      id TEXT PRIMARY KEY, tree TEXT NOT NULL, tier INTEGER NOT NULL,
+      name TEXT NOT NULL, description TEXT NOT NULL, talent_type TEXT NOT NULL,
+      effects TEXT NOT NULL, prerequisites TEXT,
       max_rank INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0
     )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_player_talents (
       id TEXT PRIMARY KEY, player_id TEXT NOT NULL, talent_id TEXT NOT NULL,
-      rank INTEGER DEFAULT 1, unlocked_at TEXT DEFAULT (datetime('now')),
+      current_rank INTEGER DEFAULT 1, unlocked_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (player_id) REFERENCES game_players(id),
       FOREIGN KEY (talent_id) REFERENCES game_talents(id),
       UNIQUE(player_id, talent_id)
     )`),
     env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_gpt_player ON game_player_talents(player_id)`),
-    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_gt_prof_tier ON game_talents(profession, tier, sort_order)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_gt_tree_tier ON game_talents(tree, tier, sort_order)`),
   ]);
-  await env.DB.prepare(`ALTER TABLE game_players ADD COLUMN talent_points_spent INTEGER DEFAULT 0`).run().catch(() => {});
+  // Add talent_points to game_players if not exists
+  await env.DB.prepare(`ALTER TABLE game_players ADD COLUMN talent_points INTEGER DEFAULT 0`).run().catch(() => {});
 }
 
 /** Aggregate all unlocked talent effects for a player into a flat bonus map.
@@ -6232,17 +6241,18 @@ async function ensureGameTalentTables(env: Env): Promise<void> {
 async function getPlayerTalentEffects(env: Env, playerId: string): Promise<Record<string, number>> {
   try {
     const rows = await env.DB.prepare(`
-      SELECT gt.effects, gpt.rank
+      SELECT gt.effects, gpt.current_rank
       FROM game_player_talents gpt
       JOIN game_talents gt ON gt.id = gpt.talent_id
       WHERE gpt.player_id = ?
-    `).bind(playerId).all<{ effects: string; rank: number }>();
+    `).bind(playerId).all<{ effects: string; current_rank: number }>();
     const totals: Record<string, number> = {};
     for (const row of rows.results) {
       try {
-        const fx = JSON.parse(row.effects) as Record<string, number>;
+        const fx = JSON.parse(row.effects) as Record<string, number | boolean>;
         for (const [key, val] of Object.entries(fx)) {
-          totals[key] = (totals[key] ?? 0) + val * (row.rank ?? 1);
+          const n = typeof val === 'boolean' ? (val ? 1 : 0) : Number(val);
+          totals[key] = (totals[key] ?? 0) + n * (row.current_rank ?? 1);
         }
       } catch {}
     }
@@ -6257,7 +6267,7 @@ async function gameGetAllTalents(request: Request, env: Env): Promise<Response> 
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
   await ensureGameTalentTables(env);
   const rows = await env.DB.prepare(
-    `SELECT * FROM game_talents ORDER BY profession, tier, sort_order`
+    `SELECT * FROM game_talents ORDER BY tree, tier, sort_order`
   ).all<Row>();
   return gameJson({ talents: rows.results });
 }
@@ -6267,23 +6277,14 @@ async function gameGetPlayerTalents(request: Request, env: Env): Promise<Respons
   try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
   await ensureGameTalentTables(env);
-  const pid     = player.id as string;
-  const spent   = (player.talent_points_spent as number) ?? 0;
-  const baseTotal = Math.max(0, ((player.level as number) ?? 1) - 1);
-  // bed-t3-prodigy doubles points — check if they have it
-  const hasProdigy = await env.DB.prepare(
-    `SELECT rank FROM game_player_talents WHERE player_id = ? AND talent_id = 'bed-t3-prodigy'`
-  ).bind(pid).first<{ rank: number }>();
-  const totalPoints = hasProdigy ? baseTotal * 2 : baseTotal;
-  const available   = Math.max(0, totalPoints - spent);
+  const pid       = player.id as string;
+  const available = Math.max(0, (player.talent_points as number) ?? 0);
   const rows = await env.DB.prepare(
-    `SELECT talent_id, rank, unlocked_at FROM game_player_talents WHERE player_id = ?`
-  ).bind(pid).all<{ talent_id: string; rank: number; unlocked_at: string }>();
+    `SELECT talent_id, current_rank, unlocked_at FROM game_player_talents WHERE player_id = ?`
+  ).bind(pid).all<{ talent_id: string; current_rank: number; unlocked_at: string }>();
   const talentMap: Record<string, { rank: number; unlocked_at: string }> = {};
-  for (const t of rows.results) talentMap[t.talent_id] = { rank: t.rank, unlocked_at: t.unlocked_at };
+  for (const t of rows.results) talentMap[t.talent_id] = { rank: t.current_rank, unlocked_at: t.unlocked_at };
   return gameJson({
-    talent_points_total:     totalPoints,
-    talent_points_spent:     spent,
     talent_points_available: available,
     player_talents:          talentMap,
     profession:              activeProfession(player),
@@ -6305,52 +6306,45 @@ async function gameUnlockTalent(request: Request, env: Env): Promise<Response> {
 
   const pid        = player.id as string;
   const profession = activeProfession(player);
-  // cross-profession costs 2; bed-t4-ghost removes that penalty
-  const hasGhost = await env.DB.prepare(
-    `SELECT rank FROM game_player_talents WHERE player_id = ? AND talent_id = 'bed-t4-ghost'`
-  ).bind(pid).first<{ rank: number }>();
-  const isSameProfession = (talent.profession as string) === profession;
-  const pointCost = (isSameProfession || hasGhost) ? 1 : 2;
+  // Own tree or core = 1pt; other profession tree = 2pt
+  const talentTree = (talent.tree as string) ?? '';
+  const ownTree    = profession === 'rånare' ? 'ranare' : profession;
+  const isSameOrCore = talentTree === ownTree || talentTree === 'core';
+  const pointCost  = isSameOrCore ? 1 : 2;
 
-  // Available points (bed-t3-prodigy doubles total)
-  const spent      = (player.talent_points_spent as number) ?? 0;
-  const baseTotal  = Math.max(0, ((player.level as number) ?? 1) - 1);
-  const hasProdigy = await env.DB.prepare(
-    `SELECT rank FROM game_player_talents WHERE player_id = ? AND talent_id = 'bed-t3-prodigy'`
-  ).bind(pid).first<{ rank: number }>();
-  const totalPoints = hasProdigy ? baseTotal * 2 : baseTotal;
-  const available   = Math.max(0, totalPoints - spent);
+  // Available points from talent_points column (pool decremented on spend)
+  const available = Math.max(0, (player.talent_points as number) ?? 0);
   if (available < pointCost) {
     return gameJson({ error: `Inte tillräckligt med talent-poäng. Behöver ${pointCost}, har ${available}.` }, 400);
   }
 
-  // Tier gate: count points already spent in this profession tree
+  // Tier gate: total current_rank sum in this tree must meet threshold
   const tier    = talent.tier as number;
-  const tierReq = ({ 1: 0, 2: 5, 3: 12, 4: 20 } as Record<number, number>)[tier] ?? 0;
+  const tierReq = ({ 1: 0, 2: 4, 3: 10, 4: 16 } as Record<number, number>)[tier] ?? 0;
   if (tierReq > 0) {
-    const profSpent = await env.DB.prepare(`
-      SELECT COALESCE(SUM(gpt.rank), 0) AS pts
+    const treeSpent = await env.DB.prepare(`
+      SELECT COALESCE(SUM(gpt.current_rank), 0) AS pts
       FROM game_player_talents gpt
       JOIN game_talents gt ON gt.id = gpt.talent_id
-      WHERE gpt.player_id = ? AND gt.profession = ?
-    `).bind(pid, talent.profession as string).first<{ pts: number }>();
-    if ((profSpent?.pts ?? 0) < tierReq) {
-      return gameJson({ error: `Kräver ${tierReq} poäng i ${talent.profession}-treet. Du har ${profSpent?.pts ?? 0}.` }, 400);
+      WHERE gpt.player_id = ? AND gt.tree = ?
+    `).bind(pid, talentTree).first<{ pts: number }>();
+    if ((treeSpent?.pts ?? 0) < tierReq) {
+      return gameJson({ error: `Kräver ${tierReq} poäng i ${talentTree}-treet. Du har ${treeSpent?.pts ?? 0}.` }, 400);
     }
   }
 
   // Prerequisites check
-  const prereqsRaw = (talent.prerequisites as string) ?? '[]';
-  if (prereqsRaw && prereqsRaw !== '[]') {
+  const prereqsRaw = (talent.prerequisites as string) ?? null;
+  if (prereqsRaw) {
     try {
       const prereqs = JSON.parse(prereqsRaw) as string[];
       for (const preq of prereqs) {
         const [preqId, minRankStr] = preq.split(':');
         const minRank = minRankStr ? parseInt(minRankStr, 10) : 1;
         const preqRow = await env.DB.prepare(
-          `SELECT rank FROM game_player_talents WHERE player_id = ? AND talent_id = ?`
-        ).bind(pid, preqId).first<{ rank: number }>();
-        if (!preqRow || (preqRow.rank ?? 0) < minRank) {
+          `SELECT current_rank FROM game_player_talents WHERE player_id = ? AND talent_id = ?`
+        ).bind(pid, preqId).first<{ current_rank: number }>();
+        if (!preqRow || (preqRow.current_rank ?? 0) < minRank) {
           const preqT = await env.DB.prepare(`SELECT name FROM game_talents WHERE id = ?`).bind(preqId).first<{ name: string }>();
           return gameJson({ error: `Kräver: ${preqT?.name ?? preqId}${minRank > 1 ? ` rank ${minRank}` : ''}.` }, 400);
         }
@@ -6360,24 +6354,25 @@ async function gameUnlockTalent(request: Request, env: Env): Promise<Response> {
 
   // Current rank
   const existing    = await env.DB.prepare(
-    `SELECT rank FROM game_player_talents WHERE player_id = ? AND talent_id = ?`
-  ).bind(pid, talentId).first<{ rank: number }>();
-  const currentRank = existing?.rank ?? 0;
+    `SELECT current_rank FROM game_player_talents WHERE player_id = ? AND talent_id = ?`
+  ).bind(pid, talentId).first<{ current_rank: number }>();
+  const currentRank = existing?.current_rank ?? 0;
   const maxRank     = (talent.max_rank as number) ?? 1;
   if (currentRank >= maxRank) return gameJson({ error: 'Talent är redan maxad.' }, 400);
 
   const newRank = currentRank + 1;
   if (existing) {
     await env.DB.prepare(
-      `UPDATE game_player_talents SET rank = ? WHERE player_id = ? AND talent_id = ?`
+      `UPDATE game_player_talents SET current_rank = ? WHERE player_id = ? AND talent_id = ?`
     ).bind(newRank, pid, talentId).run();
   } else {
     await env.DB.prepare(
-      `INSERT INTO game_player_talents (id, player_id, talent_id, rank) VALUES (?, ?, ?, ?)`
+      `INSERT INTO game_player_talents (id, player_id, talent_id, current_rank) VALUES (?, ?, ?, ?)`
     ).bind(crypto.randomUUID(), pid, talentId, newRank).run();
   }
+  // Deduct from the available pool
   await env.DB.prepare(
-    `UPDATE game_players SET talent_points_spent = talent_points_spent + ? WHERE id = ?`
+    `UPDATE game_players SET talent_points = talent_points - ? WHERE id = ?`
   ).bind(pointCost, pid).run();
 
   return gameJson({
@@ -6400,13 +6395,14 @@ async function gameRespecTalents(request: Request, env: Env): Promise<Response> 
   if ((player.cash as number) < RESPEC_COST) {
     return gameJson({ error: `Respec kostar ${RESPEC_COST.toLocaleString('sv')} kr. Du har ${((player.cash as number) ?? 0).toLocaleString('sv')} kr.` }, 400);
   }
+  const level    = (player.level as number) ?? 1;
+  const restored = Math.max(0, level - 1);
   await env.DB.batch([
     env.DB.prepare(`DELETE FROM game_player_talents WHERE player_id = ?`).bind(pid),
-    env.DB.prepare(`UPDATE game_players SET talent_points_spent = 0, cash = cash - ? WHERE id = ?`).bind(RESPEC_COST, pid),
+    env.DB.prepare(`UPDATE game_players SET talent_points = ?, cash = cash - ? WHERE id = ?`).bind(restored, RESPEC_COST, pid),
   ]);
   await logAction(env, pid, 'respec', `Talents återställda för ${RESPEC_COST.toLocaleString('sv')} kr.`, -RESPEC_COST, 0, 0, true);
-  const baseTotal   = Math.max(0, ((player.level as number) ?? 1) - 1);
-  return gameJson({ success: true, points_available: baseTotal, message: `Alla talents återställda. ${baseTotal} poäng tillgängliga.` });
+  return gameJson({ success: true, points_available: restored, message: `Alla talents återställda. ${restored} poäng tillgängliga.` });
 }
 
 async function gameAdminAuth(request: Request, env: Env): Promise<Response> {
@@ -7068,8 +7064,9 @@ async function gameActionRace(request: Request, env: Env): Promise<Response> {
 
   const newEnergy  = await updateEnergy(env, pid, energy, 10);
   await env.DB.prepare(
-    `UPDATE game_players SET cash = ?, xp = ?, level = ?, respect = respect + ?, last_action = datetime('now') WHERE id = ?`
-  ).bind(newCash, currentXp, newLevel, respectGained, pid).run();
+    `UPDATE game_players SET cash = ?, xp = ?,
+     talent_points = talent_points + MAX(0, ? - level), level = ?, respect = respect + ?, last_action = datetime('now') WHERE id = ?`
+  ).bind(newCash, currentXp, newLevel, newLevel, respectGained, pid).run();
 
   const narrative = won
     ? [...pickRandom(RACE_NARRATIVES), `Vinst! +${cfg.prize.toLocaleString('sv')} kr.`]
