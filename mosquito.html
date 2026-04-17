@@ -838,7 +838,7 @@ select:focus{border-color:var(--red);}
         <div id="talent-points-bar" class="talent-pts-bar">
           <span id="talent-pts-avail">0</span> poäng tillgängliga &nbsp;·&nbsp;
           <span id="talent-pts-spent">0</span> spenderade
-          <button id="talent-respec-btn" class="talent-respec-btn">RESPEC (50 000 kr)</button>
+          <button id="talent-respec-btn" class="talent-respec-btn">ÅTERSTÄLL (50 000 kr)</button>
         </div>
         <div id="talent-prof-tabs" class="talent-prof-tabs"></div>
         <div id="talent-tree-content" class="talent-tree-content"></div>
@@ -3367,27 +3367,34 @@ async function doCollectOne(propId){
 }
 
 /* ─── Talent Tree ──────────────────────────────────────────────────────────── */
-const PROF_LABELS={rånare:'RÅNARE',langare:'LANGARE',torped:'TORPED',hallick:'HALLICK',bedragare:'BEDRAGARE'};
+const PROF_LABELS={core:'CORE',ranare:'RÅNARE',langare:'LANGARE',torped:'TORPED',hallick:'HALLICK',bedragare:'BEDRAGARE'};
 const TIER_NAMES={1:'TIER 1',2:'TIER 2',3:'TIER 3',4:'TIER 4 — CAPSTONE'};
-const TIER_REQ={1:0,2:5,3:12,4:20};
+const TIER_REQ={1:0,2:4,3:10,4:16};
+const TALENT_TREES=['core','ranare','langare','torped','hallick','bedragare'];
 
 let G_talents=[];          // all talent definitions
 let G_playerTalents={};    // {talent_id:{rank,unlocked_at}}
-let G_talentPts={total:0,spent:0,available:0};
-let G_talentProf='rånare'; // currently viewed profession tab
+let G_talentPts={available:0,spent:0,total:0};
+let G_talentTree='core';   // currently viewed tree tab
 let G_myProfession='none';
 let G_talentSelected=null; // talent object currently in tooltip
+
+function ownTreeFor(prof){ return prof==='rånare'?'ranare':prof; }
 
 async function loadTalents(){
   const[all,mine]=await Promise.all([api('talents'),api('talents/player')]);
   if(all.talents) G_talents=all.talents;
   if(mine.player_talents) G_playerTalents=mine.player_talents;
   G_talentPts={
-    total: mine.talent_points_total??0,
-    spent: mine.talent_points_spent??0,
     available: mine.talent_points_available??0,
+    spent:     Object.values(G_playerTalents).reduce((s,t)=>s+(t.rank||0),0),
+    total:     (mine.talent_points_available??0)+Object.values(G_playerTalents).reduce((s,t)=>s+(t.rank||0),0),
   };
   G_myProfession=mine.profession||activeProfStr();
+  if(G_talentTree==='core'||!TALENT_TREES.includes(G_talentTree)){
+    const own=ownTreeFor(G_myProfession);
+    if(TALENT_TREES.includes(own)) G_talentTree=own;
+  }
   renderTalents();
 }
 
@@ -3402,18 +3409,19 @@ function renderTalents(){
   set('talent-pts-avail',G_talentPts.available);
   set('talent-pts-spent',G_talentPts.spent);
 
-  // Profession tabs
+  // Tree tabs (Core + 5 professions)
   const tabs=document.getElementById('talent-prof-tabs');
-  const profs=['rånare','langare','torped','hallick','bedragare'];
   if(tabs){
-    tabs.innerHTML=profs.map(p=>{
-      const isMine=p===G_myProfession;
-      const isActive=p===G_talentProf;
-      return `<button class="talent-tab${isActive?' active':''}${isMine?' my-prof':''}" data-prof="${p}">${PROF_LABELS[p]||p.toUpperCase()}${isMine?' ★':''}</button>`;
+    const myTree=ownTreeFor(G_myProfession);
+    tabs.innerHTML=TALENT_TREES.map(p=>{
+      const isMine=p===myTree;
+      const isActive=p===G_talentTree;
+      const label=PROF_LABELS[p]||p.toUpperCase();
+      return `<button class="talent-tab${isActive?' active':''}${isMine?' my-prof':''}" data-tree="${p}">${label}${isMine?' ★':''}</button>`;
     }).join('');
     tabs.querySelectorAll('.talent-tab').forEach(btn=>{
       btn.addEventListener('click',()=>{
-        G_talentProf=btn.dataset.prof;
+        G_talentTree=btn.dataset.tree;
         renderTalents();
       });
     });
@@ -3422,22 +3430,22 @@ function renderTalents(){
   // Tree content
   const content=document.getElementById('talent-tree-content');
   if(!content) return;
-  const profTalents=G_talents.filter(t=>t.profession===G_talentProf);
+  const treeTalents=G_talents.filter(t=>t.tree===G_talentTree);
 
-  // Count points spent in this profession tree
-  const profSpentPts=profTalents.reduce((sum,t)=>{
+  // Count current_rank sum in this tree
+  const treeSpentPts=treeTalents.reduce((sum,t)=>{
     const pt=G_playerTalents[t.id];
     return sum+(pt?pt.rank:0);
   },0);
 
   const tiers=[1,2,3,4];
   content.innerHTML=tiers.map(tier=>{
-    const tierTalents=profTalents.filter(t=>t.tier===tier);
+    const tierTalents=treeTalents.filter(t=>t.tier===tier);
     if(!tierTalents.length) return '';
     const req=TIER_REQ[tier]??0;
-    const unlocked_tier=profSpentPts>=req;
+    const unlocked_tier=treeSpentPts>=req;
     const tierLabel=tier===4?'TIER 4 — CAPSTONE':
-      `TIER ${tier}${req>0?` <span>(kräver ${req} pts i treet — du har ${profSpentPts})</span>`:''}`;
+      `TIER ${tier}${req>0?` <span>(kräver ${req} pts i treet — du har ${treeSpentPts})</span>`:''}`;
     const cards=tierTalents.map(t=>renderTalentCard(t,unlocked_tier)).join('');
     return `<div class="talent-tier">
       <div class="talent-tier-hdr">${tierLabel}</div>
@@ -3446,7 +3454,7 @@ function renderTalents(){
   }).join('');
 
   // Bind card clicks
-  content.querySelectorAll('.talent-card:not(.locked)').forEach(card=>{
+  content.querySelectorAll('.talent-card').forEach(card=>{
     card.addEventListener('click',()=>{
       const tid=card.dataset.talentId;
       const t=G_talents.find(x=>x.id===tid);
@@ -3462,22 +3470,26 @@ function renderTalentCard(t,tierUnlocked){
   const isUnlocked=rank>0;
   const isMaxed=rank>=maxRank;
   const prereqsMet=checkPrereqs(t);
-  const isCap=t.tier===4;
+  const isCap=t.tier===4||t.talent_type==='keystone';
+
+  const myTree=ownTreeFor(G_myProfession);
+  const cost=(t.tree===myTree||t.tree==='core')?1:2;
 
   let state='locked';
-  if(!tierUnlocked)state='locked';
-  else if(isUnlocked&&isMaxed)state=isCap?'capstone unlocked':'unlocked maxed';
+  if(isUnlocked&&isMaxed)state=isCap?'capstone unlocked':'unlocked maxed';
   else if(isUnlocked)state=isCap?'capstone unlocked':'unlocked';
-  else if(prereqsMet&&G_talentPts.available>0)state=isCap?'capstone available':'available';
-  else if(tierUnlocked&&!isUnlocked)state='locked';
+  else if(!tierUnlocked)state='locked';
+  else if(prereqsMet&&G_talentPts.available>=cost)state=isCap?'capstone available':'available';
+  else state='locked';
 
   const lockIcon=state==='locked'?'<span class="talent-lock-icon">🔒</span>':'';
   const rankBadge=maxRank>1?`<span class="talent-card-rank">${rank}/${maxRank}</span>`
     :(isUnlocked?'<span class="talent-card-rank">✓</span>':'');
+  const typeIcon=t.talent_type==='keystone'?'★':t.talent_type==='unlock'?'◇':'◆';
 
   return `<div class="talent-card ${state}" data-talent-id="${t.id}">
     ${rankBadge}
-    <div class="talent-card-icon">${t.icon||'◆'}</div>
+    <div class="talent-card-icon">${typeIcon}</div>
     <div class="talent-card-name">${esc(t.name)}</div>
     <div class="talent-card-desc">${esc(t.description.slice(0,70))}${t.description.length>70?'…':''}</div>
     ${lockIcon}
@@ -3502,13 +3514,15 @@ function showTalentTooltip(t){
   const pt=G_playerTalents[t.id];
   const rank=pt?pt.rank:0;
   const maxRank=t.max_rank||1;
-  const isSameProf=(t.profession===G_myProfession);
-  const cost=isSameProf?1:2;
+  const myTree=ownTreeFor(G_myProfession);
+  const isSameOrCore=(t.tree===myTree||t.tree==='core');
+  const cost=isSameOrCore?1:2;
   const canUnlock=G_talentPts.available>=cost&&rank<maxRank&&checkPrereqs(t);
 
   const tip=document.getElementById('talent-tooltip');
   if(!tip) return;
-  set('ttt-icon',t.icon||'◆');
+  const typeIcon=t.talent_type==='keystone'?'★':t.talent_type==='unlock'?'◇':'◆';
+  set('ttt-icon',typeIcon);
   set('ttt-name',t.name);
   set('ttt-rank',rank>0?`Rank ${rank}/${maxRank}`:(maxRank>1?`0/${maxRank}`:''));
   set('ttt-desc',t.description);
@@ -3532,15 +3546,15 @@ function showTalentTooltip(t){
     }
   }catch{ if(prereqEl) prereqEl.textContent=''; }
 
-  const profSpentPts=G_talents.filter(x=>x.profession===t.profession).reduce((s,x)=>{
+  const treeSpentPts=G_talents.filter(x=>x.tree===t.tree).reduce((s,x)=>{
     const px=G_playerTalents[x.id]; return s+(px?px.rank:0);
   },0);
   const tierReq=TIER_REQ[t.tier]??0;
-  const tierMet=profSpentPts>=tierReq;
+  const tierMet=treeSpentPts>=tierReq;
 
   let costText=`Kostnad: ${cost} talent-poäng (${G_talentPts.available} tillgängliga)`;
-  if(!isSameProf) costText+=` [annan profession — 2x]`;
-  if(!tierMet) costText=`🔒 Kräver ${tierReq} pts i treet (du har ${profSpentPts})`;
+  if(!isSameOrCore) costText+=` [annat träd — 2x]`;
+  if(!tierMet) costText=`🔒 Kräver ${tierReq} pts i treet (du har ${treeSpentPts})`;
   if(rank>=maxRank) costText='✓ Maxad';
   set('ttt-cost',costText);
 
