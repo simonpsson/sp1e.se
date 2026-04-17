@@ -3401,6 +3401,8 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
 
   // ── Talent bonuses (robbery) ──────────────────────────────────────────────
   const tfx = await getPlayerTalentEffects(env, pid);
+  if ((tfx.robberies_disabled ?? 0) > 0)
+    return gameJson({ error: 'Din Drogbaron-keystone blockerar rån.' }, 400);
   const successChance = Math.min(95, cfg.baseChance + stealth * 0.5 + intelligence * 0.3 + level * 2
     + (tfx.robbery_success_bonus ?? 0) * 100);
   const roll          = Math.random() * 100;
@@ -3417,6 +3419,7 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
     cashGained    = rand(cfg.minCash, cfg.maxCash);
     cashGained    = Math.round(cashGained * (1
       + profBonus(profession, 'robbery_cash')
+      + (tfx.robbery_cash_mult ?? 0)
       + (tfx.robbery_cash_bonus ?? 0)
       + (tfx.crew_cash_bonus ?? 0)));
     respectGained = Math.round(cfg.respect * (1 + (tfx.robbery_respect_bonus ?? 0)));
@@ -3425,25 +3428,39 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
     message       = `\u2713 ${flavorOk} +${cashGained.toLocaleString('sv')} kr.`;
   } else {
     // Missed; chance of getting caught
-    const effectivePrisonChance = cfg.prisonChance * (1 - (tfx.prison_chance_reduction ?? 0));
+    const caughtReduction = (tfx.robbery_caught_reduction ?? 0) + (tfx.prison_chance_reduction ?? 0);
+    const effectivePrisonChance = cfg.prisonChance * Math.max(0, 1 - caughtReduction);
     const caughtRoll = Math.random() * 100;
     caught = caughtRoll < effectivePrisonChance;
-    // Fantomen: 50% chance to avoid prison entirely
-    if (caught && (tfx.prison_avoid_chance ?? 0) > 0 && Math.random() < tfx.prison_avoid_chance) {
+    // Fantomen: chance to dodge prison entirely
+    const prisonDodge = (tfx.robbery_prison_dodge ?? 0) + (tfx.prison_avoid_chance ?? 0);
+    if (caught && prisonDodge > 0 && Math.random() < prisonDodge) {
       caught = false;
     }
     xpGained = xpWithBonus(player, Math.floor(cfg.xp * 0.2));
     const flavorBad = pickRandom(ROBBERY_FLAVOR_FAIL[target] ?? [cfg.label + ' misslyckades.']);
     if (caught) {
       let mins = PRISON_SENTENCES[target] ?? 10;
+      const ptm = tfx.prison_time_mult ?? 0;
+      const prisonMult = ptm === 0 ? 1
+        : ptm < 0 ? Math.max(0.1, 1 + ptm)
+        : ptm < 1 ? ptm
+        : 1;
       mins = Math.max(1, Math.round(mins
         * (1 + profBonus(profession, 'prison_time'))
-        * (1 - Math.min(0.75, (tfx.prison_time_reduction ?? 0) + (tfx.prison_hospital_halved ?? 0) * 0.5))));
+        * prisonMult
+        * Math.max(0.1, 1 - Math.min(0.9, (tfx.prison_time_reduction ?? 0) + (tfx.prison_hospital_halved ?? 0) * 0.5))));
       prisonMinutes = mins;
       message = `\u2717 ${flavorBad} ${prisonMinutes} min i f\u00e4ngelse.`;
     } else {
       message = `\u2717 ${flavorBad} Du lyckades fly.`;
     }
+  }
+
+  // Adrenalinkick: refund energy on success
+  if (success && (tfx.robbery_energy_refund ?? 0) > 0) {
+    await env.DB.prepare(`UPDATE game_players SET energy = MIN(100, energy + ?) WHERE id = ?`)
+      .bind(Math.round(tfx.robbery_energy_refund), pid).run().catch(() => {});
   }
 
   // Compute new XP + level
@@ -3673,7 +3690,14 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   const profession = activeProfession(player);
   // ── Talent bonuses (assault) ──────────────────────────────────────────────
   const tfxA = await getPlayerTalentEffects(env, player.id as string);
-  const COST  = Math.max(5, Math.round(15 * (1 - (tfxA.assault_energy_reduction ?? 0))));
+  if ((tfxA.assault_disabled ?? 0) > 0)
+    return gameJson({ error: 'Din keystone blockerar överfall.' }, 400);
+  const assaultEnergyOverride = tfxA.assault_energy_cost ?? 0;
+  const energyCostAll = tfxA.energy_cost_all ?? 0;
+  const COST  = Math.max(1, Math.round(
+    (assaultEnergyOverride > 0 ? assaultEnergyOverride : 15 * (1 - (tfxA.assault_energy_reduction ?? 0)))
+    + energyCostAll
+  ));
   const energy = calcEnergy(player);
   if (energy < COST) return gameJson({ error: `Inte tillräckligt med energi. Behöver ${COST}.` }, 400);
 
@@ -3742,9 +3766,20 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   const attackerStr  = effectiveStat(player, 'strength');
   const attackerSte  = effectiveStat(player, 'stealth');
   const targetStr    = isNpc ? ((target.strength as number) ?? 10) : effectiveStat(target, 'strength');
-  const berserkerBonus = ((player.hp as number) ?? 100) / Math.max(1, (player.hp_max as number) ?? 100) < 0.30
-    ? (tfxA.berserker_damage_bonus ?? 0) : 0;
-  const dmgMult = 1 + profBonus(profession, 'assault_damage') + (tfxA.assault_damage_bonus ?? 0) + berserkerBonus;
+  const hpPct        = ((player.hp as number) ?? 100) / Math.max(1, (player.hp_max as number) ?? 100);
+  const berserkerThr = (tfxA.berserker_threshold ?? 0) > 0 ? tfxA.berserker_threshold : 0.30;
+  const berserkerBonus = hpPct < berserkerThr
+    ? Math.max(tfxA.berserker_damage_mult ?? 0, tfxA.berserker_damage_bonus ?? 0) : 0;
+  const targetHpCurrent = (isNpc ? (target.hp ?? 50) : target.hp) as number;
+  const targetHpMax     = (isNpc ? (target.hp_max ?? target.hp ?? 50) : (target.hp_max ?? 100)) as number;
+  const targetHpPct     = targetHpCurrent / Math.max(1, targetHpMax);
+  const executeThr      = tfxA.execute_threshold ?? 0;
+  const executeMult     = targetHpPct > 0 && executeThr > 0 && targetHpPct < executeThr
+    ? Math.max(1, tfxA.execute_damage_mult ?? 1) : 1;
+  const dmgMult = (1 + profBonus(profession, 'assault_damage')
+    + (tfxA.assault_damage_mult ?? 0)
+    + (tfxA.assault_damage_bonus ?? 0)
+    + berserkerBonus) * executeMult;
 
   // Multi-shot resolution: each shot checks hit independently
   let totalShotDmg = 0;
@@ -3768,9 +3803,13 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
   let message      = '';
 
   let combatLines: string[] = [];
-  if (success) {
-    damageDelt    = Math.max(5, rand(8, 30) + Math.round(totalShotDmg * 0.4));
-    cashStolen    = Math.floor(((target.cash as number) ?? 0) * (rand(10, 30) / 100));
+  const autoWinNpc = isNpc && (tfxA.assault_auto_win_npc ?? 0) > 0;
+  const forceSuccess = autoWinNpc ? true : success;
+  if (forceSuccess) {
+    damageDelt    = Math.max(5, Math.round((rand(8, 30) + Math.round(totalShotDmg * 0.4)) * executeMult));
+    if (autoWinNpc) damageDelt = Math.max(damageDelt, targetHpCurrent);
+    const cashPct = (tfxA.assault_take_all_cash ?? 0) > 0 ? 100 : rand(10, 30);
+    cashStolen    = Math.floor(((target.cash as number) ?? 0) * (cashPct / 100));
     respectGained = Math.max(1, Math.floor(cashStolen / 200 * (1 + (tfxA.assault_respect_mult ?? 0) * 2)));
     message       = `\u2713 Slog ner ${target.name as string}. Stal ${cashStolen.toLocaleString('sv')} kr.`;
     combatLines   = ASSAULT_WIN_LINES.map(l => l.replace(/\{name\}/g, target.name as string));
@@ -3778,8 +3817,22 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
     combatLines.push(`Du stal ${cashStolen.toLocaleString('sv')} kr.`);
 
     // Reduce target HP
-    const targetHp = Math.max(0, ((isNpc ? (target.hp ?? 50) : target.hp) as number) - damageDelt);
+    const targetHp = Math.max(0, targetHpCurrent - damageDelt);
     const knocked  = targetHp === 0;
+
+    // Blodtörst: knockout bonuses
+    if (knocked) {
+      const knockoutHp = tfxA.knockout_hp_restore ?? 0;
+      const knockoutEnergy = tfxA.knockout_energy_restore ?? 0;
+      const knockoutRespect = tfxA.knockout_respect ?? 0;
+      if (knockoutRespect > 0) respectGained += knockoutRespect;
+      if (knockoutHp > 0)
+        await env.DB.prepare(`UPDATE game_players SET hp = MIN(hp_max, hp + ?) WHERE id = ?`)
+          .bind(knockoutHp, pid).run().catch(() => {});
+      if (knockoutEnergy > 0)
+        await env.DB.prepare(`UPDATE game_players SET energy = MIN(100, energy + ?) WHERE id = ?`)
+          .bind(knockoutEnergy, pid).run().catch(() => {});
+    }
 
     if (isNpc) {
       await env.DB.prepare(`UPDATE game_npcs SET hp = ?, is_alive = ?, cash = cash - ? WHERE id = ?`)
@@ -3827,9 +3880,9 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
      VALUES (?, ?, datetime('now'))`
   ).bind(pid, targetId).run();
 
-  await logAction(env, pid, 'assault', message, cashStolen, respectGained, success ? xpWithBonus(player, 50) : 0, success);
+  await logAction(env, pid, 'assault', message, cashStolen, respectGained, forceSuccess ? xpWithBonus(player, 50) : 0, forceSuccess);
 
-  return gameJson({ success, message, combat_lines: combatLines, damage_dealt: damageDelt, damage_taken: damageTaken, cash_stolen: cashStolen });
+  return gameJson({ success: forceSuccess, message, combat_lines: combatLines, damage_dealt: damageDelt, damage_taken: damageTaken, cash_stolen: cashStolen });
 }
 
 async function gameActionPrisonEscape(request: Request, env: Env): Promise<Response> {
@@ -6306,11 +6359,15 @@ async function gameUnlockTalent(request: Request, env: Env): Promise<Response> {
 
   const pid        = player.id as string;
   const profession = activeProfession(player);
-  // Own tree or core = 1pt; other profession tree = 2pt
+  // Own tree or core = 1pt; other profession tree = 2pt (unless Dubbelliv overrides)
   const talentTree = (talent.tree as string) ?? '';
   const ownTree    = profession === 'rånare' ? 'ranare' : profession;
   const isSameOrCore = talentTree === ownTree || talentTree === 'core';
-  const pointCost  = isSameOrCore ? 1 : 2;
+  let pointCost  = isSameOrCore ? 1 : 2;
+  if (!isSameOrCore) {
+    const te = await getPlayerTalentEffects(env, pid);
+    if ((te.cross_class_cost ?? 0) > 0) pointCost = Math.max(1, te.cross_class_cost);
+  }
 
   // Available points from talent_points column (pool decremented on spend)
   const available = Math.max(0, (player.talent_points as number) ?? 0);
