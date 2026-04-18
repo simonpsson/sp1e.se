@@ -12,6 +12,13 @@
 /game-migration-blackjack.sql    /  301
 /game-migration-holdem.sql       /  301
 /game-migration-accounts.sql     /  301
+/game-talents-schema.sql         /  301
+/game-talents-seed.sql           /  301
 /seed-dax-categories.sql         /  301
 /wrangler.toml                   /  301
 /PROJECT.md                      /  301
+/hemfrid_dax_measures.md         /  301
+/.dev.vars.example               /  301
+/.dev.vars                       /  301
+/.gitignore                      /  301
+/scripts/*                       /  301

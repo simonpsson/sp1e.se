@@ -3647,16 +3647,17 @@ function renderRanking(){
   const self=G.status&&((G.status.world_self)||G.status.self)||null;
   const selfRank=(G.status&&G.status.world_self_rank)||null;
   const myName=G.player?G.player.name:'';
-  const hasSelf=!!myName&&rows.some(row=>row.name===myName);
+  const myId=G.player?G.player.id:'';
+  const hasSelf=!!myId&&rows.some(row=>!(row.is_npc||row.isNpc)&&row.id===myId);
   const rowsHtml=rows.map((row,i)=>{
-    const isNpc=!!row.isNpc;
-    const isMe=row.name===myName;
+    const isNpc=!!(row.is_npc||row.isNpc);
+    const isMe=!isNpc&&row.name===myName;
     const sideLabel=row.side==='westside'?'WEST':'EAST';
     const prof=isNpc?'NPC':(professionName(row.profession)||'?');
     return `<tr${isMe?' class="me"':''}><td>${i+1}</td><td>${esc(row.name)}${isNpc?' <span style="color:var(--dim);font-size:10px;">[NPC]</span>':''}</td><td>Lv${row.level}</td><td>${fmtCash(row.respect||0)}</td><td>${prof}</td><td>${sideLabel}</td></tr>`;
   }).join('');
   const selfHtml=(!hasSelf&&self&&selfRank)
-    ? `<tr class="rank-gap"><td colspan="6">DIN PLACERING</td></tr><tr class="me"><td>${selfRank}</td><td>${esc(self.name)}</td><td>Lv${self.level}</td><td>${fmtCash(self.respect||0)}</td><td>${self.isNpc?'NPC':(professionName(self.profession)||'?')}</td><td>${self.side==='westside'?'WEST':'EAST'}</td></tr>`
+    ? `<tr class="rank-gap"><td colspan="6">DIN PLACERING</td></tr><tr class="me"><td>${selfRank}</td><td>${esc(self.name)}</td><td>Lv${self.level}</td><td>${fmtCash(self.respect||0)}</td><td>${(self.is_npc||self.isNpc)?'NPC':(professionName(self.profession)||'?')}</td><td>${self.side==='westside'?'WEST':'EAST'}</td></tr>`
     : '';
   tbody.innerHTML=rowsHtml+selfHtml;
 }
