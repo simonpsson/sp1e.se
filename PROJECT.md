@@ -10,6 +10,8 @@
 | File storage | Cloudflare R2 — binding `FILES`, bucket `sp1e-files` |
 | Auth | PBKDF2-SHA256 (100 000 iterations) via Web Crypto; session cookie |
 | Password hash | Env var `AUTH_PASSWORD_HASH`; generate with `node scripts/hash-password.js "pw"` |
+| Game admin | Separate env var `GAME_ADMIN_PASSWORD_HASH` (no fallback); `game_admin_session` cookie |
+| Spotify | OAuth client (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI`); tokens stored in `spotify_tokens` |
 
 ## Current Status
 
@@ -63,12 +65,17 @@
 | GET | `public/items` | — | Public items (is_public = 1) |
 | GET | `seed` | ✓ | Seed default categories + subcategories |
 
-## D1 Schema (schema.sql)
+## D1 Schema
 
-Tables: `sessions`, `categories`, `subcategories`, `notes`, `snippets`, `bookmarks`, `files`
+Two SQL bundles:
+
+1. **Hub schema (`schema.sql`):** `sessions`, `categories`, `subcategories`, `notes`, `snippets`, `bookmarks`, `files`, `artworks`, `spotify_tokens`
+2. **Game schema (`game-schema.sql` + `game-talents-schema.sql`):** `game_rounds`, `game_players`, `game_npcs`, `game_inventory`, `game_properties`, `game_quests`, `game_action_log`, `game_assault_cooldowns`, `game_blackjack_hands`, `game_holdem_tables`, `game_roulette_spins`, `game_admin_sessions`, `game_admin_audit`, `game_sessions`, `game_leaderboard`, `game_talents`, `game_player_talents`
 
 - `files` has a `data TEXT` column for base64 D1 fallback when R2 is unavailable
-- Run `npx wrangler d1 execute sp1e-db --remote --file=schema.sql` to apply in production
+- Run `npx wrangler d1 execute sp1e-db --remote --file=schema.sql` to apply
+- Game schema + seed: `game-schema.sql`, `game-seed.sql`, `game-talents-schema.sql`, `game-talents-seed.sql`
+- Round reset: `game-reset.sql` (truncates all game tables, seeds round 1 + 20 NPCs)
 
 ## DAX Deploy Flow
 
@@ -86,7 +93,7 @@ Tables: `sessions`, `categories`, `subcategories`, `notes`, `snippets`, `bookmar
 Notes:
 - `schema.sql` does not include the extra `pb-*` DAX subcategories. Those come from `seed-dax-categories.sql`.
 - The runtime import data is inlined directly inside `functions/api/[[route]].ts` as `DAX_MEASURES`.
-- `functions/api/_dax-data.ts` is generated source material, not the Pages runtime dependency.
+- `scripts/parse-dax-measures.js` can regenerate `_dax-data.ts` from `hemfrid_dax_measures.md` if the source needs to be re-parsed; the generated file is not committed and not imported at runtime.
 
 ## Known Issues / TODO
 

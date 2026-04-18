@@ -8592,7 +8592,7 @@ const spotifyRedirect = (env: Env): string => env.SPOTIFY_REDIRECT_URI || SPOTIF
 let nowPlayingCache: { data: unknown; expires: number } | null = null;
 
 // Returns the Spotify authorize URL as JSON. Sets state cookie (Lax so it's sent on return).
-// spotify-setup.html fetches this, then navigates to accounts.spotify.com.
+// index.html fetches this, then navigates to accounts.spotify.com.
 async function handleSpotifyAuthUrl(request: Request, env: Env): Promise<Response> {
   await requireAuth(request, env);
   const state = crypto.randomUUID();
@@ -8611,7 +8611,7 @@ async function handleSpotifyAuthUrl(request: Request, env: Env): Promise<Respons
   );
 }
 
-// Called via POST from spotify-setup.html. Requires site auth + verifies state cookie.
+// Called via POST from index.html OAuth callback. Requires site auth + verifies state cookie.
 async function handleSpotifyExchange(request: Request, env: Env): Promise<Response> {
   await requireAuth(request, env);
 
@@ -8906,6 +8906,10 @@ async function handleLogout(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleCheck(request: Request, env: Env): Promise<Response> {
+  // Opportunistic GC of expired sessions (~1% of checks).
+  if (Math.random() < 0.01) {
+    await env.DB.prepare(`DELETE FROM sessions WHERE expires_at <= datetime('now')`).run().catch(() => {});
+  }
   const token = getCookie(request, 'session');
   if (!token) return json({ authenticated: false });
   const session = await env.DB
@@ -8977,9 +8981,10 @@ function dbError(error: string, err: unknown, status = 500): Response {
 
 function cors(): Record<string, string> {
   return {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': 'https://sp1e.se',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
+    'Vary': 'Origin',
   };
 }
 
