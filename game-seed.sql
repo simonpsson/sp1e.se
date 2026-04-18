@@ -15,7 +15,7 @@ VALUES (
 
 -- ─── 20 NPC rivals ───────────────────────────────────────────────────────────
 
-INSERT INTO game_npcs (id, round_id, name, level, respect, strength, cash, side, personality, is_alive) VALUES
+INSERT OR IGNORE INTO game_npcs (id, round_id, name, level, respect, strength, cash, side, personality, is_alive) VALUES
   ('npc-01', 'round-001', 'Ronny "Vargen" Pettersson',  12,  8500, 45, 35000, 'westside', 'aggressive', 1),
   ('npc-02', 'round-001', 'Conny "Kulan" Karlsson',     10,  6200, 38, 22000, 'westside', 'brawler',    1),
   ('npc-03', 'round-001', 'Lill-Mange',                  8,  4100, 30, 15000, 'westside', 'cautious',   1),
