@@ -2009,18 +2009,17 @@ function rollLoot(
 async function grantLoot(
   env: Env,
   pid: string,
-  roundId: string,
   item: LootItem,
   source: string,
 ): Promise<void> {
   const id = crypto.randomUUID();
   try {
     await env.DB.prepare(
-      `INSERT INTO game_inventory (id, player_id, round_id, item_type, item_name, quantity,
+      `INSERT INTO game_inventory (id, player_id, item_type, item_name, quantity,
          item_tier, equipped, slot, sell_price, effects, source)
-       VALUES (?, ?, ?, ?, ?, 1, ?, 0, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, 1, ?, 0, ?, ?, ?, ?)`
     ).bind(
-      id, pid, roundId,
+      id, pid,
       item.type,
       item.name,
       item.tier,
@@ -2029,7 +2028,9 @@ async function grantLoot(
       item.effects ? JSON.stringify(item.effects) : null,
       source,
     ).run();
-  } catch { /* ignore duplicate or schema mismatch */ }
+  } catch (e) {
+    console.error('grantLoot failed', { pid, item: item.name, source, error: (e as Error)?.message });
+  }
 }
 
 // ─── Weapon catalog ───────────────────────────────────────────────────────────
@@ -2139,15 +2140,10 @@ async function gameActionBuyWeapon(request: Request, env: Env): Promise<Response
   if (cash < weapon.buy_price)
     return gameJson({ error: `Inte tillräckligt med cash. Behöver ${weapon.buy_price.toLocaleString('sv')} kr.` }, 400);
 
-  // Check not already owned in this round
-  const roundRow = await env.DB.prepare(
-    `SELECT id FROM game_rounds WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1`
-  ).first<{ id: string }>();
-  const roundId = roundRow?.id ?? 'round-001';
-
+  // Check not already owned (game_inventory is wiped per round via game-reset.sql)
   const existing = await env.DB.prepare(
-    `SELECT id FROM game_inventory WHERE player_id = ? AND item_name = ? AND round_id = ?`
-  ).bind(pid, weapon.name, roundId).first<{ id: string }>();
+    `SELECT id FROM game_inventory WHERE player_id = ? AND item_name = ?`
+  ).bind(pid, weapon.name).first<{ id: string }>();
   if (existing) return gameJson({ error: 'Du äger redan det vapnet.' }, 400);
 
   // Auto-equip if no weapon currently equipped
@@ -2162,11 +2158,11 @@ async function gameActionBuyWeapon(request: Request, env: Env): Promise<Response
       env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
         .bind(weapon.buy_price, pid),
       env.DB.prepare(
-        `INSERT INTO game_inventory (id, player_id, round_id, item_type, item_name, quantity,
+        `INSERT INTO game_inventory (id, player_id, item_type, item_name, quantity,
            item_tier, equipped, slot, sell_price, effects, source)
-         VALUES (?, ?, ?, 'weapon', ?, 1, 3, ?, 'weapon', ?, ?, 'shop')`
+         VALUES (?, ?, 'weapon', ?, 1, 3, ?, 'weapon', ?, ?, 'shop')`
       ).bind(
-        itemId, pid, roundId,
+        itemId, pid,
         weapon.name,
         shouldEquip,
         Math.floor(weapon.buy_price * 0.45),
@@ -3473,7 +3469,6 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
 
   // Compute new XP + level
   const currentXp  = (player.xp   as number) + xpGained;
-  const currentCash = (player.cash as number) + cashGained;
   const newLevel    = levelFromXp(currentXp);
 
   const newEnergy   = await updateEnergy(env, pid, energy, cfg.energy);
@@ -3481,16 +3476,16 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
   if (caught) {
     const prisonUntil = new Date(Date.now() + prisonMinutes * 60 * 1000).toISOString();
     await env.DB.prepare(
-      `UPDATE game_players SET cash = ?, respect = respect + ?, xp = ?,
+      `UPDATE game_players SET cash = cash + ?, respect = respect + ?, xp = ?,
        talent_points = talent_points + MAX(0, ? - level), level = ?,
        in_prison = 1, prison_until = ?, last_action = datetime('now') WHERE id = ?`
-    ).bind(currentCash, respectGained, currentXp, newLevel, newLevel, prisonUntil, pid).run();
+    ).bind(cashGained, respectGained, currentXp, newLevel, newLevel, prisonUntil, pid).run();
   } else {
     await env.DB.prepare(
-      `UPDATE game_players SET cash = ?, respect = respect + ?, xp = ?,
+      `UPDATE game_players SET cash = cash + ?, respect = respect + ?, xp = ?,
        talent_points = talent_points + MAX(0, ? - level), level = ?,
        last_action = datetime('now') WHERE id = ?`
-    ).bind(currentCash, respectGained, currentXp, newLevel, newLevel, pid).run();
+    ).bind(cashGained, respectGained, currentXp, newLevel, newLevel, pid).run();
   }
 
   // Loot drop (only on success)
@@ -3506,8 +3501,7 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
         await env.DB.prepare(`UPDATE game_players SET cash = cash + ? WHERE id = ?`).bind(loot.cashBonus, pid).run();
       } else {
         lootMessage = `Du hittade: ${loot.item.name}.`;
-        const roundRow = await env.DB.prepare(`SELECT id FROM game_rounds WHERE is_active = 1 LIMIT 1`).first<Row>();
-        if (roundRow) await grantLoot(env, pid, roundRow.id as string, loot.item, target);
+        await grantLoot(env, pid, loot.item, target);
       }
     }
   }
@@ -3518,7 +3512,7 @@ async function gameActionRobbery(request: Request, env: Env): Promise<Response> 
   return gameJson({
     success, caught, message: fullMessage,
     cash_gained: cashGained, respect_gained: respectGained, xp_gained: xpGained,
-    new_cash: currentCash, new_level: newLevel, energy_left: newEnergy,
+    new_cash: (player.cash as number) + cashGained, new_level: newLevel, energy_left: newEnergy,
     loot: lootItem ? { name: lootItem.name, tier: lootItem.tier, type: lootItem.type } : null,
   });
 }
@@ -3723,12 +3717,15 @@ async function gameActionAssault(request: Request, env: Env): Promise<Response> 
     }
   }
 
-  // Fetch target (NPC or player)
+  // Fetch target (NPC or player) — must be in same round as attacker
+  const attackerRoundId = player.round_id as string;
   let target: Row | null = null;
   if (isNpc) {
-    target = await env.DB.prepare(`SELECT * FROM game_npcs WHERE id = ?`).bind(targetId).first<Row>();
+    target = await env.DB.prepare(`SELECT * FROM game_npcs WHERE id = ? AND round_id = ?`)
+      .bind(targetId, attackerRoundId).first<Row>();
   } else {
-    target = await env.DB.prepare(`SELECT * FROM game_players WHERE id = ?`).bind(targetId).first<Row>();
+    target = await env.DB.prepare(`SELECT * FROM game_players WHERE id = ? AND round_id = ?`)
+      .bind(targetId, attackerRoundId).first<Row>();
   }
   if (!target) return gameJson({ error: 'Target not found.' }, 404);
   if (target.is_alive === 0) return gameJson({ error: 'Target is already down.' }, 400);
@@ -7135,7 +7132,6 @@ async function gameActionRace(request: Request, env: Env): Promise<Response> {
   const won       = Math.random() * 100 < winChance;
 
   const cashDelta  = won ? cfg.prize : -cfg.fee;
-  const newCash    = cash + cashDelta;
   const xpGained   = xpWithBonus(player, won ? cfg.xp : Math.floor(cfg.xp * 0.2));
   const currentXp  = (player.xp as number) + xpGained;
   const newLevel   = levelFromXp(currentXp);
@@ -7143,9 +7139,9 @@ async function gameActionRace(request: Request, env: Env): Promise<Response> {
 
   const newEnergy  = await updateEnergy(env, pid, energy, 10);
   await env.DB.prepare(
-    `UPDATE game_players SET cash = ?, xp = ?,
+    `UPDATE game_players SET cash = cash + ?, xp = ?,
      talent_points = talent_points + MAX(0, ? - level), level = ?, respect = respect + ?, last_action = datetime('now') WHERE id = ?`
-  ).bind(newCash, currentXp, newLevel, newLevel, respectGained, pid).run();
+  ).bind(cashDelta, currentXp, newLevel, newLevel, respectGained, pid).run();
 
   const narrative = won
     ? [...pickRandom(RACE_NARRATIVES), `Vinst! +${cfg.prize.toLocaleString('sv')} kr.`]
