@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS game_players (
   -- Profession: rånare, langare, torped, hallick, bedragare
   profession   TEXT    DEFAULT 'none',
 
+  -- Talent system pool (incremented +1 per level-up; spent on talents)
+  talent_points INTEGER DEFAULT 0,
+
   -- Side
   side         TEXT    DEFAULT 'eastside',
 

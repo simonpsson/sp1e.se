@@ -2947,7 +2947,7 @@ function renderCasinoHoldem(){
   set('holdem-pot',fmtCash(table.pot||0)+' kr');
   set('holdem-street',holdemStreetLabel(table.street));
   set('holdem-call',fmtCash(table.call_amount||0)+' kr');
-  set('holdem-turn',actingSeat?actingSeat.name:(table.street==='hand_over'||table.street==='table_over'?'Showdown':'—'));
+  set('holdem-turn',actingSeat?esc(actingSeat.name):(table.street==='hand_over'||table.street==='table_over'?'Showdown':'—'));
   set('holdem-meta',`Hand ${table.hand_number||0} · Buy-in ${fmtCash(table.buy_in||0)} kr${table.raise_locked?' · Raise låst för kort höjning':''}`);
   renderBlackjackCards('holdem-community-cards',table.community_cards||[]);
   renderHoldemSeats(table.seats||[]);
@@ -3475,12 +3475,22 @@ function renderTalentCard(t,tierUnlocked){
   const myTree=ownTreeFor(G_myProfession);
   const cost=(t.tree===myTree||t.tree==='core')?1:2;
 
-  let state='locked';
-  if(isUnlocked&&isMaxed)state=isCap?'capstone unlocked':'unlocked maxed';
-  else if(isUnlocked)state=isCap?'capstone unlocked':'unlocked';
-  else if(!tierUnlocked)state='locked';
-  else if(prereqsMet&&G_talentPts.available>=cost)state=isCap?'capstone available':'available';
-  else state='locked';
+  const classes=['talent-card'];
+  if(isUnlocked){
+    classes.push('unlocked');
+    if(isMaxed) classes.push('maxed');
+    if(isCap) classes.push('capstone');
+  } else if(!tierUnlocked){
+    classes.push('locked');
+    if(isCap) classes.push('capstone');
+  } else if(prereqsMet&&G_talentPts.available>=cost){
+    classes.push('available');
+    if(isCap) classes.push('capstone');
+  } else {
+    classes.push('locked');
+    if(isCap) classes.push('capstone');
+  }
+  const state=classes.slice(1).join(' ');
 
   const lockIcon=state==='locked'?'<span class="talent-lock-icon">🔒</span>':'';
   const rankBadge=maxRank>1?`<span class="talent-card-rank">${rank}/${maxRank}</span>`
@@ -3523,9 +3533,9 @@ function showTalentTooltip(t){
   if(!tip) return;
   const typeIcon=t.talent_type==='keystone'?'★':t.talent_type==='unlock'?'◇':'◆';
   set('ttt-icon',typeIcon);
-  set('ttt-name',t.name);
+  set('ttt-name',esc(t.name));
   set('ttt-rank',rank>0?`Rank ${rank}/${maxRank}`:(maxRank>1?`0/${maxRank}`:''));
-  set('ttt-desc',t.description);
+  set('ttt-desc',esc(t.description));
 
   // Prerequisites display
   const prereqEl=document.getElementById('ttt-prereq');

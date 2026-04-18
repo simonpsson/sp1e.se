@@ -6468,11 +6468,13 @@ async function gameAdminAuth(request: Request, env: Env): Promise<Response> {
   if (!body.password || typeof body.password !== 'string') {
     return gameJson({ error: 'Ange adminlösenordet först.' }, 400);
   }
-  // Use GAME_ADMIN_PASSWORD_HASH if configured, otherwise fall back to AUTH_PASSWORD_HASH.
+  // GAME_ADMIN_PASSWORD_HASH must be set explicitly — no fallback to site auth.
   const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim();
-  const hashConfig = adminRaw
-    ? inspectPasswordHash(adminRaw)
-    : inspectPasswordHash(String(env.AUTH_PASSWORD_HASH ?? '').trim());
+  if (!adminRaw) {
+    await logGameAdminAudit(env, { command: 'unlock', outcome: 'error', details: 'GAME_ADMIN_PASSWORD_HASH not configured.' });
+    return gameJson({ error: 'Admin ej konfigurerat. Sätt GAME_ADMIN_PASSWORD_HASH.' }, 503);
+  }
+  const hashConfig = inspectPasswordHash(adminRaw);
   if (!hashConfig.isUsable) {
     await logGameAdminAudit(env, { command: 'unlock', outcome: 'error', details: 'Admin password hash missing.' });
     return gameJson({ error: 'Adminlösenordet är inte konfigurerat ännu.' }, 500);
@@ -6508,9 +6510,7 @@ async function gameAdminStatus(request: Request, env: Env): Promise<Response> {
     expires_at: session?.expires_at ?? null,
     configured: (() => {
       const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim();
-      return adminRaw
-        ? inspectPasswordHash(adminRaw).isUsable
-        : inspectPasswordHash(String(env.AUTH_PASSWORD_HASH ?? '').trim()).isUsable;
+      return !!adminRaw && inspectPasswordHash(adminRaw).isUsable;
     })(),
   });
 }
@@ -6669,11 +6669,25 @@ async function gameDeleteCharacter(request: Request, env: Env): Promise<Response
   try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
-  // Delete the player row; cascade handles logs/activity tied to player_id via their own cleanup.
-  await env.DB.prepare('DELETE FROM game_players WHERE id = ?').bind(player.id as string).run().catch(() => {});
-
-  // Also invalidate any game_session entry pointing to this player.
-  await env.DB.prepare('DELETE FROM game_sessions WHERE player_id = ?').bind(player.id as string).run().catch(() => {});
+  const pid = player.id as string;
+  try {
+    // Cascade-delete all rows that reference the player so we never leave orphans.
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM game_player_talents WHERE player_id = ?').bind(pid),
+      env.DB.prepare('DELETE FROM game_inventory WHERE player_id = ?').bind(pid),
+      env.DB.prepare('DELETE FROM game_properties WHERE player_id = ?').bind(pid),
+      env.DB.prepare('DELETE FROM game_quests WHERE player_id = ?').bind(pid),
+      env.DB.prepare('DELETE FROM game_action_log WHERE player_id = ?').bind(pid),
+      env.DB.prepare('DELETE FROM game_assault_cooldowns WHERE attacker_id = ? OR target_id = ?').bind(pid, pid),
+      env.DB.prepare('DELETE FROM game_blackjack_hands WHERE player_id = ?').bind(pid),
+      env.DB.prepare('DELETE FROM game_holdem_tables WHERE player_id = ?').bind(pid),
+      env.DB.prepare('DELETE FROM game_roulette_spins WHERE player_id = ?').bind(pid),
+      env.DB.prepare('DELETE FROM game_sessions WHERE player_id = ?').bind(pid),
+      env.DB.prepare('DELETE FROM game_players WHERE id = ?').bind(pid),
+    ]);
+  } catch (e) {
+    return gameJson({ error: 'Kunde inte radera karaktären. Försök igen.' }, 500);
+  }
 
   const headers = new Headers({ 'Content-Type': 'application/json', ...cors() });
   headers.append('Set-Cookie', clearTokenCookie());
