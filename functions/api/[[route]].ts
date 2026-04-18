@@ -727,14 +727,25 @@ function isAllowedBookmarkUrl(raw: string): boolean {
   let parsed: URL;
   try { parsed = new URL(raw); } catch { return false; }
   if (!['http:', 'https:'].includes(parsed.protocol)) return false;
-  const host = parsed.hostname.toLowerCase();
-  if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1') return false;
-  if (host.startsWith('192.168.') || host.startsWith('10.') || host.endsWith('.local') || host.endsWith('.internal')) return false;
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!host) return false;
+  if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1' || host === '::') return false;
+  if (host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.localhost')) return false;
+  if (host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('169.254.')) return false;
   // Block 172.16.0.0/12
   const m172 = host.match(/^172\.(\d+)\./);
   if (m172 && Number(m172[1]) >= 16 && Number(m172[1]) <= 31) return false;
+  // Block 100.64.0.0/10 (carrier-grade NAT)
+  const m100 = host.match(/^100\.(\d+)\./);
+  if (m100 && Number(m100[1]) >= 64 && Number(m100[1]) <= 127) return false;
+  // Block all 127.x.x.x (loopback)
+  if (host.startsWith('127.')) return false;
+  // Block IPv6 unique-local (fc00::/7) and link-local (fe80::/10)
+  if (/^f[cd][0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host)) return false;
   return true;
 }
+
+const FETCH_META_MAX_BYTES = 1_048_576;
 
 async function fetchBookmarkMeta(request: Request): Promise<Response> {
   let body: { url?: string };
@@ -751,14 +762,30 @@ async function fetchBookmarkMeta(request: Request): Promise<Response> {
       signal: controller.signal,
       redirect: 'follow',
     });
-    clearTimeout(timer);
 
     const ct = res.headers.get('Content-Type') ?? '';
-    if (!ct.includes('text/html')) return json({ title: '', favicon_url: '' });
+    if (!ct.includes('text/html')) { clearTimeout(timer); return json({ title: '', favicon_url: '' }); }
 
-    const raw = await res.arrayBuffer();
-    if (raw.byteLength > 1_048_576) { clearTimeout(timer); return json({ title: '', favicon_url: '' }); }
-    const html = new TextDecoder().decode(raw);
+    const cl = Number(res.headers.get('Content-Length') ?? 0);
+    if (cl > FETCH_META_MAX_BYTES) { controller.abort(); clearTimeout(timer); return json({ title: '', favicon_url: '' }); }
+
+    // Stream up to FETCH_META_MAX_BYTES, abort on overflow.
+    const reader = res.body?.getReader();
+    if (!reader) { clearTimeout(timer); return json({ title: '', favicon_url: '' }); }
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > FETCH_META_MAX_BYTES) { controller.abort(); clearTimeout(timer); return json({ title: '', favicon_url: '' }); }
+      chunks.push(value);
+    }
+    clearTimeout(timer);
+    const merged = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { merged.set(c, off); off += c.byteLength; }
+    const html = new TextDecoder().decode(merged);
 
     const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     const title = titleMatch
@@ -2315,26 +2342,7 @@ async function gameCreateCharacter(request: Request, env: Env): Promise<Response
       `SELECT id FROM game_players WHERE name = ? AND round_id = ?`
     ).bind(name, round.id as string).first();
     if (existing) {
-      // Allow reclaim only if caller has no active cookie (logged out) or already owns this character.
-      // Reject if they have a cookie for a DIFFERENT character (prevents name stealing).
-      const currentCookie = getGameCookie(request);
-      if (currentCookie && currentCookie !== (existing.id as string)) {
-        return gameJson({ error: 'Det namnet är upptaget. Välj ett annat.' }, 409);
-      }
-      const existingPlayer = await env.DB
-        .prepare('SELECT * FROM game_players WHERE id = ?')
-        .bind(existing.id as string).first<Row>();
-      if (existingPlayer) {
-        const player = await syncGamePlayerState(env, existingPlayer);
-        return new Response(JSON.stringify({ player, existing: true }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Set-Cookie': setGameCookie(existing.id as string),
-            ...cors(),
-          },
-        });
-      }
+      return gameJson({ error: 'Namnet är redan taget.' }, 409);
     }
 
     const pid = crypto.randomUUID();
@@ -8577,7 +8585,8 @@ function checkNowPlayingRateLimit(request: Request): boolean {
 // Hardcoded redirect URI — must match the Spotify Developer Dashboard exactly.
 // Uses the root page (always served by nginx) so Spotify's redirect lands safely.
 // index.html detects ?code=&state= on load and exchanges via AJAX POST.
-const SPOTIFY_REDIRECT = 'https://sp1e.se/';
+const SPOTIFY_REDIRECT_DEFAULT = 'https://sp1e.se/';
+const spotifyRedirect = (env: Env): string => env.SPOTIFY_REDIRECT_URI || SPOTIFY_REDIRECT_DEFAULT;
 
 // In-memory cache for now-playing (10s).
 let nowPlayingCache: { data: unknown; expires: number } | null = null;
@@ -8590,7 +8599,7 @@ async function handleSpotifyAuthUrl(request: Request, env: Env): Promise<Respons
   const params = new URLSearchParams({
     client_id:     env.SPOTIFY_CLIENT_ID,
     response_type: 'code',
-    redirect_uri:  SPOTIFY_REDIRECT,
+    redirect_uri:  spotifyRedirect(env),
     state,
     scope: 'user-read-currently-playing user-read-playback-state user-modify-playback-state',
   });
@@ -8627,7 +8636,7 @@ async function handleSpotifyExchange(request: Request, env: Env): Promise<Respon
     body: new URLSearchParams({
       grant_type:   'authorization_code',
       code,
-      redirect_uri: SPOTIFY_REDIRECT,
+      redirect_uri: spotifyRedirect(env),
     }),
   });
 

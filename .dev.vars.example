@@ -8,10 +8,11 @@
 # Do not include `AUTH_PASSWORD_HASH=` or wrapping quotes.
 
 AUTH_PASSWORD_HASH=pbkdf2:100000:<saltHex>:<hashHex>
-# Optional. If omitted, Mosquito dev console falls back to AUTH_PASSWORD_HASH.
+# Required for Mosquito admin console. No fallback to AUTH_PASSWORD_HASH.
 GAME_ADMIN_PASSWORD_HASH=pbkdf2:100000:<saltHex>:<hashHex>
 
 # Spotify integration (required for /hub/spotify-setup and /api/spotify/* routes)
 SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
-SPOTIFY_REDIRECT_URI=http://localhost:8788/api/spotify/callback
+# Production: https://sp1e.se/   |   Local dev: http://localhost:8788/
+SPOTIFY_REDIRECT_URI=https://sp1e.se/
