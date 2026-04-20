@@ -631,7 +631,12 @@ function deleteSnippet() {
   showConfirm(`Radera "${SNIPPET.title ?? 'snippet'}"?`, async () => {
     startProgress();
     try {
-      await fetch(`/api/snippets/${SNIPPET.id}`, { method: 'DELETE', credentials: 'same-origin' });
+      const res = await fetch(`/api/snippets/${SNIPPET.id}`, { method: 'DELETE', credentials: 'same-origin' });
+      if (!res.ok) {
+        showToast('Kunde inte ta bort snippet. Försök igen.');
+        stopProgress();
+        return;
+      }
       location.href = SNIPPET.category_id ? `/hub/category/?id=${SNIPPET.category_id}` : '/hub';
     } catch {
       showToast('Kunde inte ta bort snippet.');

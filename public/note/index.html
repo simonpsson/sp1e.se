@@ -156,6 +156,7 @@
 <footer><a href="/">sp1e.se</a></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js" crossorigin="anonymous"></script>
 <script>
 (async () => {
   const noteId = new URLSearchParams(location.search).get('id') ?? '';
@@ -186,7 +187,7 @@
 
   const content = (note.content ?? '').trim();
   const prose = content
-    ? `<div class="prose">${marked.parse(content)}</div>`
+    ? `<div class="prose">${DOMPurify.sanitize(marked.parse(content))}</div>`
     : '<p style="color:var(--muted);font-size:0.8rem;font-style:italic">Ingen text.</p>';
 
   main.innerHTML = `

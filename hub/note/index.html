@@ -378,6 +378,7 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js" crossorigin="anonymous"></script>
 <script>
 // ── Progress + Toast ──────────────────────────────────
 const progressEl = document.getElementById('progress');
@@ -502,7 +503,7 @@ function renderMarkdown() {
     pane.innerHTML = '<p class="empty-content">Ingen text ännu — klicka "Redigera" för att lägga till.</p>';
     return;
   }
-  pane.innerHTML = marked.parse(content);
+  pane.innerHTML = DOMPurify.sanitize(marked.parse(content));
 }
 
 function showPreview() {
@@ -604,7 +605,12 @@ function deleteNote() {
   showConfirm(`Radera "${NOTE.title ?? 'anteckningen'}"?`, async () => {
     startProgress();
     try {
-      await fetch(`/api/notes/${NOTE.id}`, { method: 'DELETE', credentials: 'same-origin' });
+      const res = await fetch(`/api/notes/${NOTE.id}`, { method: 'DELETE', credentials: 'same-origin' });
+      if (!res.ok) {
+        showToast('Kunde inte ta bort anteckningen. Försök igen.');
+        stopProgress();
+        return;
+      }
       location.href = NOTE.category_id ? `/hub/category/?id=${NOTE.category_id}` : '/hub';
     } catch {
       showToast('Kunde inte ta bort anteckningen.');

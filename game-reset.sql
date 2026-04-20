@@ -1,21 +1,32 @@
--- sp1e.se Mosquito — seed game data
--- Run AFTER game-schema.sql:
--- npx wrangler d1 execute sp1e-db --remote --file=game-seed.sql
+-- sp1e.se Mosquito — full round reset
+-- WARNING: Wipes all player and game data. Run in D1 console:
+-- npx wrangler d1 execute sp1e-db --remote --file=game-reset.sql
 
--- ─── Active round 1 ──────────────────────────────────────────────────────────
+DELETE FROM game_action_log;
+DELETE FROM game_inventory;
+DELETE FROM game_properties;
+DELETE FROM game_quests;
+DELETE FROM game_assault_cooldowns;
+DELETE FROM game_player_talents;
+DELETE FROM game_blackjack_hands;
+DELETE FROM game_holdem_tables;
+DELETE FROM game_roulette_spins;
+DELETE FROM game_admin_sessions;
+DELETE FROM game_admin_audit;
+DELETE FROM game_sessions;
+DELETE FROM game_npcs;
+DELETE FROM game_players;
+DELETE FROM game_rounds;
+DELETE FROM game_leaderboard;
 
-INSERT OR IGNORE INTO game_rounds (id, round_number, start_date, end_date, is_active)
-VALUES (
-  'round-001',
-  1,
-  datetime('now'),
-  datetime('now', '+30 days'),
-  1
-);
+-- ─── Fresh round 1 ───────────────────────────────────────────────────────────
+
+INSERT INTO game_rounds (id, round_number, start_date, end_date, is_active)
+VALUES ('round-001', 1, datetime('now'), datetime('now', '+30 days'), 1);
 
 -- ─── 20 NPC rivals ───────────────────────────────────────────────────────────
 
-INSERT OR IGNORE INTO game_npcs (id, round_id, name, level, respect, strength, cash, side, personality, is_alive) VALUES
+INSERT INTO game_npcs (id, round_id, name, level, respect, strength, cash, side, personality, is_alive) VALUES
   ('npc-01', 'round-001', 'Ronny "Vargen" Pettersson',  12,  8500, 45, 35000, 'westside', 'aggressive', 1),
   ('npc-02', 'round-001', 'Conny "Kulan" Karlsson',     10,  6200, 38, 22000, 'westside', 'brawler',    1),
   ('npc-03', 'round-001', 'Lill-Mange',                  8,  4100, 30, 15000, 'westside', 'cautious',   1),

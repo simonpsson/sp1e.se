@@ -10,6 +10,8 @@
 | File storage | Cloudflare R2 — binding `FILES`, bucket `sp1e-files` |
 | Auth | PBKDF2-SHA256 (100 000 iterations) via Web Crypto; session cookie |
 | Password hash | Env var `AUTH_PASSWORD_HASH`; generate with `node scripts/hash-password.js "pw"` |
+| Game admin | Separate env var `GAME_ADMIN_PASSWORD_HASH` (no fallback); `game_admin_session` cookie |
+| Spotify | OAuth client (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI`); tokens stored in `spotify_tokens` |
 
 ## Current Status
 
@@ -25,13 +27,13 @@
 |---|---|---|
 | `/` | `index.html` | Landing page — logo, Mosquito + Σ.Π. cards, painting background, Immersion mode |
 | `/hub` | `hub.html` | Private hub — categories, gallery, search, recent items |
-| `/mosquito` | `mosquito.html` | Public game hub — placeholder, game card grid ready for content |
+| `/mosquito` | `mosquito.html` | Mosquito game — character creation, crime, robbery, casino (blackjack, roulette, hold'em), gang, properties, leaderboard |
 | `/hub/note/*` | `hub/note/index.html` | Note detail/edit view |
 | `/visitor` | (redirect) | Redirects to `/mosquito` |
 
 ## Landing Page Features
 
-- **Background gallery** — impressionist paintings from Art Institute of Chicago public API (`/api/art` proxy), rotating every 28 s, shared sessionStorage cache `sp1e-gallery-v3`
+- **Background gallery** — impressionist paintings from Art Institute of Chicago public API (`/api/art` proxy), rotating every 28 s, shared sessionStorage/localStorage cache `sp1e-gallery-v6`
 - **Immersion mode** — full-screen `object-fit: contain` painting view; ‹ › navigation arrows; idle auto-hide (3 s); painting info caption (artist, title, year); exits on × or Escape
 - **Entry points** — "Mosquito" → `/mosquito`; "Σ.Π." → password modal → `/hub`
 - **Password modal** — bare input, Enter submits, Escape/backdrop closes, red flash on wrong password; no teal anywhere
@@ -47,7 +49,6 @@
 | POST | `auth/login` | — | Password → session cookie |
 | POST | `auth/logout` | — | Clears session cookie |
 | GET | `auth/check` | — | Returns `{ authenticated: bool }` |
-| GET | `auth/debug` | — | Hash + D1 diagnostics (dev only) |
 | GET | `categories` | ✓ | All categories with item counts |
 | GET | `subcategories` | ✓ | Subcategories (optionally by category) |
 | GET | `recent` | ✓ | 20 most recently updated items |
@@ -64,12 +65,17 @@
 | GET | `public/items` | — | Public items (is_public = 1) |
 | GET | `seed` | ✓ | Seed default categories + subcategories |
 
-## D1 Schema (schema.sql)
+## D1 Schema
 
-Tables: `sessions`, `categories`, `subcategories`, `notes`, `snippets`, `bookmarks`, `files`
+Two SQL bundles:
+
+1. **Hub schema (`schema.sql`):** `sessions`, `categories`, `subcategories`, `notes`, `snippets`, `bookmarks`, `files`, `artworks`, `spotify_tokens`
+2. **Game schema (`game-schema.sql` + `game-talents-schema.sql`):** `game_rounds`, `game_players`, `game_npcs`, `game_inventory`, `game_properties`, `game_quests`, `game_action_log`, `game_assault_cooldowns`, `game_blackjack_hands`, `game_holdem_tables`, `game_roulette_spins`, `game_admin_sessions`, `game_admin_audit`, `game_sessions`, `game_leaderboard`, `game_talents`, `game_player_talents`
 
 - `files` has a `data TEXT` column for base64 D1 fallback when R2 is unavailable
-- Run `npx wrangler d1 execute sp1e-db --remote --file=schema.sql` to apply in production
+- Run `npx wrangler d1 execute sp1e-db --remote --file=schema.sql` to apply
+- Game schema + seed: `game-schema.sql`, `game-seed.sql`, `game-talents-schema.sql`, `game-talents-seed.sql`
+- Round reset: `game-reset.sql` (truncates all game tables, seeds round 1 + 20 NPCs)
 
 ## DAX Deploy Flow
 
@@ -87,15 +93,13 @@ Tables: `sessions`, `categories`, `subcategories`, `notes`, `snippets`, `bookmar
 Notes:
 - `schema.sql` does not include the extra `pb-*` DAX subcategories. Those come from `seed-dax-categories.sql`.
 - The runtime import data is inlined directly inside `functions/api/[[route]].ts` as `DAX_MEASURES`.
-- `functions/api/_dax-data.ts` is generated source material, not the Pages runtime dependency.
+- `scripts/parse-dax-measures.js` can regenerate `_dax-data.ts` from `hemfrid_dax_measures.md` if the source needs to be re-parsed; the generated file is not committed and not imported at runtime.
 
 ## Known Issues / TODO
 
 - [ ] File upload to R2 not tested end-to-end
-- [ ] Snippets CRUD needs end-to-end testing
 - [ ] Bookmarks auto-fetch-meta needs testing
 - [ ] Search full-text ranking may need tuning
-- [ ] Mosquito game hub is placeholder only — no games yet
 - [ ] Mobile responsive testing needed across all pages
 - [ ] `/visitor` redirect to `/mosquito` not implemented (old links will 404)
 - [ ] Light theme in hub not fully tested with all components

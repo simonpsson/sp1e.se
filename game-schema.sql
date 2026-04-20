@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS game_players (
   -- Profession: rånare, langare, torped, hallick, bedragare
   profession   TEXT    DEFAULT 'none',
 
+  -- Talent system pool (incremented +1 per level-up; spent on talents)
+  talent_points INTEGER DEFAULT 0,
+
   -- Side
   side         TEXT    DEFAULT 'eastside',
 
@@ -55,6 +58,7 @@ CREATE TABLE IF NOT EXISTS game_players (
 
   last_action  TEXT    DEFAULT (datetime('now')),
   created_at   TEXT    DEFAULT (datetime('now')),
+  account_id   TEXT    REFERENCES game_accounts(id),
 
   FOREIGN KEY (round_id) REFERENCES game_rounds(id)
 );
@@ -272,3 +276,49 @@ CREATE TABLE IF NOT EXISTS game_quests (
 );
 
 CREATE INDEX IF NOT EXISTS idx_game_quests_player ON game_quests (player_id, status);
+
+-- ─── Asset registry ───────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_assets (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  category   TEXT NOT NULL,   -- weapon, action, status, ui, misc
+  tags       TEXT,            -- JSON array of tags
+  file_path  TEXT NOT NULL UNIQUE,
+  web_path   TEXT NOT NULL,   -- /assets/icons/filename.png
+  format     TEXT NOT NULL,   -- png, svg, webp
+  width      INTEGER,
+  height     INTEGER,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_assets_category ON game_assets (category);
+
+-- ─── Account system ───────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS game_accounts (
+  id            TEXT PRIMARY KEY,
+  email         TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  is_admin      INTEGER DEFAULT 0,
+  created_at    TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_accounts_email ON game_accounts (email);
+
+CREATE TABLE IF NOT EXISTS game_sessions (
+  token      TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  player_id  TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL,
+  FOREIGN KEY (account_id) REFERENCES game_accounts(id),
+  FOREIGN KEY (player_id)  REFERENCES game_players(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_sessions_account  ON game_sessions (account_id);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_expires  ON game_sessions (expires_at);
+
+-- Add account_id to game_players (run once on existing databases):
+-- ALTER TABLE game_players ADD COLUMN account_id TEXT REFERENCES game_accounts(id);

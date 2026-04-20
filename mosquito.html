@@ -87,6 +87,8 @@ button.primary:hover:not(:disabled){background:rgba(194,58,34,.14);color:var(--w
 #nrg-txt{font-size:10px;color:var(--dim);white-space:nowrap;}
 #nrg-hint{font-size:10px;color:var(--dim);white-space:nowrap;display:none;}
 @media(min-width:600px){#nrg-hint{display:block;}}
+#tb-logout-btn{font-size:10px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--dim);cursor:pointer;letter-spacing:1px;flex-shrink:0;transition:color .15s,border-color .15s;}
+#tb-logout-btn:hover{color:var(--red);border-color:var(--red);}
 
 /* ─── Game layout ─────────────────────────────────────────────────────────── */
 #screen-game{display:none;flex-direction:column;height:100dvh;}
@@ -203,6 +205,46 @@ select:focus{border-color:var(--red);}
 .buy-income{font-size:10px;color:var(--dim);margin-bottom:10px;}
 .collect-all-wrap{margin-bottom:12px;}
 
+/* ─── Talent Tree ──────────────────────────────────────────────────────────── */
+.talent-pts-bar{font-size:11px;color:var(--dim);margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.talent-pts-bar #talent-pts-avail{color:var(--accent);font-weight:500;}
+.talent-respec-btn{font-size:10px;padding:2px 8px;background:none;border:1px solid rgba(255,85,85,0.3);color:rgba(255,85,85,0.6);cursor:pointer;margin-left:auto;transition:color .15s,border-color .15s;}
+.talent-respec-btn:hover{color:var(--red);border-color:var(--red);}
+.talent-prof-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.talent-tab{font-size:10px;padding:4px 10px;background:none;border:1px solid var(--border);color:var(--dim);cursor:pointer;letter-spacing:1px;transition:all .15s;}
+.talent-tab.active,.talent-tab:hover{border-color:var(--accent);color:var(--white);}
+.talent-tab.my-prof{border-color:var(--accent);color:var(--accent);}
+.talent-tab.my-prof.active{background:rgba(74,242,200,.08);}
+.talent-tree-content{display:flex;flex-direction:column;gap:16px;}
+.talent-tier{margin-bottom:4px;}
+.talent-tier-hdr{font-size:10px;color:var(--dim);letter-spacing:1.5px;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:10px;}
+.talent-tier-hdr span{color:var(--amber);}
+.talent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;}
+.talent-card{border:1px solid var(--border);padding:10px 12px;cursor:pointer;transition:border-color .15s,background .15s;position:relative;}
+.talent-card.unlocked{border-color:var(--green);background:rgba(74,230,120,.05);}
+.talent-card.available{border:1px dashed var(--accent);}
+.talent-card.locked{opacity:.45;cursor:default;}
+.talent-card.capstone{border-color:#c4a44a;background:rgba(196,164,74,.04);}
+.talent-card.capstone.unlocked{border-color:#c4a44a;background:rgba(196,164,74,.10);}
+.talent-card-icon{font-size:16px;margin-bottom:4px;}
+.talent-card-name{font-size:11px;font-weight:500;color:var(--white);margin-bottom:3px;letter-spacing:.5px;}
+.talent-card.capstone .talent-card-name{color:#c4a44a;}
+.talent-card-rank{font-size:10px;color:var(--accent);position:absolute;top:8px;right:8px;}
+.talent-card.locked .talent-card-rank{color:var(--dim);}
+.talent-card-desc{font-size:10px;color:var(--dim);line-height:1.4;}
+.talent-lock-icon{position:absolute;bottom:6px;right:8px;font-size:11px;opacity:.5;}
+/* Tooltip */
+.talent-tooltip{position:fixed;bottom:80px;right:16px;width:280px;background:var(--bg2);border:1px solid var(--accent);padding:14px 16px;z-index:9999;box-shadow:0 4px 24px rgba(0,0,0,.5);}
+@media(max-width:640px){.talent-tooltip{bottom:64px;left:8px;right:8px;width:auto;}}
+.ttt-icon{font-size:22px;margin-bottom:6px;}
+.ttt-name{font-size:14px;color:var(--white);font-weight:500;margin-bottom:4px;}
+.ttt-rank{font-size:11px;color:var(--accent);margin-bottom:6px;}
+.ttt-desc{font-size:11px;color:var(--muted,var(--dim));line-height:1.5;margin-bottom:8px;}
+.ttt-prereq{font-size:10px;color:var(--red);margin-bottom:6px;}
+.ttt-cost{font-size:11px;color:var(--amber);margin-bottom:10px;}
+.ttt-actions{display:flex;gap:8px;}
+.ttt-actions button{font-size:10px;padding:4px 10px;}
+
 /* ─── Ranking ─────────────────────────────────────────────────────────────── */
 .rank-table{width:100%;border-collapse:collapse;font-size:12px;}
 .rank-table th{text-align:left;padding:6px 10px;color:var(--dim);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border);}
@@ -225,28 +267,14 @@ select:focus{border-color:var(--red);}
 .casino-stat{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:12px;display:flex;flex-direction:column;gap:4px;}
 .casino-stat span{font-size:10px;color:var(--dim);letter-spacing:1px;}
 .casino-stat strong{font-size:15px;color:var(--white);}
-.casino-table{background:linear-gradient(180deg,rgba(10,14,18,.82),rgba(8,11,15,.92));border:1px solid var(--border);border-radius:0;padding:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);}
-.casino-panel.theme-blackjack .casino-table{background:
-  linear-gradient(180deg,rgba(13,11,12,.82),rgba(10,8,10,.93)),
-  url('/assets/casino-plugin/backgrounds/table_red.png') center/cover no-repeat;}
-.casino-panel.theme-holdem .casino-table{background:
-  linear-gradient(180deg,rgba(10,14,18,.82),rgba(8,11,15,.92)),
-  url('/assets/casino-plugin/backgrounds/table_green.png') center/cover no-repeat;}
-.casino-panel.theme-roulette .casino-table{background:
-  linear-gradient(180deg,rgba(10,12,18,.82),rgba(7,10,16,.93)),
-  url('/assets/casino-plugin/backgrounds/table_blue.png') center/cover no-repeat;}
+.casino-table{background:linear-gradient(180deg,#13181d,#0f1317);border:1px solid var(--border);border-radius:0;padding:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);}
 .casino-decknote{font-size:10px;color:var(--dim);letter-spacing:1px;}
 .casino-bet{display:flex;flex-direction:column;gap:12px;}
 .casino-bet-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
 .casino-bet-row label{font-size:11px;color:var(--dim);width:84px;flex-shrink:0;}
 .casino-bet-row input{max-width:160px;}
 .casino-chipbar{display:flex;gap:8px;flex-wrap:wrap;}
-.casino-chip{position:relative;border-radius:2px;padding:7px 12px 7px 38px;background:#17131b;overflow:hidden;}
-.casino-chip::before{content:'';position:absolute;left:10px;top:50%;width:20px;height:20px;transform:translateY(-50%);background:center/contain no-repeat;opacity:.92;}
-.casino-chip:nth-child(4n+1)::before{background-image:url('/assets/casino-plugin/chips/chipStack0.png');}
-.casino-chip:nth-child(4n+2)::before{background-image:url('/assets/casino-plugin/chips/chipStack1.png');}
-.casino-chip:nth-child(4n+3)::before{background-image:url('/assets/casino-plugin/chips/chipStack2.png');}
-.casino-chip:nth-child(4n)::before{background-image:url('/assets/casino-plugin/chips/chipStack3.png');}
+.casino-chip{border-radius:2px;padding:7px 12px;background:#17131b;}
 .casino-chip.active{border-color:var(--amber);color:var(--white);background:#221811;}
 .casino-modebar{display:flex;gap:10px;flex-wrap:wrap;}
 .casino-mode{padding:8px 14px;border-radius:2px;background:#15131a;border:1px solid var(--border);letter-spacing:1px;}
@@ -257,13 +285,12 @@ select:focus{border-color:var(--red);}
 .holdem-summary .casino-stat strong{font-size:14px;}
 .holdem-board{display:flex;flex-direction:column;gap:14px;margin-top:14px;}
 .holdem-community{display:flex;flex-direction:column;gap:8px;}
-.holdem-community .bj-cards{min-height:112px;align-items:flex-start;}
+.holdem-community .bj-cards{min-height:112px;}
 .holdem-seats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
 .holdem-seat{background:rgba(11,13,18,.88);border:1px solid var(--border);border-radius:0;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:180px;}
 .holdem-seat.player{border-color:#4b3a2a;background:rgba(20,18,14,.95);}
 .holdem-seat.turn{box-shadow:0 0 0 1px rgba(242,74,74,.35),0 0 0 4px rgba(242,74,74,.08);}
 .holdem-seat.folded{opacity:.62;}
-.holdem-seat .bj-cards{min-height:112px;align-items:flex-start;}
 .holdem-seat-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
 .holdem-seat-name{display:flex;flex-direction:column;gap:6px;}
 .holdem-seat-name strong{font-size:13px;color:var(--white);}
@@ -283,23 +310,20 @@ select:focus{border-color:var(--red);}
 .holdem-empty{font-size:12px;color:var(--dim);padding:10px 0;}
 .roulette-topline{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px;}
 .roulette-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.9fr);gap:16px;margin-top:14px;align-items:start;}
-.roulette-board-wrap{display:flex;flex-direction:column;gap:14px;position:relative;isolation:isolate;}
-.roulette-board-wrap::before{content:'';position:absolute;right:22px;top:18px;width:184px;height:184px;background:url('/assets/casino-plugin/roulette/roulette_base.png') center/contain no-repeat;opacity:.06;pointer-events:none;z-index:0;}
-.roulette-board-wrap::after{content:'';position:absolute;right:14px;bottom:12px;width:148px;height:148px;background:url('/assets/casino-plugin/roulette/roulette_wheel.png') center/contain no-repeat;opacity:.09;pointer-events:none;z-index:0;}
-.roulette-board-wrap > *{position:relative;z-index:1;}
+.roulette-board-wrap{display:flex;flex-direction:column;gap:14px;}
 .roulette-grid{display:grid;grid-template-columns:72px repeat(12,minmax(0,1fr));gap:6px;}
-.roulette-zero{grid-row:span 3;min-height:162px;border-radius:10px;border:1px solid #315d4b;background:linear-gradient(180deg,#173026,#0f201a);color:#d8ffe8;font-size:18px;letter-spacing:2px;}
-.roulette-num{min-height:50px;border-radius:8px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+.roulette-zero{grid-row:span 3;min-height:162px;border-radius:0;border:1px solid #315d4b;background:linear-gradient(180deg,#173026,#0f201a);color:#d8ffe8;font-size:18px;letter-spacing:2px;}
+.roulette-num{min-height:50px;border-radius:0;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:700;}
 .roulette-num.red{background:#2a1418;color:#ffd8dc;border-color:#5d2630;}
 .roulette-num.black{background:#101216;color:#f4f4f4;border-color:#2e3540;}
 .roulette-num.green{background:#133125;color:#d6ffe4;border-color:#2f6a4b;}
 .roulette-num.active,.roulette-zero.active{box-shadow:0 0 0 1px rgba(242,74,74,.75) inset,0 0 0 1px rgba(242,74,74,.2),0 0 16px rgba(242,74,74,.16);}
 .roulette-outside{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}
-.roulette-outside button{min-height:44px;border-radius:8px;background:#14171d;}
+.roulette-outside button{min-height:44px;border-radius:2px;background:#14171d;}
 .roulette-outside button.red{background:#251317;border-color:#5d2630;color:#ffd8dc;}
 .roulette-outside button.black{background:#11151b;border-color:#384252;color:#f4f4f4;}
 .roulette-outside button.active{box-shadow:0 0 0 1px rgba(242,74,74,.75) inset,0 0 16px rgba(242,74,74,.14);color:var(--white);}
-.roulette-builder,.roulette-slip,.roulette-history{background:rgba(11,13,18,.88);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.roulette-builder,.roulette-slip,.roulette-history{background:rgba(11,13,18,.88);border:1px solid var(--border);border-radius:0;padding:14px;}
 .roulette-builder{display:flex;flex-direction:column;gap:12px;}
 .roulette-builder-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
 .roulette-builder-grid label,.roulette-slip label{display:flex;flex-direction:column;gap:6px;font-size:10px;color:var(--dim);letter-spacing:1px;}
@@ -307,7 +331,7 @@ select:focus{border-color:var(--red);}
 .roulette-builder-row input,.roulette-builder-row select{min-width:0;flex:1;}
 .roulette-slip-head,.roulette-history-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;}
 .roulette-slip-list,.roulette-history-list{display:flex;flex-direction:column;gap:8px;}
-.roulette-slip-item,.roulette-history-item{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:8px;background:#13161d;padding:10px;}
+.roulette-slip-item,.roulette-history-item{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:0;background:#13161d;padding:10px;}
 .roulette-slip-item strong,.roulette-history-item strong{font-size:12px;color:var(--white);}
 .roulette-slip-meta,.roulette-history-meta{font-size:10px;color:var(--dim);letter-spacing:.7px;line-height:1.5;}
 .roulette-chipbar{display:flex;gap:8px;flex-wrap:wrap;}
@@ -333,20 +357,32 @@ select:focus{border-color:var(--red);}
   .roulette-zero{grid-row:auto;min-height:54px;}
   .roulette-outside{grid-template-columns:repeat(2,minmax(0,1fr));}
   .roulette-builder-grid{grid-template-columns:1fr;}
-  .holdem-community .bj-card,.holdem-seat .bj-card{width:72px;flex-basis:72px;min-width:72px;}
 }
 .bj-hand{display:flex;flex-direction:column;gap:10px;}
 .bj-head{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;}
 .bj-name{font-size:11px;color:var(--dim);letter-spacing:1px;}
 .bj-total{font-size:13px;color:var(--white);}
-.bj-cards{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;}
-.bj-card{width:80px;flex:0 0 80px;min-width:80px;aspect-ratio:140/180;border-radius:8px;border:0;background:transparent;color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;}
-.holdem-community .bj-card{width:84px;flex-basis:84px;min-width:84px;}
-.holdem-seat .bj-card{width:78px;flex-basis:78px;min-width:78px;}
-.bj-card img{width:100%;height:100%;display:block;object-fit:contain;object-position:center;background:transparent;}
-.bj-card.hidden{box-shadow:0 10px 24px rgba(0,0,0,.35);}
-.bj-card.hidden img{object-fit:contain;background:transparent;}
-.bj-card-fallback{display:none;width:100%;height:100%;padding:10px;border:1px solid rgba(17,17,17,.16);border-radius:8px;background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;flex-direction:column;justify-content:space-between;}
+.bj-cards{display:flex;gap:10px;flex-wrap:wrap;}
+.bj-card{width:74px;aspect-ratio:5/7;border-radius:2px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);}
+.bj-card img{width:100%;height:100%;display:block;object-fit:cover;background:#fff;}
+.bj-card.hidden{background:
+  radial-gradient(circle at 30% 30%,rgba(255,255,255,.08),transparent 30%),
+  linear-gradient(160deg,#211824,#15101a 55%,#0d0a10);
+  border-color:#3a2c39;
+  box-shadow:0 10px 24px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.04);
+}
+.bj-card.hidden::before{
+  content:'MOSQ';
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:rgba(255,255,255,.55);
+  font-size:12px;
+  letter-spacing:4px;
+}
+.bj-card-fallback{display:none;width:100%;height:100%;padding:10px;background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;flex-direction:column;justify-content:space-between;}
 .bj-card.fallback .bj-card-fallback{display:flex;}
 .bj-card-fallback.red{color:#b32025;}
 .bj-rank{font-size:17px;font-weight:500;line-height:1;}
@@ -524,6 +560,13 @@ select:focus{border-color:var(--red);}
     </div>
     <button id="create-btn" class="primary">SKAPA KARAKTÄR</button>
     <div id="create-err" class="amsg"></div>
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+      <div class="cr-label" style="margin-bottom:8px;">HAR DU REDAN ETT KONTO?</div>
+      <input id="login-email" type="email" placeholder="E-postadress" autocomplete="email" style="margin-bottom:8px;">
+      <input id="login-password" type="password" placeholder="Lösenord" autocomplete="current-password" style="margin-bottom:8px;">
+      <button id="login-btn" style="width:100%;">LOGGA IN</button>
+      <div id="login-err" class="amsg" style="margin-top:6px;"></div>
+    </div>
   </div>
 </div>
 
@@ -568,6 +611,18 @@ select:focus{border-color:var(--red);}
       <button id="hosp-heal-btn" class="primary" data-hospital="heal">
         BETALA FÖR VÅRD &mdash; <span id="hosp-heal-cost">...</span> kr
       </button>
+      <label for="hosp-boost-stat" style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;">
+        STAT FÖR BOOST
+        <select id="hosp-boost-stat" style="min-width:150px;">
+          <option value="strength">Styrka</option>
+          <option value="intelligence">Intelligens</option>
+          <option value="charisma">Karisma</option>
+          <option value="stealth">Smyg</option>
+        </select>
+      </label>
+      <button id="hosp-boost-btn" data-hospital="boost">
+        STAT-BOOST &mdash; <span id="hosp-boost-cost">5 000</span> kr
+      </button>
       <button id="hosp-wait-btn" data-hospital="wait">
         UPPDATERA STATUS
       </button>
@@ -591,6 +646,7 @@ select:focus{border-color:var(--red);}
       <span id="nrg-txt">100/100</span>
       <span id="nrg-hint"></span>
     </div>
+    <button id="tb-logout-btn" title="Logga ut karaktär">LOGGA UT</button>
   </div>
 
   <!-- Layout -->
@@ -641,6 +697,7 @@ select:focus{border-color:var(--red);}
             <div id="sb-xp-fill" style="height:100%;background:var(--amber);border-radius:2px;width:0%;transition:width .4s;"></div>
           </div>
         </div>
+        <button id="sb-delete-btn" style="margin-top:10px;font-size:10px;padding:3px 8px;background:none;border:1px solid rgba(255,85,85,0.25);color:rgba(255,85,85,0.5);cursor:pointer;letter-spacing:1px;width:100%;transition:color .15s,border-color .15s;" onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.color='rgba(255,85,85,0.5)';this.style.borderColor='rgba(255,85,85,0.25)'">[RADERA KARAKTÄR]</button>
       </div>
       <!-- Nav -->
       <div style="padding:8px 0;">
@@ -651,6 +708,7 @@ select:focus{border-color:var(--red);}
         <button class="nav-btn nv" data-s="vapen">[VAPEN]</button>
         <button class="nav-btn nv" data-s="traning">[TR&Auml;NING]</button>
         <button class="nav-btn nv" data-s="profession">[YRKE]</button>
+        <button class="nav-btn nv" data-s="talents">[TALENTS]</button>
         <button class="nav-btn nv" data-s="bank">[BANK]</button>
         <button class="nav-btn nv" data-s="casino">[CASINO]</button>
         <button class="nav-btn nv" data-s="dev">[DEV]</button>
@@ -774,6 +832,32 @@ select:focus{border-color:var(--red);}
         <div id="prof-msg" class="amsg"></div>
       </div>
 
+      <!-- Talents -->
+      <div id="s-talents" class="g-sec">
+        <div class="sec-title">TALENT TREE</div>
+        <div id="talent-points-bar" class="talent-pts-bar">
+          <span id="talent-pts-avail">0</span> poäng tillgängliga &nbsp;·&nbsp;
+          <span id="talent-pts-spent">0</span> spenderade
+          <button id="talent-respec-btn" class="talent-respec-btn">ÅTERSTÄLL (50 000 kr)</button>
+        </div>
+        <div id="talent-prof-tabs" class="talent-prof-tabs"></div>
+        <div id="talent-tree-content" class="talent-tree-content"></div>
+        <div id="talent-msg" class="amsg"></div>
+        <!-- Unlock tooltip -->
+        <div id="talent-tooltip" class="talent-tooltip" style="display:none;">
+          <div class="ttt-icon" id="ttt-icon"></div>
+          <div class="ttt-name" id="ttt-name"></div>
+          <div class="ttt-rank" id="ttt-rank"></div>
+          <div class="ttt-desc" id="ttt-desc"></div>
+          <div class="ttt-prereq" id="ttt-prereq"></div>
+          <div class="ttt-cost" id="ttt-cost"></div>
+          <div class="ttt-actions">
+            <button id="ttt-unlock-btn" class="primary">LÅS UPP</button>
+            <button id="ttt-close-btn">STÄNG</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Bank -->
       <div id="s-bank" class="g-sec">
         <div class="sec-title">BANK</div>
@@ -807,7 +891,7 @@ select:focus{border-color:var(--red);}
             <button type="button" class="casino-mode" data-casino-mode="holdem">TEXAS HOLD&rsquo;EM</button>
           </div>
 
-          <div id="casino-panel-blackjack" class="casino-panel theme-blackjack active">
+          <div id="casino-panel-blackjack" class="casino-panel active">
             <div class="casino-top">
               <div class="casino-stat"><span>KASSA</span><strong id="casino-cash">0 kr</strong></div>
               <div class="casino-stat"><span>INSATS</span><strong id="casino-bet-display">500 kr</strong></div>
@@ -870,7 +954,7 @@ select:focus{border-color:var(--red);}
             </div>
           </div>
 
-          <div id="casino-panel-holdem" class="casino-panel theme-holdem">
+          <div id="casino-panel-holdem" class="casino-panel">
             <div class="casino-top">
               <div class="casino-stat"><span>KASSA</span><strong id="holdem-cash">0 kr</strong></div>
               <div class="casino-stat"><span>STACK</span><strong id="holdem-stack">—</strong></div>
@@ -923,18 +1007,18 @@ select:focus{border-color:var(--red);}
               <div class="holdem-foot">V1 kör riktig Texas Hold&rsquo;Em i fixed-limit-format: riktiga streets, blinds, showdown och delad pott när händerna knyter sig.</div>
             </div>
           </div>
-          <div id="casino-panel-roulette" class="casino-panel theme-roulette">
+          <div id="casino-panel-roulette" class="casino-panel">
             <div class="casino-top">
               <div class="casino-stat"><span>KASSA</span><strong id="roulette-cash">0 kr</strong></div>
               <div class="casino-stat"><span>INSATS / BRICKA</span><strong id="roulette-stake-display">100 kr</strong></div>
               <div class="casino-stat"><span>MAX / SNURR</span><strong>10 000 kr</strong></div>
             </div>
             <div class="casino-table">
-              <div id="roulette-banner" class="bj-banner roulette-banner"><strong>Rouletten Ã¤r varm.</strong><span>Europeiskt hjul. Ett nummer, ett andetag, inga ursÃ¤kter.</span></div>
+              <div id="roulette-banner" class="bj-banner roulette-banner"><strong>Rouletten är varm.</strong><span>Europeiskt hjul. Ett nummer, ett andetag, inga ursäkter.</span></div>
               <div class="roulette-topline">
-                <div class="casino-stat"><span>SENASTE</span><strong id="roulette-last-number">â€”</strong></div>
+                <div class="casino-stat"><span>SENASTE</span><strong id="roulette-last-number">—</strong></div>
                 <div class="casino-stat"><span>RESULTAT</span><strong id="roulette-last-net">0 kr</strong></div>
-                <div class="casino-stat"><span>PÃ… BRICKAN</span><strong id="roulette-total-stake">0 kr</strong></div>
+                <div class="casino-stat"><span>PÅ BRICKAN</span><strong id="roulette-total-stake">0 kr</strong></div>
               </div>
               <div class="roulette-layout">
                 <div class="roulette-board-wrap">
@@ -951,15 +1035,15 @@ select:focus{border-color:var(--red);}
                       <button type="button" class="casino-chip" data-roulette-stake="1000">1 000 kr</button>
                       <button type="button" class="casino-chip" data-roulette-stake="2500">2 500 kr</button>
                     </div>
-                    <div class="roulette-helper">Klicka pÃ¥ ett nummer fÃ¶r rak satsning. UtefÃ¤ltsknapparna lÃ¤gger samma bricka direkt. Inside-bets byggs i panelen till hÃ¶ger.</div>
+                    <div class="roulette-helper">Klicka på ett nummer för rak satsning. Utefältsknapparna lägger samma bricka direkt. Inside-bets byggs i panelen till höger.</div>
                   </div>
 
                   <div id="roulette-grid" class="roulette-grid"></div>
 
                   <div class="roulette-outside">
-                    <button type="button" class="red" data-roulette-outside="red">RÃ–D</button>
+                    <button type="button" class="red" data-roulette-outside="red">RÖD</button>
                     <button type="button" class="black" data-roulette-outside="black">SVART</button>
-                    <button type="button" data-roulette-outside="even">JÃ„MNT</button>
+                    <button type="button" data-roulette-outside="even">JÄMNT</button>
                     <button type="button" data-roulette-outside="odd">UDDA</button>
                     <button type="button" data-roulette-outside="low">1-18</button>
                     <button type="button" data-roulette-outside="high">19-36</button>
@@ -987,12 +1071,12 @@ select:focus{border-color:var(--red);}
                           <option value="sixline">Six line</option>
                         </select>
                       </label>
-                      <label for="roulette-advanced-target">MÃ…L
+                      <label for="roulette-advanced-target">MÅL
                         <input id="roulette-advanced-target" type="text" value="1,2" placeholder="1,2">
                       </label>
                     </div>
                     <div class="roulette-builder-row">
-                      <button type="button" data-roulette="add-advanced">LÃ„GG TILL</button>
+                      <button type="button" data-roulette="add-advanced">LÄGG TILL</button>
                       <span class="roulette-helper">Exempel: split 1,2 · street 1,2,3 · corner 1,2,4,5 · six line 1,2,3,4,5,6</span>
                     </div>
                   </div>
@@ -1029,7 +1113,7 @@ select:focus{border-color:var(--red);}
         <div class="sec-title">DEV CONSOLE <span class="dev-tag">ADMIN</span></div>
         <div class="sec-sub">Serverstyrda admin-kommandon f&ouml;r den aktuella karakt&auml;ren. Dev console kr&auml;ver en kort admin-uppl&aring;sning ovanp&aring; hubb-sessionen.</div>
         <div id="dev-lock" class="dev-lock">
-          <div class="dev-meta">Lås upp adminläget med samma lösenord som resten av sp1e. Sessionen lever i 2 timmar och kan låsas manuellt.</div>
+          <div class="dev-meta">L&aring;s upp adminl&auml;get med adminl&ouml;senordet. Om inget separat adminl&ouml;senord &auml;r satt anv&auml;nds samma l&ouml;senord som till hubben. Sessionen lever i 2 timmar och kan l&aring;sas manuellt.</div>
           <div class="dev-row">
             <input id="dev-password" type="password" placeholder="Adminlösenord" autocomplete="current-password" spellcheck="false">
             <button id="dev-unlock-btn" class="primary">LÅS UPP</button>
@@ -1146,6 +1230,7 @@ select:focus{border-color:var(--red);}
     <button class="mb" data-s="vapen">VAPEN</button>
     <button class="mb" data-s="traning">TR&Auml;NA</button>
     <button class="mb" data-s="profession">YRKE</button>
+    <button class="mb" data-s="talents">TALENTS</button>
     <button class="mb" data-s="bank">BANK</button>
     <button class="mb" data-s="casino">CASINO</button>
     <button class="mb" data-s="dev">DEV</button>
@@ -1173,6 +1258,13 @@ function defaultCasinoState(){
     holdem:{loaded:false,loading:false,state:null},
     roulette:{loaded:false,loading:false,state:null}
   };
+}
+
+function casinoStore(mode){
+  const normalized=mode==='holdem'||mode==='roulette'?mode:'blackjack';
+  if(!G.casino) G.casino=defaultCasinoState();
+  if(!G.casino[normalized]) G.casino[normalized]={loaded:false,loading:false,state:null};
+  return G.casino[normalized];
 }
 
 const G={
@@ -1341,6 +1433,15 @@ async function softReload(){
   G.errors.player=apiError(pr,'Kunde inte uppdatera karaktären.');
   G.errors.status=apiError(sr,'Kunde inte uppdatera ranking.');
   G.errors.prices=apiError(dr,'Kunde inte uppdatera drogmarknaden.');
+  if(pr._status===401&&pr.error&&pr.error.includes('aktiv session')){
+    // Session expired mid-game: clear stale state and return to create/login screen
+    G.player=null;G.extra={};
+    clearInterval(G._pollTimer);G._pollTimer=null;
+    clearInterval(G._pricePoll);G._pricePoll=null;
+    showScreen('create');
+    setMsg('create-err','Din session har gått ut. Logga in igen eller skapa ny karaktär.','err');
+    return;
+  }
   if(pr._status===409||sr.round_ended){
     G.player=null;
     G.extra={};
@@ -1358,6 +1459,7 @@ async function softReload(){
   if(G.section==='casino') renderCasino();
   if(G.section==='ranking') renderRanking();
   if(G.section==='profession') renderProfession();
+  if(G.section==='talents') void loadTalents();
   if(G.section==='bank') renderBank();
   if(G.section==='dev') renderDev();
   if(G.section==='fastigheter') renderFastigheter();
@@ -1444,6 +1546,30 @@ function showScreen(name){
   if(mn) mn.style.display=name==='game'?'flex':'none';
 }
 
+async function doGameLogout(){
+  if(!confirm('Logga ut? Du kan återta karaktären med samma namn nästa gång.')) return;
+  await api('logout',{method:'POST'});
+  G.player=null;G.extra={};
+  clearInterval(G._pollTimer);G._pollTimer=null;
+  clearInterval(G._pricePoll);G._pricePoll=null;
+  showScreen('create');
+  setMsg('create-err','Du är utloggad.','ok');
+}
+
+async function doDeleteCharacter(){
+  if(!confirm('Radera karaktären permanent? Allt cash, XP och items försvinner för alltid.')) return;
+  const r=await api('delete-character',{method:'DELETE'});
+  if(r._status&&r._status>=400){
+    alert(r.error||'Kunde inte radera karaktären.');
+    return;
+  }
+  G.player=null;G.extra={};
+  clearInterval(G._pollTimer);G._pollTimer=null;
+  clearInterval(G._pricePoll);G._pricePoll=null;
+  showScreen('create');
+  setMsg('create-err','Karaktären är raderad.','ok');
+}
+
 function bindShellControls(){
   const loginBtn=document.getElementById('boot-login-btn');
   if(loginBtn) loginBtn.addEventListener('click',()=>{location.href=AUTH_REDIRECT;});
@@ -1462,6 +1588,10 @@ function bindShellControls(){
   if(roundNext) roundNext.addEventListener('click',startNextRound);
   const lvlClose=document.getElementById('lvlup-close');
   if(lvlClose) lvlClose.addEventListener('click',()=>document.getElementById('lvlup-overlay').classList.remove('show'));
+  const tbLogout=document.getElementById('tb-logout-btn');
+  if(tbLogout) tbLogout.addEventListener('click',doGameLogout);
+  const sbDelete=document.getElementById('sb-delete-btn');
+  if(sbDelete) sbDelete.addEventListener('click',doDeleteCharacter);
 }
 
 function latestHallRound(){
@@ -1623,6 +1753,7 @@ function renderSection(s){
     return;
   }
   el.style.display='block';
+  if(s==='talents'){ void loadTalents(); return; }
   if(sectionDependencyError(s)) setSectionError(sectionDependencyError(s));
   try{
     if(fns[s]) fns[s]();
@@ -1694,20 +1825,28 @@ function renderWorldStrip(id){
     el.innerHTML='<span>Världen laddar fortfarande. Håll låg profil tills siffrorna är på plats.</span>';
     return;
   }
-  const leader=(G.status.top10||[])[0];
-  const rival=leader?`${leader.name} leder med ${fmtCash(leader.respect||0)} respect`:'Ingen ledare ännu';
-  const selfRank=G.status.self_rank?`#${G.status.self_rank}`:'Oplacerad';
+  const leader=(G.status.world_top10&&G.status.world_top10[0])||G.status.world_leader||null;
+  const selfRank=G.status.world_self_rank?`#${G.status.world_self_rank}`:'Oplacerad';
   const latestWorld=(G.world.events||[])[0];
+  const dom=G.status.side_dominance||null;
   const bits=[
-    `<span><strong>Runda ${esc(String(G.status.round.number||'—'))}</strong> pågår</span>`,
+    `<span><strong>Runda ${esc(String(G.status.round.number||'?'))}</strong> pågår</span>`,
     `<span>Tid kvar: <strong>${fmtFull(G.status.round.seconds_left||0)}</strong></span>`,
+    `<span>I stan: <strong>${esc(String(G.status.world_count??0))}</strong></span>`,
     `<span>Din plats: <strong>${esc(selfRank)}</strong></span>`,
-    `<span>${esc(rival)}</span>`
+    leader
+      ? `<span>${esc(leader.name)} leder med <strong>${fmtCash(leader.respect||0)}</strong> respect</span>`
+      : '<span>Ingen ledare ännu. Perfekt läge att ta första platsen.</span>'
   ];
+  if(dom&&(dom.eastside_count+dom.westside_count)>0){
+    const lead=dom.leading==='eastside'?'Eastside':'Westside';
+    const marginStr=dom.margin>0?`+${fmtCash(dom.margin)}`:'jämt';
+    bits.push(`<span>${lead} dominerar <strong>(${marginStr} resp)</strong></span>`);
+  }
   if(id==='gatan-world'){
     bits.push(latestWorld
-      ? `<span>Senast p&aring; gatan: <strong>${esc(latestWorld.actor||'Stan')}</strong></span>`
-      : '<span>Stan r&ouml;r sig i skuggorna. V&auml;nta in n&auml;sta drag.</span>');
+      ? `<span>Senast på gatan: <strong>${esc(latestWorld.actor||'Stan')}</strong></span>`
+      : '<span>Stan rör sig i skuggorna. Vänta in nästa drag.</span>');
   }
   el.innerHTML=bits.join('');
 }
@@ -1723,7 +1862,7 @@ function renderGatan(){
   const cliLog=G.log.map(l=>({ts:l.ts,desc:l.desc,ok:l.ok,kind:'player'}));
   const worldLog=(G.world.events||[]).map(evt=>({
     ts:evt.created_at,
-    desc:evt.description||'Stan rÃ¶rde pÃ¥ sig.',
+    desc:evt.description||'Stan rörde på sig.',
     ok:null,
     kind:'world',
     actor:evt.actor||'Stan',
@@ -2238,536 +2377,6 @@ function setCasinoBet(value){
   });
 }
 
-async function loadCasinoState(force=false){
-  if(G.casino.loading||(!force&&G.casino.loaded)) return;
-  G.casino.loading=true;
-  const res=await api('casino/blackjack/state');
-  G.casino.loading=false;
-  G.casino.loaded=true;
-  G.errors.casino=apiError(res,'Kunde inte ladda blackjackbordet.');
-  if(!res.error){
-    G.casino.state=res;
-    if(res.hand&&res.hand.bet) G.casinoBet=res.hand.bet;
-  }else if(force){
-    G.casino.state=null;
-  }
-  renderCasino();
-}
-
-const CASINO_PLUGIN_ASSET_BASE='/assets/casino-plugin';
-const BLACKJACK_CARD_ASSET_BASE=`${CASINO_PLUGIN_ASSET_BASE}/cards`;
-const BLACKJACK_CARD_BACK_ASSET=`${BLACKJACK_CARD_ASSET_BASE}/cardBack.png`;
-const BLACKJACK_FALLBACK_CARD_ASSET_BASE='/assets/blackjack/cards';
-const BLACKJACK_FALLBACK_CODES=new Set();
-const CASINO_SFX_BASE=`${CASINO_PLUGIN_ASSET_BASE}/audio`;
-
-function blackjackCardAsset(code){
-  const normalized=String(code||'').trim().toUpperCase();
-  const match=normalized.match(/^(10|[2-9AJQK])([CDHS])$/);
-  if(!match) return `${BLACKJACK_FALLBACK_CARD_ASSET_BASE}/${encodeURIComponent(normalized)}.jpg`;
-  const rankMap={A:'a',J:'j',Q:'q',K:'k','10':'t'};
-  const rank=rankMap[match[1]]||match[1];
-  return `${BLACKJACK_CARD_ASSET_BASE}/${rank}${match[2]}.png`;
-}
-
-function playCasinoSfx(name,volume=.38){
-  try{
-    const audio=new Audio(`${CASINO_SFX_BASE}/${name}.ogg`);
-    audio.volume=Math.max(0,Math.min(1,Number(volume)||0));
-    void audio.play().catch(()=>{});
-  }catch{}
-}
-
-function cardFaceFromCode(code){
-  const normalized=String(code||'').trim().toUpperCase();
-  const match=normalized.match(/^(10|[2-9AJQK])([CDHS])$/);
-  if(!match){
-    return {rank:'?',suit:'?',color:'black'};
-  }
-  const suitMap={C:'\u2663',D:'\u2666',H:'\u2665',S:'\u2660'};
-  const suitCode=match[2];
-  return {
-    rank:match[1],
-    suit:suitMap[suitCode]||'?',
-    color:(suitCode==='D'||suitCode==='H')?'red':'black'
-  };
-}
-
-function blackjackFallbackHtml(card){
-  const parsed=cardFaceFromCode(card&&card.code);
-  const rank=esc((card&&card.rank)||parsed.rank||'?');
-  const suit=esc((card&&card.suit)||parsed.suit||'?');
-  const color=((card&&card.color)||parsed.color)==='red'?' red':'';
-  return `<div class="bj-card-fallback${color}">
-      <div class="bj-rank">${rank}</div>
-      <div class="bj-suit">${suit}</div>
-    </div>`;
-}
-
-function renderBlackjackCardsLegacy(id,cards){
-  const el=document.getElementById(id);
-  if(!el) return;
-  if(!cards||!cards.length){
-    el.innerHTML='<div class="bj-empty">Inga kort p&aring; bordet &auml;n.</div>';
-    return;
-  }
-  el.innerHTML=cards.map(card=>`<div class="bj-card${card.hidden?' hidden':''}${card.color==='red'?' red':''}">
-      <div class="bj-rank">${card.hidden?'?':esc(card.rank||'')}</div>
-      <div class="bj-suit">${card.hidden?'✦':esc(card.suit||'')}</div>
-    </div>`).join('');
-}
-
-function blackjackBannerClass(result){
-  if(result==='blackjack'||result==='win') return 'bj-banner win';
-  if(result==='push') return 'bj-banner push';
-  if(result==='lose'||result==='bust'||result==='dealer_blackjack') return 'bj-banner lose';
-  return 'bj-banner';
-}
-
-function renderBlackjackCards(id,cards){
-  const el=document.getElementById(id);
-  if(!el) return;
-  if(!cards||!cards.length){
-    el.innerHTML='<div class="bj-empty">Inga kort p&aring; bordet &auml;n.</div>';
-    return;
-  }
-  el.innerHTML=cards.map(card=>{
-    if(card.hidden){
-      return `<div class="bj-card hidden" aria-label="Dolt kort">
-        <img src="${BLACKJACK_CARD_BACK_ASSET}" alt="" aria-hidden="true" decoding="async">
-      </div>`;
-    }
-    const code=String(card.code||'');
-    const label=esc(card.label||code||'Kort');
-    const fallback=blackjackFallbackHtml(card);
-    if(!code||BLACKJACK_FALLBACK_CODES.has(code)){
-      return `<div class="bj-card fallback" aria-label="${label}">${fallback}</div>`;
-    }
-    return `<div class="bj-card" aria-label="${label}">
-        ${fallback}
-        <img src="${blackjackCardAsset(code)}" alt="${label}" decoding="async" onerror="this.remove();this.parentElement.classList.add('fallback')">
-      </div>`;
-  }).join('');
-}
-
-function renderCasino(){
-  const p=G.player;
-  if(!p) return;
-  set('casino-cash',fmtCash(p.cash||0)+' kr');
-  setCasinoBet(G.casinoBet);
-  const input=document.getElementById('casino-bet-input');
-  if(input) input.oninput=()=>setCasinoBet(input.value);
-
-  if(!G.casino.loaded&&!G.casino.loading){
-    const banner=document.getElementById('casino-banner');
-    if(banner){
-      banner.className='bj-banner';
-      banner.innerHTML='<strong>Bordet värms upp.</strong><span>Laddar kortleken från huset...</span>';
-    }
-    set('casino-player-total','Totalt: —');
-    set('casino-dealer-total','Totalt: —');
-    renderBlackjackCards('casino-player-cards',[]);
-    renderBlackjackCards('casino-dealer-cards',[]);
-    loadCasinoState();
-    return;
-  }
-
-  const state=G.casino.state;
-  const hand=state&&state.hand?state.hand:null;
-  const banner=document.getElementById('casino-banner');
-  const empty=document.getElementById('casino-empty');
-  const startBtn=document.querySelector('[data-casino="start"]');
-  const hitBtn=document.querySelector('[data-casino="hit"]');
-  const standBtn=document.querySelector('[data-casino="stand"]');
-  const doubleBtn=document.querySelector('[data-casino="double"]');
-  const splitBtn=document.querySelector('[data-casino="split"]');
-  const insuranceBtn=document.querySelector('[data-casino="insurance"]');
-  const resetBtn=document.querySelector('[data-casino="reset"]');
-  const splitSection=document.getElementById('casino-split-section');
-
-  if(startBtn) startBtn.disabled=!!(hand&&!hand.finished)||G.busy;
-  if(hitBtn) hitBtn.disabled=!hand||hand.finished||!hand.can_hit||G.busy;
-  if(standBtn) standBtn.disabled=!hand||hand.finished||!hand.can_stand||G.busy;
-  if(doubleBtn) doubleBtn.disabled=!hand||hand.finished||!hand.can_double||G.busy;
-  if(resetBtn) resetBtn.disabled=!!(hand&&!hand.finished)||G.busy;
-
-  // Split button: visible only when can_split is true
-  if(splitBtn){
-    const showSplit=!!(hand&&hand.can_split&&!hand.finished);
-    splitBtn.style.display=showSplit?'':'none';
-    splitBtn.disabled=!showSplit||G.busy;
-  }
-  // Insurance button: visible only when can_insurance is true
-  if(insuranceBtn){
-    const showIns=!!(hand&&hand.can_insurance&&!hand.finished);
-    insuranceBtn.style.display=showIns?'':'none';
-    insuranceBtn.disabled=!showIns||G.busy;
-    if(showIns&&hand.insurance_cost) insuranceBtn.textContent=`INSURANCE (${fmtCash(hand.insurance_cost)} kr)`;
-    else insuranceBtn.textContent='INSURANCE';
-  }
-
-  if(!hand){
-    if(empty) empty.style.display='block';
-    if(splitSection) splitSection.style.display='none';
-    set('casino-player-total','Totalt: —');
-    set('casino-dealer-total','Totalt: —');
-    set('casino-player-name','DU');
-    renderBlackjackCards('casino-player-cards',[]);
-    renderBlackjackCards('casino-dealer-cards',[]);
-    if(banner){
-      banner.className='bj-banner';
-      banner.innerHTML='<strong>Bordet är öppet.</strong><span>Välj insats och spela en hand.</span>';
-    }
-    setMsg('casino-msg',G.errors.casino||'',G.errors.casino?'err':'');
-    return;
-  }
-
-  if(empty) empty.style.display='none';
-
-  // Show split section when split cards exist
-  const hasSplit=hand.split_cards&&hand.split_cards.length>0;
-  if(splitSection) splitSection.style.display=hasSplit?'block':'none';
-
-  // Label main hand to show which is active during split
-  if(hand.in_split_turn){
-    set('casino-player-name','DU (KLAR)');
-  } else {
-    set('casino-player-name',hasSplit?'DU (AKTIV)':'DU');
-  }
-
-  renderBlackjackCards('casino-player-cards',hand.player_cards||[]);
-  renderBlackjackCards('casino-dealer-cards',hand.dealer_cards||[]);
-
-  // Main hand total
-  const mainTot=hand.player_total||0;
-  const mainTotalLabel=hand.player_soft?`Totalt: ${mainTot} (soft)`:`Totalt: ${mainTot}`;
-  set('casino-player-total',mainTotalLabel);
-
-  // Split hand
-  if(hasSplit){
-    renderBlackjackCards('casino-split-cards',hand.split_cards||[]);
-    const splitTot=hand.split_total||0;
-    let splitLabel=hand.split_soft?`Totalt: ${splitTot} (soft)`:`Totalt: ${splitTot}`;
-    if(hand.split_result) splitLabel+=` · ${hand.split_result.toUpperCase()}`;
-    else if(hand.in_split_turn) splitLabel+=' (AKTIV)';
-    set('casino-split-total',splitLabel);
-  }
-
-  const dealerLabel=hand.dealer_total===null
-    ? `Totalt: ${hand.dealer_visible_total||0} + ?`
-    : `Totalt: ${hand.dealer_total||0}`;
-  set('casino-dealer-total',dealerLabel);
-
-  if(banner){
-    banner.className=blackjackBannerClass(hand.result);
-    const betInfo=hand.split_bet
-      ? `Insats: ${fmtCash(hand.bet||0)} kr + split ${fmtCash(hand.split_bet||0)} kr${hand.doubled?' · Double':''}${hand.split_doubled?' · Split-double':''}`
-      : `Insats: ${fmtCash(hand.bet||0)} kr${hand.doubled?' · Double aktiv':''}`;
-    banner.innerHTML=`<strong>${esc(hand.message||'Hand pågår.')}</strong><span>${betInfo}</span>`;
-  }
-  setMsg('casino-msg',G.errors.casino||'',G.errors.casino?'err':'');
-}
-
-async function syncCasinoAfterAction(res){
-  if(res.hand&&res.hand.bet) G.casinoBet=res.hand.bet;
-  if(res.hand||res.idle!==undefined){
-    G.casino.loaded=true;
-    G.casino.state=res;
-  }
-  G.errors.casino=res.error||'';
-  if(res.error){
-    setMsg('casino-msg',res.error,'err');
-    renderCasino();
-    return false;
-  }
-  const pr=await api('player');
-  G.errors.player=apiError(pr,'Kunde inte uppdatera karaktären.');
-  if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
-  renderTopbar();renderSidebar();renderCasino();
-  if(res.hand&&res.hand.finished&&res.hand.message){
-    const isBad=['lose','bust','dealer_blackjack'].includes(res.hand.result||'');
-    addLog(res.hand.message,isBad?'err':'ok');
-  }
-  setMsg('casino-msg',res.hand&&res.hand.message?res.hand.message:'Bordet uppdaterat.','ok');
-  return true;
-}
-
-async function doBlackjackStart(){
-  if(G.busy) return;
-  const input=document.getElementById('casino-bet-input');
-  const bet=Math.max(100,Math.min(5000,Math.floor(+(input&&input.value)||0)));
-  if(!bet){setMsg('casino-msg','Ange en giltig insats.','err');return;}
-  setCasinoBet(bet);
-  G.busy=true;
-  playCasinoSfx('card_shuffle',.34);
-  setMsg('casino-msg','Dealern blandar korten...','info');
-  const res=await post('action/blackjack/start',{bet});
-  G.busy=false;
-  await syncCasinoAfterAction(res);
-}
-
-async function doBlackjackAction(action){
-  if(G.busy) return;
-  G.busy=true;
-  const msgs={hit:'Du ber om ett kort...',stand:'Dealern spelar ut handen...',double:'Dubblar ner...',split:'Klipper hand...',insurance:'Tecknar försäkring...'};
-  setMsg('casino-msg',msgs[action]||'Väntar...','info');
-  const res=await post(`action/blackjack/${action}`,{});
-  G.busy=false;
-  await syncCasinoAfterAction(res);
-}
-
-function casinoStore(mode){
-  const key=mode==='holdem'||mode==='roulette'?mode:'blackjack';
-  return G.casino[key];
-}
-
-function setCasinoMode(mode){
-  G.casino.mode=mode==='holdem'||mode==='roulette'?mode:'blackjack';
-  G.errors.casino='';
-  renderCasino();
-}
-
-const FRONTEND_ROULETTE_RED=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
-
-function rouletteFrontColor(number){
-  const n=Math.floor(Number(number)||0);
-  if(n===0) return 'green';
-  return FRONTEND_ROULETTE_RED.has(n)?'red':'black';
-}
-
-function rouletteTargetKey(target){
-  if(Array.isArray(target)) return target.join(',');
-  return String(target??'');
-}
-
-function rouletteBetKey(kind,target){
-  return `${kind}:${rouletteTargetKey(target)}`;
-}
-
-function rouletteBetLabel(kind,target){
-  if(kind==='straight') return `Nummer ${target}`;
-  if(kind==='split') return `Split ${rouletteTargetKey(target)}`;
-  if(kind==='street') return `Street ${rouletteTargetKey(target)}`;
-  if(kind==='corner') return `Corner ${rouletteTargetKey(target)}`;
-  if(kind==='sixline') return `Six line ${rouletteTargetKey(target)}`;
-  if(kind==='red') return 'R\u00f6d';
-  if(kind==='black') return 'Svart';
-  if(kind==='even') return 'J\u00e4mnt';
-  if(kind==='odd') return 'Udda';
-  if(kind==='low') return '1-18';
-  if(kind==='high') return '19-36';
-  if(kind==='dozen') return `${target}:a 12`;
-  if(kind==='column') return `Kolumn ${target}`;
-  return String(kind||'Insats');
-}
-
-function rouletteBallHtml(number,color){
-  const tone=color==='green'?'gr\u00f6n':color==='red'?'r\u00f6d':'svart';
-  return `<span class="roulette-result"><span class="roulette-ball ${esc(color||'black')}">${esc(String(number))}</span><span>${esc(tone)}</span></span>`;
-}
-
-function rouletteSpinTime(ts){
-  try{
-    return new Date(ts).toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'});
-  }catch{
-    return '--:--';
-  }
-}
-
-function normalizeRouletteCopy(){
-  const panel=document.getElementById('casino-panel-roulette');
-  if(!panel||panel.dataset.copyReady==='1') return;
-  panel.dataset.copyReady='1';
-  const banner=document.getElementById('roulette-banner');
-  if(banner){
-    banner.innerHTML='<strong>Rouletten &auml;r varm.</strong><span>Europeiskt hjul. Ett nummer, ett andetag, inga urs&auml;kter.</span>';
-  }
-  const topStat=panel.querySelector('.roulette-topline .casino-stat:nth-child(3) span');
-  if(topStat) topStat.innerHTML='P&Aring; BRICKAN';
-  const helperBlocks=panel.querySelectorAll('.roulette-helper');
-  if(helperBlocks[0]) helperBlocks[0].innerHTML='Klicka p&aring; ett nummer f&ouml;r rak satsning. Utef&auml;ltsknapparna l&auml;gger samma bricka direkt. Inside-bets byggs i panelen till h&ouml;ger.';
-  if(helperBlocks[2]) helperBlocks[2].innerHTML='Exempel: split 1,2 &middot; street 1,2,3 &middot; corner 1,2,4,5 &middot; six line 1,2,3,4,5,6';
-  const redBtn=panel.querySelector('[data-roulette-outside="red"]');
-  const evenBtn=panel.querySelector('[data-roulette-outside="even"]');
-  const targetLabel=panel.querySelector('label[for="roulette-advanced-target"]');
-  const addBtn=panel.querySelector('[data-roulette="add-advanced"]');
-  if(redBtn) redBtn.textContent='R\u00d6D';
-  if(evenBtn) evenBtn.textContent='J\u00c4MNT';
-  if(targetLabel&&targetLabel.childNodes[0]) targetLabel.childNodes[0].textContent='M\u00c5L';
-  if(addBtn) addBtn.textContent='L\u00c4GG TILL';
-}
-
-function setRouletteStake(value){
-  const raw=Math.floor(Number(value)||0);
-  const next=Math.max(50,Math.min(5000,raw||100));
-  G.rouletteStake=next;
-  const input=document.getElementById('roulette-stake-input');
-  if(input&&input.value!==String(next)) input.value=String(next);
-  set('roulette-stake-display',fmtCash(next)+' kr');
-  document.querySelectorAll('[data-roulette-stake]').forEach(btn=>{
-    btn.classList.toggle('active',Number(btn.dataset.rouletteStake)===next);
-  });
-}
-
-function addRouletteBet(kind,target){
-  const stake=Math.max(50,Math.min(5000,Math.floor(Number(G.rouletteStake)||0)));
-  G.rouletteBets.push({kind,target,stake,label:rouletteBetLabel(kind,target)});
-  G.errors.casino='';
-  renderCasino();
-}
-
-function addAdvancedRouletteBet(){
-  const kindInput=document.getElementById('roulette-advanced-kind');
-  const targetInput=document.getElementById('roulette-advanced-target');
-  const kind=kindInput&&kindInput.value||'split';
-  const target=targetInput&&targetInput.value.trim();
-  if(!target){
-    setMsg('casino-msg','Ange ett m\u00e5l f\u00f6r inside-bettet.','err');
-    return;
-  }
-  addRouletteBet(kind,target);
-}
-
-function removeRouletteBet(index){
-  if(index<0||index>=G.rouletteBets.length) return;
-  G.rouletteBets.splice(index,1);
-  renderCasino();
-}
-
-function clearRouletteBets(){
-  G.rouletteBets=[];
-  renderCasino();
-}
-
-function renderRouletteGrid(state){
-  const el=document.getElementById('roulette-grid');
-  if(!el) return;
-  const wheelMap=new Map(Array.isArray(state&&state.wheel)?state.wheel.map(entry=>[Number(entry.number),String(entry.color||rouletteFrontColor(entry.number))]):[]);
-  const colorFor=number=>wheelMap.get(number)||rouletteFrontColor(number);
-  const straightKeys=new Set(G.rouletteBets.filter(bet=>bet.kind==='straight').map(bet=>rouletteBetKey(bet.kind,bet.target)));
-  const makeCell=(number,zero=false)=>{
-    const color=colorFor(number);
-    const cls=zero?'roulette-zero':'roulette-num';
-    const active=straightKeys.has(rouletteBetKey('straight',number))?' active':'';
-    return `<button type="button" class="${cls} ${color}${active}" data-roulette-number="${number}">${number}</button>`;
-  };
-  const top=Array.from({length:12},(_,idx)=>(idx+1)*3);
-  const mid=Array.from({length:12},(_,idx)=>idx*3+2);
-  const low=Array.from({length:12},(_,idx)=>idx*3+1);
-  el.innerHTML=[makeCell(0,true),...top.map(n=>makeCell(n)),...mid.map(n=>makeCell(n)),...low.map(n=>makeCell(n))].join('');
-}
-
-function renderRouletteSlip(maxTotal){
-  const el=document.getElementById('roulette-slip-list');
-  if(!el) return 0;
-  const total=G.rouletteBets.reduce((sum,bet)=>sum+Math.max(0,Math.floor(Number(bet.stake)||0)),0);
-  set('roulette-total-stake',fmtCash(total)+' kr');
-  if(!G.rouletteBets.length){
-    el.innerHTML='<div class="bj-empty">Ingen bricka ligger ute &auml;n. Bygg en enkel rak insats eller kombinera flera bet.</div>';
-    return total;
-  }
-  el.innerHTML=G.rouletteBets.map((bet,index)=>`<div class="roulette-slip-item">
-      <div>
-        <strong>${esc(bet.label||rouletteBetLabel(bet.kind,bet.target))}</strong>
-        <div class="roulette-slip-meta">Typ: ${esc(String(bet.kind))} &middot; Insats ${fmtCash(bet.stake)} kr</div>
-      </div>
-      <button type="button" class="roulette-remove" data-roulette-remove="${index}">TA BORT</button>
-    </div>`).join('');
-  if(total>maxTotal){
-    el.insertAdjacentHTML('beforeend',`<div class="roulette-slip-item"><div><strong>F\u00f6r tung bricka</strong><div class="roulette-slip-meta">Max total insats per snurr \u00e4r ${fmtCash(maxTotal)} kr. Ta bort n\u00e5gra marker innan du sl\u00e4pper kulan.</div></div></div>`);
-  }
-  return total;
-}
-
-function renderRouletteHistory(history){
-  const el=document.getElementById('roulette-history-list');
-  if(!el) return;
-  if(!history||!history.length){
-    el.innerHTML='<div class="bj-empty">Inga snurr i loggen &auml;n. Huset v&auml;ntar p&aring; f&ouml;rsta kulan.</div>';
-    return;
-  }
-  el.innerHTML=history.map(spin=>{
-    const cls=spin.net_result>0?'good':spin.net_result<0?'bad':'';
-    const summary=(spin.bets||[]).slice(0,3).map(bet=>esc(bet.label||rouletteBetLabel(bet.kind,bet.target))).join(' &middot; ');
-    const suffix=(spin.bets||[]).length>3?` &middot; +${spin.bets.length-3} till`:'';
-    return `<div class="roulette-history-item ${cls}">
-      <div>
-        <strong>${rouletteBallHtml(spin.winning_number,spin.color)}</strong>
-        <div class="roulette-history-meta">${esc(spin.message||'')}<br>${summary||'Tom bricka'}${suffix}</div>
-      </div>
-      <div class="roulette-history-meta">${rouletteSpinTime(spin.created_at)}<br>${spin.net_result>0?'+':''}${fmtCash(spin.net_result)} kr</div>
-    </div>`;
-  }).join('');
-}
-
-function renderCasinoRoulette(){
-  normalizeRouletteCopy();
-  const store=casinoStore('roulette');
-  const p=G.player;
-  if(!p) return;
-  const stakeInput=document.getElementById('roulette-stake-input');
-  if(stakeInput&&!stakeInput.dataset.bound){
-    stakeInput.addEventListener('input',()=>setRouletteStake(stakeInput.value));
-    stakeInput.dataset.bound='1';
-  }
-  setRouletteStake(G.rouletteStake);
-  set('roulette-cash',fmtCash(p.cash||0)+' kr');
-
-  if(!store.loaded&&!store.loading){
-    const banner=document.getElementById('roulette-banner');
-    if(banner){
-      banner.className='bj-banner roulette-banner';
-      banner.innerHTML='<strong>Rouletten v\u00e4rms upp.</strong><span>Huset laddar hjulet och sopar undan dammet fr\u00e5n filten.</span>';
-    }
-    set('roulette-last-number','&mdash;');
-    set('roulette-last-net','0 kr');
-    renderRouletteGrid(null);
-    renderRouletteSlip(10000);
-    renderRouletteHistory([]);
-    loadCasinoState();
-    return;
-  }
-
-  const state=store.state||{};
-  const maxTotal=Math.floor(Number(state.max_total_stake??10000));
-  const totalStake=renderRouletteSlip(maxTotal);
-  renderRouletteGrid(state);
-  renderRouletteHistory(state.recent||[]);
-
-  const lastSpin=state.last_spin||null;
-  const banner=document.getElementById('roulette-banner');
-  if(lastSpin){
-    set('roulette-last-number',rouletteBallHtml(lastSpin.winning_number,lastSpin.color));
-    set('roulette-last-net',`${lastSpin.net_result>0?'+':''}${fmtCash(lastSpin.net_result)} kr`);
-    if(banner){
-      banner.className='bj-banner roulette-banner'+(lastSpin.net_result>0?' win':lastSpin.net_result<0?' lose':' push');
-      banner.innerHTML=`<strong>${esc(state.message||lastSpin.message||'Kulan har stannat.')}</strong><span>Total insats: ${fmtCash(lastSpin.total_stake||0)} kr &middot; Utbetalning: ${fmtCash(lastSpin.total_payout||0)} kr</span>`;
-    }
-  }else{
-    set('roulette-last-number','&mdash;');
-    set('roulette-last-net','0 kr');
-    if(banner){
-      banner.className='bj-banner roulette-banner';
-      banner.innerHTML='<strong>Rouletten &auml;r varm.</strong><span>Bygg brickan, v&auml;lj tempo och l&aring;t kulan avg&ouml;ra om natten blir dyr.</span>';
-    }
-  }
-
-  document.querySelectorAll('#casino-panel-roulette [data-roulette-outside]').forEach(btn=>{
-    const kind=btn.dataset.rouletteOutside;
-    const target=(kind==='dozen'||kind==='column')?Number(btn.dataset.rouletteTarget||0):(btn.dataset.rouletteTarget||kind);
-    btn.classList.toggle('active',G.rouletteBets.some(bet=>rouletteBetKey(bet.kind,bet.target)===rouletteBetKey(kind,target)));
-    btn.disabled=G.busy;
-  });
-  document.querySelectorAll('#casino-panel-roulette [data-roulette-stake]').forEach(btn=>btn.disabled=G.busy);
-  document.querySelectorAll('#casino-panel-roulette [data-roulette-number]').forEach(btn=>btn.disabled=G.busy);
-  const clearBtn=document.querySelector('#casino-panel-roulette [data-roulette="clear"]');
-  const addBtn=document.querySelector('#casino-panel-roulette [data-roulette="add-advanced"]');
-  const spinBtn=document.querySelector('#casino-panel-roulette [data-roulette="spin"]');
-  if(clearBtn) clearBtn.disabled=G.busy||!G.rouletteBets.length;
-  if(addBtn) addBtn.disabled=G.busy;
-  if(spinBtn) spinBtn.disabled=G.busy||!G.rouletteBets.length||totalStake>maxTotal;
-}
-
 function setHoldemBuyIn(value){
   const next=Math.max(2000,Math.min(10000,Math.floor(Number(value)||0)));
   G.holdemBuyIn=next||2000;
@@ -2819,6 +2428,14 @@ function blackjackBannerClass(result){
   return 'bj-banner';
 }
 
+const BLACKJACK_CARD_ASSET_BASE='/assets/blackjack/cards';
+const BLACKJACK_FALLBACK_CODES=new Set(['10H','JH']);
+const FRONTEND_ROULETTE_RED=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+
+function blackjackCardAsset(code){
+  return `${BLACKJACK_CARD_ASSET_BASE}/${encodeURIComponent(code)}.jpg`;
+}
+
 function blackjackCardsHtml(cards){
   if(!cards||!cards.length){
     return '<div class="bj-empty">Inga kort p&aring; bordet &auml;n.</div>';
@@ -2847,6 +2464,251 @@ function renderBlackjackCards(id,cards){
   const el=document.getElementById(id);
   if(!el) return;
   el.innerHTML=blackjackCardsHtml(cards);
+}
+
+function setCasinoMode(mode){
+  G.casino.mode=mode==='holdem'||mode==='roulette'?mode:'blackjack';
+  G.errors.casino='';
+  renderCasino();
+}
+
+function rouletteFrontColor(number){
+  const n=Math.floor(Number(number)||0);
+  if(n===0) return 'green';
+  return FRONTEND_ROULETTE_RED.has(n)?'red':'black';
+}
+
+function rouletteTargetKey(target){
+  if(Array.isArray(target)) return target.join(',');
+  return String(target??'');
+}
+
+function rouletteBetKey(kind,target){
+  return `${kind}:${rouletteTargetKey(target)}`;
+}
+
+function rouletteBetLabel(kind,target){
+  if(kind==='straight') return `Nummer ${target}`;
+  if(kind==='split') return `Split ${rouletteTargetKey(target)}`;
+  if(kind==='street') return `Street ${rouletteTargetKey(target)}`;
+  if(kind==='corner') return `Corner ${rouletteTargetKey(target)}`;
+  if(kind==='sixline') return `Six line ${rouletteTargetKey(target)}`;
+  if(kind==='red') return 'Röd';
+  if(kind==='black') return 'Svart';
+  if(kind==='even') return 'Jämnt';
+  if(kind==='odd') return 'Udda';
+  if(kind==='low') return '1-18';
+  if(kind==='high') return '19-36';
+  if(kind==='dozen') return `${target}:a 12`;
+  if(kind==='column') return `Kolumn ${target}`;
+  return String(kind||'Insats');
+}
+
+function rouletteBallHtml(number,color){
+  const tone=color==='green'?'grön':color==='red'?'röd':'svart';
+  return `<span class="roulette-result"><span class="roulette-ball ${esc(color||'black')}">${esc(String(number))}</span><span>${esc(tone)}</span></span>`;
+}
+
+function rouletteSpinTime(ts){
+  try{
+    return new Date(ts).toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'});
+  }catch{
+    return '--:--';
+  }
+}
+
+function normalizeRouletteCopy(){
+  const panel=document.getElementById('casino-panel-roulette');
+  if(!panel||panel.dataset.copyReady==='1') return;
+  panel.dataset.copyReady='1';
+  const banner=document.getElementById('roulette-banner');
+  if(banner){
+    banner.innerHTML='<strong>Rouletten &auml;r varm.</strong><span>Europeiskt hjul. Ett nummer, ett andetag, inga urs&auml;kter.</span>';
+  }
+  const topStat=panel.querySelector('.roulette-topline .casino-stat:nth-child(3) span');
+  if(topStat) topStat.innerHTML='P&Aring; BRICKAN';
+  const helperBlocks=panel.querySelectorAll('.roulette-helper');
+  if(helperBlocks[0]) helperBlocks[0].innerHTML='Klicka p&aring; ett nummer f&ouml;r rak satsning. Utef&auml;ltsknapparna l&auml;gger samma bricka direkt. Inside-bets byggs i panelen till h&ouml;ger.';
+  if(helperBlocks[2]) helperBlocks[2].innerHTML='Exempel: split 1,2 &middot; street 1,2,3 &middot; corner 1,2,4,5 &middot; six line 1,2,3,4,5,6';
+  const redBtn=panel.querySelector('[data-roulette-outside="red"]');
+  const evenBtn=panel.querySelector('[data-roulette-outside="even"]');
+  const targetLabel=panel.querySelector('label[for="roulette-advanced-target"]');
+  const addBtn=panel.querySelector('[data-roulette="add-advanced"]');
+  if(redBtn) redBtn.textContent='RÖD';
+  if(evenBtn) evenBtn.textContent='JÄMNT';
+  if(targetLabel&&targetLabel.childNodes[0]) targetLabel.childNodes[0].textContent='MÅL';
+  if(addBtn) addBtn.textContent='LÄGG TILL';
+}
+
+function setRouletteStake(value){
+  const raw=Math.floor(Number(value)||0);
+  const next=Math.max(50,Math.min(5000,raw||100));
+  G.rouletteStake=next;
+  const input=document.getElementById('roulette-stake-input');
+  if(input&&input.value!==String(next)) input.value=String(next);
+  set('roulette-stake-display',fmtCash(next)+' kr');
+  document.querySelectorAll('[data-roulette-stake]').forEach(btn=>{
+    btn.classList.toggle('active',Number(btn.dataset.rouletteStake)===next);
+  });
+}
+
+function addRouletteBet(kind,target){
+  const stake=Math.max(50,Math.min(5000,Math.floor(Number(G.rouletteStake)||0)));
+  G.rouletteBets.push({kind,target,stake,label:rouletteBetLabel(kind,target)});
+  G.errors.casino='';
+  renderCasino();
+}
+
+function addAdvancedRouletteBet(){
+  const kindInput=document.getElementById('roulette-advanced-kind');
+  const targetInput=document.getElementById('roulette-advanced-target');
+  const kind=kindInput&&kindInput.value||'split';
+  const target=targetInput&&targetInput.value.trim();
+  if(!target){
+    setMsg('casino-msg','Ange ett mål för inside-bettet.','err');
+    return;
+  }
+  addRouletteBet(kind,target);
+}
+
+function removeRouletteBet(index){
+  if(index<0||index>=G.rouletteBets.length) return;
+  G.rouletteBets.splice(index,1);
+  renderCasino();
+}
+
+function clearRouletteBets(){
+  G.rouletteBets=[];
+  renderCasino();
+}
+
+function renderRouletteGrid(state){
+  const el=document.getElementById('roulette-grid');
+  if(!el) return;
+  const wheelMap=new Map(Array.isArray(state&&state.wheel)?state.wheel.map(entry=>[Number(entry.number),String(entry.color||rouletteFrontColor(entry.number))]):[]);
+  const colorFor=number=>wheelMap.get(number)||rouletteFrontColor(number);
+  const straightKeys=new Set(G.rouletteBets.filter(bet=>bet.kind==='straight').map(bet=>rouletteBetKey(bet.kind,bet.target)));
+  const makeCell=(number,zero=false)=>{
+    const color=colorFor(number);
+    const cls=zero?'roulette-zero':'roulette-num';
+    const active=straightKeys.has(rouletteBetKey('straight',number))?' active':'';
+    return `<button type="button" class="${cls} ${color}${active}" data-roulette-number="${number}">${number}</button>`;
+  };
+  const top=Array.from({length:12},(_,idx)=>(idx+1)*3);
+  const mid=Array.from({length:12},(_,idx)=>idx*3+2);
+  const low=Array.from({length:12},(_,idx)=>idx*3+1);
+  el.innerHTML=[makeCell(0,true),...top.map(n=>makeCell(n)),...mid.map(n=>makeCell(n)),...low.map(n=>makeCell(n))].join('');
+}
+
+function renderRouletteSlip(maxTotal){
+  const el=document.getElementById('roulette-slip-list');
+  if(!el) return 0;
+  const total=G.rouletteBets.reduce((sum,bet)=>sum+Math.max(0,Math.floor(Number(bet.stake)||0)),0);
+  set('roulette-total-stake',fmtCash(total)+' kr');
+  if(!G.rouletteBets.length){
+    el.innerHTML='<div class="bj-empty">Ingen bricka ligger ute &auml;n. Bygg en enkel rak insats eller kombinera flera bet.</div>';
+    return total;
+  }
+  el.innerHTML=G.rouletteBets.map((bet,index)=>`<div class="roulette-slip-item">
+      <div>
+        <strong>${esc(bet.label||rouletteBetLabel(bet.kind,bet.target))}</strong>
+        <div class="roulette-slip-meta">Typ: ${esc(String(bet.kind))} &middot; Insats ${fmtCash(bet.stake)} kr</div>
+      </div>
+      <button type="button" class="roulette-remove" data-roulette-remove="${index}">TA BORT</button>
+    </div>`).join('');
+  if(total>maxTotal){
+    el.insertAdjacentHTML('beforeend',`<div class="roulette-slip-item"><div><strong>För tung bricka</strong><div class="roulette-slip-meta">Max total insats per snurr är ${fmtCash(maxTotal)} kr. Ta bort några marker innan du släpper kulan.</div></div></div>`);
+  }
+  return total;
+}
+
+function renderRouletteHistory(history){
+  const el=document.getElementById('roulette-history-list');
+  if(!el) return;
+  if(!history||!history.length){
+    el.innerHTML='<div class="bj-empty">Inga snurr i loggen &auml;n. Huset v&auml;ntar p&aring; f&ouml;rsta kulan.</div>';
+    return;
+  }
+  el.innerHTML=history.map(spin=>{
+    const cls=spin.net_result>0?'good':spin.net_result<0?'bad':'';
+    const summary=(spin.bets||[]).slice(0,3).map(bet=>esc(bet.label||rouletteBetLabel(bet.kind,bet.target))).join(' &middot; ');
+    const suffix=(spin.bets||[]).length>3?` &middot; +${spin.bets.length-3} till`:'';
+    return `<div class="roulette-history-item ${cls}">
+      <div>
+        <strong>${rouletteBallHtml(spin.winning_number,spin.color)}</strong>
+        <div class="roulette-history-meta">${esc(spin.message||'')}<br>${summary||'Tom bricka'}${suffix}</div>
+      </div>
+      <div class="roulette-history-meta">${rouletteSpinTime(spin.created_at)}<br>${spin.net_result>0?'+':''}${fmtCash(spin.net_result)} kr</div>
+    </div>`;
+  }).join('');
+}
+
+function renderCasinoRoulette(){
+  normalizeRouletteCopy();
+  const store=casinoStore('roulette');
+  const p=G.player;
+  if(!p) return;
+  const stakeInput=document.getElementById('roulette-stake-input');
+  if(stakeInput&&!stakeInput.dataset.bound){
+    stakeInput.addEventListener('input',()=>setRouletteStake(stakeInput.value));
+    stakeInput.dataset.bound='1';
+  }
+  setRouletteStake(G.rouletteStake);
+  set('roulette-cash',fmtCash(p.cash||0)+' kr');
+
+  if(!store.loaded&&!store.loading){
+    const banner=document.getElementById('roulette-banner');
+    if(banner){
+      banner.className='bj-banner roulette-banner';
+      banner.innerHTML='<strong>Rouletten värms upp.</strong><span>Huset laddar hjulet och sopar undan dammet från filten.</span>';
+    }
+    set('roulette-last-number','&mdash;');
+    set('roulette-last-net','0 kr');
+    renderRouletteGrid(null);
+    renderRouletteSlip(10000);
+    renderRouletteHistory([]);
+    loadCasinoState();
+    return;
+  }
+
+  const state=store.state||{};
+  const maxTotal=Math.floor(Number(state.max_total_stake??10000));
+  const totalStake=renderRouletteSlip(maxTotal);
+  renderRouletteGrid(state);
+  renderRouletteHistory(state.recent||[]);
+
+  const lastSpin=state.last_spin||null;
+  const banner=document.getElementById('roulette-banner');
+  if(lastSpin){
+    set('roulette-last-number',rouletteBallHtml(lastSpin.winning_number,lastSpin.color));
+    set('roulette-last-net',`${lastSpin.net_result>0?'+':''}${fmtCash(lastSpin.net_result)} kr`);
+    if(banner){
+      banner.className='bj-banner roulette-banner'+(lastSpin.net_result>0?' win':lastSpin.net_result<0?' lose':' push');
+      banner.innerHTML=`<strong>${esc(state.message||lastSpin.message||'Kulan har stannat.')}</strong><span>Total insats: ${fmtCash(lastSpin.total_stake||0)} kr &middot; Utbetalning: ${fmtCash(lastSpin.total_payout||0)} kr</span>`;
+    }
+  }else{
+    set('roulette-last-number','&mdash;');
+    set('roulette-last-net','0 kr');
+    if(banner){
+      banner.className='bj-banner roulette-banner';
+      banner.innerHTML='<strong>Rouletten &auml;r varm.</strong><span>Bygg brickan, v&auml;lj tempo och l&aring;t kulan avg&ouml;ra om natten blir dyr.</span>';
+    }
+  }
+
+  document.querySelectorAll('#casino-panel-roulette [data-roulette-outside]').forEach(btn=>{
+    const kind=btn.dataset.rouletteOutside;
+    const target=(kind==='dozen'||kind==='column')?Number(btn.dataset.rouletteTarget||0):(btn.dataset.rouletteTarget||kind);
+    btn.classList.toggle('active',G.rouletteBets.some(bet=>rouletteBetKey(bet.kind,bet.target)===rouletteBetKey(kind,target)));
+    btn.disabled=G.busy;
+  });
+  document.querySelectorAll('#casino-panel-roulette [data-roulette-stake]').forEach(btn=>btn.disabled=G.busy);
+  document.querySelectorAll('#casino-panel-roulette [data-roulette-number]').forEach(btn=>btn.disabled=G.busy);
+  const clearBtn=document.querySelector('#casino-panel-roulette [data-roulette="clear"]');
+  const addBtn=document.querySelector('#casino-panel-roulette [data-roulette="add-advanced"]');
+  const spinBtn=document.querySelector('#casino-panel-roulette [data-roulette="spin"]');
+  if(clearBtn) clearBtn.disabled=G.busy||!G.rouletteBets.length;
+  if(addBtn) addBtn.disabled=G.busy;
+  if(spinBtn) spinBtn.disabled=G.busy||!G.rouletteBets.length||totalStake>maxTotal;
 }
 
 function holdemStreetLabel(street){
@@ -2917,12 +2779,15 @@ function renderCasinoBlackjack(){
     const banner=document.getElementById('casino-banner');
     if(banner){
       banner.className='bj-banner';
-      banner.innerHTML='<strong>Bordet värms upp.</strong><span>Laddar kortleken från huset...</span>';
+      banner.innerHTML='<strong>Bordet v\u00e4rms upp.</strong><span>Laddar kortleken fr\u00e5n huset...</span>';
     }
-    set('casino-player-total','Totalt: —');
-    set('casino-dealer-total','Totalt: —');
+    set('casino-player-total','Totalt: ?');
+    set('casino-dealer-total','Totalt: ?');
+    set('casino-player-name','DU');
+    set('casino-split-total','Totalt: ?');
     renderBlackjackCards('casino-player-cards',[]);
     renderBlackjackCards('casino-dealer-cards',[]);
+    renderBlackjackCards('casino-split-cards',[]);
     loadCasinoState();
     return;
   }
@@ -2935,20 +2800,40 @@ function renderCasinoBlackjack(){
   const hitBtn=document.querySelector('[data-casino="hit"]');
   const standBtn=document.querySelector('[data-casino="stand"]');
   const doubleBtn=document.querySelector('[data-casino="double"]');
+  const splitBtn=document.querySelector('[data-casino="split"]');
+  const insuranceBtn=document.querySelector('[data-casino="insurance"]');
   const resetBtn=document.querySelector('[data-casino="reset"]');
+  const splitSection=document.getElementById('casino-split-section');
 
   if(startBtn) startBtn.disabled=!!(hand&&!hand.finished)||G.busy;
   if(hitBtn) hitBtn.disabled=!hand||hand.finished||!hand.can_hit||G.busy;
   if(standBtn) standBtn.disabled=!hand||hand.finished||!hand.can_stand||G.busy;
   if(doubleBtn) doubleBtn.disabled=!hand||hand.finished||!hand.can_double||G.busy;
   if(resetBtn) resetBtn.disabled=!!(hand&&!hand.finished)||G.busy;
+  if(splitBtn){
+    const showSplit=!!(hand&&hand.can_split&&!hand.finished);
+    splitBtn.style.display=showSplit?'':'none';
+    splitBtn.disabled=!showSplit||G.busy;
+  }
+  if(insuranceBtn){
+    const showInsurance=!!(hand&&hand.can_insurance&&!hand.finished);
+    insuranceBtn.style.display=showInsurance?'':'none';
+    insuranceBtn.disabled=!showInsurance||G.busy;
+    insuranceBtn.textContent=showInsurance&&hand.insurance_cost
+      ? `INSURANCE (${fmtCash(hand.insurance_cost)} kr)`
+      : 'INSURANCE';
+  }
 
   if(!hand){
     if(empty) empty.style.display='block';
-    set('casino-player-total','Totalt: —');
-    set('casino-dealer-total','Totalt: —');
+    if(splitSection) splitSection.style.display='none';
+    set('casino-player-name','DU');
+    set('casino-player-total','Totalt: ?');
+    set('casino-dealer-total','Totalt: ?');
+    set('casino-split-total','Totalt: ?');
     renderBlackjackCards('casino-player-cards',[]);
     renderBlackjackCards('casino-dealer-cards',[]);
+    renderBlackjackCards('casino-split-cards',[]);
     if(banner){
       banner.className='bj-banner';
       banner.innerHTML='<strong>Bordet är öppet.</strong><span>Välj insats och spela en hand.</span>';
@@ -2957,16 +2842,31 @@ function renderCasinoBlackjack(){
   }
 
   if(empty) empty.style.display='none';
+  const hasSplit=!!(hand.split_cards&&hand.split_cards.length);
+  if(splitSection) splitSection.style.display=hasSplit?'block':'none';
+  set('casino-player-name',hand.in_split_turn?'DU (KLAR)':(hasSplit?'DU (AKTIV)':'DU'));
   renderBlackjackCards('casino-player-cards',hand.player_cards||[]);
   renderBlackjackCards('casino-dealer-cards',hand.dealer_cards||[]);
-  set('casino-player-total',`Totalt: ${hand.player_total||0}`);
+  renderBlackjackCards('casino-split-cards',hasSplit?(hand.split_cards||[]):[]);
+  set('casino-player-total',hand.player_soft?`Totalt: ${hand.player_total||0} (soft)`:`Totalt: ${hand.player_total||0}`);
+  if(hasSplit){
+    let splitLabel=hand.split_soft?`Totalt: ${hand.split_total||0} (soft)`:`Totalt: ${hand.split_total||0}`;
+    if(hand.split_result) splitLabel+=` ? ${String(hand.split_result).toUpperCase()}`;
+    else if(hand.in_split_turn) splitLabel+=' (AKTIV)';
+    set('casino-split-total',splitLabel);
+  }else{
+    set('casino-split-total','Totalt: ?');
+  }
   const dealerLabel=hand.dealer_total===null
     ? `Totalt: ${hand.dealer_visible_total||0} + ?`
     : `Totalt: ${hand.dealer_total||0}`;
   set('casino-dealer-total',dealerLabel);
   if(banner){
     banner.className=blackjackBannerClass(hand.result);
-    banner.innerHTML=`<strong>${esc(hand.message||'Hand pågår.')}</strong><span>Insats: ${fmtCash(hand.bet||0)} kr${hand.doubled?' · Double aktiv':''}</span>`;
+    const betInfo=hand.split_bet
+      ? `Insats: ${fmtCash(hand.bet||0)} kr + split ${fmtCash(hand.split_bet||0)} kr${hand.doubled?' ? Double':''}${hand.split_doubled?' ? Split-double':''}`
+      : `Insats: ${fmtCash(hand.bet||0)} kr${hand.doubled?' ? Double aktiv':''}`;
+    banner.innerHTML=`<strong>${esc(hand.message||'Hand p?g?r.')}</strong><span>${betInfo}</span>`;
   }
 }
 
@@ -3047,7 +2947,7 @@ function renderCasinoHoldem(){
   set('holdem-pot',fmtCash(table.pot||0)+' kr');
   set('holdem-street',holdemStreetLabel(table.street));
   set('holdem-call',fmtCash(table.call_amount||0)+' kr');
-  set('holdem-turn',actingSeat?actingSeat.name:(table.street==='hand_over'||table.street==='table_over'?'Showdown':'—'));
+  set('holdem-turn',actingSeat?esc(actingSeat.name):(table.street==='hand_over'||table.street==='table_over'?'Showdown':'—'));
   set('holdem-meta',`Hand ${table.hand_number||0} · Buy-in ${fmtCash(table.buy_in||0)} kr${table.raise_locked?' · Raise låst för kort höjning':''}`);
   renderBlackjackCards('holdem-community-cards',table.community_cards||[]);
   renderHoldemSeats(table.seats||[]);
@@ -3095,23 +2995,14 @@ async function syncCasinoAfterAction(res,mode=G.casino.mode){
   renderTopbar();renderSidebar();renderCasino();
   if(mode==='blackjack'&&res.hand&&res.hand.finished&&res.hand.message){
     const isBad=['lose','bust','dealer_blackjack'].includes(res.hand.result||'');
-    if(res.hand.result==='win'||res.hand.result==='blackjack') playCasinoSfx('pay3',.38);
-    else if(res.hand.result==='push'||res.hand.result==='split') playCasinoSfx('button',.22);
-    else playCasinoSfx('chip_take',.3);
     addLog(res.hand.message,isBad?'err':'ok');
   }
   if(mode==='holdem'&&res.table&&['hand_over','table_over'].includes(res.table.street||'')&&res.table.message){
     const bad=['lose','busted'].includes(res.table.result||'');
-    if(res.table.result==='win'||res.table.result==='table_clear') playCasinoSfx('pay5',.42);
-    else if(res.table.result==='split') playCasinoSfx('pay2',.32);
-    else playCasinoSfx('chip_take',.3);
     addLog(res.table.message,bad?'err':'ok');
   }
   if(mode==='roulette'&&res.message){
     const bad=Number((res.last_spin&&res.last_spin.net_result)||0)<0;
-    if(res.last_spin) playCasinoSfx('roulette_stop',.34);
-    if(Number((res.last_spin&&res.last_spin.net_result)||0)>0) playCasinoSfx('pay4',.4);
-    else if(Number((res.last_spin&&res.last_spin.net_result)||0)<0) playCasinoSfx('chip_take',.28);
     addLog(res.message,bad?'err':'ok');
   }
   setMsg('casino-msg',res.message||(res.table&&res.table.message)||(res.hand&&res.hand.message)||'Bordet uppdaterat.','ok');
@@ -3134,8 +3025,14 @@ async function doBlackjackStart(){
 async function doBlackjackAction(action){
   if(G.busy) return;
   G.busy=true;
-  playCasinoSfx(action==='stand'?'button':'card_hit',action==='stand'?.26:.34);
-  setMsg('casino-msg',action==='hit'?'Du ber om ett kort...':action==='stand'?'Dealern spelar ut handen...':'Dubblar ner...','info');
+  const msgs={
+    hit:'Du ber om ett kort...',
+    stand:'Dealern spelar ut handen...',
+    double:'Dubblar ner...',
+    split:'Delar paret...',
+    insurance:'Tecknar försäkring...'
+  };
+  setMsg('casino-msg',msgs[action]||'Väntar...','info');
   const res=await post(`action/blackjack/${action}`,{});
   G.busy=false;
   await syncCasinoAfterAction(res,'blackjack');
@@ -3148,8 +3045,6 @@ async function doHoldemStart(){
   if(!buyIn){setMsg('casino-msg','Ange ett giltigt buy-in.','err');return;}
   setHoldemBuyIn(buyIn);
   G.busy=true;
-  playCasinoSfx('pullChips',.34);
-  playCasinoSfx('card_shuffle',.26);
   setMsg('casino-msg','Dealern kastar upp marker och låter mörkarna rassla in...','info');
   const res=await post('action/holdem/start',{buy_in:buyIn});
   G.busy=false;
@@ -3159,7 +3054,6 @@ async function doHoldemStart(){
 async function doHoldemAction(action){
   if(G.busy) return;
   G.busy=true;
-  playCasinoSfx(action==='fold'||action==='check'?'button':action==='call'?'chip_add0':action==='all-in'?'pushChips':'chip_add2',action==='fold'||action==='check'?.24:.34);
   const labels={
     fold:'Du släpper handen.',
     check:'Du knackar bordet.',
@@ -3177,7 +3071,6 @@ async function doHoldemAction(action){
 async function doHoldemNextHand(){
   if(G.busy) return;
   G.busy=true;
-  playCasinoSfx('card_shuffle',.34);
   setMsg('casino-msg','Ny hand dras upp. Läs bordet igen...','info');
   const res=await post('action/holdem/next',{});
   G.busy=false;
@@ -3187,7 +3080,6 @@ async function doHoldemNextHand(){
 async function doHoldemLeave(){
   if(G.busy) return;
   G.busy=true;
-  playCasinoSfx('chip_take',.34);
   setMsg('casino-msg','Du samlar markerna och backar från bordet...','info');
   const res=await post('action/holdem/leave',{});
   G.busy=false;
@@ -3209,13 +3101,14 @@ async function doRouletteSpin(){
     return;
   }
   G.busy=true;
-  playCasinoSfx('roulette_spin',.36);
   setMsg('casino-msg','Kulan släpps och huset håller andan...','info');
   const bets=G.rouletteBets.map(bet=>({kind:bet.kind,target:bet.target,stake:bet.stake}));
   const res=await post('action/roulette/spin',{bets});
   G.busy=false;
   await syncCasinoAfterAction(res,'roulette');
 }
+
+
 
 function bindDevConsole(){
   const unlockInput=document.getElementById('dev-password');
@@ -3473,22 +3366,272 @@ async function doCollectOne(propId){
   }
 }
 
+/* ─── Talent Tree ──────────────────────────────────────────────────────────── */
+const PROF_LABELS={core:'CORE',ranare:'RÅNARE',langare:'LANGARE',torped:'TORPED',hallick:'HALLICK',bedragare:'BEDRAGARE'};
+const TIER_NAMES={1:'TIER 1',2:'TIER 2',3:'TIER 3',4:'TIER 4 — CAPSTONE'};
+const TIER_REQ={1:0,2:4,3:10,4:16};
+const TALENT_TREES=['core','ranare','langare','torped','hallick','bedragare'];
+
+let G_talents=[];          // all talent definitions
+let G_playerTalents={};    // {talent_id:{rank,unlocked_at}}
+let G_talentPts={available:0,spent:0,total:0};
+let G_talentTree='core';   // currently viewed tree tab
+let G_myProfession='none';
+let G_talentSelected=null; // talent object currently in tooltip
+
+function ownTreeFor(prof){ return prof==='rånare'?'ranare':prof; }
+
+async function loadTalents(){
+  const[all,mine]=await Promise.all([api('talents'),api('talents/player')]);
+  if(all.talents) G_talents=all.talents;
+  if(mine.player_talents) G_playerTalents=mine.player_talents;
+  G_talentPts={
+    available: mine.talent_points_available??0,
+    spent:     Object.values(G_playerTalents).reduce((s,t)=>s+(t.rank||0),0),
+    total:     (mine.talent_points_available??0)+Object.values(G_playerTalents).reduce((s,t)=>s+(t.rank||0),0),
+  };
+  G_myProfession=mine.profession||activeProfStr();
+  if(G_talentTree==='core'||!TALENT_TREES.includes(G_talentTree)){
+    const own=ownTreeFor(G_myProfession);
+    if(TALENT_TREES.includes(own)) G_talentTree=own;
+  }
+  renderTalents();
+}
+
+function activeProfStr(){
+  if(!G.player) return 'none';
+  const p=String(G.player.profession||'none').replace(/^changed:/,'');
+  return p==='none'?'none':p;
+}
+
+function renderTalents(){
+  // Points bar
+  set('talent-pts-avail',G_talentPts.available);
+  set('talent-pts-spent',G_talentPts.spent);
+
+  // Tree tabs (Core + 5 professions)
+  const tabs=document.getElementById('talent-prof-tabs');
+  if(tabs){
+    const myTree=ownTreeFor(G_myProfession);
+    tabs.innerHTML=TALENT_TREES.map(p=>{
+      const isMine=p===myTree;
+      const isActive=p===G_talentTree;
+      const label=PROF_LABELS[p]||p.toUpperCase();
+      return `<button class="talent-tab${isActive?' active':''}${isMine?' my-prof':''}" data-tree="${p}">${label}${isMine?' ★':''}</button>`;
+    }).join('');
+    tabs.querySelectorAll('.talent-tab').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        G_talentTree=btn.dataset.tree;
+        renderTalents();
+      });
+    });
+  }
+
+  // Tree content
+  const content=document.getElementById('talent-tree-content');
+  if(!content) return;
+  const treeTalents=G_talents.filter(t=>t.tree===G_talentTree);
+
+  // Count current_rank sum in this tree
+  const treeSpentPts=treeTalents.reduce((sum,t)=>{
+    const pt=G_playerTalents[t.id];
+    return sum+(pt?pt.rank:0);
+  },0);
+
+  const tiers=[1,2,3,4];
+  content.innerHTML=tiers.map(tier=>{
+    const tierTalents=treeTalents.filter(t=>t.tier===tier);
+    if(!tierTalents.length) return '';
+    const req=TIER_REQ[tier]??0;
+    const unlocked_tier=treeSpentPts>=req;
+    const tierLabel=tier===4?'TIER 4 — CAPSTONE':
+      `TIER ${tier}${req>0?` <span>(kräver ${req} pts i treet — du har ${treeSpentPts})</span>`:''}`;
+    const cards=tierTalents.map(t=>renderTalentCard(t,unlocked_tier)).join('');
+    return `<div class="talent-tier">
+      <div class="talent-tier-hdr">${tierLabel}</div>
+      <div class="talent-grid">${cards}</div>
+    </div>`;
+  }).join('');
+
+  // Bind card clicks
+  content.querySelectorAll('.talent-card').forEach(card=>{
+    card.addEventListener('click',()=>{
+      const tid=card.dataset.talentId;
+      const t=G_talents.find(x=>x.id===tid);
+      if(t) showTalentTooltip(t);
+    });
+  });
+}
+
+function renderTalentCard(t,tierUnlocked){
+  const pt=G_playerTalents[t.id];
+  const rank=pt?pt.rank:0;
+  const maxRank=t.max_rank||1;
+  const isUnlocked=rank>0;
+  const isMaxed=rank>=maxRank;
+  const prereqsMet=checkPrereqs(t);
+  const isCap=t.tier===4||t.talent_type==='keystone';
+
+  const myTree=ownTreeFor(G_myProfession);
+  const cost=(t.tree===myTree||t.tree==='core')?1:2;
+
+  const classes=['talent-card'];
+  if(isUnlocked){
+    classes.push('unlocked');
+    if(isMaxed) classes.push('maxed');
+    if(isCap) classes.push('capstone');
+  } else if(!tierUnlocked){
+    classes.push('locked');
+    if(isCap) classes.push('capstone');
+  } else if(prereqsMet&&G_talentPts.available>=cost){
+    classes.push('available');
+    if(isCap) classes.push('capstone');
+  } else {
+    classes.push('locked');
+    if(isCap) classes.push('capstone');
+  }
+  const state=classes.slice(1).join(' ');
+
+  const lockIcon=state==='locked'?'<span class="talent-lock-icon">🔒</span>':'';
+  const rankBadge=maxRank>1?`<span class="talent-card-rank">${rank}/${maxRank}</span>`
+    :(isUnlocked?'<span class="talent-card-rank">✓</span>':'');
+  const typeIcon=t.talent_type==='keystone'?'★':t.talent_type==='unlock'?'◇':'◆';
+
+  return `<div class="talent-card ${state}" data-talent-id="${t.id}">
+    ${rankBadge}
+    <div class="talent-card-icon">${typeIcon}</div>
+    <div class="talent-card-name">${esc(t.name)}</div>
+    <div class="talent-card-desc">${esc(t.description.slice(0,70))}${t.description.length>70?'…':''}</div>
+    ${lockIcon}
+  </div>`;
+}
+
+function checkPrereqs(t){
+  try{
+    const prereqs=JSON.parse(t.prerequisites||'[]');
+    for(const p of prereqs){
+      const[pid,minRankStr]=p.split(':');
+      const minRank=minRankStr?parseInt(minRankStr,10):1;
+      const pt=G_playerTalents[pid];
+      if(!pt||(pt.rank||0)<minRank) return false;
+    }
+    return true;
+  }catch{return true;}
+}
+
+function showTalentTooltip(t){
+  G_talentSelected=t;
+  const pt=G_playerTalents[t.id];
+  const rank=pt?pt.rank:0;
+  const maxRank=t.max_rank||1;
+  const myTree=ownTreeFor(G_myProfession);
+  const isSameOrCore=(t.tree===myTree||t.tree==='core');
+  const cost=isSameOrCore?1:2;
+  const canUnlock=G_talentPts.available>=cost&&rank<maxRank&&checkPrereqs(t);
+
+  const tip=document.getElementById('talent-tooltip');
+  if(!tip) return;
+  const typeIcon=t.talent_type==='keystone'?'★':t.talent_type==='unlock'?'◇':'◆';
+  set('ttt-icon',typeIcon);
+  set('ttt-name',esc(t.name));
+  set('ttt-rank',rank>0?`Rank ${rank}/${maxRank}`:(maxRank>1?`0/${maxRank}`:''));
+  set('ttt-desc',esc(t.description));
+
+  // Prerequisites display
+  const prereqEl=document.getElementById('ttt-prereq');
+  try{
+    const prereqs=JSON.parse(t.prerequisites||'[]');
+    if(prereqs.length){
+      const lines=prereqs.map(p=>{
+        const[pid,minRankStr]=p.split(':');
+        const minRank=minRankStr?parseInt(minRankStr,10):1;
+        const pt2=G_playerTalents[pid];
+        const met=pt2&&(pt2.rank||0)>=minRank;
+        const def=G_talents.find(x=>x.id===pid);
+        return `${met?'✓':'✗'} ${def?def.name:pid}${minRank>1?' rank '+minRank:''}`;
+      });
+      if(prereqEl) prereqEl.textContent='Kräver: '+lines.join(', ');
+    } else {
+      if(prereqEl) prereqEl.textContent='';
+    }
+  }catch{ if(prereqEl) prereqEl.textContent=''; }
+
+  const treeSpentPts=G_talents.filter(x=>x.tree===t.tree).reduce((s,x)=>{
+    const px=G_playerTalents[x.id]; return s+(px?px.rank:0);
+  },0);
+  const tierReq=TIER_REQ[t.tier]??0;
+  const tierMet=treeSpentPts>=tierReq;
+
+  let costText=`Kostnad: ${cost} talent-poäng (${G_talentPts.available} tillgängliga)`;
+  if(!isSameOrCore) costText+=` [annat träd — 2x]`;
+  if(!tierMet) costText=`🔒 Kräver ${tierReq} pts i treet (du har ${treeSpentPts})`;
+  if(rank>=maxRank) costText='✓ Maxad';
+  set('ttt-cost',costText);
+
+  const unlockBtn=document.getElementById('ttt-unlock-btn');
+  if(unlockBtn){
+    unlockBtn.disabled=!canUnlock||!tierMet||rank>=maxRank;
+    unlockBtn.textContent=rank>=maxRank?'MAXAD':rank>0?'UPPGRADERA':'LÅS UPP';
+  }
+  tip.style.display='block';
+}
+
+function hideTalentTooltip(){
+  const tip=document.getElementById('talent-tooltip');
+  if(tip) tip.style.display='none';
+  G_talentSelected=null;
+}
+
+async function doUnlockTalent(){
+  if(!G_talentSelected) return;
+  const btn=document.getElementById('ttt-unlock-btn');
+  if(btn) btn.disabled=true;
+  setMsg('talent-msg','','');
+  const r=await api('talents/unlock',{method:'POST',body:{talent_id:G_talentSelected.id}});
+  if(r.success){
+    setMsg('talent-msg',r.message,'ok');
+    hideTalentTooltip();
+    await loadTalents();
+  }else{
+    setMsg('talent-msg',r.error||'Kunde inte låsa upp talent.','err');
+    if(btn) btn.disabled=false;
+  }
+}
+
+async function doRespec(){
+  if(!confirm('Återställ ALLA talents för 50 000 kr?')) return;
+  const r=await api('talents/respec',{method:'POST'});
+  if(r.success){
+    setMsg('talent-msg',r.message,'ok');
+    await loadTalents();
+    await softReload();
+  }else{
+    setMsg('talent-msg',r.error||'Respec misslyckades.','err');
+  }
+}
+
+(function bindTalentUI(){
+  document.getElementById('ttt-close-btn')?.addEventListener('click',hideTalentTooltip);
+  document.getElementById('ttt-unlock-btn')?.addEventListener('click',doUnlockTalent);
+  document.getElementById('talent-respec-btn')?.addEventListener('click',doRespec);
+})();
+
 /* ─── Ranking ─────────────────────────────────────────────────────────────── */
 function renderRanking(){
   const ri=document.getElementById('round-info');
   if(ri&&G.status&&G.status.round){
     const s=G.status;
     const secsLeft=(s.round&&s.round.seconds_left)||s.seconds_left||0;
-    const playerCount=s.player_count??s.total_players??0;
-    const roundNumber=(s.round&&s.round.number)||s.round_number||'—';
-    ri.innerHTML=`<span>Runda <strong>${roundNumber}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>Spelare: <strong>${playerCount}</strong></span>`;
+    const playerCount=s.world_count??s.player_count??s.total_players??0;
+    const roundNumber=(s.round&&s.round.number)||s.round_number||'?';
+    ri.innerHTML=`<span>Runda <strong>${roundNumber}</strong></span><span>Tid kvar: <strong>${fmtFull(secsLeft)}</strong></span><span>I stan: <strong>${playerCount}</strong></span>`;
   }
   const meta=document.getElementById('rank-meta');
   if(meta){
     if(G.status&&G.status.round){
-      const self=G.status.self||null;
-      const selfRank=G.status.self_rank?`#${G.status.self_rank}`:'Oplacerad';
-      const leader=(G.status.top10||[])[0];
+      const self=G.status.world_self||G.status.self||null;
+      const selfRank=G.status.world_self_rank?`#${G.status.world_self_rank}`:'Oplacerad';
+      const leader=G.status.world_leader||null;
       meta.innerHTML=[
         `<span>30 dagar att bli kung. <strong>Din plats: ${esc(selfRank)}</strong></span>`,
         leader?`<span>Toppen hålls av <strong>${esc(leader.name)}</strong> på ${fmtCash(leader.respect||0)} respect</span>`:'<span>Ingen ledare ännu. Perfekt läge att ta första platsen.</span>',
@@ -3500,30 +3643,25 @@ function renderRanking(){
   }
   const tbody=document.getElementById('rank-tbody');
   if(!tbody) return;
-  const players=(G.status&&G.status.top10)||[];
-  const npcsRank=[...G.npcs].sort((a,b)=>(b.respect||0)-(a.respect||0)).slice(0,10).map(n=>({
-    name:n.name,level:n.level,respect:n.respect,profession:'NPC',side:n.side,isNpc:true
-  }));
-  const playerRows=players.map(p=>({
-    name:p.name,level:p.level,respect:p.respect,profession:p.profession||'none',side:p.side,isNpc:false
-  }));
-  const all=[...playerRows,...npcsRank].sort((a,b)=>b.respect-a.respect).slice(0,20);
+  const rows=(G.status&&G.status.world_top10)||[];
+  const self=G.status&&((G.status.world_self)||G.status.self)||null;
+  const selfRank=(G.status&&G.status.world_self_rank)||null;
   const myName=G.player?G.player.name:'';
-  const self=G.status&&G.status.self;
-  const hasSelf=!!myName&&all.some(row=>!row.isNpc&&row.name===myName);
-  const rowsHtml=all.map((row,i)=>{
-    const isMe=!row.isNpc&&row.name===myName;
+  const myId=G.player?G.player.id:'';
+  const hasSelf=!!myId&&rows.some(row=>!(row.is_npc||row.isNpc)&&row.id===myId);
+  const rowsHtml=rows.map((row,i)=>{
+    const isNpc=!!(row.is_npc||row.isNpc);
+    const isMe=!isNpc&&row.name===myName;
     const sideLabel=row.side==='westside'?'WEST':'EAST';
-    const prof=professionName(row.profession)||'—';
-    return `<tr${isMe?' class="me"':''}><td>${i+1}</td><td>${esc(row.name)}${row.isNpc?' <span style="color:var(--dim);font-size:10px;">[NPC]</span>':''}</td><td>Lv${row.level}</td><td>${fmtCash(row.respect)}</td><td>${prof}</td><td>${sideLabel}</td></tr>`;
+    const prof=isNpc?'NPC':(professionName(row.profession)||'?');
+    return `<tr${isMe?' class="me"':''}><td>${i+1}</td><td>${esc(row.name)}${isNpc?' <span style="color:var(--dim);font-size:10px;">[NPC]</span>':''}</td><td>Lv${row.level}</td><td>${fmtCash(row.respect||0)}</td><td>${prof}</td><td>${sideLabel}</td></tr>`;
   }).join('');
-  const selfHtml=(!hasSelf&&self&&G.status.self_rank)
-    ? `<tr class="rank-gap"><td colspan="6">DIN PLACERING</td></tr><tr class="me"><td>${G.status.self_rank}</td><td>${esc(self.name)}</td><td>Lv${self.level}</td><td>${fmtCash(self.respect)}</td><td>${professionName(self.profession)||'—'}</td><td>${self.side==='westside'?'WEST':'EAST'}</td></tr>`
+  const selfHtml=(!hasSelf&&self&&selfRank)
+    ? `<tr class="rank-gap"><td colspan="6">DIN PLACERING</td></tr><tr class="me"><td>${selfRank}</td><td>${esc(self.name)}</td><td>Lv${self.level}</td><td>${fmtCash(self.respect||0)}</td><td>${(self.is_npc||self.isNpc)?'NPC':(professionName(self.profession)||'?')}</td><td>${self.side==='westside'?'WEST':'EAST'}</td></tr>`
     : '';
   tbody.innerHTML=rowsHtml+selfHtml;
 }
 
-/* ─── Prison ─────────────────────────────────────────────────────────────── */
 function renderPrisonScreen(){
   const p=G.player;if(!p) return;
   const secsLeft=G.extra.prison_seconds_left||0;
@@ -3566,9 +3704,16 @@ function renderHospitalScreen(){
   set('hosp-hp-text',hp+'/'+hpMax+' HP');
   const healCost=Math.max(100,(hpMax-hp)*10);
   set('hosp-heal-cost',fmtCash(healCost));
+  set('hosp-boost-cost',fmtCash(5000));
   set('hosp-timer',fmtFull(secsLeft));
   const waitBtn=document.getElementById('hosp-wait-btn');
   if(waitBtn) waitBtn.textContent=secsLeft>0?'UPPDATERA STATUS':'LÄMNA SJUKHUSET';
+  const healBtn=document.getElementById('hosp-heal-btn');
+  const boostBtn=document.getElementById('hosp-boost-btn');
+  const boostStat=document.getElementById('hosp-boost-stat');
+  if(healBtn) healBtn.disabled=!!G.busy;
+  if(boostBtn) boostBtn.disabled=!!G.busy;
+  if(boostStat) boostStat.disabled=!!G.busy;
   if(G._hospitalTick) clearInterval(G._hospitalTick);
   let left=secsLeft;
   if(left>0){
@@ -3586,7 +3731,12 @@ function renderHospitalScreen(){
 
 async function doHospital(action){
   if(G.busy) return;G.busy=true;
-  const r=await post('action/hospital',{action});
+  const body={action};
+  if(action==='boost'){
+    const boostStat=document.getElementById('hosp-boost-stat');
+    body.stat=(boostStat&&boostStat.value)||'strength';
+  }
+  const r=await post('action/hospital',body);
   G.busy=false;
   if(r.error){setMsg('hosp-msg',r.error,'err');}
   else{
@@ -3616,6 +3766,32 @@ function bindCreate(){
   if(btn) btn.addEventListener('click',doCreate);
   const suggBtn=document.getElementById('sugg-btn');
   if(suggBtn) suggBtn.addEventListener('click',loadNameSuggestions);
+  const loginBtn=document.getElementById('login-btn');
+  if(loginBtn) loginBtn.addEventListener('click',doLogin);
+  const loginPw=document.getElementById('login-password');
+  if(loginPw) loginPw.addEventListener('keydown',e=>{if(e.key==='Enter') doLogin();});
+}
+
+async function doLogin(){
+  if(G.busy) return;
+  const email=(document.getElementById('login-email').value||'').trim();
+  const password=document.getElementById('login-password').value||'';
+  if(!email||!password){setMsg('login-err','Ange e-postadress och lösenord.','err');return;}
+  setMsg('login-err','Loggar in...','info');
+  G.busy=true;
+  const r=await post('login',{email,password});
+  G.busy=false;
+  if(r.error){setMsg('login-err',r.error,'err');return;}
+  if(!r.player){setMsg('login-err','Oväntat svar från servern.','err');return;}
+  setMsg('login-err','','');
+  G.player=r.player;G.extra={player:r.player};G._fetchedAt=Date.now();
+  G.casino=defaultCasinoState();
+  G.holdemBuyIn=2000;G.rouletteStake=100;G.rouletteBets=[];
+  await loadAll();
+  applyCondition();
+  startTimers();
+  if(!G._pollTimer) G._pollTimer=setInterval(softReload,30000);
+  if(!G._pricePoll) G._pricePoll=setInterval(refreshPrices,60000);
 }
 
 async function loadNameSuggestions(){
@@ -3665,8 +3841,11 @@ async function doCreate(){
 
 /* ─── Level-up ───────────────────────────────────────────────────────────── */
 const LEVEL_UNLOCKS={
-  3:'Välj yrke',5:'Köp fordon',8:'Strid mot NPC:er',
-  10:'Fastigheter & Streetrace',15:'Bankrån',20:'Kasinorån',30:'Riksbanken'
+  2:'Fler brott',3:'Välj yrke',4:'Drogmarknad',5:'Köp fordon',
+  6:'Fler mål',7:'Bättre loot',8:'Strid mot NPC:er',9:'Kasino öppnar',
+  10:'Fastigheter & Streetrace',12:'Organiserad brottslighet',
+  15:'Bankrån',18:'Tunga vapen',20:'Kasinorån',
+  25:'Toppligan',30:'Riksbanken',40:'Legendstatus'
 };
 
 function showLevelUp(oldLevel,newLevel){
@@ -3677,9 +3856,15 @@ function showLevelUp(oldLevel,newLevel){
   if(lv) lv.textContent='Level '+newLevel;
   const unlocks=[];
   for(let l=oldLevel+1;l<=newLevel;l++) if(LEVEL_UNLOCKS[l]) unlocks.push(LEVEL_UNLOCKS[l]);
-  if(ul) ul.innerHTML=unlocks.length?'Upplåst: '+unlocks.join(', '):'';
+  let html=unlocks.length?'Upplåst: '+unlocks.join(', '):'';
+  if(G.player&&typeof G.player.xp==='number'&&newLevel<50){
+    const xpFloor=1000*newLevel*(newLevel+1)/2;
+    const xpToNext=xpFloor-G.player.xp;
+    if(xpToNext>0) html+=(html?'<br>':'')+xpToNext.toLocaleString('sv')+'\u00a0XP kvar till level '+(newLevel+1);
+  }
+  if(ul) ul.innerHTML=html;
   ov.classList.add('show');
-  setTimeout(()=>ov.classList.remove('show'),4000);
+  setTimeout(()=>ov.classList.remove('show'),5000);
   ov.onclick=()=>ov.classList.remove('show');
 }
 

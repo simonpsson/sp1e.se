@@ -1,3 +1,24 @@
 # All pages use ?id= query params so Cloudflare auto-serves index.html from the directory.
 # No SPA rewrites needed.
 /hub/tags    /hub/tags/index.html    200
+
+# Block access to sensitive files (SQL schemas, config, internal docs)
+/schema.sql                      /  301
+/game-schema.sql                 /  301
+/game-seed.sql                   /  301
+/game-reset.sql                  /  301
+/game-migrations.sql             /  301
+/game-migration-roulette.sql     /  301
+/game-migration-blackjack.sql    /  301
+/game-migration-holdem.sql       /  301
+/game-migration-accounts.sql     /  301
+/game-talents-schema.sql         /  301
+/game-talents-seed.sql           /  301
+/seed-dax-categories.sql         /  301
+/wrangler.toml                   /  301
+/PROJECT.md                      /  301
+/hemfrid_dax_measures.md         /  301
+/.dev.vars.example               /  301
+/.dev.vars                       /  301
+/.gitignore                      /  301
+/scripts/*                       /  301

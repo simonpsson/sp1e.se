@@ -184,3 +184,13 @@ CREATE INDEX IF NOT EXISTS idx_artworks_artist   ON artworks (artist);
 CREATE INDEX IF NOT EXISTS idx_artworks_school   ON artworks (school);
 CREATE INDEX IF NOT EXISTS idx_artworks_favorite ON artworks (is_favorite);
 CREATE INDEX IF NOT EXISTS idx_artworks_added    ON artworks (added_at DESC);
+
+-- ─── Spotify tokens ──────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS spotify_tokens (
+  id            TEXT    PRIMARY KEY DEFAULT 'main',
+  access_token  TEXT,
+  refresh_token TEXT,
+  expires_at    INTEGER,
+  updated_at    TEXT    DEFAULT (datetime('now'))
+);
