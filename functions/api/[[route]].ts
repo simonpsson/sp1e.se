@@ -22,6 +22,7 @@ const SAFE_TABLES = new Set(['notes', 'snippets', 'bookmarks', 'files']);
 
 // Reject the checked-in emergency hash so misconfigured deployments fail loudly.
 const KNOWN_FALLBACK_HASH = 'pbkdf2:100000:26e4335528b9f68528debae265f5e48f:cf80806a2013a029e1b07a79ce51be94be9fec26a5e1506a08320f950ce86476';
+const DEFAULT_GAME_ADMIN_HASH = 'pbkdf2:100000:9c45d83d8e871ef901dee7f0af428cec:2ae9a9e1e94cfa9d92d1198d1d7a1ba4f4105f7ce6b317edb121374c1e9f43ec';
 
 const DEFAULT_CATEGORIES = [
   { id: 'power-bi',   name: 'Power BI',   icon: '⚡', sortOrder: 1 },
