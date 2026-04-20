@@ -225,14 +225,28 @@ select:focus{border-color:var(--red);}
 .casino-stat{background:var(--bg2);border:1px solid var(--border);border-radius:0;padding:12px;display:flex;flex-direction:column;gap:4px;}
 .casino-stat span{font-size:10px;color:var(--dim);letter-spacing:1px;}
 .casino-stat strong{font-size:15px;color:var(--white);}
-.casino-table{background:linear-gradient(180deg,#13181d,#0f1317);border:1px solid var(--border);border-radius:0;padding:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);}
+.casino-table{background:linear-gradient(180deg,rgba(10,14,18,.82),rgba(8,11,15,.92));border:1px solid var(--border);border-radius:0;padding:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);}
+.casino-panel.theme-blackjack .casino-table{background:
+  linear-gradient(180deg,rgba(13,11,12,.82),rgba(10,8,10,.93)),
+  url('/assets/casino-plugin/backgrounds/table_red.png') center/cover no-repeat;}
+.casino-panel.theme-holdem .casino-table{background:
+  linear-gradient(180deg,rgba(10,14,18,.82),rgba(8,11,15,.92)),
+  url('/assets/casino-plugin/backgrounds/table_green.png') center/cover no-repeat;}
+.casino-panel.theme-roulette .casino-table{background:
+  linear-gradient(180deg,rgba(10,12,18,.82),rgba(7,10,16,.93)),
+  url('/assets/casino-plugin/backgrounds/table_blue.png') center/cover no-repeat;}
 .casino-decknote{font-size:10px;color:var(--dim);letter-spacing:1px;}
 .casino-bet{display:flex;flex-direction:column;gap:12px;}
 .casino-bet-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
 .casino-bet-row label{font-size:11px;color:var(--dim);width:84px;flex-shrink:0;}
 .casino-bet-row input{max-width:160px;}
 .casino-chipbar{display:flex;gap:8px;flex-wrap:wrap;}
-.casino-chip{border-radius:2px;padding:7px 12px;background:#17131b;}
+.casino-chip{position:relative;border-radius:2px;padding:7px 12px 7px 38px;background:#17131b;overflow:hidden;}
+.casino-chip::before{content:'';position:absolute;left:10px;top:50%;width:20px;height:20px;transform:translateY(-50%);background:center/contain no-repeat;opacity:.92;}
+.casino-chip:nth-child(4n+1)::before{background-image:url('/assets/casino-plugin/chips/chipStack0.png');}
+.casino-chip:nth-child(4n+2)::before{background-image:url('/assets/casino-plugin/chips/chipStack1.png');}
+.casino-chip:nth-child(4n+3)::before{background-image:url('/assets/casino-plugin/chips/chipStack2.png');}
+.casino-chip:nth-child(4n)::before{background-image:url('/assets/casino-plugin/chips/chipStack3.png');}
 .casino-chip.active{border-color:var(--amber);color:var(--white);background:#221811;}
 .casino-modebar{display:flex;gap:10px;flex-wrap:wrap;}
 .casino-mode{padding:8px 14px;border-radius:2px;background:#15131a;border:1px solid var(--border);letter-spacing:1px;}
@@ -243,12 +257,13 @@ select:focus{border-color:var(--red);}
 .holdem-summary .casino-stat strong{font-size:14px;}
 .holdem-board{display:flex;flex-direction:column;gap:14px;margin-top:14px;}
 .holdem-community{display:flex;flex-direction:column;gap:8px;}
-.holdem-community .bj-cards{min-height:112px;}
+.holdem-community .bj-cards{min-height:112px;align-items:flex-start;}
 .holdem-seats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
 .holdem-seat{background:rgba(11,13,18,.88);border:1px solid var(--border);border-radius:0;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:180px;}
 .holdem-seat.player{border-color:#4b3a2a;background:rgba(20,18,14,.95);}
 .holdem-seat.turn{box-shadow:0 0 0 1px rgba(242,74,74,.35),0 0 0 4px rgba(242,74,74,.08);}
 .holdem-seat.folded{opacity:.62;}
+.holdem-seat .bj-cards{min-height:112px;align-items:flex-start;}
 .holdem-seat-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
 .holdem-seat-name{display:flex;flex-direction:column;gap:6px;}
 .holdem-seat-name strong{font-size:13px;color:var(--white);}
@@ -268,7 +283,10 @@ select:focus{border-color:var(--red);}
 .holdem-empty{font-size:12px;color:var(--dim);padding:10px 0;}
 .roulette-topline{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px;}
 .roulette-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.9fr);gap:16px;margin-top:14px;align-items:start;}
-.roulette-board-wrap{display:flex;flex-direction:column;gap:14px;}
+.roulette-board-wrap{display:flex;flex-direction:column;gap:14px;position:relative;isolation:isolate;}
+.roulette-board-wrap::before{content:'';position:absolute;right:22px;top:18px;width:184px;height:184px;background:url('/assets/casino-plugin/roulette/roulette_base.png') center/contain no-repeat;opacity:.06;pointer-events:none;z-index:0;}
+.roulette-board-wrap::after{content:'';position:absolute;right:14px;bottom:12px;width:148px;height:148px;background:url('/assets/casino-plugin/roulette/roulette_wheel.png') center/contain no-repeat;opacity:.09;pointer-events:none;z-index:0;}
+.roulette-board-wrap > *{position:relative;z-index:1;}
 .roulette-grid{display:grid;grid-template-columns:72px repeat(12,minmax(0,1fr));gap:6px;}
 .roulette-zero{grid-row:span 3;min-height:162px;border-radius:10px;border:1px solid #315d4b;background:linear-gradient(180deg,#173026,#0f201a);color:#d8ffe8;font-size:18px;letter-spacing:2px;}
 .roulette-num{min-height:50px;border-radius:8px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:700;}
@@ -315,32 +333,20 @@ select:focus{border-color:var(--red);}
   .roulette-zero{grid-row:auto;min-height:54px;}
   .roulette-outside{grid-template-columns:repeat(2,minmax(0,1fr));}
   .roulette-builder-grid{grid-template-columns:1fr;}
+  .holdem-community .bj-card,.holdem-seat .bj-card{width:72px;flex-basis:72px;min-width:72px;}
 }
 .bj-hand{display:flex;flex-direction:column;gap:10px;}
 .bj-head{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;}
 .bj-name{font-size:11px;color:var(--dim);letter-spacing:1px;}
 .bj-total{font-size:13px;color:var(--white);}
-.bj-cards{display:flex;gap:10px;flex-wrap:wrap;}
-.bj-card{width:74px;aspect-ratio:5/7;border-radius:2px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);}
-.bj-card img{width:100%;height:100%;display:block;object-fit:cover;background:#fff;}
-.bj-card.hidden{background:
-  radial-gradient(circle at 30% 30%,rgba(255,255,255,.08),transparent 30%),
-  linear-gradient(160deg,#211824,#15101a 55%,#0d0a10);
-  border-color:#3a2c39;
-  box-shadow:0 10px 24px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.04);
-}
-.bj-card.hidden::before{
-  content:'MOSQ';
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:rgba(255,255,255,.55);
-  font-size:12px;
-  letter-spacing:4px;
-}
-.bj-card-fallback{display:none;width:100%;height:100%;padding:10px;background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;flex-direction:column;justify-content:space-between;}
+.bj-cards{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;}
+.bj-card{width:80px;flex:0 0 80px;min-width:80px;aspect-ratio:140/180;border-radius:8px;border:0;background:transparent;color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;}
+.holdem-community .bj-card{width:84px;flex-basis:84px;min-width:84px;}
+.holdem-seat .bj-card{width:78px;flex-basis:78px;min-width:78px;}
+.bj-card img{width:100%;height:100%;display:block;object-fit:contain;object-position:center;background:transparent;}
+.bj-card.hidden{box-shadow:0 10px 24px rgba(0,0,0,.35);}
+.bj-card.hidden img{object-fit:contain;background:transparent;}
+.bj-card-fallback{display:none;width:100%;height:100%;padding:10px;border:1px solid rgba(17,17,17,.16);border-radius:8px;background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;flex-direction:column;justify-content:space-between;}
 .bj-card.fallback .bj-card-fallback{display:flex;}
 .bj-card-fallback.red{color:#b32025;}
 .bj-rank{font-size:17px;font-weight:500;line-height:1;}
@@ -801,7 +807,7 @@ select:focus{border-color:var(--red);}
             <button type="button" class="casino-mode" data-casino-mode="holdem">TEXAS HOLD&rsquo;EM</button>
           </div>
 
-          <div id="casino-panel-blackjack" class="casino-panel active">
+          <div id="casino-panel-blackjack" class="casino-panel theme-blackjack active">
             <div class="casino-top">
               <div class="casino-stat"><span>KASSA</span><strong id="casino-cash">0 kr</strong></div>
               <div class="casino-stat"><span>INSATS</span><strong id="casino-bet-display">500 kr</strong></div>
@@ -864,7 +870,7 @@ select:focus{border-color:var(--red);}
             </div>
           </div>
 
-          <div id="casino-panel-holdem" class="casino-panel">
+          <div id="casino-panel-holdem" class="casino-panel theme-holdem">
             <div class="casino-top">
               <div class="casino-stat"><span>KASSA</span><strong id="holdem-cash">0 kr</strong></div>
               <div class="casino-stat"><span>STACK</span><strong id="holdem-stack">—</strong></div>
@@ -917,7 +923,7 @@ select:focus{border-color:var(--red);}
               <div class="holdem-foot">V1 kör riktig Texas Hold&rsquo;Em i fixed-limit-format: riktiga streets, blinds, showdown och delad pott när händerna knyter sig.</div>
             </div>
           </div>
-          <div id="casino-panel-roulette" class="casino-panel">
+          <div id="casino-panel-roulette" class="casino-panel theme-roulette">
             <div class="casino-top">
               <div class="casino-stat"><span>KASSA</span><strong id="roulette-cash">0 kr</strong></div>
               <div class="casino-stat"><span>INSATS / BRICKA</span><strong id="roulette-stake-display">100 kr</strong></div>
@@ -2248,11 +2254,54 @@ async function loadCasinoState(force=false){
   renderCasino();
 }
 
-const BLACKJACK_CARD_ASSET_BASE='/assets/blackjack/cards';
-const BLACKJACK_FALLBACK_CODES=new Set(['10H','JH']);
+const CASINO_PLUGIN_ASSET_BASE='/assets/casino-plugin';
+const BLACKJACK_CARD_ASSET_BASE=`${CASINO_PLUGIN_ASSET_BASE}/cards`;
+const BLACKJACK_CARD_BACK_ASSET=`${BLACKJACK_CARD_ASSET_BASE}/cardBack.png`;
+const BLACKJACK_FALLBACK_CARD_ASSET_BASE='/assets/blackjack/cards';
+const BLACKJACK_FALLBACK_CODES=new Set();
+const CASINO_SFX_BASE=`${CASINO_PLUGIN_ASSET_BASE}/audio`;
 
 function blackjackCardAsset(code){
-  return `${BLACKJACK_CARD_ASSET_BASE}/${encodeURIComponent(code)}.jpg`;
+  const normalized=String(code||'').trim().toUpperCase();
+  const match=normalized.match(/^(10|[2-9AJQK])([CDHS])$/);
+  if(!match) return `${BLACKJACK_FALLBACK_CARD_ASSET_BASE}/${encodeURIComponent(normalized)}.jpg`;
+  const rankMap={A:'a',J:'j',Q:'q',K:'k','10':'t'};
+  const rank=rankMap[match[1]]||match[1];
+  return `${BLACKJACK_CARD_ASSET_BASE}/${rank}${match[2]}.png`;
+}
+
+function playCasinoSfx(name,volume=.38){
+  try{
+    const audio=new Audio(`${CASINO_SFX_BASE}/${name}.ogg`);
+    audio.volume=Math.max(0,Math.min(1,Number(volume)||0));
+    void audio.play().catch(()=>{});
+  }catch{}
+}
+
+function cardFaceFromCode(code){
+  const normalized=String(code||'').trim().toUpperCase();
+  const match=normalized.match(/^(10|[2-9AJQK])([CDHS])$/);
+  if(!match){
+    return {rank:'?',suit:'?',color:'black'};
+  }
+  const suitMap={C:'\u2663',D:'\u2666',H:'\u2665',S:'\u2660'};
+  const suitCode=match[2];
+  return {
+    rank:match[1],
+    suit:suitMap[suitCode]||'?',
+    color:(suitCode==='D'||suitCode==='H')?'red':'black'
+  };
+}
+
+function blackjackFallbackHtml(card){
+  const parsed=cardFaceFromCode(card&&card.code);
+  const rank=esc((card&&card.rank)||parsed.rank||'?');
+  const suit=esc((card&&card.suit)||parsed.suit||'?');
+  const color=((card&&card.color)||parsed.color)==='red'?' red':'';
+  return `<div class="bj-card-fallback${color}">
+      <div class="bj-rank">${rank}</div>
+      <div class="bj-suit">${suit}</div>
+    </div>`;
 }
 
 function renderBlackjackCardsLegacy(id,cards){
@@ -2284,14 +2333,13 @@ function renderBlackjackCards(id,cards){
   }
   el.innerHTML=cards.map(card=>{
     if(card.hidden){
-      return '<div class="bj-card hidden" aria-label="Dolt kort"></div>';
+      return `<div class="bj-card hidden" aria-label="Dolt kort">
+        <img src="${BLACKJACK_CARD_BACK_ASSET}" alt="" aria-hidden="true" decoding="async">
+      </div>`;
     }
     const code=String(card.code||'');
     const label=esc(card.label||code||'Kort');
-    const fallback=`<div class="bj-card-fallback${card.color==='red'?' red':''}">
-        <div class="bj-rank">${esc(card.rank||'')}</div>
-        <div class="bj-suit">${esc(card.suit||'')}</div>
-      </div>`;
+    const fallback=blackjackFallbackHtml(card);
     if(!code||BLACKJACK_FALLBACK_CODES.has(code)){
       return `<div class="bj-card fallback" aria-label="${label}">${fallback}</div>`;
     }
@@ -2451,6 +2499,7 @@ async function doBlackjackStart(){
   if(!bet){setMsg('casino-msg','Ange en giltig insats.','err');return;}
   setCasinoBet(bet);
   G.busy=true;
+  playCasinoSfx('card_shuffle',.34);
   setMsg('casino-msg','Dealern blandar korten...','info');
   const res=await post('action/blackjack/start',{bet});
   G.busy=false;
@@ -3046,14 +3095,23 @@ async function syncCasinoAfterAction(res,mode=G.casino.mode){
   renderTopbar();renderSidebar();renderCasino();
   if(mode==='blackjack'&&res.hand&&res.hand.finished&&res.hand.message){
     const isBad=['lose','bust','dealer_blackjack'].includes(res.hand.result||'');
+    if(res.hand.result==='win'||res.hand.result==='blackjack') playCasinoSfx('pay3',.38);
+    else if(res.hand.result==='push'||res.hand.result==='split') playCasinoSfx('button',.22);
+    else playCasinoSfx('chip_take',.3);
     addLog(res.hand.message,isBad?'err':'ok');
   }
   if(mode==='holdem'&&res.table&&['hand_over','table_over'].includes(res.table.street||'')&&res.table.message){
     const bad=['lose','busted'].includes(res.table.result||'');
+    if(res.table.result==='win'||res.table.result==='table_clear') playCasinoSfx('pay5',.42);
+    else if(res.table.result==='split') playCasinoSfx('pay2',.32);
+    else playCasinoSfx('chip_take',.3);
     addLog(res.table.message,bad?'err':'ok');
   }
   if(mode==='roulette'&&res.message){
     const bad=Number((res.last_spin&&res.last_spin.net_result)||0)<0;
+    if(res.last_spin) playCasinoSfx('roulette_stop',.34);
+    if(Number((res.last_spin&&res.last_spin.net_result)||0)>0) playCasinoSfx('pay4',.4);
+    else if(Number((res.last_spin&&res.last_spin.net_result)||0)<0) playCasinoSfx('chip_take',.28);
     addLog(res.message,bad?'err':'ok');
   }
   setMsg('casino-msg',res.message||(res.table&&res.table.message)||(res.hand&&res.hand.message)||'Bordet uppdaterat.','ok');
@@ -3076,6 +3134,7 @@ async function doBlackjackStart(){
 async function doBlackjackAction(action){
   if(G.busy) return;
   G.busy=true;
+  playCasinoSfx(action==='stand'?'button':'card_hit',action==='stand'?.26:.34);
   setMsg('casino-msg',action==='hit'?'Du ber om ett kort...':action==='stand'?'Dealern spelar ut handen...':'Dubblar ner...','info');
   const res=await post(`action/blackjack/${action}`,{});
   G.busy=false;
@@ -3089,6 +3148,8 @@ async function doHoldemStart(){
   if(!buyIn){setMsg('casino-msg','Ange ett giltigt buy-in.','err');return;}
   setHoldemBuyIn(buyIn);
   G.busy=true;
+  playCasinoSfx('pullChips',.34);
+  playCasinoSfx('card_shuffle',.26);
   setMsg('casino-msg','Dealern kastar upp marker och låter mörkarna rassla in...','info');
   const res=await post('action/holdem/start',{buy_in:buyIn});
   G.busy=false;
@@ -3098,6 +3159,7 @@ async function doHoldemStart(){
 async function doHoldemAction(action){
   if(G.busy) return;
   G.busy=true;
+  playCasinoSfx(action==='fold'||action==='check'?'button':action==='call'?'chip_add0':action==='all-in'?'pushChips':'chip_add2',action==='fold'||action==='check'?.24:.34);
   const labels={
     fold:'Du släpper handen.',
     check:'Du knackar bordet.',
@@ -3115,6 +3177,7 @@ async function doHoldemAction(action){
 async function doHoldemNextHand(){
   if(G.busy) return;
   G.busy=true;
+  playCasinoSfx('card_shuffle',.34);
   setMsg('casino-msg','Ny hand dras upp. Läs bordet igen...','info');
   const res=await post('action/holdem/next',{});
   G.busy=false;
@@ -3124,6 +3187,7 @@ async function doHoldemNextHand(){
 async function doHoldemLeave(){
   if(G.busy) return;
   G.busy=true;
+  playCasinoSfx('chip_take',.34);
   setMsg('casino-msg','Du samlar markerna och backar från bordet...','info');
   const res=await post('action/holdem/leave',{});
   G.busy=false;
@@ -3145,6 +3209,7 @@ async function doRouletteSpin(){
     return;
   }
   G.busy=true;
+  playCasinoSfx('roulette_spin',.36);
   setMsg('casino-msg','Kulan släpps och huset håller andan...','info');
   const bets=G.rouletteBets.map(bet=>({kind:bet.kind,target:bet.target,stake:bet.stake}));
   const res=await post('action/roulette/spin',{bets});
