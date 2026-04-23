@@ -363,8 +363,8 @@ select:focus{border-color:var(--red);}
 .bj-name{font-size:11px;color:var(--dim);letter-spacing:1px;}
 .bj-total{font-size:13px;color:var(--white);}
 .bj-cards{display:flex;gap:10px;flex-wrap:wrap;}
-.bj-card{width:74px;aspect-ratio:5/7;border-radius:2px;border:1px solid rgba(255,255,255,.1);background:linear-gradient(180deg,#f6f2eb,#d8d2c8);color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);}
-.bj-card img{width:100%;height:100%;display:block;object-fit:cover;background:#fff;}
+.bj-card{width:74px;aspect-ratio:5/7;border-radius:2px;border:1px solid rgba(255,255,255,.1);background:#fff;color:#111;position:relative;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25);}
+.bj-card img{width:100%;height:100%;display:block;object-fit:contain;object-position:center;background:#fff;}
 .bj-card.hidden{background:
   radial-gradient(circle at 30% 30%,rgba(255,255,255,.08),transparent 30%),
   linear-gradient(160deg,#211824,#15101a 55%,#0d0a10);
@@ -2429,7 +2429,7 @@ function blackjackBannerClass(result){
 }
 
 const BLACKJACK_CARD_ASSET_BASE='/assets/blackjack/cards';
-const BLACKJACK_FALLBACK_CODES=new Set(['10H','JH']);
+const BLACKJACK_FALLBACK_CODES=new Set();
 const FRONTEND_ROULETTE_RED=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 
 function blackjackCardAsset(code){
