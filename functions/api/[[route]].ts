@@ -6578,11 +6578,13 @@ async function gameAdminAuth(request: Request, env: Env): Promise<Response> {
   if (!body.password || typeof body.password !== 'string') {
     return gameJson({ error: 'Ange adminlösenordet först.' }, 400);
   }
-  // GAME_ADMIN_PASSWORD_HASH must be set explicitly — no fallback to site auth.
-  const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim();
+  // Prefer GAME_ADMIN_PASSWORD_HASH; fall back to the site-wide AUTH_PASSWORD_HASH so
+  // the admin console works out of the box wherever the site itself is configured.
+  const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim()
+    || String(env.AUTH_PASSWORD_HASH ?? '').trim();
   if (!adminRaw) {
-    await logGameAdminAudit(env, { command: 'unlock', outcome: 'error', details: 'GAME_ADMIN_PASSWORD_HASH not configured.' });
-    return gameJson({ error: 'Admin ej konfigurerat. Sätt GAME_ADMIN_PASSWORD_HASH.' }, 503);
+    await logGameAdminAudit(env, { command: 'unlock', outcome: 'error', details: 'No admin/auth password hash configured.' });
+    return gameJson({ error: 'Admin ej konfigurerat. Sätt GAME_ADMIN_PASSWORD_HASH eller AUTH_PASSWORD_HASH.' }, 503);
   }
   const hashConfig = inspectPasswordHash(adminRaw);
   if (!hashConfig.isUsable) {
@@ -6619,7 +6621,8 @@ async function gameAdminStatus(request: Request, env: Env): Promise<Response> {
     authenticated: !!session,
     expires_at: session?.expires_at ?? null,
     configured: (() => {
-      const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim();
+      const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim()
+        || String(env.AUTH_PASSWORD_HASH ?? '').trim();
       return !!adminRaw && inspectPasswordHash(adminRaw).isUsable;
     })(),
   });
