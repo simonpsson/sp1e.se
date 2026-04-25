@@ -872,6 +872,7 @@ select:focus{border-color:var(--red);}
             <label for="bank-amount">BELOPP</label>
             <input id="bank-amount" type="number" min="1" step="1" value="1000">
           </div>
+          <div id="bank-deposit-preview" class="bj-meta" style="margin-bottom:8px;min-height:18px;"></div>
           <div class="bank-row">
             <button data-bank="deposit">S&Auml;TT IN</button>
             <button data-bank="withdraw">TA UT</button>
@@ -1091,6 +1092,7 @@ select:focus{border-color:var(--red);}
 
                   <div class="roulette-spinbar">
                     <button type="button" class="primary" data-roulette="spin">SNURRA</button>
+                    <button type="button" data-roulette="repeat" style="display:none;">UPPREPA</button>
                   </div>
 
                   <div class="roulette-history">
@@ -1270,7 +1272,7 @@ function casinoStore(mode){
 const G={
   player:null,extra:{},status:null,prices:{},npcs:[],
   section:'gatan',busy:false,selectedSide:'eastside',
-  drugSel:'marijuana',drugQty:1,casinoBet:500,holdemBuyIn:2000,rouletteStake:100,rouletteBets:[],
+  drugSel:'marijuana',drugQty:1,casinoBet:500,holdemBuyIn:2000,rouletteStake:100,rouletteBets:[],rouletteLastBets:[],
   errors:{player:null,status:null,prices:null,npcs:null,casino:null},
   _fetchedAt:0,_nrgTick:null,_prisonTick:null,_hospitalTick:null,_pollTimer:null,_pricePoll:null,
   _propTicks:{},log:[],
@@ -1791,6 +1793,7 @@ document.addEventListener('click',e=>{
     if(target.dataset.roulette==='add-advanced') return void addAdvancedRouletteBet();
     if(target.dataset.roulette==='clear') return void clearRouletteBets();
     if(target.dataset.roulette==='spin') return void doRouletteSpin();
+    if(target.dataset.roulette==='repeat') return void repeatRouletteBets();
   }
   if(target.dataset.casino){
     if(target.dataset.casino==='start' || target.dataset.casino==='reset') return void doBlackjackStart();
@@ -2335,12 +2338,33 @@ async function doChooseProfession(profession){
 }
 
 /* ─── Bank ────────────────────────────────────────────────────────────────── */
+function updateBankPreview(){
+  const p=G.player;
+  const preview=document.getElementById('bank-deposit-preview');
+  if(!preview||!p) return;
+  const input=document.getElementById('bank-amount');
+  const amount=Math.max(0,Math.floor(+(input&&input.value)||0));
+  if(!amount){preview.textContent='';return;}
+  const fee=Math.floor(amount*0.05);
+  const deposited=amount-fee;
+  const hasInterest=G_playerTalents&&Object.values(G_playerTalents).some(t=>t&&t.rank>0&&(G_talents||[]).find(x=>x.id===t.talent_id&&x.effects&&x.effects.includes('bank_interest')));
+  const interestNote=hasInterest?` · Ränta ~${fmtCash(Math.min(10000,Math.round(deposited*0.01)))} kr/dag`:'';
+  preview.textContent=`Avgift ${fmtCash(fee)} kr · Hamnar i banken: ${fmtCash(deposited)} kr${interestNote}`;
+}
+
 function renderBank(){
   const p=G.player;if(!p) return;
   set('bank-cash',fmtCash(p.cash||0)+' kr');
   set('bank-balance',fmtCash(p.bank||0)+' kr');
   const input=document.getElementById('bank-amount');
-  if(input&&!input.value) input.value='1000';
+  if(input){
+    if(!input.value) input.value='1000';
+    if(!input.dataset.bankBound){
+      input.addEventListener('input',updateBankPreview);
+      input.dataset.bankBound='1';
+    }
+  }
+  updateBankPreview();
 }
 
 async function doBank(action){
@@ -2706,9 +2730,14 @@ function renderCasinoRoulette(){
   const clearBtn=document.querySelector('#casino-panel-roulette [data-roulette="clear"]');
   const addBtn=document.querySelector('#casino-panel-roulette [data-roulette="add-advanced"]');
   const spinBtn=document.querySelector('#casino-panel-roulette [data-roulette="spin"]');
+  const repeatBtn=document.querySelector('#casino-panel-roulette [data-roulette="repeat"]');
   if(clearBtn) clearBtn.disabled=G.busy||!G.rouletteBets.length;
   if(addBtn) addBtn.disabled=G.busy;
   if(spinBtn) spinBtn.disabled=G.busy||!G.rouletteBets.length||totalStake>maxTotal;
+  if(repeatBtn){
+    repeatBtn.style.display=G.rouletteLastBets.length&&!G.rouletteBets.length?'':'none';
+    repeatBtn.disabled=G.busy;
+  }
 }
 
 function holdemStreetLabel(street){
@@ -3103,9 +3132,17 @@ async function doRouletteSpin(){
   G.busy=true;
   setMsg('casino-msg','Kulan släpps och huset håller andan...','info');
   const bets=G.rouletteBets.map(bet=>({kind:bet.kind,target:bet.target,stake:bet.stake}));
+  G.rouletteLastBets=[...G.rouletteBets];
+  G.rouletteBets=[];
   const res=await post('action/roulette/spin',{bets});
   G.busy=false;
   await syncCasinoAfterAction(res,'roulette');
+}
+
+function repeatRouletteBets(){
+  if(!G.rouletteLastBets.length) return;
+  G.rouletteBets=[...G.rouletteLastBets];
+  renderCasinoRoulette();
 }
 
 
