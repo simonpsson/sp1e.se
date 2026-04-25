@@ -964,13 +964,13 @@ function renderGrid(cats, error) {
   el.innerHTML = cats.map(c => {
     if (c.id === 'konst') {
       return `<a class="cat-card" href="#" data-art-cat>
-        <span class="cat-icon">${c.icon ?? ''}</span>
+        <span class="cat-icon">${esc(c.icon ?? '')}</span>
         <span class="cat-name">${esc(c.name)}</span>
         <span class="cat-count">Galleri</span>
       </a>`;
     }
     return `<a class="cat-card" href="/hub/category/?id=${esc(c.id)}">
-      <span class="cat-icon">${c.icon ?? ''}</span>
+      <span class="cat-icon">${esc(c.icon ?? '')}</span>
       <span class="cat-name">${esc(c.name)}</span>
       <span class="cat-count">${c.item_count ?? 0} objekt</span>
     </a>`;
