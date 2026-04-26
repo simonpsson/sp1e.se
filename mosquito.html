@@ -140,6 +140,10 @@ button.primary:hover:not(:disabled){background:rgba(194,58,34,.14);color:var(--w
 .feed-badge.east{border-color:#1f4f7a;color:#6aaad4;background:transparent;}
 .feed-badge.west{border-color:#6b2330;color:#d47a89;background:transparent;}
 .feed-empty{color:var(--dim);font-size:12px;padding:20px 0;text-align:center;}
+.feed-filter{display:flex;gap:4px;margin-bottom:8px;font-size:10px;}
+.feed-filter button{background:transparent;border:1px solid #2a2a2a;color:var(--dim);padding:3px 8px;letter-spacing:.5px;cursor:pointer;font-family:inherit;font-size:10px;}
+.feed-filter button:hover{border-color:#555;color:var(--txt);}
+.feed-filter button.active{border-color:var(--red);color:var(--red);}
 
 /* ─── Brott (robbery) ─────────────────────────────────────────────────────── */
 .rob-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px;}
@@ -733,6 +737,11 @@ select:focus{border-color:var(--red);}
           <div style="font-size:10px;color:var(--red);letter-spacing:.8px;margin-bottom:6px;">UPPDRAG</div>
           <div id="quest-list"></div>
         </div>
+        <div class="feed-filter" id="feed-filter">
+          <button type="button" data-feed-filter="all" class="active">ALLA</button>
+          <button type="button" data-feed-filter="mine">MINA</button>
+          <button type="button" data-feed-filter="world">STAN</button>
+        </div>
         <div id="gatan-feed" class="feed">
           <div class="feed-empty">Inga handlingar &auml;nnu. Dags att g&ouml;ra n&aring;got.</div>
         </div>
@@ -1273,6 +1282,7 @@ const G={
   player:null,extra:{},status:null,prices:{},npcs:[],
   section:'gatan',busy:false,selectedSide:'eastside',
   drugSel:'marijuana',drugQty:1,casinoBet:500,holdemBuyIn:2000,rouletteStake:100,rouletteBets:[],rouletteLastBets:[],
+  feedFilter:'all',_feedTick:null,
   errors:{player:null,status:null,prices:null,npcs:null,casino:null},
   _fetchedAt:0,_nrgTick:null,_prisonTick:null,_hospitalTick:null,_pollTimer:null,_pricePoll:null,
   _propTicks:{},log:[],
@@ -1416,6 +1426,7 @@ async function init(){
   void loadWorldPulse();
   G._pollTimer=setInterval(softReload,30000);
   G._pricePoll=setInterval(refreshPrices,60000);
+  if(!G._feedTick) G._feedTick=setInterval(refreshFeedTimestamps,15000);
 }
 
 async function loadAll(){
@@ -1554,6 +1565,7 @@ async function doGameLogout(){
   G.player=null;G.extra={};
   clearInterval(G._pollTimer);G._pollTimer=null;
   clearInterval(G._pricePoll);G._pricePoll=null;
+  if(G._feedTick){clearInterval(G._feedTick);G._feedTick=null;}
   showScreen('create');
   setMsg('create-err','Du är utloggad.','ok');
 }
@@ -1568,6 +1580,7 @@ async function doDeleteCharacter(){
   G.player=null;G.extra={};
   clearInterval(G._pollTimer);G._pollTimer=null;
   clearInterval(G._pricePoll);G._pricePoll=null;
+  if(G._feedTick){clearInterval(G._feedTick);G._feedTick=null;}
   showScreen('create');
   setMsg('create-err','Karaktären är raderad.','ok');
 }
@@ -1772,6 +1785,16 @@ document.addEventListener('click',e=>{
 });
 
 document.addEventListener('click',e=>{
+  const f=e.target.closest('[data-feed-filter]');
+  if(!f) return;
+  const next=f.dataset.feedFilter;
+  if(next!=='all'&&next!=='mine'&&next!=='world') return;
+  if(G.feedFilter===next) return;
+  G.feedFilter=next;
+  renderGatan();
+});
+
+document.addEventListener('click',e=>{
   const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-casino],[data-casino-bet],[data-casino-mode],[data-holdem],[data-holdem-buyin],[data-roulette],[data-roulette-stake],[data-roulette-outside],[data-roulette-number],[data-roulette-remove],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-buy-vehicle]');
   if(!target) return;
   if(target.dataset.prison) return void doPrison(target.dataset.prison);
@@ -1854,6 +1877,22 @@ function renderWorldStrip(id){
   el.innerHTML=bits.join('');
 }
 
+function feedRelativeTime(ts){
+  const d=new Date(ts);
+  if(isNaN(d)) return {short:'--',title:''};
+  const now=Date.now();
+  const diff=Math.max(0,Math.floor((now-d.getTime())/1000));
+  let short;
+  if(diff<10) short='nu';
+  else if(diff<60) short=diff+'s';
+  else if(diff<3600) short=Math.floor(diff/60)+'m';
+  else if(diff<86400) short=Math.floor(diff/3600)+'h';
+  else short=Math.floor(diff/86400)+'d';
+  const pad=n=>(n+'').padStart(2,'0');
+  const title=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return {short,title};
+}
+
 function renderGatan(){
   renderWorldStrip('gatan-world');
   void loadWorldPulse();
@@ -1872,22 +1911,39 @@ function renderGatan(){
     side:evt.side||'',
     personality:evt.personality||''
   }));
-  const all=[...cliLog,...srvLog,...worldLog];
+  let all=[...cliLog,...srvLog,...worldLog];
+  if(G.feedFilter==='mine') all=all.filter(l=>l.kind==='player');
+  else if(G.feedFilter==='world') all=all.filter(l=>l.kind==='world');
   all.sort((a,b)=>b.ts>a.ts?1:-1);
+  document.querySelectorAll('#feed-filter [data-feed-filter]').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.feedFilter===G.feedFilter);
+  });
   const feed=document.getElementById('gatan-feed');
   if(!feed) return;
-  if(!all.length){feed.innerHTML='<div class="feed-empty">Inga handlingar ännu. Första stöten avgör tonen för hela rundan.</div>';return;}
+  if(!all.length){
+    const emptyMsg=G.feedFilter==='mine'?'Inga egna handlingar ännu.':(G.feedFilter==='world'?'Stan är tyst för stunden.':'Inga handlingar ännu. Första stöten avgör tonen för hela rundan.');
+    feed.innerHTML=`<div class="feed-empty">${emptyMsg}</div>`;
+    return;
+  }
   feed.innerHTML=all.slice(0,50).map(l=>{
-    const d=new Date(l.ts);
-    const pad=n=>(n+'').padStart(2,'0');
-    const hms=isNaN(d)?'--:--:--':`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    const t=feedRelativeTime(l.ts);
     const cls=l.kind==='world'?'world':(l.ok===false?'err':'ok');
     const typeLabel=l.kind==='world'?'STAN':(l.ok===false?'FAIL':'OK');
     const badge=l.kind==='world'
       ? `<span class="feed-badge ${l.side==='westside'?'west':(l.side==='eastside'?'east':'')}">${esc(l.actor||'Stan')}</span>`
       : '';
-    return `<div class="feed-item ${cls}"><span class="feed-time">[${hms}]</span><span class="feed-type">${typeLabel} &raquo;</span><span class="feed-desc">${badge}<span class="feed-text">${esc(l.desc||'')}</span></span></div>`;
+    return `<div class="feed-item ${cls}"><span class="feed-time" data-feed-ts="${esc(String(l.ts||''))}" title="${esc(t.title)}">${esc(t.short)}</span><span class="feed-type">${typeLabel} &raquo;</span><span class="feed-desc">${badge}<span class="feed-text">${esc(l.desc||'')}</span></span></div>`;
   }).join('');
+}
+
+function refreshFeedTimestamps(){
+  document.querySelectorAll('#gatan-feed [data-feed-ts]').forEach(el=>{
+    const ts=el.getAttribute('data-feed-ts');
+    if(!ts) return;
+    const t=feedRelativeTime(ts);
+    if(el.textContent!==t.short) el.textContent=t.short;
+    el.setAttribute('title',t.title);
+  });
 }
 
 /* ─── Brott ──────────────────────────────────────────────────────────────── */
