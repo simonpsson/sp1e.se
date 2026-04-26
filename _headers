@@ -1,0 +1,14 @@
+/*.sql
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
+
+/*.md
+  X-Robots-Tag: noindex, nofollow
+
+/wrangler.toml
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
+
+/.dev.vars*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
