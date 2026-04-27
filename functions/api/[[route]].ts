@@ -22,7 +22,10 @@ const SAFE_TABLES = new Set(['notes', 'snippets', 'bookmarks', 'files']);
 
 // Reject the checked-in emergency hash so misconfigured deployments fail loudly.
 const KNOWN_FALLBACK_HASH = 'pbkdf2:100000:26e4335528b9f68528debae265f5e48f:cf80806a2013a029e1b07a79ce51be94be9fec26a5e1506a08320f950ce86476';
+// Local/dev fallback for the Mosquito admin console. Production should set GAME_ADMIN_PASSWORD_HASH.
 const DEFAULT_GAME_ADMIN_HASH = 'pbkdf2:100000:9c45d83d8e871ef901dee7f0af428cec:2ae9a9e1e94cfa9d92d1198d1d7a1ba4f4105f7ce6b317edb121374c1e9f43ec';
+const MAX_BANK_ACTION_AMOUNT = 10_000_000;
+const SIMULATE_THROTTLE_MS = 75_000;
 
 const DEFAULT_CATEGORIES = [
   { id: 'power-bi',   name: 'Power BI',   icon: '⚡', sortOrder: 1 },
@@ -1674,7 +1677,7 @@ async function requireGameAdmin(request: Request, env: Env): Promise<{ token: st
 
 async function logGameAdminAudit(
   env: Env,
-  payload: { player?: Row | null; command: string; outcome: 'ok' | 'error' | 'auth' | 'logout'; details: string }
+  payload: { player?: Row | null; command: string; outcome: 'ok' | 'error' | 'auth' | 'logout' | 'tick'; details: string }
 ): Promise<void> {
   await ensureGameAdminTables(env);
   await env.DB.prepare(
@@ -2485,6 +2488,26 @@ async function gameSimulate(request: Request, env: Env): Promise<Response> {
   const round = await getActiveRound(env);
   if (!round) return gameJson({ activity: [] });
 
+  await ensureGameAdminTables(env);
+  const roundId = round.id as string;
+  const throttleSeconds = Math.ceil(SIMULATE_THROTTLE_MS / 1000);
+  const lastRun = await env.DB.prepare(
+    `SELECT created_at FROM game_admin_audit
+     WHERE command = 'simulate'
+       AND outcome = 'tick'
+       AND details = ?
+       AND created_at >= datetime('now', '-' || ? || ' seconds')
+     ORDER BY created_at DESC LIMIT 1`
+  ).bind(roundId, throttleSeconds).first<{ created_at: string }>();
+  if (lastRun?.created_at) {
+    return gameJson({
+      activity: [],
+      events: [],
+      throttled: true,
+      retry_after_seconds: throttleSeconds,
+    });
+  }
+
   // End round if expired
   const endDate = new Date(round.end_date as string).getTime();
   if (Date.now() > endDate) {
@@ -2657,6 +2680,8 @@ async function gameSimulate(request: Request, env: Env): Promise<Response> {
       await env.DB.batch(stmts.slice(i, i + 100));
     }
   }
+
+  await logGameAdminAudit(env, { command: 'simulate', outcome: 'tick', details: roundId });
 
   return gameJson({ activity, events });
 }
@@ -3979,6 +4004,8 @@ async function gameActionHospital(request: Request, env: Env): Promise<Response>
   const hp     = Math.max(0, Math.min(Number(player.hp ?? hpMax), hpMax));
   const cash   = (player.cash   as number) ?? 0;
 
+  if (!player.is_alive) return gameJson({ error: 'Du är eliminerad.' }, 400);
+
   if (action === 'wait') {
     if (!player.in_hospital) {
       return gameJson({ released: true, seconds_left: 0, message: 'Du är redo att lämna sjukhuset.' });
@@ -4035,6 +4062,9 @@ async function gameActionBank(request: Request, env: Env): Promise<Response> {
   const body   = await request.json<{ action?: string; amount?: number }>().catch(() => ({} as { action?: string; amount?: number }));
   const action = body.action ?? '';
   const amount = Math.floor(body.amount ?? 0);
+  if (!Number.isFinite(amount)) return gameJson({ error: 'Ogiltigt belopp.' }, 400);
+  if (amount > MAX_BANK_ACTION_AMOUNT)
+    return gameJson({ error: `Max ${MAX_BANK_ACTION_AMOUNT.toLocaleString('sv-SE')} kr per banktransaktion.` }, 400);
   if (amount <= 0) return gameJson({ error: 'Beloppet måste vara positivt.' }, 400);
   if (!['deposit', 'withdraw'].includes(action)) return gameJson({ error: 'Ogiltig bankåtgärd.' }, 400);
 
@@ -4161,9 +4191,11 @@ async function gameActionCollectIncome(request: Request, env: Env): Promise<Resp
     return gameJson({ error: propertyId ? 'Fastigheten hittades inte.' : 'Inga fastigheter \u00e4gda.' }, 400);
   }
 
-  let total = 0;
+  let creditedTotal = 0;
   const now = Date.now();
-  const stmts = res.results.map(prop => {
+  let updatedProperties = 0;
+
+  for (const prop of res.results) {
     const lastCollected = new Date((prop.last_collected as string) ?? new Date().toISOString()).getTime();
     const hours         = Math.max(0, (now - lastCollected) / 3600000);
     const hourlyIncome  = propertyIncomeForPlayer(
@@ -4173,26 +4205,31 @@ async function gameActionCollectIncome(request: Request, env: Env): Promise<Resp
       Number(prop.income_per_hour ?? 0)
     );
     const income        = Math.round(hourlyIncome * hours);
-    total += income;
-    return env.DB.prepare(`UPDATE game_properties SET last_collected = datetime('now') WHERE id = ? AND last_collected = ?`)
-      .bind(prop.id as string, prop.last_collected as string);
-  });
+    if (income <= 0) continue;
 
-  if (total === 0) return gameJson({ message: 'Ingen inkomst att h\u00e4mta \u00e4nnu.', collected: 0 });
+    const update = await env.DB.prepare(
+      `UPDATE game_properties SET last_collected = datetime('now') WHERE id = ? AND player_id = ? AND last_collected = ?`
+    ).bind(prop.id as string, pid, prop.last_collected as string).run();
+    const changes = Number((update.meta as { changes?: number } | undefined)?.changes ?? 0);
+    if (changes > 0) {
+      creditedTotal += income;
+      updatedProperties++;
+    }
+  }
 
-  stmts.push(
-    env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
-      .bind(total, pid)
-  );
-  await env.DB.batch(stmts);
+  if (creditedTotal === 0) return gameJson({ message: 'Ingen inkomst att h\u00e4mta \u00e4nnu.', collected: 0 });
+
+  await env.DB.prepare(`UPDATE game_players SET cash = cash + ?, last_action = datetime('now') WHERE id = ?`)
+    .bind(creditedTotal, pid)
+    .run();
   const propertyLabel = propertyId
     ? (res.results[0].property_name as string) || (res.results[0].property_type as string) || 'fastigheten'
     : 'fastigheter';
   const message = propertyId
-    ? `Samlade in ${total} kr fr\u00e5n ${propertyLabel}.`
-    : `Samlade in ${total} kr fr\u00e5n fastigheter.`;
-  await logAction(env, pid, 'property', message, total, 0, 0, true);
-  return gameJson({ collected: total, properties: res.results.length, property_id: propertyId || null, xp_gained: 0, message });
+    ? `Samlade in ${creditedTotal} kr fr\u00e5n ${propertyLabel}.`
+    : `Samlade in ${creditedTotal} kr fr\u00e5n fastigheter.`;
+  await logAction(env, pid, 'property', message, creditedTotal, 0, 0, true);
+  return gameJson({ collected: creditedTotal, properties: updatedProperties, property_id: propertyId || null, xp_gained: 0, message });
 }
 
 async function gameActionChooseProfession(request: Request, env: Env): Promise<Response> {
@@ -6578,14 +6615,9 @@ async function gameAdminAuth(request: Request, env: Env): Promise<Response> {
   if (!body.password || typeof body.password !== 'string') {
     return gameJson({ error: 'Ange adminlösenordet först.' }, 400);
   }
-  // GAME_ADMIN_PASSWORD_HASH must be set explicitly — no fallback to site auth.
-  // Generate with: node scripts/hash-password.js "your-admin-password"
-  // Set in Cloudflare Dashboard → Settings → Environment variables.
-  const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim();
-  if (!adminRaw) {
-    await logGameAdminAudit(env, { command: 'unlock', outcome: 'error', details: 'GAME_ADMIN_PASSWORD_HASH not configured.' });
-    return gameJson({ error: 'GAME_ADMIN_PASSWORD_HASH saknas. Sätt variabeln i Cloudflare Dashboard.' }, 503);
-  }
+  // Prefer GAME_ADMIN_PASSWORD_HASH. DEFAULT_GAME_ADMIN_HASH is only a local/dev fallback.
+  // Generate production hashes with: node scripts/hash-password.js "your-admin-password"
+  const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? DEFAULT_GAME_ADMIN_HASH).trim();
   const hashConfig = inspectPasswordHash(adminRaw);
   if (!hashConfig.isUsable) {
     await logGameAdminAudit(env, { command: 'unlock', outcome: 'error', details: 'Admin password hash missing.' });
@@ -6621,7 +6653,7 @@ async function gameAdminStatus(request: Request, env: Env): Promise<Response> {
     authenticated: !!session,
     expires_at: session?.expires_at ?? null,
     configured: (() => {
-      const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? '').trim();
+      const adminRaw = String(env.GAME_ADMIN_PASSWORD_HASH ?? DEFAULT_GAME_ADMIN_HASH).trim();
       return !!adminRaw && inspectPasswordHash(adminRaw).isUsable;
     })(),
   });
@@ -7238,7 +7270,8 @@ async function gameActionRace(request: Request, env: Env): Promise<Response> {
   const winChance = Math.min(90, 30 + vehicleBonus * 0.5 + stealth * 0.3 + playerLevel - cfg.difficulty);
   const won       = Math.random() * 100 < winChance;
 
-  const cashDelta  = won ? cfg.prize : -cfg.fee;
+  const winNet     = cfg.prize - cfg.fee;
+  const cashDelta  = won ? winNet : -cfg.fee;
   const xpGained   = xpWithBonus(player, won ? cfg.xp : Math.floor(cfg.xp * 0.2));
   const currentXp  = (player.xp as number) + xpGained;
   const newLevel   = levelFromXp(currentXp);
@@ -7251,10 +7284,10 @@ async function gameActionRace(request: Request, env: Env): Promise<Response> {
   ).bind(cashDelta, currentXp, newLevel, newLevel, respectGained, pid).run();
 
   const narrative = won
-    ? [...pickRandom(RACE_NARRATIVES), `Vinst! +${cfg.prize.toLocaleString('sv')} kr.`]
+    ? [...pickRandom(RACE_NARRATIVES), `Vinst! +${winNet.toLocaleString('sv-SE')} kr netto.`]
     : [...pickRandom(RACE_LOSE_NARRATIVES), `Förlust. -${cfg.fee.toLocaleString('sv')} kr.`];
   const message = won
-    ? `\u2713 Du vann! +${cfg.prize.toLocaleString('sv')} kr.`
+    ? `\u2713 Du vann! +${winNet.toLocaleString('sv-SE')} kr netto.`
     : `\u2717 Du f\u00f6rlorade. -${cfg.fee.toLocaleString('sv')} kr.`;
 
   await logAction(env, pid, 'race', message, cashDelta, respectGained, xpGained, won);
