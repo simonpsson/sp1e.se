@@ -8,6 +8,7 @@ if (!password) {
 }
 
 const jar = new Map();
+const otherJar = new Map();
 
 function readSetCookies(headers) {
   if (typeof headers.getSetCookie === 'function') return headers.getSetCookie();
@@ -15,25 +16,25 @@ function readSetCookies(headers) {
   return single ? [single] : [];
 }
 
-function storeCookies(headers) {
+function storeCookies(headers, targetJar = jar) {
   for (const raw of readSetCookies(headers)) {
     const [pair] = raw.split(';', 1);
     const eq = pair.indexOf('=');
     if (eq === -1) continue;
-    jar.set(pair.slice(0, eq), pair.slice(eq + 1));
+    targetJar.set(pair.slice(0, eq), pair.slice(eq + 1));
   }
 }
 
-function cookieHeader() {
-  return Array.from(jar.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
+function cookieHeader(sourceJar = jar) {
+  return Array.from(sourceJar.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
 }
 
-async function request(path, options = {}) {
+async function request(path, options = {}, targetJar = jar) {
   const headers = new Headers(options.headers || {});
-  const cookies = cookieHeader();
+  const cookies = cookieHeader(targetJar);
   if (cookies) headers.set('cookie', cookies);
   const response = await fetch(new URL(path, baseUrl), { ...options, headers, redirect: 'manual' });
-  storeCookies(response.headers);
+  storeCookies(response.headers, targetJar);
   const text = await response.text();
   let data = {};
   try { data = text ? JSON.parse(text) : {}; }
@@ -45,6 +46,16 @@ async function expectOk(label, fn) {
   const { response, data } = await fn();
   if (!response.ok) {
     console.error(`FAIL ${label}:`, response.status, data);
+    process.exit(1);
+  }
+  console.log(`OK   ${label}:`, response.status, data.message || data.error || '');
+  return data;
+}
+
+async function expectStatus(label, expectedStatus, fn) {
+  const { response, data } = await fn();
+  if (response.status !== expectedStatus) {
+    console.error(`FAIL ${label}: expected ${expectedStatus}, got ${response.status}`, data);
     process.exit(1);
   }
   console.log(`OK   ${label}:`, response.status, data.message || data.error || '');
@@ -78,6 +89,17 @@ async function main() {
     process.exit(1);
   }
 
+  await expectOk('second site login', () => request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ password }),
+  }, otherJar));
+  await expectStatus('duplicate character rejected', 409, () => request('/api/game/create-character', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: playerName, side: 'eastside' }),
+  }, otherJar));
+
   await expectOk('player', () => request('/api/game/player'));
   await expectOk('admin unlock', () => request('/api/game/admin-auth', {
     method: 'POST',
@@ -95,10 +117,21 @@ async function main() {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ command: 'rich' }),
   }));
+  await expectOk('simulate first tick', () => request('/api/game/simulate', { method: 'POST' }));
+  const throttled = await expectOk('simulate throttled tick', () => request('/api/game/simulate', { method: 'POST' }));
+  if (!throttled.throttled) {
+    console.error('FAIL simulate throttled tick: expected throttled=true', throttled);
+    process.exit(1);
+  }
   await expectOk('bank deposit', () => request('/api/game/action/bank', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ action: 'deposit', amount: 1000 }),
+  }));
+  await expectStatus('bank over-limit rejected', 400, () => request('/api/game/action/bank', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: 'deposit', amount: 10000001 }),
   }));
   await expectOk('bank withdraw', () => request('/api/game/action/bank', {
     method: 'POST',

@@ -10,7 +10,7 @@
 | File storage | Cloudflare R2 — binding `FILES`, bucket `sp1e-files` |
 | Auth | PBKDF2-SHA256 (100 000 iterations) via Web Crypto; session cookie |
 | Password hash | Env var `AUTH_PASSWORD_HASH`; generate with `node scripts/hash-password.js "pw"` |
-| Game admin | Separate env var `GAME_ADMIN_PASSWORD_HASH` (no fallback); `game_admin_session` cookie |
+| Game admin | Env var `GAME_ADMIN_PASSWORD_HASH` preferred; local/dev fallback hash exists; `game_admin_session` cookie |
 | Spotify | OAuth client (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI`); tokens stored in `spotify_tokens` |
 
 ## Current Status
@@ -27,7 +27,7 @@
 |---|---|---|
 | `/` | `index.html` | Landing page — logo, Mosquito + Σ.Π. cards, painting background, Immersion mode |
 | `/hub` | `hub.html` | Private hub — categories, gallery, search, recent items |
-| `/mosquito` | `mosquito.html` | Mosquito game — character creation, crime, robbery, casino (blackjack, roulette, hold'em), gang, properties, leaderboard |
+| `/mosquito` | `mosquito.html` | Mosquito game — currently requires site auth for all game routes; character creation, crime, robbery, casino (blackjack, roulette, hold'em), gang, properties, leaderboard |
 | `/hub/note/*` | `hub/note/index.html` | Note detail/edit view |
 | `/visitor` | (redirect) | Redirects to `/mosquito` |
 

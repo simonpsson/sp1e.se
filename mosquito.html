@@ -1795,7 +1795,7 @@ document.addEventListener('click',e=>{
 });
 
 document.addEventListener('click',e=>{
-  const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-casino],[data-casino-bet],[data-casino-mode],[data-holdem],[data-holdem-buyin],[data-roulette],[data-roulette-stake],[data-roulette-outside],[data-roulette-number],[data-roulette-remove],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-buy-vehicle]');
+  const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-casino],[data-casino-bet],[data-casino-mode],[data-holdem],[data-holdem-buyin],[data-roulette],[data-roulette-stake],[data-roulette-outside],[data-roulette-number],[data-roulette-remove],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-upgrade-prop],[data-buy-vehicle]');
   if(!target) return;
   if(target.dataset.prison) return void doPrison(target.dataset.prison);
   if(target.dataset.hospital) return void doHospital(target.dataset.hospital);
@@ -1834,6 +1834,7 @@ document.addEventListener('click',e=>{
   }
   if(target.dataset.collect==='all') return void doCollect();
   if(target.dataset.collectOne) return void doCollectOne(target.dataset.collectOne);
+  if(target.dataset.upgradeProp) return void doUpgradeProp(target.dataset.upgradeProp);
   if(target.dataset.race) return void doRace(Number(target.dataset.race));
   if(target.dataset.robbery) return void doRobbery(target.dataset.robbery);
   if(target.dataset.assault) return void doAssault(target.dataset.assault);
@@ -2164,7 +2165,7 @@ async function loadQuests(){
 }
 
 async function doQuestRespond(questId, action){
-  const r=await api('action/quest-respond','POST',{quest_id:questId,action});
+  const r=await post('action/quest-respond',{quest_id:questId,action});
   if(r.error){addLog(r.error,'err');return;}
   addLog(r.message||'Klart.','ok');
   if(r.reward){
@@ -2264,7 +2265,7 @@ async function renderVapen(){
 async function doBuyWeapon(weaponId){
   const msg = document.getElementById('vapen-msg');
   setMsg(msg,'','');
-  const r = await api('action/buy-weapon','POST',{weapon_id:weaponId});
+  const r = await post('action/buy-weapon',{weapon_id:weaponId});
   if(r.error){ setMsg(msg,r.error,'err'); return; }
   setMsg(msg,r.message||'Klart.','ok');
   addLog(r.message||`Köpte vapen`,'ok');
@@ -3355,6 +3356,11 @@ const PROP_CFG={
   safehouse:{label:'Safehouse',cost:10000,income:75}
 };
 
+function propertyUpgradeCost(type, nextLevel){
+  const cfg=PROP_CFG[type];
+  return cfg?Math.round(cfg.cost*Math.pow(2,Math.max(0,nextLevel-1))):0;
+}
+
 function renderFastigheter(){
   const p=G.player;
   const lockEl=document.getElementById('prop-lock');
@@ -3377,13 +3383,17 @@ function renderFastigheter(){
       clearPropertyTicks();
       list.innerHTML=props.map(prop=>{
         const cfg=PROP_CFG[prop.property_type]||{label:prop.property_type,income:prop.income_per_hour||0};
+        const level=Number(prop.level||1);
+        const nextLevel=level+1;
+        const upgradeCost=level<5?propertyUpgradeCost(prop.property_type,nextLevel):0;
         return `<div class="prop-row" id="pr-${prop.id}">
           <div class="prop-info">
-            <div class="prop-name">${esc(prop.property_name||cfg.label)} <span style="color:var(--dim);font-size:11px;">Lv${prop.level}</span></div>
+            <div class="prop-name">${esc(prop.property_name||cfg.label)} <span style="color:var(--dim);font-size:11px;">Lv${level}</span></div>
             <div class="prop-detail">${prop.income_per_hour||cfg.income} kr/timme</div>
             <div class="prop-acc" id="pacc-${prop.id}">+0 kr</div>
           </div>
           <button data-collect-one="${prop.id}">SAMLA IN</button>
+          <button data-upgrade-prop="${prop.id}" ${level>=5?'disabled':''}>${level>=5?'MAX':'UPPGRADERA '+fmtCash(upgradeCost)+' kr'}</button>
         </div>`;
       }).join('');
       // Start ticking accumulators
@@ -3451,6 +3461,21 @@ async function doCollectOne(propId){
   if(r.error){setMsg('prop-msg',r.error,'err');}
   else{
     const msg=r.message||'Inkomst insamlad';
+    setMsg('prop-msg',msg,'ok');
+    addLog(msg,'ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderFastigheter();
+  }
+}
+
+async function doUpgradeProp(propId){
+  if(G.busy) return;G.busy=true;
+  const r=await post('action/buy-property',{upgrade_id:propId});
+  G.busy=false;
+  if(r.error){setMsg('prop-msg',r.error,'err');}
+  else{
+    const msg=r.message||`Fastigheten uppgraderades till Lv${r.new_level||''}.`;
     setMsg('prop-msg',msg,'ok');
     addLog(msg,'ok');
     const pr=await api('player');
@@ -3680,7 +3705,7 @@ async function doUnlockTalent(){
   const btn=document.getElementById('ttt-unlock-btn');
   if(btn) btn.disabled=true;
   setMsg('talent-msg','','');
-  const r=await api('talents/unlock',{method:'POST',body:{talent_id:G_talentSelected.id}});
+  const r=await post('talents/unlock',{talent_id:G_talentSelected.id});
   if(r.success){
     setMsg('talent-msg',r.message,'ok');
     hideTalentTooltip();
@@ -3693,7 +3718,7 @@ async function doUnlockTalent(){
 
 async function doRespec(){
   if(!confirm('Återställ ALLA talents för 50 000 kr?')) return;
-  const r=await api('talents/respec',{method:'POST'});
+  const r=await post('talents/respec',{});
   if(r.success){
     setMsg('talent-msg',r.message,'ok');
     await loadTalents();
