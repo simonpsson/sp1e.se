@@ -49,6 +49,40 @@ check(
   /SIMULATE_THROTTLE_MS|simulate.*throttle|throttled/i.test(api.slice(api.indexOf('async function gameSimulate'), api.indexOf('function svNum')))
 );
 
+const simulateBlock = api.slice(api.indexOf('async function gameSimulate'), api.indexOf('function svNum'));
+
+check(
+  'world pulse calls simulate with POST',
+  /post\(['"]simulate['"]/.test(html) && !/api\(['"]simulate['"]\)/.test(html)
+);
+
+check(
+  'NPC bot policies are explicit and personality-driven',
+  /NPC_BOT_POLICIES/.test(api) && /botPolicyFor/.test(api)
+);
+
+check(
+  'NPC simulation uses seeded deterministic RNG',
+  /createSeededRng|seededBotRng/.test(api) && !/Math\.random\(\)/.test(simulateBlock)
+);
+
+check(
+  'NPC simulation avoids SQL random ordering',
+  !/ORDER BY RANDOM\(\)/i.test(simulateBlock)
+);
+
+check(
+  'NPC simulation uses per-NPC cooldown state',
+  /simulateNpcTick/.test(simulateBlock) &&
+    /last_action_at/.test(api.slice(api.indexOf('async function loadNpcsForSimulation'), api.indexOf('function chooseNpcAction'))) &&
+    /BOT_NPC_COOLDOWN_MS|last_action_at <= datetime\('now'/.test(api)
+);
+
+check(
+  'NPC simulation returns structured bot summary',
+  /simulated/.test(simulateBlock) && /next_allowed_at/.test(simulateBlock) && /actions/.test(simulateBlock)
+);
+
 check(
   'assault player target is filtered by same round',
   /SELECT \* FROM game_players WHERE id = \? AND round_id = \?/.test(api)
