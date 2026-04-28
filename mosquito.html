@@ -1859,7 +1859,7 @@ async function loadWorldPulse(force=false){
   const fresh=!force&&G.world.lastLoaded&&(Date.now()-G.world.lastLoaded)<WORLD_PULSE_TTL_MS&&G.world.events.length;
   if(G.world.loading||fresh) return;
   G.world.loading=true;
-  const res=await api('simulate');
+  const res=await post('simulate');
   G.world.loading=false;
   if(res&&res.round_ended){
     await softReload();

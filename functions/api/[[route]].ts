@@ -26,6 +26,8 @@ const KNOWN_FALLBACK_HASH = 'pbkdf2:100000:26e4335528b9f68528debae265f5e48f:cf80
 const DEFAULT_GAME_ADMIN_HASH = 'pbkdf2:100000:9c45d83d8e871ef901dee7f0af428cec:2ae9a9e1e94cfa9d92d1198d1d7a1ba4f4105f7ce6b317edb121374c1e9f43ec';
 const MAX_BANK_ACTION_AMOUNT = 10_000_000;
 const SIMULATE_THROTTLE_MS = 75_000;
+const BOT_NPC_COOLDOWN_MS = 7 * 60 * 1000;
+const BOT_ACTIONS_PER_TICK = 3;
 
 const DEFAULT_CATEGORIES = [
   { id: 'power-bi',   name: 'Power BI',   icon: '⚡', sortOrder: 1 },
@@ -1416,7 +1418,7 @@ const NPC_TIERS = [
   [15,3400,  83,26000,  150],
 ] as const;
 
-const NPC_PERSONALITIES = ['aggressive','passive','defensive','trader'] as const;
+const NPC_PERSONALITIES = ['aggressive','brawler','schemer','trader','cautious','defensive','passive'] as const;
 
 const SEEDED_NPC_NAMES: Array<{ name: string; side: 'eastside' | 'westside' }> = [
   { name: 'Ronny "Vargen" Pettersson',  side: 'westside' },
@@ -2425,23 +2427,137 @@ async function gameGetNpcs(env: Env): Promise<Response> {
 
 // ── NPC simulation ────────────────────────────────────────────────────────────
 
+type NpcBotAction = 'robbery' | 'training' | 'drug' | 'assault' | 'race' | 'casino' | 'lay_low';
+type NpcBotPolicy = {
+  label: string;
+  risk: number;
+  aggression: number;
+  weights: Record<NpcBotAction, number>;
+};
+
+const NPC_BOT_POLICIES: Record<string, NpcBotPolicy> = {
+  aggressive: {
+    label: 'Torped',
+    risk: 0.78,
+    aggression: 0.86,
+    weights: { robbery: 0.28, training: 0.10, drug: 0.08, assault: 0.34, race: 0.08, casino: 0.05, lay_low: 0.07 },
+  },
+  brawler: {
+    label: 'Galning',
+    risk: 0.86,
+    aggression: 0.92,
+    weights: { robbery: 0.20, training: 0.14, drug: 0.05, assault: 0.42, race: 0.08, casino: 0.06, lay_low: 0.05 },
+  },
+  trader: {
+    label: 'Langare',
+    risk: 0.48,
+    aggression: 0.28,
+    weights: { robbery: 0.10, training: 0.10, drug: 0.50, assault: 0.06, race: 0.04, casino: 0.06, lay_low: 0.14 },
+  },
+  schemer: {
+    label: 'Opportunist',
+    risk: 0.58,
+    aggression: 0.46,
+    weights: { robbery: 0.22, training: 0.12, drug: 0.25, assault: 0.14, race: 0.06, casino: 0.06, lay_low: 0.15 },
+  },
+  cautious: {
+    label: 'Överlevare',
+    risk: 0.28,
+    aggression: 0.18,
+    weights: { robbery: 0.08, training: 0.38, drug: 0.14, assault: 0.04, race: 0.04, casino: 0.03, lay_low: 0.29 },
+  },
+  defensive: {
+    label: 'Grinder',
+    risk: 0.34,
+    aggression: 0.22,
+    weights: { robbery: 0.10, training: 0.42, drug: 0.12, assault: 0.05, race: 0.05, casino: 0.03, lay_low: 0.23 },
+  },
+  passive: {
+    label: 'Låg profil',
+    risk: 0.22,
+    aggression: 0.10,
+    weights: { robbery: 0.06, training: 0.46, drug: 0.12, assault: 0.02, race: 0.03, casino: 0.02, lay_low: 0.29 },
+  },
+  gambler: {
+    label: 'Spelare',
+    risk: 0.74,
+    aggression: 0.30,
+    weights: { robbery: 0.12, training: 0.08, drug: 0.10, assault: 0.06, race: 0.14, casino: 0.40, lay_low: 0.10 },
+  },
+};
+
+const DEFAULT_NPC_BOT_POLICY: NpcBotPolicy = {
+  label: 'Rånare',
+  risk: 0.55,
+  aggression: 0.45,
+  weights: { robbery: 0.24, training: 0.18, drug: 0.18, assault: 0.16, race: 0.08, casino: 0.06, lay_low: 0.10 },
+};
+
+function botPolicyFor(personality: string): NpcBotPolicy {
+  return NPC_BOT_POLICIES[String(personality || '').toLowerCase()] ?? DEFAULT_NPC_BOT_POLICY;
+}
+
 function npcBehaviorWeights(personality: string): { robbery: number; training: number; drug: number; assault: number } {
-  switch (String(personality || '').toLowerCase()) {
-    case 'aggressive':
-    case 'brawler':
-      return { robbery: 0.40, training: 0.10, drug: 0.12, assault: 0.38 };
-    case 'trader':
-      return { robbery: 0.22, training: 0.12, drug: 0.48, assault: 0.18 };
-    case 'schemer':
-      return { robbery: 0.35, training: 0.15, drug: 0.30, assault: 0.20 };
-    case 'cautious':
-    case 'defensive':
-      return { robbery: 0.22, training: 0.42, drug: 0.20, assault: 0.16 };
-    case 'passive':
-      return { robbery: 0.16, training: 0.52, drug: 0.22, assault: 0.10 };
-    default:
-      return { robbery: 0.30, training: 0.22, drug: 0.24, assault: 0.24 };
+  const weights = botPolicyFor(personality).weights;
+  return {
+    robbery: weights.robbery,
+    training: weights.training,
+    drug: weights.drug,
+    assault: weights.assault,
+  };
+}
+
+function hashSeed(input: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
+  return h >>> 0;
+}
+
+function createSeededRng(seed: string): () => number {
+  let state = hashSeed(seed) || 0x9e3779b9;
+  return () => {
+    state = (state + 0x6D2B79F5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function botRandInt(rng: () => number, min: number, max: number): number {
+  return Math.floor(rng() * (max - min + 1)) + min;
+}
+
+function botPick<T>(rng: () => number, items: T[]): T | null {
+  if (!items.length) return null;
+  return items[Math.floor(rng() * items.length)] ?? items[0] ?? null;
+}
+
+function botWeightedPick(rng: () => number, weights: Record<NpcBotAction, number>): NpcBotAction {
+  const entries = Object.entries(weights) as Array<[NpcBotAction, number]>;
+  const total = entries.reduce((sum, [, weight]) => sum + Math.max(0, weight), 0) || 1;
+  let roll = rng() * total;
+  for (const [action, weight] of entries) {
+    roll -= Math.max(0, weight);
+    if (roll <= 0) return action;
+  }
+  return entries[entries.length - 1]?.[0] ?? 'lay_low';
+}
+
+function botShuffle<T>(rng: () => number, items: T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function npcLevelFromRespect(respect: number, currentLevel = 1): number {
+  return Math.max(currentLevel, Math.min(50, Math.floor(Math.sqrt(Math.max(0, respect) / 5)) + 1));
 }
 
 function npcTrainingLine(npc: Row): string {
@@ -2481,12 +2597,549 @@ const QUEST_TEMPLATES: { title: string; description: string; reward_mult: number
   { personality:'passive',    title:'Schysst deal',  description:'Köp {qty} portioner marijuana och sälj för mig. Del av vinst.',     reward_mult:0.12 },
 ];
 
+function sqliteTimePlusMs(value: string, ms: number): string {
+  const normalized = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`;
+  const parsed = Date.parse(normalized);
+  return new Date((Number.isFinite(parsed) ? parsed : Date.now()) + ms).toISOString();
+}
+
+type NpcBotBaseline = 'random' | 'scripted' | 'survivor';
+type NpcBotEventType = NpcBotAction | 'rob_player' | 'threat' | 'quest_offer';
+type NpcSimulationLoad = {
+  candidates: Row[];
+  allNpcs: Row[];
+  activePlayers: Row[];
+};
+type NpcSimulationContext = NpcSimulationLoad & {
+  roundId: string;
+  rng: () => number;
+};
+type NpcBotDecision = {
+  action: NpcBotAction;
+  baseline: NpcBotBaseline;
+  policy: NpcBotPolicy;
+};
+type NpcActionResult = {
+  type: NpcBotEventType;
+  summary: string;
+  cashDelta: number;
+  respectDelta: number;
+  xpDelta: number;
+  success: boolean;
+  statements: D1PreparedStatement[];
+};
+type NpcTickResult = {
+  actions: Record<string, unknown>[];
+  activity: string[];
+  events: Record<string, unknown>[];
+};
+
+function getNpcArchetype(npc: Row): string {
+  return botPolicyFor(String(npc.personality ?? '')).label;
+}
+
+function npcRiskProfile(npc: Row): { risk: number; aggression: number } {
+  const policy = botPolicyFor(String(npc.personality ?? ''));
+  return { risk: policy.risk, aggression: policy.aggression };
+}
+
+function clampNpcProgression(values: {
+  cash?: number;
+  respect?: number;
+  level?: number;
+  hp?: number;
+  strength?: number;
+}): { cash: number; respect: number; level: number; hp: number; strength: number } {
+  return {
+    cash: Math.max(0, Math.min(2_000_000, Math.round(values.cash ?? 0))),
+    respect: Math.max(0, Math.min(250_000, Math.round(values.respect ?? 0))),
+    level: Math.max(1, Math.min(50, Math.round(values.level ?? 1))),
+    hp: Math.max(1, Math.min(150, Math.round(values.hp ?? 50))),
+    strength: Math.max(1, Math.min(100, Math.round(values.strength ?? 10))),
+  };
+}
+
+async function loadNpcsForSimulation(env: Env, round: Row, cooldownSeconds: number): Promise<NpcSimulationLoad> {
+  const roundId = round.id as string;
+  const [candidateRes, allNpcRes, playerRes] = await Promise.all([
+    env.DB.prepare(
+      `SELECT * FROM game_npcs
+       WHERE round_id = ?
+         AND is_alive = 1
+         AND (last_action_at IS NULL OR last_action_at <= datetime('now', '-' || ? || ' seconds'))
+       ORDER BY respect DESC, id ASC
+       LIMIT 30`
+    ).bind(roundId, cooldownSeconds).all<Row>(),
+    env.DB.prepare(
+      `SELECT * FROM game_npcs
+       WHERE round_id = ? AND is_alive = 1
+       ORDER BY respect DESC, id ASC`
+    ).bind(roundId).all<Row>(),
+    env.DB.prepare(
+      `SELECT id, name, cash, side, level FROM game_players
+       WHERE round_id = ? AND is_alive = 1 AND in_prison = 0 AND in_hospital = 0
+       ORDER BY respect DESC, id ASC
+       LIMIT 10`
+    ).bind(roundId).all<Row>(),
+  ]);
+  return {
+    candidates: candidateRes.results ?? [],
+    allNpcs: allNpcRes.results ?? [],
+    activePlayers: playerRes.results ?? [],
+  };
+}
+
+function chooseNpcAction(npc: Row, context: NpcSimulationContext, rng: () => number, baseline: NpcBotBaseline = 'scripted'): NpcBotDecision {
+  const policy = botPolicyFor(String(npc.personality ?? ''));
+  const hp = Number(npc.hp ?? 50);
+  const cash = Number(npc.cash ?? 0);
+  const lowResources = hp <= 14 || cash < 150;
+  const effectiveBaseline: NpcBotBaseline = baseline === 'survivor' || lowResources ? 'survivor' : baseline;
+  let action: NpcBotAction;
+
+  if (effectiveBaseline === 'random') {
+    const validActions: NpcBotAction[] = lowResources
+      ? ['training', 'lay_low']
+      : ['robbery', 'training', 'drug', 'assault', 'race', 'casino', 'lay_low'];
+    action = botPick(rng, validActions) ?? 'lay_low';
+  } else if (effectiveBaseline === 'survivor') {
+    const survivorWeights: Record<NpcBotAction, number> = {
+      robbery: 0.04, training: 0.34, drug: 0.08, assault: 0.02, race: 0.03, casino: 0.02, lay_low: 0.47,
+    };
+    action = botWeightedPick(rng, survivorWeights);
+  } else {
+    action = botWeightedPick(rng, policy.weights);
+  }
+
+  if (hp <= 14 && rng() < 0.72) action = 'lay_low';
+  if (cash < 150 && (action === 'casino' || action === 'race')) action = 'training';
+  if (action === 'assault' && context.allNpcs.length < 2) action = 'training';
+  return { action, baseline: effectiveBaseline, policy };
+}
+
+function buildNpcFeedMessage(npc: Row, _action: NpcBotEventType, result: Partial<NpcActionResult>): string {
+  if (result.summary) return result.summary;
+  return `${npc.name as string} rörde sig genom stan utan att någon såg hela bilden.`;
+}
+
+function recordNpcAction(
+  npc: Row,
+  result: NpcActionResult,
+  activity: string[],
+  events: Record<string, unknown>[],
+  actions: Record<string, unknown>[],
+): void {
+  const createdAt = new Date().toISOString();
+  const actor = String(npc.name ?? 'Stan');
+  const summary = buildNpcFeedMessage(npc, result.type, result);
+  activity.push(summary);
+  events.push({
+    id: crypto.randomUUID(),
+    created_at: createdAt,
+    actor,
+    actor_id: npc.id as string,
+    side: (npc.side as string) || '',
+    personality: (npc.personality as string) || '',
+    archetype: getNpcArchetype(npc),
+    type: result.type,
+    description: summary,
+  });
+  actions.push({
+    npc_id: npc.id as string,
+    npc_name: actor,
+    archetype: getNpcArchetype(npc),
+    type: result.type,
+    summary,
+    cash_delta: result.cashDelta,
+    respect_delta: result.respectDelta,
+    xp_delta: result.xpDelta,
+    success: result.success,
+  });
+}
+
+function applyNpcAction(env: Env, npc: Row, decision: NpcBotDecision, context: NpcSimulationContext): NpcActionResult {
+  const rng = context.rng;
+  const action = decision.action;
+  const level = Number(npc.level ?? 1);
+  const respect = Number(npc.respect ?? 0);
+  const cash = Number(npc.cash ?? 0);
+  const hp = Number(npc.hp ?? 50);
+  const policy = decision.policy;
+  const baseStrength = Number(npc.strength ?? 10);
+
+  const layLowResult = (): NpcActionResult => {
+    const heal = botRandInt(rng, 2, 8);
+    const next = clampNpcProgression({ cash, respect, level, hp: hp + heal, strength: baseStrength });
+    return {
+      type: 'lay_low',
+      summary: `${npc.name as string} låg lågt efter en stökig natt och slickade såren.`,
+      cashDelta: 0,
+      respectDelta: 0,
+      xpDelta: 0,
+      success: true,
+      statements: [
+        env.DB.prepare(`UPDATE game_npcs SET hp = ?, last_action_at = datetime('now') WHERE id = ?`)
+          .bind(next.hp, npc.id as string),
+      ],
+    };
+  };
+
+  if (action === 'robbery') {
+    const target =
+      level >= 20 ? 'casino' :
+      level >= 15 ? 'bank' :
+      level >= 10 ? 'jewelry' :
+      level >= 8  ? 'house' :
+      level >= 5  ? 'gas_station' :
+      level >= 3  ? 'car_breakin' : 'pickpocket';
+    const cfg = ROBBERY_TARGETS[target];
+    if (!cfg) return layLowResult();
+    const successChance = Math.min(0.84, 0.48 + policy.risk * 0.20 + Math.min(level, 25) * 0.006);
+    if (rng() <= successChance) {
+      const cashGain = Math.min(25_000, Math.round(botRandInt(rng, cfg.minCash, cfg.maxCash) * 0.58));
+      const respectGain = Math.max(1, Math.ceil(cfg.respect * 0.55));
+      const next = clampNpcProgression({
+        cash: cash + cashGain,
+        respect: respect + respectGain,
+        level: npcLevelFromRespect(respect + respectGain, level),
+        hp,
+        strength: baseStrength,
+      });
+      return {
+        type: 'robbery',
+        summary: `${npc.name as string} rånade ${cfg.label} och kom undan med ${svNum(cashGain)} kr.`,
+        cashDelta: cashGain,
+        respectDelta: respectGain,
+        xpDelta: 0,
+        success: true,
+        statements: [
+          env.DB.prepare(
+            `UPDATE game_npcs
+             SET cash = ?, respect = ?, level = ?, last_action_at = datetime('now')
+             WHERE id = ?`
+          ).bind(next.cash, next.respect, next.level, npc.id as string),
+        ],
+      };
+    }
+    const hpLoss = botRandInt(rng, 3, 11);
+    const next = clampNpcProgression({ cash, respect, level, hp: hp - hpLoss, strength: baseStrength });
+    return {
+      type: 'robbery',
+      summary: `${npc.name as string} misslyckades med en stöt och försvann blödande in i en port.`,
+      cashDelta: 0,
+      respectDelta: 0,
+      xpDelta: 0,
+      success: false,
+      statements: [
+        env.DB.prepare(`UPDATE game_npcs SET hp = ?, last_action_at = datetime('now') WHERE id = ?`)
+          .bind(next.hp, npc.id as string),
+      ],
+    };
+  }
+
+  if (action === 'training') {
+    const strengthGain = botRandInt(rng, 1, 3);
+    const respectGain = policy.aggression > 0.7 ? 2 : 1;
+    const next = clampNpcProgression({
+      cash,
+      respect: respect + respectGain,
+      level: npcLevelFromRespect(respect + respectGain, level),
+      hp,
+      strength: baseStrength + strengthGain,
+    });
+    return {
+      type: 'training',
+      summary: npcTrainingLine(npc),
+      cashDelta: 0,
+      respectDelta: respectGain,
+      xpDelta: 0,
+      success: true,
+      statements: [
+        env.DB.prepare(
+          `UPDATE game_npcs
+           SET strength = ?, respect = ?, level = ?, last_action_at = datetime('now')
+           WHERE id = ?`
+        ).bind(next.strength, next.respect, next.level, npc.id as string),
+      ],
+    };
+  }
+
+  if (action === 'drug') {
+    const earnings = Math.min(18_000, Math.round(level * botRandInt(rng, 120, 420) * (0.75 + policy.risk * 0.25)));
+    const respectGain = Math.max(1, Math.ceil(earnings / 750));
+    const drug = botPick(rng, ['marijuana', 'kokain', 'heroin', 'ecstasy', 'meth']) ?? 'varor';
+    const next = clampNpcProgression({
+      cash: cash + earnings,
+      respect: respect + respectGain,
+      level: npcLevelFromRespect(respect + respectGain, level),
+      hp,
+      strength: baseStrength,
+    });
+    return {
+      type: 'drug',
+      summary: `${npc.name as string} sålde ${drug} och tvättade hem ${svNum(earnings)} kr.`,
+      cashDelta: earnings,
+      respectDelta: respectGain,
+      xpDelta: 0,
+      success: true,
+      statements: [
+        env.DB.prepare(
+          `UPDATE game_npcs
+           SET cash = ?, respect = ?, level = ?, last_action_at = datetime('now')
+           WHERE id = ?`
+        ).bind(next.cash, next.respect, next.level, npc.id as string),
+      ],
+    };
+  }
+
+  if (action === 'assault') {
+    const profile = npcRiskProfile(npc);
+    if (hp < 18 || profile.aggression < 0.12) return layLowResult();
+    const victims = context.allNpcs.filter(n => String(n.id) !== String(npc.id) && Number(n.is_alive ?? 1) === 1);
+    const victim = botPick(rng, victims);
+    if (!victim) return layLowResult();
+    const victimCash = Number(victim.cash ?? 0);
+    const stolen = Math.min(5_000, Math.round(victimCash * botRandInt(rng, 4, 12) / 100));
+    const respectGain = botRandInt(rng, 2, 6);
+    const hpLoss = botRandInt(rng, 5, 15);
+    const next = clampNpcProgression({
+      cash: cash + stolen,
+      respect: respect + respectGain,
+      level: npcLevelFromRespect(respect + respectGain, level),
+      hp,
+      strength: baseStrength,
+    });
+    const victimNext = clampNpcProgression({
+      cash: victimCash - stolen,
+      respect: Number(victim.respect ?? 0),
+      level: Number(victim.level ?? 1),
+      hp: Number(victim.hp ?? 50) - hpLoss,
+      strength: Number(victim.strength ?? 10),
+    });
+    return {
+      type: 'assault',
+      summary: `${npc.name as string} slog ner ${victim.name as string} utanför klubben och tog ${svNum(stolen)} kr.`,
+      cashDelta: stolen,
+      respectDelta: respectGain,
+      xpDelta: 0,
+      success: true,
+      statements: [
+        env.DB.prepare(
+          `UPDATE game_npcs
+           SET cash = ?, respect = ?, level = ?, last_action_at = datetime('now')
+           WHERE id = ?`
+        ).bind(next.cash, next.respect, next.level, npc.id as string),
+        env.DB.prepare(`UPDATE game_npcs SET cash = ?, hp = ? WHERE id = ?`)
+          .bind(victimNext.cash, victimNext.hp, victim.id as string),
+      ],
+    };
+  }
+
+  if (action === 'race') {
+    const fee = Math.min(Math.max(100, level * 80), Math.max(100, cash));
+    const won = rng() < 0.48 + Math.min(0.18, policy.risk * 0.12);
+    const delta = won ? Math.round(fee * 1.35) : -fee;
+    const respectGain = won ? 2 : 0;
+    const next = clampNpcProgression({
+      cash: cash + delta,
+      respect: respect + respectGain,
+      level: npcLevelFromRespect(respect + respectGain, level),
+      hp,
+      strength: baseStrength,
+    });
+    return {
+      type: 'race',
+      summary: won
+        ? `${npc.name as string} vann ett nattligt race och drog in ${svNum(delta)} kr.`
+        : `${npc.name as string} förlorade ett race vid industriområdet och brände ${svNum(fee)} kr.`,
+      cashDelta: delta,
+      respectDelta: respectGain,
+      xpDelta: 0,
+      success: won,
+      statements: [
+        env.DB.prepare(
+          `UPDATE game_npcs
+           SET cash = ?, respect = ?, level = ?, last_action_at = datetime('now')
+           WHERE id = ?`
+        ).bind(next.cash, next.respect, next.level, npc.id as string),
+      ],
+    };
+  }
+
+  if (action === 'casino') {
+    const stake = Math.min(Math.max(100, level * 100), Math.max(100, cash));
+    const won = rng() < 0.44;
+    const delta = won ? Math.round(stake * 0.9) : -stake;
+    const next = clampNpcProgression({ cash: cash + delta, respect, level, hp, strength: baseStrength });
+    return {
+      type: 'casino',
+      summary: won
+        ? `${npc.name as string} lämnade bakrummet med ${svNum(delta)} kr från bordet.`
+        : `${npc.name as string} tappade ${svNum(stake)} kr på casino och gick hem utan att se någon i ögonen.`,
+      cashDelta: delta,
+      respectDelta: 0,
+      xpDelta: 0,
+      success: won,
+      statements: [
+        env.DB.prepare(`UPDATE game_npcs SET cash = ?, last_action_at = datetime('now') WHERE id = ?`)
+          .bind(next.cash, npc.id as string),
+      ],
+    };
+  }
+
+  return layLowResult();
+}
+
+function buildPlayerPressureEvents(env: Env, npc: Row, context: NpcSimulationContext): NpcActionResult | null {
+  const rng = context.rng;
+  const target = botPick(rng, context.activePlayers);
+  if (!target) return null;
+  const personality = String(npc.personality ?? '').toLowerCase();
+  const roll = rng();
+  if ((personality === 'aggressive' || personality === 'brawler') && roll < 0.035) {
+    const playerCash = Number(target.cash ?? 0);
+    if (playerCash <= 250) return null;
+    const stolen = Math.floor(playerCash * (0.04 + rng() * 0.05));
+    return {
+      type: 'rob_player',
+      summary: `${npc.name as string} rånade ${target.name as string} och tog ${svNum(stolen)} kr.`,
+      cashDelta: stolen,
+      respectDelta: 0,
+      xpDelta: 0,
+      success: true,
+      statements: [
+        env.DB.prepare(`UPDATE game_players SET cash = MAX(0, cash - ?), last_action = datetime('now') WHERE id = ?`)
+          .bind(stolen, target.id as string),
+        env.DB.prepare(`UPDATE game_npcs SET cash = cash + ? WHERE id = ?`)
+          .bind(stolen, npc.id as string),
+        env.DB.prepare(
+          `INSERT INTO game_action_log (id, player_id, action_type, description, cash_change, respect_change, xp_change, success)
+           VALUES (?, ?, 'assault', ?, ?, 0, 0, 0)`
+        ).bind(crypto.randomUUID(), target.id as string, `${npc.name as string} rånade dig och tog ${svNum(stolen)} kr.`, -stolen),
+      ],
+    };
+  }
+  if (roll < 0.075) {
+    const tmpl = botPick(rng, NPC_THREATS) ?? '{npc} markerade revir.';
+    const msg = tmpl.replace(/\{npc\}/g, npc.name as string);
+    return {
+      type: 'threat',
+      summary: msg,
+      cashDelta: 0,
+      respectDelta: 0,
+      xpDelta: 0,
+      success: true,
+      statements: [
+        env.DB.prepare(
+          `INSERT INTO game_action_log (id, player_id, action_type, description, cash_change, respect_change, xp_change, success)
+           VALUES (?, ?, 'threat', ?, 0, 0, 0, 0)`
+        ).bind(crypto.randomUUID(), target.id as string, msg),
+      ],
+    };
+  }
+  if ((personality === 'schemer' || personality === 'trader' || personality === 'aggressive') && roll < 0.105) {
+    const templates = QUEST_TEMPLATES.filter(t => t.personality === personality || t.personality === 'aggressive');
+    const tpl = botPick(rng, templates.length ? templates : QUEST_TEMPLATES) ?? QUEST_TEMPLATES[0];
+    const otherPlayer = context.activePlayers.find(pl => String(pl.id) !== String(target.id));
+    const targetName = String(otherPlayer?.name ?? 'någon');
+    const reward = Math.max(500, Math.floor(Number(target.cash ?? 2000) * tpl.reward_mult));
+    const desc = tpl.description
+      .replace(/{target}/g, targetName)
+      .replace(/{qty}/g, String(botRandInt(rng, 5, 20)));
+    const questId = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    return {
+      type: 'quest_offer',
+      summary: `${npc.name as string} har ett erbjudande till ${target.name as string}: "${tpl.title}" - ${svNum(reward)} kr.`,
+      cashDelta: 0,
+      respectDelta: 0,
+      xpDelta: 0,
+      success: true,
+      statements: [
+        env.DB.prepare(
+          `INSERT OR IGNORE INTO game_quests
+             (id, player_id, round_id, npc_id, npc_name, title, description, reward_cash, reward_respect, expires_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(questId, target.id as string, context.roundId, npc.id as string,
+          npc.name as string, tpl.title, desc, reward, Math.floor(reward / 200), expiresAt),
+      ],
+    };
+  }
+  return null;
+}
+
+async function simulateNpcTick(
+  env: Env,
+  round: Row,
+  options: { seed?: string; baseline?: NpcBotBaseline; observerPlayer?: Row | null } = {},
+): Promise<NpcTickResult> {
+  const roundId = round.id as string;
+  const rng = createSeededRng(options.seed ?? `${roundId}:${round.round_number ?? ''}:${Math.floor(Date.now() / SIMULATE_THROTTLE_MS)}`);
+  const cooldownSeconds = Math.ceil(BOT_NPC_COOLDOWN_MS / 1000);
+  const loaded = await loadNpcsForSimulation(env, round, cooldownSeconds);
+  const context: NpcSimulationContext = {
+    ...loaded,
+    roundId,
+    rng,
+  };
+  const candidates = botShuffle(rng, loaded.candidates).slice(0, BOT_ACTIONS_PER_TICK);
+  const activity: string[] = [];
+  const events: Record<string, unknown>[] = [];
+  const actions: Record<string, unknown>[] = [];
+  const statements: D1PreparedStatement[] = [];
+
+  for (const npc of candidates) {
+    const decision = chooseNpcAction(npc, context, rng, options.baseline ?? 'scripted');
+    const result = applyNpcAction(env, npc, decision, context);
+    recordNpcAction(npc, result, activity, events, actions);
+    statements.push(...result.statements);
+  }
+
+  for (const npc of candidates) {
+    const pressure = buildPlayerPressureEvents(env, npc, context);
+    if (!pressure) continue;
+    recordNpcAction(npc, pressure, activity, events, actions);
+    statements.push(...pressure.statements);
+  }
+
+  if (statements.length) {
+    for (let i = 0; i < statements.length; i += 100) {
+      await env.DB.batch(statements.slice(i, i + 100));
+    }
+  }
+
+  if (options.observerPlayer && actions.length) {
+    const latest = actions[0];
+    await logAction(env, options.observerPlayer.id as string, 'world', String(latest.summary ?? 'Stan rörde på sig.'), 0, 0, 0, true)
+      .catch(() => {});
+  }
+
+  return { actions, activity, events };
+}
+
 async function gameSimulate(request: Request, env: Env): Promise<Response> {
-  try { await requireGameAdmin(request, env); }
-  catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 403); }
+  let observerPlayer: Row | null = null;
+  try {
+    observerPlayer = await requireGamePlayer(request, env);
+  } catch (playerError) {
+    try { await requireGameAdmin(request, env); }
+    catch {
+      return gameJson({ error: (playerError as GameError).message }, (playerError as GameError).status ?? 401);
+    }
+  }
 
   const round = await getActiveRound(env);
-  if (!round) return gameJson({ activity: [] });
+  if (!round) {
+    return gameJson({
+      ok: true,
+      simulated: false,
+      throttled: false,
+      round_id: null,
+      actions: [],
+      activity: [],
+      events: [],
+    });
+  }
 
   await ensureGameAdminTables(env);
   const roundId = round.id as string;
@@ -2501,189 +3154,46 @@ async function gameSimulate(request: Request, env: Env): Promise<Response> {
   ).bind(roundId, throttleSeconds).first<{ created_at: string }>();
   if (lastRun?.created_at) {
     return gameJson({
+      ok: true,
+      simulated: false,
+      throttled: true,
+      round_id: roundId,
+      actions: [],
       activity: [],
       events: [],
-      throttled: true,
       retry_after_seconds: throttleSeconds,
+      next_allowed_at: sqliteTimePlusMs(lastRun.created_at, SIMULATE_THROTTLE_MS),
     });
   }
 
-  // End round if expired
   const endDate = new Date(round.end_date as string).getTime();
   if (Date.now() > endDate) {
     await endRound(env, round);
-    return gameJson({ round_ended: true, activity: [] });
-  }
-
-  // Pick up to 3 random alive NPCs
-  const res = await env.DB.prepare(
-    `SELECT * FROM game_npcs WHERE round_id = ? AND is_alive = 1 ORDER BY RANDOM() LIMIT 3`
-  ).bind(round.id as string).all<Row>();
-
-  const activity: string[] = [];
-  const events: Record<string, unknown>[] = [];
-  const stmts: D1PreparedStatement[] = [];
-  const pushEvent = (npc: Row, type: string, description: string) => {
-    const createdAt = new Date().toISOString();
-    activity.push(description);
-    events.push({
-      id: crypto.randomUUID(),
-      created_at: createdAt,
-      actor: npc.name as string,
-      actor_id: npc.id as string,
-      side: (npc.side as string) || '',
-      personality: (npc.personality as string) || '',
-      type,
-      description,
+    return gameJson({
+      ok: true,
+      simulated: false,
+      throttled: false,
+      round_ended: true,
+      round_id: roundId,
+      actions: [],
+      activity: [],
+      events: [],
     });
-  };
-
-  for (const npc of res.results) {
-    const lvl  = (npc.level    as number) || 1;
-    const roll = Math.random();
-    const weights = npcBehaviorWeights(String(npc.personality ?? ''));
-
-    if (roll < weights.robbery) {
-      // Robbery — target scales with NPC level
-      const target =
-        lvl >= 20 ? 'casino'      :
-        lvl >= 15 ? 'bank'        :
-        lvl >= 10 ? 'jewelry'     :
-        lvl >= 8  ? 'house'       :
-        lvl >= 5  ? 'gas_station' :
-        lvl >= 3  ? 'car_breakin' : 'pickpocket';
-      const cfg = ROBBERY_TARGETS[target];
-      if (cfg && Math.random() < 0.65) {
-        const cash    = Math.round(rand(cfg.minCash, cfg.maxCash) * 0.70);
-        const respect = Math.ceil(cfg.respect * 0.70);
-        const newResp = (npc.respect as number) + respect;
-        const newLvl  = Math.min(50, Math.floor(Math.sqrt(newResp / 5)) + 1);
-        stmts.push(
-          env.DB.prepare(`UPDATE game_npcs SET cash = cash + ?, respect = ?, level = ? WHERE id = ?`)
-            .bind(cash, newResp, newLvl, npc.id as string)
-        );
-        pushEvent(npc, 'robbery', `${npc.name as string} rånade ${cfg.label} och tjänade ${svNum(cash)} kr.`);
-      }
-    } else if (roll < weights.robbery + weights.training) {
-      // Training
-      const inc    = rand(1, 2);
-      const newStr = Math.min(100, (npc.strength as number) + inc);
-      stmts.push(
-        env.DB.prepare(`UPDATE game_npcs SET strength = ? WHERE id = ?`).bind(newStr, npc.id as string)
-      );
-      pushEvent(npc, 'training', npcTrainingLine(npc));
-    } else if (roll < weights.robbery + weights.training + weights.drug) {
-      // Drug deal
-      const earnings = Math.round(lvl * rand(200, 600) * 0.70);
-      const respect  = Math.ceil(earnings / 400);
-      stmts.push(
-        env.DB.prepare(`UPDATE game_npcs SET cash = cash + ?, respect = respect + ? WHERE id = ?`)
-          .bind(earnings, respect, npc.id as string)
-      );
-      const drugList = ['marijuana', 'kokain', 'heroin', 'ecstasy'];
-      const drug = drugList[Math.floor(Math.random() * drugList.length)];
-      pushEvent(npc, 'drug', `${npc.name as string} sålde ${drug} och tjänade ${svNum(earnings)} kr.`);
-    } else {
-      // Assault another NPC
-      const victims = res.results.filter(n => n.id !== npc.id && n.is_alive);
-      if (victims.length) {
-        const victim  = victims[Math.floor(Math.random() * victims.length)];
-        const stolen  = Math.round(((victim.cash as number) || 0) * rand(10, 25) / 100);
-        if (stolen > 0) {
-          stmts.push(
-            env.DB.prepare(`UPDATE game_npcs SET cash = cash + ?, respect = respect + 5 WHERE id = ?`).bind(stolen, npc.id as string),
-            env.DB.prepare(`UPDATE game_npcs SET cash = cash - ? WHERE id = ?`).bind(stolen, victim.id as string)
-          );
-          pushEvent(npc, 'assault', `${npc.name as string} slog ner ${victim.name as string} och stal ${svNum(stolen)} kr.`);
-        }
-      }
-    }
   }
 
-  // ── Player-affecting events (pick 1 random active player as target) ─────────
-  try {
-    const round2 = round; // closure ref
-    const playerRes = await env.DB.prepare(
-      `SELECT id, name, cash, side, level FROM game_players
-       WHERE round_id = ? AND is_alive = 1 AND in_prison = 0 AND in_hospital = 0
-       ORDER BY RANDOM() LIMIT 3`
-    ).bind(round2.id as string).all<Row>();
-
-    for (const npc of res.results) {
-      const p = playerRes.results[Math.floor(Math.random() * playerRes.results.length)];
-      if (!p) continue;
-
-      const personality = String(npc.personality ?? '').toLowerCase();
-      const roll = Math.random();
-
-      // 3% chance aggressive/brawler NPC robs a player
-      if ((personality === 'aggressive' || personality === 'brawler') && roll < 0.03) {
-        const playerCash = (p.cash as number) ?? 0;
-        if (playerCash > 200) {
-          const stolen = Math.floor(playerCash * (0.05 + Math.random() * 0.07));
-          stmts.push(
-            env.DB.prepare(`UPDATE game_players SET cash = cash - ?, last_action = datetime('now') WHERE id = ?`)
-              .bind(stolen, p.id as string),
-            env.DB.prepare(`UPDATE game_npcs SET cash = cash + ? WHERE id = ?`)
-              .bind(stolen, npc.id as string),
-          );
-          // Log to player's action log
-          stmts.push(
-            env.DB.prepare(
-              `INSERT INTO game_action_log (id, player_id, action_type, description, cash_change, respect_change, xp_change, success)
-               VALUES (?, ?, 'assault', ?, ?, 0, 0, 0)`
-            ).bind(crypto.randomUUID(), p.id as string, `${npc.name as string} rånade dig och tog ${svNum(stolen)} kr.`, -stolen)
-          );
-          pushEvent(npc, 'rob_player', `${npc.name as string} rånade ${p.name as string} och tog ${svNum(stolen)} kr.`);
-        }
-      }
-      // 5% chance any NPC sends a threat to a player
-      else if (roll < 0.05) {
-        const tmpl = NPC_THREATS[Math.floor(Math.random() * NPC_THREATS.length)];
-        const msg  = tmpl.replace(/\{npc\}/g, npc.name as string);
-        stmts.push(
-          env.DB.prepare(
-            `INSERT INTO game_action_log (id, player_id, action_type, description, cash_change, respect_change, xp_change, success)
-             VALUES (?, ?, 'threat', ?, 0, 0, 0, 0)`
-          ).bind(crypto.randomUUID(), p.id as string, msg)
-        );
-        pushEvent(npc, 'threat', msg);
-      }
-      // 4% chance schemer/trader NPC offers a quest
-      else if ((personality === 'schemer' || personality === 'trader' || personality === 'aggressive') && roll < 0.09) {
-        const templates = QUEST_TEMPLATES.filter(t => t.personality === personality || t.personality === 'aggressive');
-        const tpl = templates[Math.floor(Math.random() * templates.length)] ?? QUEST_TEMPLATES[0];
-        const targetName = playerRes.results.find(pl => pl.id !== p.id)?.name ?? 'någon';
-        const reward = Math.max(500, Math.floor(((p.cash as number) ?? 2000) * tpl.reward_mult));
-        const desc = tpl.description
-          .replace(/{target}/g, String(targetName))
-          .replace(/{qty}/g, String(rand(5, 20)));
-        const questId = crypto.randomUUID();
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-        stmts.push(
-          env.DB.prepare(
-            `INSERT OR IGNORE INTO game_quests
-               (id, player_id, round_id, npc_id, npc_name, title, description, reward_cash, reward_respect, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          ).bind(questId, p.id as string, round2.id as string, npc.id as string,
-            npc.name as string, tpl.title, desc, reward, Math.floor(reward / 200), expiresAt)
-        );
-        pushEvent(npc, 'quest_offer',
-          `${npc.name as string} har ett erbjudande till ${p.name as string}: "${tpl.title}" — ${svNum(reward)} kr.`);
-      }
-    }
-  } catch { /* player-affecting events are best-effort */ }
-
-  if (stmts.length) {
-    // D1 batch limit is 100; split just in case
-    for (let i = 0; i < stmts.length; i += 100) {
-      await env.DB.batch(stmts.slice(i, i + 100));
-    }
-  }
-
+  const tick = await simulateNpcTick(env, round, { observerPlayer });
   await logGameAdminAudit(env, { command: 'simulate', outcome: 'tick', details: roundId });
 
-  return gameJson({ activity, events });
+  return gameJson({
+    ok: true,
+    simulated: tick.actions.length > 0,
+    throttled: false,
+    round_id: roundId,
+    actions: tick.actions,
+    activity: tick.activity,
+    events: tick.events,
+    next_allowed_at: new Date(Date.now() + SIMULATE_THROTTLE_MS).toISOString(),
+  });
 }
 
 function svNum(n: number): string {
