@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#x1F99F;</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0c0c0c;--bg2:#111111;--bg3:#1a1a1a;--border:#2a2a2a;--red:#c23a22;--amber:#c4a44a;--green:#3ecf3e;--dim:#666;--txt:#b8b8b8;--white:#e0e0e0;--m-bg:#0c0c0c;--m-accent:#c23a22;--m-cash:#c4a44a;--m-dim:#666;--m-txt:#b8b8b8;--m-white:#e0e0e0;}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -505,6 +505,375 @@ select:focus{border-color:var(--red);}
 .weapon-lvl{font-size:10px;color:var(--dim);}
 .vapen-cat-btn{font-size:10px;padding:4px 10px;letter-spacing:.5px;}
 .vapen-cat-btn.active{border-color:var(--red);color:var(--red);}
+
+/* DeKrim 2.0 / Berlin underground visual pass.
+   CSS-only skin: preserves existing DOM, API and render logic. */
+:root{
+  --bg:#050606;
+  --bg2:#0b0d0d;
+  --bg3:#121515;
+  --panel:#0d1112;
+  --panel2:#111616;
+  --border:#283031;
+  --border-hot:#ff3a1f;
+  --red:#ff3a1f;
+  --amber:#d7a83b;
+  --green:#37e66a;
+  --blue:#5fa8c9;
+  --dim:#748082;
+  --txt:#c4cac8;
+  --white:#f1f1e9;
+  --ash:#1b2020;
+  --glow-red:rgba(255,58,31,.24);
+  --glow-green:rgba(55,230,106,.16);
+  --font-head:'Archivo Black','JetBrains Mono','DM Mono',monospace;
+  --font-mono:'JetBrains Mono','DM Mono',monospace;
+}
+html{background:#030404;}
+body{
+  background:
+    radial-gradient(circle at 18% 8%,rgba(255,58,31,.12),transparent 24rem),
+    radial-gradient(circle at 88% 18%,rgba(95,168,201,.08),transparent 28rem),
+    linear-gradient(180deg,rgba(255,255,255,.025),transparent 18rem),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.018) 0 1px,transparent 1px 42px),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 1px,transparent 1px 38px),
+    var(--bg);
+  color:var(--txt);
+  font-family:var(--font-mono);
+  font-size:14px;
+}
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  background:
+    linear-gradient(90deg,transparent 0 49%,rgba(255,58,31,.045) 50%,transparent 51%),
+    radial-gradient(circle at 50% 0,transparent 0 45%,rgba(0,0,0,.62) 100%),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 4px);
+  mix-blend-mode:screen;
+  opacity:.28;
+}
+body>*{position:relative;z-index:1;}
+button,input,select{border-radius:2px;}
+input,select{
+  min-height:42px;
+  background:linear-gradient(180deg,#0c0f10,#080909);
+  border-color:#2b3536;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+}
+input:focus,select:focus{
+  border-color:var(--red);
+  box-shadow:0 0 0 3px rgba(255,58,31,.12), inset 0 1px 0 rgba(255,255,255,.03);
+}
+button{
+  min-height:40px;
+  text-transform:uppercase;
+  letter-spacing:1.2px;
+  background:linear-gradient(180deg,#151819,#0c0f10);
+  border-color:#303839;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 22px rgba(0,0,0,.18);
+}
+button:hover:not(:disabled){
+  border-color:var(--red);
+  color:var(--white);
+  background:linear-gradient(180deg,#211313,#100b0b);
+  box-shadow:0 0 0 1px rgba(255,58,31,.18),0 0 22px rgba(255,58,31,.12);
+}
+button:focus-visible,a:focus-visible,.nav-btn:focus-visible,.mb:focus-visible,.rob-card:focus-visible,.side-card:focus-visible{
+  outline:2px solid var(--amber);
+  outline-offset:2px;
+}
+button.primary{
+  color:#fff5ee;
+  background:linear-gradient(180deg,#b92918,#6c120b);
+  border-color:#ff553b;
+  box-shadow:0 0 26px rgba(255,58,31,.15),inset 0 1px 0 rgba(255,255,255,.12);
+}
+#screen-boot,#screen-create,#screen-prison,#screen-hospital,#screen-round{
+  background:
+    radial-gradient(circle at center,rgba(255,58,31,.12),transparent 22rem),
+    linear-gradient(140deg,rgba(5,6,6,.3),rgba(5,6,6,.96)),
+    var(--bg);
+}
+.boot-logo,.cr-logo,.pr-logo,.hs-logo{
+  font-family:var(--font-head);
+  color:var(--white);
+  text-shadow:3px 0 0 rgba(255,58,31,.75),-1px 0 18px rgba(255,58,31,.22);
+  letter-spacing:.18em;
+}
+.boot-copy,.cr-sub,.pr-subtitle,.round-copy{
+  color:#899493;
+}
+.cr-box,.pr-box,.hs-box,.round-box,.dev-lock,.dev-shell,.drug-form,.prof-status,.world-strip,.race-log{
+  background:linear-gradient(180deg,rgba(17,22,22,.94),rgba(8,10,10,.97));
+  border-color:#303839;
+  box-shadow:0 24px 80px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.035);
+}
+#topbar{
+  height:64px;
+  background:
+    linear-gradient(90deg,rgba(255,58,31,.10),transparent 18rem),
+    linear-gradient(180deg,#0e1111,#080909);
+  border-bottom-color:#303839;
+  box-shadow:0 1px 0 rgba(255,58,31,.22),0 16px 60px rgba(0,0,0,.32);
+  padding:0 18px;
+}
+#topbar::after{
+  content:'';
+  position:absolute;
+  left:0;right:0;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,transparent,var(--red),transparent);
+  opacity:.55;
+}
+.tb-brand{
+  font-family:var(--font-head);
+  color:var(--red);
+  font-size:17px;
+  letter-spacing:.42em;
+  text-shadow:0 0 18px rgba(255,58,31,.34);
+}
+#tb-name{font-size:15px;color:var(--white);font-weight:700;}
+#tb-level{
+  background:#171b1b;
+  border:1px solid #2b3333;
+  color:#9aa4a2;
+  padding:3px 8px;
+}
+#tb-cash{font-size:15px;color:var(--amber);font-weight:600;}
+.nrg-track,.hp-track,.stat-track,.stat-bar-track{
+  background:#0a0b0b;
+  border:1px solid #1d2424;
+  box-shadow:inset 0 0 12px rgba(0,0,0,.7);
+}
+#nrg-fill,.hp-fill-wrap{background:linear-gradient(90deg,#1fb94d,#7cff80);box-shadow:0 0 14px var(--glow-green);}
+#game-layout{
+  grid-template-columns:268px minmax(0,1fr);
+  height:calc(100dvh - 64px);
+}
+#sidebar{
+  background:
+    linear-gradient(180deg,rgba(255,58,31,.06),transparent 18rem),
+    linear-gradient(180deg,#0b0d0d,#070808);
+  border-right-color:#31393a;
+  box-shadow:12px 0 60px rgba(0,0,0,.28);
+}
+.sb-card{
+  border-bottom-color:#242b2c;
+  padding:18px 16px;
+}
+.sb-title{
+  color:#8e9998;
+  font-size:11px;
+  letter-spacing:.22em;
+}
+#sb-prof{font-size:14px;color:var(--white);font-weight:700;}
+#sb-side{color:#b8d8e8;}
+.stat-fill{background:linear-gradient(90deg,#d8331f,#ff725c);box-shadow:0 0 12px var(--glow-red);}
+.nav-btn{
+  min-height:42px;
+  padding:10px 18px;
+  color:#849091;
+  border-left-width:3px;
+  font-size:12px;
+  letter-spacing:.13em;
+  position:relative;
+}
+.nav-btn::after{
+  content:'';
+  position:absolute;
+  left:18px;right:18px;bottom:5px;height:1px;
+  background:linear-gradient(90deg,rgba(255,255,255,.08),transparent);
+  opacity:.7;
+}
+.nav-btn:hover{background:rgba(255,58,31,.07);border-left-color:#6b342c;}
+.nav-btn.active{
+  color:#fff6f1;
+  background:linear-gradient(90deg,rgba(255,58,31,.18),rgba(255,58,31,.035));
+  border-left-color:var(--red);
+  text-shadow:0 0 16px rgba(255,58,31,.32);
+}
+#main-area{
+  padding:28px;
+  background:
+    radial-gradient(circle at 75% 0,rgba(255,58,31,.08),transparent 24rem),
+    linear-gradient(180deg,rgba(255,255,255,.015),transparent 18rem);
+}
+.g-sec{
+  max-width:1480px;
+  animation:mosq-section-in .22s ease-out both;
+}
+.sec-title{
+  font-family:var(--font-head);
+  font-size:24px;
+  letter-spacing:.24em;
+  line-height:1;
+  color:var(--white);
+  text-shadow:2px 0 0 rgba(255,58,31,.7),0 0 22px rgba(255,58,31,.2);
+}
+.sec-sub{
+  color:#8a9594;
+  font-size:13px;
+  margin-top:10px;
+  margin-bottom:24px;
+  max-width:980px;
+}
+.world-strip{
+  padding:16px 18px;
+  border-left:3px solid var(--red);
+  background:
+    linear-gradient(90deg,rgba(255,58,31,.1),transparent 22rem),
+    linear-gradient(180deg,rgba(17,22,22,.96),rgba(8,10,10,.96));
+}
+.world-strip strong{font-size:14px;}
+.feed{
+  background:rgba(7,8,8,.42);
+  border:1px solid rgba(255,255,255,.055);
+  padding:8px 12px;
+}
+.feed-item{
+  padding:7px 0;
+  border-bottom-color:rgba(255,255,255,.055);
+}
+.feed-time{color:#535f60;}
+.feed-type{font-weight:700;letter-spacing:.08em;}
+.feed-badge{border-radius:999px;padding:2px 7px;}
+.feed-filter{gap:8px;margin-bottom:12px;}
+.feed-filter button{min-height:34px;background:#101414;}
+.rob-grid,.prof-grid,.vehicle-grid,.holdem-seats{
+  gap:16px;
+}
+.rob-card,.prof-card,.weapon-card,.vehicle-card,.inv-item,.quest-card,.race-tier,.holdem-seat,.roulette-builder,.roulette-slip,.roulette-history,.casino-card,.casino-stat{
+  background:
+    linear-gradient(180deg,rgba(20,25,25,.94),rgba(8,10,10,.96));
+  border-color:#303839;
+  box-shadow:0 16px 44px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.035);
+}
+.rob-card,.race-tier,.weapon-card,.prof-card,.vehicle-card{
+  position:relative;
+  overflow:hidden;
+}
+.rob-card::before,.race-tier::before,.weapon-card::before,.prof-card::before,.vehicle-card::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(135deg,rgba(255,58,31,.12),transparent 34%);
+  opacity:0;
+  transition:opacity .16s ease;
+}
+.rob-card:hover:not(.locked)::before,.race-tier:hover::before,.weapon-card:hover::before,.prof-card:hover::before,.vehicle-card:hover::before{opacity:1;}
+.rob-card:hover:not(.locked),.race-tier:hover,.weapon-card:hover,.prof-card:hover,.vehicle-card:hover{
+  transform:translateY(-1px);
+  border-color:rgba(255,58,31,.62);
+}
+.rob-name,.prof-name,.weapon-name,.vehicle-name,.holdem-seat-name strong{
+  font-weight:800;
+  color:var(--white);
+}
+.rob-stars,.rob-pay,.vehicle-cost,.weapon-price,.drug-total,.race-tier-fee,.race-tier-prize{
+  color:var(--amber);
+  font-weight:600;
+}
+.amsg.err,.feed-item.err .feed-desc{color:#ff6049;}
+.amsg.ok,.feed-item.ok .feed-type{color:#55f07e;}
+.casino-card{
+  border-radius:4px;
+  background:
+    radial-gradient(circle at top right,rgba(255,58,31,.10),transparent 24rem),
+    linear-gradient(180deg,rgba(15,20,21,.98),rgba(7,9,9,.98));
+}
+.casino-mode{
+  min-height:46px;
+  background:linear-gradient(180deg,#171a1d,#0d0f10);
+  border-color:#30383b;
+}
+.casino-mode.active{
+  border-color:var(--red);
+  background:linear-gradient(180deg,#2a1411,#120a09);
+  box-shadow:0 0 0 1px rgba(255,58,31,.18),0 0 24px rgba(255,58,31,.12);
+}
+.bj-banner{
+  border-left:3px solid var(--red);
+  background:
+    linear-gradient(90deg,rgba(255,58,31,.09),transparent 22rem),
+    #0c0e0f;
+}
+.bj-card{
+  border-radius:5px;
+  box-shadow:0 18px 34px rgba(0,0,0,.38),0 0 0 1px rgba(255,255,255,.08);
+}
+.bj-card.hidden{
+  background:
+    radial-gradient(circle at 50% 35%,rgba(255,58,31,.16),transparent 34%),
+    linear-gradient(155deg,#251b22,#0f0d12 58%,#08080a);
+}
+.holdem-seat.player{
+  border-color:rgba(255,58,31,.55);
+  background:
+    linear-gradient(180deg,rgba(31,19,15,.92),rgba(9,10,10,.96));
+}
+.holdem-seat.turn{
+  box-shadow:0 0 0 1px rgba(255,58,31,.64),0 0 30px rgba(255,58,31,.18),inset 0 1px 0 rgba(255,255,255,.05);
+}
+.roulette-num,.roulette-zero{
+  border-radius:3px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+.roulette-num.red{background:linear-gradient(180deg,#3b1617,#1d0e10);}
+.roulette-num.black{background:linear-gradient(180deg,#171c20,#090b0d);}
+.roulette-num.green,.roulette-zero{background:linear-gradient(180deg,#173d29,#0d1e16);}
+.dev-tag{
+  border-color:var(--red);
+  background:rgba(255,58,31,.08);
+}
+.dev-output{
+  background:#050606;
+  border-color:#303839;
+  box-shadow:inset 0 0 28px rgba(0,0,0,.55);
+}
+#mob-nav{
+  display:none;
+  background:linear-gradient(180deg,#101313,#080909);
+  border-top-color:#303839;
+  box-shadow:0 -18px 48px rgba(0,0,0,.42);
+}
+.mb{
+  min-height:54px;
+  color:#879294;
+  background:transparent;
+}
+.mb.active{
+  color:#fff6f1;
+  background:linear-gradient(180deg,rgba(255,58,31,.12),rgba(255,58,31,.04));
+  box-shadow:inset 0 2px 0 var(--red);
+}
+@keyframes mosq-section-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:900px){
+  #game-layout{grid-template-columns:1fr;}
+  #sidebar{display:none;}
+  #mob-nav{display:flex;}
+  #topbar{height:58px;padding:0 10px;}
+  #game-layout{height:calc(100dvh - 58px);}
+  #main-area{padding:18px 14px 82px;}
+  .sec-title{font-size:20px;}
+  .tb-brand{font-size:14px;letter-spacing:.28em;}
+  #tb-name,#tb-cash{font-size:13px;}
+  .nrg-wrap{display:none;}
+}
+@media(max-width:640px){
+  body{font-size:13px;}
+  #main-area{padding:14px 10px 76px;}
+  .rob-grid,.prof-grid,.vehicle-grid,.holdem-seats,.race-tiers{grid-template-columns:1fr;}
+  .sec-title{font-size:18px;letter-spacing:.18em;}
+  .sec-sub{font-size:12px;}
+  button{min-height:44px;}
+  .mb{min-width:62px;}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition:none!important;}
+}
 </style>
 </head>
 <body>
@@ -1194,19 +1563,19 @@ select:focus{border-color:var(--red);}
             <div class="race-tier">
               <div class="race-tier-name">[ GRÖN TIER ]</div>
               <div class="race-tier-fee">Insats: 1&nbsp;000 kr</div>
-              <div class="race-tier-prize">Vinst: 3&nbsp;000 kr + 50 XP</div>
+              <div class="race-tier-prize">Vinst netto: 2&nbsp;000 kr (pott 3&nbsp;000) + 50 XP</div>
               <button data-race="1">STARTA RACE</button>
             </div>
             <div class="race-tier">
               <div class="race-tier-name">[ GUL TIER ]</div>
               <div class="race-tier-fee">Insats: 5&nbsp;000 kr</div>
-              <div class="race-tier-prize">Vinst: 15&nbsp;000 kr + 150 XP</div>
+              <div class="race-tier-prize">Vinst netto: 10&nbsp;000 kr (pott 15&nbsp;000) + 150 XP</div>
               <button data-race="2">STARTA RACE</button>
             </div>
             <div class="race-tier">
               <div class="race-tier-name">[ RÖD TIER ]</div>
               <div class="race-tier-fee">Insats: 25&nbsp;000 kr</div>
-              <div class="race-tier-prize">Vinst: 75&nbsp;000 kr + 400 XP</div>
+              <div class="race-tier-prize">Vinst netto: 50&nbsp;000 kr (pott 75&nbsp;000) + 400 XP</div>
               <button data-race="3">STARTA RACE</button>
             </div>
           </div>
@@ -1556,7 +1925,7 @@ function showScreen(name){
     if(el) el.style.display=s===name?(s==='game'?'flex':'flex'):'none';
   });
   const mn=document.getElementById('mob-nav');
-  if(mn) mn.style.display=name==='game'?'flex':'none';
+  if(mn) mn.style.display=name==='game'?'':'none';
 }
 
 async function doGameLogout(){
