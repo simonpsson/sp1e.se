@@ -295,6 +295,12 @@ select:focus{border-color:var(--red);}
 .holdem-seat.player{border-color:#4b3a2a;background:rgba(20,18,14,.95);}
 .holdem-seat.turn{box-shadow:0 0 0 1px rgba(242,74,74,.35),0 0 0 4px rgba(242,74,74,.08);}
 .holdem-seat.folded{opacity:.62;}
+.holdem-seat-action-fold{animation:holdem-fold .62s ease both;}
+.holdem-seat-action-check{animation:holdem-check .46s ease both;}
+.holdem-seat-action-call{animation:holdem-chip .58s ease both;}
+.holdem-seat-action-bet,.holdem-seat-action-raise{animation:holdem-pressure .7s ease both;}
+.holdem-seat-action-all-in{animation:holdem-allin .9s cubic-bezier(.22,1,.36,1) both;}
+.holdem-dealer-flash{animation:holdem-dealer .55s ease both;}
 .holdem-seat-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
 .holdem-seat-name{display:flex;flex-direction:column;gap:6px;}
 .holdem-seat-name strong{font-size:13px;color:var(--white);}
@@ -439,6 +445,12 @@ select:focus{border-color:var(--red);}
 @keyframes pulse-green{0%,100%{box-shadow:none}50%{box-shadow:0 0 8px var(--green)}}
 @keyframes fade-in-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
+@keyframes holdem-fold{0%{transform:translateX(0);filter:saturate(1)}35%{transform:translateX(-6px) rotate(-.6deg);filter:saturate(.8)}100%{transform:translateX(0);filter:saturate(.65)}}
+@keyframes holdem-check{0%,100%{transform:translateY(0)}45%{transform:translateY(3px);box-shadow:0 0 0 1px rgba(255,255,255,.12)}}
+@keyframes holdem-chip{0%{transform:translateY(0)}45%{transform:translateY(-4px);box-shadow:0 0 18px rgba(216,178,74,.18)}100%{transform:translateY(0)}}
+@keyframes holdem-pressure{0%{transform:scale(1)}45%{transform:scale(1.018);box-shadow:0 0 0 1px rgba(242,74,74,.42),0 0 24px rgba(242,74,74,.18)}100%{transform:scale(1)}}
+@keyframes holdem-allin{0%{transform:scale(1)}35%{transform:scale(1.035);box-shadow:0 0 0 1px rgba(216,178,74,.68),0 0 34px rgba(216,178,74,.22)}70%{transform:scale(.99)}100%{transform:scale(1)}}
+@keyframes holdem-dealer{0%{filter:brightness(1)}50%{filter:brightness(1.45);transform:translateY(-2px)}100%{filter:brightness(1);transform:translateY(0)}}
 #lvlup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:16px;text-align:center;}
 #lvlup-overlay.show{display:flex;}
 .lvlup-text{font-size:42px;font-weight:500;color:var(--red);letter-spacing:6px;animation:lvlup-in .4s ease;}
@@ -1074,8 +1086,7 @@ button.primary{
       </div>
       <!-- Nav -->
       <div style="padding:8px 0;">
-        <button class="nav-btn nv active" data-s="gatan">[GATAN]</button>
-        <button class="nav-btn nv" data-s="brott">[BROTT]</button>
+        <button class="nav-btn nv active" data-s="brott">[BROTT]</button>
         <button class="nav-btn nv" data-s="droger">[DROGER]</button>
         <button class="nav-btn nv" data-s="strid">[STRID]</button>
         <button class="nav-btn nv" data-s="vapen">[VAPEN]</button>
@@ -1096,28 +1107,8 @@ button.primary{
     <!-- Main area -->
     <div id="main-area">
       <div id="section-error" class="amsg"></div>
-      <!-- Gatan -->
-      <div id="s-gatan" class="g-sec" style="display:block;">
-        <div class="sec-title">GATAN</div>
-        <div class="sec-sub">Dina senaste handlingar</div>
-        <div id="gatan-world" class="world-strip"></div>
-        <!-- Quest inbox -->
-        <div id="quest-panel" style="display:none;margin-bottom:14px;">
-          <div style="font-size:10px;color:var(--red);letter-spacing:.8px;margin-bottom:6px;">UPPDRAG</div>
-          <div id="quest-list"></div>
-        </div>
-        <div class="feed-filter" id="feed-filter">
-          <button type="button" data-feed-filter="all" class="active">ALLA</button>
-          <button type="button" data-feed-filter="mine">MINA</button>
-          <button type="button" data-feed-filter="world">STAN</button>
-        </div>
-        <div id="gatan-feed" class="feed">
-          <div class="feed-empty">Inga handlingar &auml;nnu. Dags att g&ouml;ra n&aring;got.</div>
-        </div>
-      </div>
-
       <!-- Brott -->
-      <div id="s-brott" class="g-sec">
+      <div id="s-brott" class="g-sec" style="display:block;">
         <div class="sec-title">BROTT</div>
         <div class="sec-sub">V&auml;lj ditt n&auml;sta d&aring;d</div>
         <div id="rob-grid" class="rob-grid"></div>
@@ -1603,8 +1594,7 @@ button.primary{
 <!-- Mobile nav -->
 <div id="mob-nav" style="display:none;">
   <div class="mb-inner">
-    <button class="mb active" data-s="gatan">GATAN</button>
-    <button class="mb" data-s="brott">BROTT</button>
+    <button class="mb active" data-s="brott">BROTT</button>
     <button class="mb" data-s="droger">DROGER</button>
     <button class="mb" data-s="strid">STRID</button>
     <button class="mb" data-s="vapen">VAPEN</button>
@@ -1636,7 +1626,9 @@ function defaultCasinoState(){
     mode:'blackjack',
     blackjack:{loaded:false,loading:false,state:null},
     holdem:{loaded:false,loading:false,state:null},
-    roulette:{loaded:false,loading:false,state:null}
+    roulette:{loaded:false,loading:false,state:null},
+    holdemSeatFx:{},
+    holdemDealerSig:''
   };
 }
 
@@ -1649,7 +1641,7 @@ function casinoStore(mode){
 
 const G={
   player:null,extra:{},status:null,prices:{},npcs:[],
-  section:'gatan',busy:false,selectedSide:'eastside',
+  section:'brott',busy:false,selectedSide:'eastside',
   drugSel:'marijuana',drugQty:1,casinoBet:500,holdemBuyIn:2000,rouletteStake:100,rouletteBets:[],rouletteLastBets:[],
   feedFilter:'all',_feedTick:null,
   errors:{player:null,status:null,prices:null,npcs:null,casino:null},
@@ -1666,6 +1658,23 @@ const G={
 const AUTH_REDIRECT='/?next=%2Fmosquito';
 const WORLD_PULSE_CACHE_KEY='mosquito-world-pulse-v1';
 const WORLD_PULSE_TTL_MS=90*1000;
+const MOSQ_AUDIO={
+  unlocked:false,
+  bound:false,
+  loops:{},
+  loopVolumes:{rain:0.16,casinoBar:0.22,pokerRoom:0.08},
+  sources:{
+    rain:'/assets/audio/ambiance/rain-thunder-loop.wav',
+    casinoBar:'/assets/audio/casino/casino-bar-loop.wav',
+    allIn:'/assets/audio/casino/holdem-all-in.mp3',
+    cardDrop:'/assets/audio/casino/card-drop.mp3',
+    chipDrop:'/assets/audio/casino/chip-drop.mp3',
+    pokerRoom:'/assets/audio/casino/poker-room.mp3',
+    cardSlap:'/assets/audio/casino/card-slap.mp3',
+    cardPlace:'/assets/audio/casino/card-place.mp3'
+  },
+  cueCooldowns:{}
+};
 
 async function api(path,opts={}){
   try{
@@ -1682,6 +1691,81 @@ async function api(path,opts={}){
   }catch{return{error:'Kunde inte nå servern',_status:0};}
 }
 const post=(p,b={})=>api(p,{method:'POST',body:JSON.stringify(b)});
+
+function mosqLoop(key){
+  if(MOSQ_AUDIO.loops[key]) return MOSQ_AUDIO.loops[key];
+  const src=MOSQ_AUDIO.sources[key];
+  if(!src) return null;
+  const a=new Audio(src);
+  a.loop=true;
+  a.preload='auto';
+  a.volume=MOSQ_AUDIO.loopVolumes[key]??0.2;
+  MOSQ_AUDIO.loops[key]=a;
+  return a;
+}
+
+function playMosqLoop(key){
+  if(!MOSQ_AUDIO.unlocked) return;
+  const a=mosqLoop(key);
+  if(!a||!a.paused) return;
+  a.play().catch(()=>{});
+}
+
+function stopMosqLoop(key){
+  const a=MOSQ_AUDIO.loops[key];
+  if(!a) return;
+  a.pause();
+}
+
+function updateAmbientAudio(){
+  if(!MOSQ_AUDIO.unlocked) return;
+  const game=document.getElementById('screen-game');
+  const inCasino=game&&game.style.display!=='none'&&G.section==='casino';
+  if(inCasino){
+    stopMosqLoop('rain');
+    playMosqLoop('casinoBar');
+    playMosqLoop('pokerRoom');
+  }else{
+    stopMosqLoop('casinoBar');
+    stopMosqLoop('pokerRoom');
+    playMosqLoop('rain');
+  }
+}
+
+function unlockMosqAudio(){
+  if(MOSQ_AUDIO.unlocked) return;
+  MOSQ_AUDIO.unlocked=true;
+  mosqLoop('rain');
+  mosqLoop('casinoBar');
+  mosqLoop('pokerRoom');
+  updateAmbientAudio();
+}
+
+function bindMosqAudioUnlock(){
+  if(MOSQ_AUDIO.bound) return;
+  MOSQ_AUDIO.bound=true;
+  ['pointerdown','keydown','touchstart'].forEach(evt=>{
+    window.addEventListener(evt,unlockMosqAudio,{once:true,passive:true});
+  });
+  window.addEventListener('pagehide',()=>{
+    stopMosqLoop('rain');
+    stopMosqLoop('casinoBar');
+    stopMosqLoop('pokerRoom');
+  });
+}
+
+function playCasinoCue(name,volume=0.5){
+  if(!MOSQ_AUDIO.unlocked) return;
+  const src=MOSQ_AUDIO.sources[name];
+  if(!src) return;
+  const now=Date.now();
+  if(now-(MOSQ_AUDIO.cueCooldowns[name]||0)<120) return;
+  MOSQ_AUDIO.cueCooldowns[name]=now;
+  const cue=new Audio(src);
+  cue.preload='auto';
+  cue.volume=Math.max(0,Math.min(1,volume));
+  cue.play().catch(()=>{});
+}
 
 function restoreWorldPulseCache(){
   try{
@@ -1764,6 +1848,7 @@ function apiError(res,fallback){
 
 async function init(){
   showScreen('boot');
+  bindMosqAudioUnlock();
   restoreWorldPulseCache();
   bindShellControls();
   if(!(await ensureSiteAuth())) return;
@@ -1792,7 +1877,6 @@ async function init(){
   await loadAll();
   applyCondition();
   startTimers();
-  void loadWorldPulse();
   G._pollTimer=setInterval(softReload,30000);
   G._pricePoll=setInterval(refreshPrices,60000);
   if(!G._feedTick) G._feedTick=setInterval(refreshFeedTimestamps,15000);
@@ -1845,7 +1929,6 @@ async function softReload(){
   if(G.section==='bank') renderBank();
   if(G.section==='dev') renderDev();
   if(G.section==='fastigheter') renderFastigheter();
-  if(G.section==='gatan') void loadWorldPulse();
 }
 
 async function refreshPrices(){
@@ -1926,6 +2009,7 @@ function showScreen(name){
   });
   const mn=document.getElementById('mob-nav');
   if(mn) mn.style.display=name==='game'?'':'none';
+  updateAmbientAudio();
 }
 
 async function doGameLogout(){
@@ -2115,7 +2199,7 @@ function setSectionError(msg=''){
 }
 
 function sectionDependencyError(s){
-  if(['gatan','brott','traning','profession','bank','dev','fastigheter','race'].includes(s)) return G.errors.player||'';
+  if(['brott','traning','profession','bank','dev','fastigheter','race'].includes(s)) return G.errors.player||'';
   if(s==='casino') return G.errors.casino||G.errors.player||'';
   if(s==='droger') return G.errors.prices||G.errors.player||'';
   if(s==='strid') return G.errors.npcs||G.errors.player||'';
@@ -2123,14 +2207,14 @@ function sectionDependencyError(s){
   return '';
 }
 
-function navTo(s){G.section=s;renderSection(s);}
+function navTo(s){G.section=s;renderSection(s);updateAmbientAudio();}
 
 function renderSection(s){
   if(s!=='fastigheter') clearPropertyTicks();
   document.querySelectorAll('.g-sec').forEach(el=>el.style.display='none');
   const el=document.getElementById('s-'+s);
   document.querySelectorAll('.nv,.mb').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
-  const fns={gatan:renderGatan,brott:renderBrott,droger:renderDroger,strid:renderStrid,vapen:renderVapen,traning:renderTraning,profession:renderProfession,bank:renderBank,casino:renderCasino,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking,forrad:renderForrad};
+  const fns={brott:renderBrott,droger:renderDroger,strid:renderStrid,vapen:renderVapen,traning:renderTraning,profession:renderProfession,bank:renderBank,casino:renderCasino,dev:renderDev,fastigheter:renderFastigheter,race:renderRace,ranking:renderRanking,forrad:renderForrad};
   setSectionError('');
   if(!el){
     setSectionError('Sektionen kunde inte hittas.');
@@ -2164,7 +2248,7 @@ document.addEventListener('click',e=>{
 });
 
 document.addEventListener('click',e=>{
-  const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-casino],[data-casino-bet],[data-casino-mode],[data-holdem],[data-holdem-buyin],[data-roulette],[data-roulette-stake],[data-roulette-outside],[data-roulette-number],[data-roulette-remove],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-upgrade-prop],[data-buy-vehicle]');
+  const target=e.target.closest('[data-prison],[data-hospital],[data-bank],[data-casino],[data-casino-bet],[data-casino-mode],[data-holdem],[data-holdem-buyin],[data-roulette],[data-roulette-stake],[data-roulette-outside],[data-roulette-number],[data-roulette-remove],[data-collect],[data-race],[data-robbery],[data-assault],[data-train],[data-profession],[data-collect-one],[data-buy-prop],[data-upgrade-prop],[data-buy-vehicle],[data-buy-weapon]');
   if(!target) return;
   if(target.dataset.prison) return void doPrison(target.dataset.prison);
   if(target.dataset.hospital) return void doHospital(target.dataset.hospital);
@@ -2211,6 +2295,7 @@ document.addEventListener('click',e=>{
   if(target.dataset.profession) return void doChooseProfession(target.dataset.profession);
   if(target.dataset.buyProp) return void doBuyProp(target.dataset.buyProp);
   if(target.dataset.buyVehicle) return void doBuyVehicle(target.dataset.buyVehicle);
+  if(target.dataset.buyWeapon) return void doBuyWeapon(target.dataset.buyWeapon);
 });
 
 /* ─── Gatan ─────────────────────────────────────────────────────────────── */
@@ -2632,9 +2717,12 @@ async function renderVapen(){
 }
 
 async function doBuyWeapon(weaponId){
+  if(G.busy) return;
+  G.busy=true;
   const msg = document.getElementById('vapen-msg');
   setMsg(msg,'','');
   const r = await post('action/buy-weapon',{weapon_id:weaponId});
+  G.busy=false;
   if(r.error){ setMsg(msg,r.error,'err'); return; }
   setMsg(msg,r.message||'Klart.','ok');
   addLog(r.message||`Köpte vapen`,'ok');
@@ -2644,11 +2732,6 @@ async function doBuyWeapon(weaponId){
   G_WEAPONS = []; // force reload
   renderVapen();
 }
-
-document.addEventListener('click',e=>{
-  const bw = e.target.closest('[data-buy-weapon]');
-  if(bw) return void doBuyWeapon(bw.dataset.buyWeapon);
-});
 
 /* ─── Traning ─────────────────────────────────────────────────────────────── */
 const TRAIN_CARDS=[
@@ -3194,6 +3277,70 @@ function holdemSeatBadges(seat){
   return badges.join('');
 }
 
+function holdemSeatId(seat,index=0){
+  return String(seat.id||seat.name||`seat-${index}`).replace(/[^a-zA-Z0-9_-]/g,'-');
+}
+
+function holdemActionKind(seatOrAction){
+  const raw=typeof seatOrAction==='string'
+    ? seatOrAction
+    : (seatOrAction.folded?'fold':seatOrAction.all_in?'all-in':seatOrAction.last_action||'');
+  const a=String(raw||'').toLowerCase();
+  if(a.includes('all')) return 'all-in';
+  if(a.includes('fold')) return 'fold';
+  if(a.includes('check')) return 'check';
+  if(a.includes('call')||a.includes('syn')) return 'call';
+  if(a.includes('raise')||a.includes('hÃ¶j')||a.includes('hoj')) return 'raise';
+  if(a.includes('bet')) return 'bet';
+  return '';
+}
+
+function holdemCueForAction(action){
+  const kind=holdemActionKind(action);
+  if(kind==='all-in') return 'allIn';
+  if(kind==='fold') return 'cardSlap';
+  if(kind==='check') return 'cardPlace';
+  if(kind==='call'||kind==='bet'||kind==='raise') return 'chipDrop';
+  return 'cardPlace';
+}
+
+function triggerHoldemActionFx(seats){
+  if(!G.casino.holdemSeatFx) G.casino.holdemSeatFx={};
+  (seats||[]).forEach((seat,index)=>{
+    const id=holdemSeatId(seat,index);
+    const kind=holdemActionKind(seat);
+    const sig=[kind,seat.stack||0,seat.committed||0,seat.folded?'f':'',seat.all_in?'a':'',seat.is_turn?'t':''].join(':');
+    const prev=G.casino.holdemSeatFx[id];
+    G.casino.holdemSeatFx[id]=sig;
+    if(!prev||prev===sig||!kind) return;
+    const el=document.querySelector(`[data-seat-id="${id}"]`);
+    if(!el) return;
+    const cls=`holdem-seat-action-${kind}`;
+    ['holdem-seat-action-fold','holdem-seat-action-check','holdem-seat-action-call','holdem-seat-action-bet','holdem-seat-action-raise','holdem-seat-action-all-in'].forEach(c=>el.classList.remove(c));
+    void el.offsetWidth;
+    el.classList.add(cls);
+    window.setTimeout(()=>el.classList.remove(cls),950);
+    playCasinoCue(holdemCueForAction(kind),kind==='all-in'?0.68:0.48);
+  });
+}
+
+function triggerHoldemDealerFx(table){
+  const cards=table&&table.community_cards?table.community_cards:[];
+  const sig=[table&&table.hand_number||0,table&&table.street||'',cards.length].join(':');
+  if(G.casino.holdemDealerSig===sig) return;
+  const hadPrevious=!!G.casino.holdemDealerSig;
+  G.casino.holdemDealerSig=sig;
+  if(!hadPrevious||!cards.length) return;
+  const el=document.getElementById('holdem-community-cards');
+  if(el){
+    el.classList.remove('holdem-dealer-flash');
+    void el.offsetWidth;
+    el.classList.add('holdem-dealer-flash');
+    window.setTimeout(()=>el.classList.remove('holdem-dealer-flash'),700);
+  }
+  playCasinoCue('cardDrop',0.5);
+}
+
 function renderHoldemSeats(seats){
   const el=document.getElementById('holdem-seats');
   if(!el) return;
@@ -3201,10 +3348,11 @@ function renderHoldemSeats(seats){
     el.innerHTML='';
     return;
   }
-  el.innerHTML=seats.map(seat=>{
+  el.innerHTML=seats.map((seat,index)=>{
     const stateLabel=seat.folded?'Foldat':seat.all_in?'All-in':seat.last_action||'Väntar';
     const personality=seat.kind==='npc'?(seat.personality||seat.archetype||'okänd stil'):(seat.archetype||'spelare');
-    return `<div class="holdem-seat${seat.is_player?' player':''}${seat.is_turn?' turn':''}${seat.folded?' folded':''}">
+    const seatId=holdemSeatId(seat,index);
+    return `<div class="holdem-seat${seat.is_player?' player':''}${seat.is_turn?' turn':''}${seat.folded?' folded':''}" data-seat-id="${seatId}">
       <div class="holdem-seat-head">
         <div class="holdem-seat-name">
           <strong>${esc(seat.name||'Okänd')}</strong>
@@ -3410,6 +3558,8 @@ function renderCasinoHoldem(){
   set('holdem-meta',`Hand ${table.hand_number||0} · Buy-in ${fmtCash(table.buy_in||0)} kr${table.raise_locked?' · Raise låst för kort höjning':''}`);
   renderBlackjackCards('holdem-community-cards',table.community_cards||[]);
   renderHoldemSeats(table.seats||[]);
+  triggerHoldemDealerFx(table);
+  triggerHoldemActionFx(table.seats||[]);
   if(banner){
     banner.className=blackjackBannerClass(table.result);
     banner.innerHTML=`<strong>${esc(table.message||'Pokerbordet väntar på draget.')}</strong><span>${table.action_on_player?'Din tur. Läs av bordet.':table.can_next_hand?'Handen är klar. Du kan spela nästa.':'Bordet rör sig.'}</span>`;
@@ -3476,6 +3626,8 @@ async function doBlackjackStart(){
   setCasinoBet(bet);
   G.busy=true;
   setMsg('casino-msg','Dealern blandar korten...','info');
+  playCasinoCue('chipDrop',0.4);
+  playCasinoCue('cardDrop',0.48);
   const res=await post('action/blackjack/start',{bet});
   G.busy=false;
   await syncCasinoAfterAction(res,'blackjack');
@@ -3492,6 +3644,8 @@ async function doBlackjackAction(action){
     insurance:'Tecknar försäkring...'
   };
   setMsg('casino-msg',msgs[action]||'Väntar...','info');
+  if(action==='double'||action==='insurance') playCasinoCue('chipDrop',0.45);
+  playCasinoCue(action==='stand'?'cardSlap':'cardPlace',0.45);
   const res=await post(`action/blackjack/${action}`,{});
   G.busy=false;
   await syncCasinoAfterAction(res,'blackjack');
@@ -3505,6 +3659,8 @@ async function doHoldemStart(){
   setHoldemBuyIn(buyIn);
   G.busy=true;
   setMsg('casino-msg','Dealern kastar upp marker och låter mörkarna rassla in...','info');
+  playCasinoCue('chipDrop',0.48);
+  playCasinoCue('cardDrop',0.5);
   const res=await post('action/holdem/start',{buy_in:buyIn});
   G.busy=false;
   await syncCasinoAfterAction(res,'holdem');
@@ -3522,6 +3678,7 @@ async function doHoldemAction(action){
     'all-in':'Du skjuter in allt.'
   };
   setMsg('casino-msg',labels[action]||'Pokerbordet väntar...','info');
+  playCasinoCue(holdemCueForAction(action),action==='all-in'?0.7:0.48);
   const res=await post('action/holdem/act',{action});
   G.busy=false;
   await syncCasinoAfterAction(res,'holdem');
@@ -3531,6 +3688,7 @@ async function doHoldemNextHand(){
   if(G.busy) return;
   G.busy=true;
   setMsg('casino-msg','Ny hand dras upp. Läs bordet igen...','info');
+  playCasinoCue('cardDrop',0.5);
   const res=await post('action/holdem/next',{});
   G.busy=false;
   await syncCasinoAfterAction(res,'holdem');
@@ -3540,6 +3698,7 @@ async function doHoldemLeave(){
   if(G.busy) return;
   G.busy=true;
   setMsg('casino-msg','Du samlar markerna och backar från bordet...','info');
+  playCasinoCue('chipDrop',0.42);
   const res=await post('action/holdem/leave',{});
   G.busy=false;
   await syncCasinoAfterAction(res,'holdem');
@@ -3561,6 +3720,7 @@ async function doRouletteSpin(){
   }
   G.busy=true;
   setMsg('casino-msg','Kulan släpps och huset håller andan...','info');
+  playCasinoCue('chipDrop',0.42);
   const bets=G.rouletteBets.map(bet=>({kind:bet.kind,target:bet.target,stake:bet.stake}));
   G.rouletteLastBets=[...G.rouletteBets];
   G.rouletteBets=[];
@@ -4455,6 +4615,7 @@ async function renderForrad(){
 
   const r=await api('inventory');
   const items=(r.inventory||[]);
+  G.extra.inventory=items;
   if(!items.length){
     slotsEl.innerHTML='';
     list.innerHTML='<div style="color:var(--dim);font-size:12px;padding:8px 0;">Inga föremål ännu. Utför brott för att hitta saker.</div>';
@@ -4514,7 +4675,12 @@ async function doInventoryEquip(itemId){
   const r=await post('action/inventory/equip',{item_id:itemId});
   G.busy=false;
   if(r.error){setMsg('forrad-msg',r.error,'err');}
-  else{setMsg('forrad-msg',r.message||'OK','ok');renderForrad();}
+  else{
+    setMsg('forrad-msg',r.message||'OK','ok');
+    const pr=await api('player');
+    if(pr.player){G.player=pr.player;G.extra=pr;G._fetchedAt=Date.now();}
+    renderTopbar();renderSidebar();renderForrad();
+  }
 }
 
 async function doInventorySell(itemId){

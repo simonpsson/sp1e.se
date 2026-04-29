@@ -2117,6 +2117,30 @@ const WEAPON_CATALOG: Weapon[] = [
   { id:'minigun',   name:'Minigun',         category:'smg',     damage:28, accuracy:41, fire_rate:3, buy_price:55000, level_req:15, flavor:'För dem som inte längre bryr sig om subtilitet.',  ammo_type:'9mm Parabellum' },
 ];
 
+let inventoryStorageReady = false;
+
+async function ensureInventoryStorage(env: Env): Promise<void> {
+  if (inventoryStorageReady) return;
+  const statements = [
+    `ALTER TABLE game_inventory ADD COLUMN item_tier INTEGER DEFAULT 1`,
+    `ALTER TABLE game_inventory ADD COLUMN equipped INTEGER DEFAULT 0`,
+    `ALTER TABLE game_inventory ADD COLUMN slot TEXT`,
+    `ALTER TABLE game_inventory ADD COLUMN sell_price INTEGER DEFAULT 0`,
+    `ALTER TABLE game_inventory ADD COLUMN effects TEXT`,
+    `ALTER TABLE game_inventory ADD COLUMN source TEXT`,
+    `CREATE INDEX IF NOT EXISTS idx_game_inventory_player_slot ON game_inventory (player_id, slot)`,
+  ];
+  for (const sql of statements) {
+    try {
+      await env.DB.prepare(sql).run();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!/duplicate column|already exists/i.test(msg)) throw e;
+    }
+  }
+  inventoryStorageReady = true;
+}
+
 function gameGetWeapons(request: Request): Response {
   const url = new URL(request.url);
   const cat = url.searchParams.get('category') ?? '';
@@ -2145,6 +2169,12 @@ async function gameActionBuyWeapon(request: Request, env: Env): Promise<Response
     return gameJson({ error: `Kräver level ${weapon.level_req}.` }, 400);
   if (cash < weapon.buy_price)
     return gameJson({ error: `Inte tillräckligt med cash. Behöver ${weapon.buy_price.toLocaleString('sv')} kr.` }, 400);
+
+  try {
+    await ensureInventoryStorage(env);
+  } catch {
+    return gameJson({ error: 'Förrådet kunde inte förberedas.' }, 500);
+  }
 
   // Check not already owned (game_inventory is wiped per round via game-reset.sql)
   const existing = await env.DB.prepare(
@@ -2231,6 +2261,12 @@ async function gameActionBuyAmmo(request: Request, env: Env): Promise<Response> 
     return gameJson({ error: `Inte tillräckligt med cash. Behöver ${totalCost.toLocaleString('sv')} kr.` }, 400);
 
   const pid = player.id as string;
+
+  try {
+    await ensureInventoryStorage(env);
+  } catch {
+    return gameJson({ error: 'Förrådet kunde inte förberedas.' }, 500);
+  }
 
   // Upsert ammo in inventory
   const existing = await env.DB.prepare(
@@ -7813,6 +7849,7 @@ async function gameGetInventory(request: Request, env: Env): Promise<Response> {
 
   const pid = player.id as string;
   try {
+    await ensureInventoryStorage(env);
     const res = await env.DB.prepare(
       `SELECT id, item_type, item_name, quantity, buy_price,
               item_tier, equipped, slot, sell_price, effects, source, created_at
@@ -7837,6 +7874,7 @@ async function gameActionInventoryEquip(request: Request, env: Env): Promise<Res
 
   const pid = player.id as string;
   try {
+    await ensureInventoryStorage(env);
     const item = await env.DB.prepare(
       `SELECT * FROM game_inventory WHERE id = ? AND player_id = ?`
     ).bind(itemId, pid).first<Row>();
@@ -7879,6 +7917,7 @@ async function gameActionInventorySell(request: Request, env: Env): Promise<Resp
 
   const pid = player.id as string;
   try {
+    await ensureInventoryStorage(env);
     const item = await env.DB.prepare(
       `SELECT * FROM game_inventory WHERE id = ? AND player_id = ?`
     ).bind(itemId, pid).first<Row>();

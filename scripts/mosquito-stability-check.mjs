@@ -94,6 +94,59 @@ check(
 );
 
 check(
+  'GATAN is removed from player navigation and no longer the default section',
+  !/data-s=["']gatan["']/.test(html) &&
+    /section:\s*['"]brott['"]/.test(html) &&
+    !/const\s+fns\s*=\s*\{[^}]*gatan\s*:/s.test(html)
+);
+
+check(
+  'weapon purchase is handled by the primary click router',
+  /\[data-buy-weapon\]/.test(html.slice(html.indexOf('document.addEventListener(\'click\',e=>{'), html.indexOf('/* â”€â”€â”€ Gatan'))) &&
+    /target\.dataset\.buyWeapon/.test(html)
+);
+
+check(
+  'inventory routes self-heal D1 inventory extension columns',
+  /async function ensureInventoryStorage/.test(api) &&
+    /await ensureInventoryStorage\(env\)/.test(api.slice(api.indexOf('async function gameActionBuyWeapon'), api.indexOf('async function gameGetAmmo'))) &&
+    /await ensureInventoryStorage\(env\)/.test(api.slice(api.indexOf('async function gameGetInventory'), api.indexOf('const EQUIPPABLE_SLOTS')))
+);
+
+const expectedAudioFiles = [
+  'assets/audio/casino/casino-bar-loop.wav',
+  'assets/audio/casino/holdem-all-in.mp3',
+  'assets/audio/casino/card-drop.mp3',
+  'assets/audio/casino/chip-drop.mp3',
+  'assets/audio/casino/poker-room.mp3',
+  'assets/audio/casino/card-slap.mp3',
+  'assets/audio/casino/card-place.mp3',
+  'assets/audio/ambiance/rain-thunder-loop.wav',
+];
+
+check(
+  'casino and rain audio assets exist in public static paths',
+  expectedAudioFiles.every(file => fs.existsSync(file))
+);
+
+check(
+  'mosquito audio scene switching is wired for casino and non-casino sections',
+  /const\s+MOSQ_AUDIO/.test(html) &&
+    /function\s+updateAmbientAudio/.test(html) &&
+    /casino-bar-loop\.wav/.test(html) &&
+    /rain-thunder-loop\.wav/.test(html) &&
+    /function\s+playCasinoCue/.test(html)
+);
+
+check(
+  'holdem table has action animation hooks for seats and dealer/card events',
+  /function\s+triggerHoldemActionFx/.test(html) &&
+    /holdem-seat-action-/.test(html) &&
+    /data-seat-id=/.test(html) &&
+    /playCasinoCue/.test(html.slice(html.indexOf('async function doHoldemAction'), html.indexOf('function renderLog')))
+);
+
+check(
   'hospital rejects eliminated players',
   /if\s*\(!player\.is_alive\)/.test(api.slice(api.indexOf('async function gameActionHospital'), api.indexOf('async function gameActionBank')))
 );
