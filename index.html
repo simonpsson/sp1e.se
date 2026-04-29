@@ -30,6 +30,137 @@
 
   @keyframes fade-in { to { opacity: 1; } }
 
+  #google-search {
+    position: fixed;
+    top: 1.15rem;
+    left: 50%;
+    z-index: 5;
+    width: min(520px, calc(100vw - 2rem));
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.55rem;
+    padding: 0.52rem;
+    border: 1px solid rgba(255,255,255,0.11);
+    border-radius: 999px;
+    background: rgba(5,7,10,0.56);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.28);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    transition: opacity 0.55s ease, border-color 0.25s ease;
+  }
+  #google-search:focus-within {
+    border-color: rgba(255,255,255,0.28);
+  }
+  #google-search input {
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: rgba(255,255,255,0.88);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+  }
+  #google-search input::placeholder { color: rgba(255,255,255,0.36); }
+  #google-search button {
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.72);
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    padding: 0.45rem 0.75rem;
+    text-transform: uppercase;
+  }
+  #google-search button:hover,
+  #google-search button:focus-visible {
+    border-color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.95);
+  }
+  body.immersive #google-search { opacity: 0; pointer-events: none; }
+
+  #news-panel {
+    position: fixed;
+    top: 6.05rem;
+    left: 2.1rem;
+    z-index: 4;
+    width: 294px;
+    max-height: calc(100vh - 13rem);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 16px;
+    background: rgba(6,8,11,0.70);
+    box-shadow: 0 20px 70px rgba(0,0,0,0.30);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    transition: opacity 0.55s ease;
+  }
+  #news-panel-header {
+    padding: 0.9rem 1rem 0.72rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .news-kicker {
+    display: block;
+    color: rgba(255,255,255,0.46);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .news-title {
+    display: block;
+    margin-top: 0.32rem;
+    color: rgba(255,255,255,0.88);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.18rem;
+  }
+  #news-list {
+    overflow: auto;
+    padding: 0.45rem 0;
+    scrollbar-width: thin;
+  }
+  .news-item {
+    display: block;
+    padding: 0.76rem 1rem 0.82rem;
+    border-bottom: 1px solid rgba(255,255,255,0.055);
+    color: inherit;
+    text-decoration: none;
+  }
+  .news-item:hover .news-headline,
+  .news-item:focus-visible .news-headline {
+    color: rgba(255,255,255,0.96);
+  }
+  .news-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.65rem;
+    color: rgba(255,255,255,0.38);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .news-headline {
+    margin-top: 0.32rem;
+    color: rgba(255,255,255,0.74);
+    font-size: 0.82rem;
+    line-height: 1.35;
+    transition: color 0.2s ease;
+  }
+  .news-state {
+    padding: 1rem;
+    color: rgba(255,255,255,0.46);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    line-height: 1.5;
+  }
+  body.immersive #news-panel { opacity: 0; pointer-events: none; }
+
   /* ── Background gallery ───────────────────────────── */
   #bg-gallery {
     position: fixed;
@@ -85,12 +216,25 @@
   body.immersive .stage { opacity: 0; pointer-events: none; }
 
   /* ── SP1E logo ────────────────────────────────────── */
-  .sp1e-logo {
-    display: block;
-    height: 3rem;
-    width: auto;
-    overflow: visible;
+  .sp1e-wordmark {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    width: 156px;
     user-select: none;
+    color: rgba(255,255,255,0.92);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.85rem;
+    font-weight: 300;
+    line-height: 1;
+    letter-spacing: 0;
+    text-align: center;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.70);
+    font-variant-numeric: lining-nums;
+    font-feature-settings: 'lnum' 1;
+  }
+  .sp1e-wordmark span {
+    display: block;
+    text-align: center;
   }
 
   .rule {
@@ -105,8 +249,8 @@
 
   .hub-card { padding: 0; }
   .hub-symbol {
-    width: 64px;
-    height: 28px;
+    width: 78px;
+    height: 38px;
     display: block;
   }
   .hub-symbol path,
@@ -114,7 +258,7 @@
   .hub-symbol line {
     fill: none;
     stroke: currentColor;
-    stroke-width: 4.5;
+    stroke-width: 5.8;
     stroke-linecap: square;
     stroke-linejoin: miter;
     vector-effect: non-scaling-stroke;
@@ -479,7 +623,7 @@
   #sp-notice.ok { color: rgba(170,230,190,0.92); }
   body.immersive #sp-notice { opacity: 0; pointer-events: none; }
 
-  /* ── Immersion button ─────────────────────────────── */
+  /* ── Gallery button ───────────────────────────────── */
   #immersion-btn {
     padding: 0.5rem 1.5rem;
     font-family: 'DM Mono', monospace;
@@ -507,6 +651,41 @@
   #immersion-btn.ready { opacity: 1; pointer-events: all; }
   #immersion-btn:hover { border-color: rgba(255,255,255,0.30); color: rgba(255,255,255,0.80); }
   body.immersive #immersion-btn { opacity: 0; pointer-events: none; }
+
+  #gallery-menu {
+    display: none;
+    flex-direction: column;
+    gap: 0.45rem;
+    min-width: 230px;
+    padding: 0.65rem;
+    margin-bottom: 0.55rem;
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 16px;
+    background: rgba(0,0,0,0.58);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+  }
+  #gallery-menu.open { display: flex; }
+  body.immersive #gallery-menu { display: none !important; }
+  .gallery-choice {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.035);
+    color: rgba(255,255,255,0.62);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+  .gallery-choice:hover,
+  .gallery-choice.active {
+    border-color: rgba(255,255,255,0.24);
+    color: rgba(255,255,255,0.88);
+    background: rgba(255,255,255,0.075);
+  }
 
   /* ── Immersion controls (close, arrows, caption) ─── */
   /* Base: hidden. Shown in immersive mode. Hidden again when idle. */
@@ -606,8 +785,16 @@
   }
 
   /* ── Responsive ───────────────────────────────────── */
+  @media (max-width: 1180px) {
+    #news-panel { display: none; }
+  }
   @media (max-width: 768px) {
     #cocktail-ad { display: none; }
+    #google-search {
+      top: 0.8rem;
+      width: calc(100vw - 1.25rem);
+    }
+    #google-search button { padding-inline: 0.58rem; }
     #bottom-bar {
       bottom: 0;
       left: 0;
@@ -649,19 +836,32 @@
 </div>
 <div id="bg-overlay" aria-hidden="true"></div>
 
+<form id="google-search" action="https://www.google.com/search" method="GET" target="_blank" rel="noopener" role="search">
+  <input type="search" name="q" placeholder="Sök på Google" autocomplete="off" required>
+  <button type="submit">Sök</button>
+</form>
+
+<aside id="news-panel" aria-label="News wire">
+  <div id="news-panel-header">
+    <span class="news-kicker">Omvärld</span>
+    <span class="news-title">News wire</span>
+  </div>
+  <div id="news-list">
+    <div class="news-state">Hämtar nyheter...</div>
+  </div>
+</aside>
+
 <main class="stage">
-  <svg class="sp1e-logo" viewBox="0 0 150 52" aria-label="SP1E" role="img" xmlns="http://www.w3.org/2000/svg">
-    <text x="75" y="40" text-anchor="middle" font-family="'Cormorant Garamond', serif" font-weight="300" font-size="42" fill="white" letter-spacing="10"
-          style="font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1">SP1E</text>
-  </svg>
+  <div class="sp1e-wordmark" aria-label="SP1E" role="img">
+    <span>S</span><span>P</span><span>1</span><span>E</span>
+  </div>
   <div class="rule"></div>
   <nav class="cards">
     <a class="card" id="mosquito-btn" href="/mosquito">Mosquito</a>
     <button class="card hub-card" id="hub-btn" aria-label="S.P. hub">
-      <svg class="hub-symbol" viewBox="0 0 92 44" aria-hidden="true" focusable="false">
-        <path d="M8 8 H42 L26 22 L42 36 H8 L24 22 Z"></path>
-        <path d="M42 8 H82 V36"></path>
-        <line x1="42" y1="8" x2="42" y2="36"></line>
+      <svg class="hub-symbol" viewBox="0 0 120 80" aria-hidden="true" focusable="false">
+        <path id="hub-mark-sigma" d="M16 14 H64 L40 40 L64 66 H16 L40 40"></path>
+        <path id="hub-mark-pi" d="M68 14 H104 V66 M68 14 V66"></path>
       </svg>
     </button>
   </nav>
@@ -683,7 +883,7 @@
   <input class="modal-input" id="pw-input" type="password" autocomplete="current-password" spellcheck="false">
 </div>
 
-<!-- Spotify player + immersion button (stacked, centered) -->
+<!-- Spotify player + gallery button (stacked, centered) -->
 <div id="bottom-bar">
   <div id="spotify-player" aria-live="polite">
     <img id="sp-art" src="" alt="Album art">
@@ -707,7 +907,11 @@
     </a>
     <button id="sp-disconnect" aria-label="Koppla bort Spotify">×</button>
   </div>
-  <button id="immersion-btn" aria-label="Immersion mode">Immersion</button>
+  <div id="gallery-menu" role="menu" aria-label="The Gallery">
+    <button class="gallery-choice" id="living-bg-toggle" type="button" role="menuitem">Toggle living background</button>
+    <button class="gallery-choice" id="museum-btn" type="button" role="menuitem">The Museum</button>
+  </div>
+  <button id="immersion-btn" aria-label="The Gallery" aria-controls="gallery-menu" aria-expanded="false">The Gallery</button>
 </div>
 
 <!-- ♫ hint — visible when Spotify not linked -->
@@ -754,7 +958,66 @@ const stage  = document.querySelector('.stage');
 
 const cocktailViewport = document.getElementById('cocktail-ad-viewport');
 const cocktailTrack = document.getElementById('cocktail-ad-track');
+const newsList = document.getElementById('news-list');
 const DR_THULE = { name: 'Dr. Thule', recipe: ['Norrlands Guld', 'Amaretto'] };
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[ch]));
+}
+
+function safeHttpUrl(value) {
+  try {
+    const url = new URL(String(value ?? ''));
+    return (url.protocol === 'http:' || url.protocol === 'https:') ? url.href : '#';
+  } catch {
+    return '#';
+  }
+}
+
+function newsRelativeTime(value) {
+  const ts = Date.parse(value || '');
+  if (!Number.isFinite(ts)) return '';
+  const seconds = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (seconds < 60) return 'nu';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function renderNewsItems(items) {
+  if (!newsList) return;
+  if (!Array.isArray(items) || !items.length) {
+    newsList.innerHTML = '<div class="news-state">Inga nyheter kunde hämtas just nu.</div>';
+    return;
+  }
+  newsList.innerHTML = items.map(item => {
+    const href = safeHttpUrl(item.link);
+    return `<a class="news-item" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
+      <div class="news-meta"><span>${escapeHtml(item.source || 'Källa')}</span><span>${escapeHtml(newsRelativeTime(item.published_at))}</span></div>
+      <div class="news-headline">${escapeHtml(item.title || 'Utan rubrik')}</div>
+    </a>`;
+  }).join('');
+}
+
+async function loadNewsWire() {
+  if (!newsList) return;
+  try {
+    const res = await fetch('/api/news', { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error(`news ${res.status}`);
+    const data = await res.json();
+    renderNewsItems(data.items);
+  } catch {
+    newsList.innerHTML = '<div class="news-state">News wire ligger nere. Försök igen senare.</div>';
+  }
+}
 
 function buildCocktailPool() {
   const classics = [
@@ -985,6 +1248,8 @@ input.addEventListener('keydown', e => {
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 
 initCocktailBanner();
+loadNewsWire();
+setInterval(loadNewsWire, 10 * 60 * 1000);
 
 (async () => {
   const next = sanitizeTarget(new URLSearchParams(location.search).get('next'));
@@ -1005,6 +1270,9 @@ const immClose   = document.getElementById('immersion-close');
 const immCaption = document.getElementById('immersion-caption');
 const immPrev    = document.getElementById('imm-prev');
 const immNext    = document.getElementById('imm-next');
+const galleryMenu = document.getElementById('gallery-menu');
+const livingBgToggle = document.getElementById('living-bg-toggle');
+const museumBtn = document.getElementById('museum-btn');
 const icArtist   = document.getElementById('ic-artist');
 const icTitle    = document.getElementById('ic-title');
 const icYear     = document.getElementById('ic-year');
@@ -1013,6 +1281,23 @@ let immersive      = false;
 let captionVisible = false;   // true once caption has been shown after entering
 let stageHideTimer = null;
 let idleTimer      = null;
+let livingBackgroundEnabled = false;
+
+function setGalleryMenu(open) {
+  if (!galleryMenu || !immBtn) return;
+  galleryMenu.classList.toggle('open', !!open);
+  immBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function toggleGalleryMenu() {
+  setGalleryMenu(!galleryMenu.classList.contains('open'));
+}
+
+function updateLivingToggle() {
+  if (!livingBgToggle) return;
+  livingBgToggle.classList.toggle('active', livingBackgroundEnabled);
+  livingBgToggle.textContent = livingBackgroundEnabled ? 'Living background: on' : 'Toggle living background';
+}
 
 function setCaption(art) {
   icArtist.textContent = (art.artist_title || '').toUpperCase();
@@ -1050,6 +1335,7 @@ function resetIdleTimer() {
 
 function enterImmersion() {
   if (immersive) return;
+  setGalleryMenu(false);
   immersive = true;
   captionVisible = false;
   document.body.classList.add('immersive');
@@ -1088,10 +1374,20 @@ function exitImmersion() {
   });
 }
 
-immBtn.addEventListener('click', enterImmersion);
+immBtn.addEventListener('click', toggleGalleryMenu);
+museumBtn.addEventListener('click', () => {
+  setGalleryMenu(false);
+  enterImmersion();
+});
 immClose.addEventListener('click', exitImmersion);
 immPrev.addEventListener('click', () => { gAdvance(-1); showControls(); });
 immNext.addEventListener('click', () => { gAdvance(+1); showControls(); });
+document.addEventListener('click', e => {
+  if (!galleryMenu || !immBtn) return;
+  if (!galleryMenu.classList.contains('open')) return;
+  if (galleryMenu.contains(e.target) || immBtn.contains(e.target)) return;
+  setGalleryMenu(false);
+});
 
 document.addEventListener('mousemove', () => { if (immersive) showControls(); });
 document.addEventListener('keydown', e => {
@@ -1105,6 +1401,12 @@ const GCACHE = 'sp1e-gallery-v6';
 const GCACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const GFADE  = 3000;
 const GBASE  = 'https://www.artic.edu/iiif/2';
+const LANDING_STATIC_ART = {
+  image_url: '/assets/landing/after-a-bullfight-wide.png',
+  artist_title: 'SP1E',
+  title: 'After a (bull)fight',
+  date_display: ''
+};
 
 let bgArtworks   = [];
 let bgCurrent    = 0;
@@ -1143,7 +1445,8 @@ function gOnChange(art) {
 function gShowFirst(art) {
   bgFront = bgImgA; bgBack = bgImgB;
   bgFront.style.zIndex = '1'; bgBack.style.zIndex = '0';
-  bgFront.src = gUrl(art);
+  bgBack.style.opacity = '0';
+  bgBack.removeAttribute('src');
   bgFront.onload = () => {
     bgFront.onload = null;
     bgFront.style.opacity = '1';
@@ -1158,6 +1461,17 @@ function gShowFirst(art) {
       gSetImmersionReady(false);
     }
   };
+  bgFront.src = gUrl(art);
+  if (bgFront.complete && bgFront.naturalWidth) bgFront.onload();
+}
+
+function gShowStaticLanding() {
+  clearTimeout(bgTimer);
+  livingBackgroundEnabled = false;
+  bgArtworks = [LANDING_STATIC_ART];
+  bgCurrent = 0;
+  updateLivingToggle();
+  gShowFirst(LANDING_STATIC_ART);
 }
 
 function gCrossfade(art) {
@@ -1248,17 +1562,37 @@ async function gFetch() {
   return gFetchFresh();
 }
 
-async function gInit() {
+async function startLivingBackground() {
   try {
     const raw = await gFetch();
-    if (!raw.length) return;
+    if (!raw.length) {
+      gShowStaticLanding();
+      return;
+    }
+    livingBackgroundEnabled = true;
     bgArtworks = gShuffle(raw);
+    bgCurrent = 0;
+    updateLivingToggle();
     gShowFirst(bgArtworks[0]);
     gSchedule();
   } catch {}
 }
 
+function toggleLivingBackground() {
+  setGalleryMenu(false);
+  if (livingBackgroundEnabled) {
+    gShowStaticLanding();
+    return;
+  }
+  void startLivingBackground();
+}
+
+function gInit() {
+  gShowStaticLanding();
+}
+
 gInit();
+livingBgToggle.addEventListener('click', toggleLivingBackground);
 
 // ── Spotify player ────────────────────────────────────────────────────────────
 const spPlayerEl   = document.getElementById('spotify-player');

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const api = fs.readFileSync('functions/api/[[route]].ts', 'utf8');
 const html = fs.readFileSync('mosquito.html', 'utf8');
+const index = fs.readFileSync('index.html', 'utf8');
 const project = fs.readFileSync('PROJECT.md', 'utf8');
 
 const checks = [];
@@ -139,11 +140,50 @@ check(
 );
 
 check(
+  'casino jazz loop is dominant and pub room is subdued',
+  fs.existsSync('assets/audio/casino/jazz-jardin-du-luxembourg.mp3') &&
+    /jazz:\s*['"]\/assets\/audio\/casino\/jazz-jardin-du-luxembourg\.mp3['"]/.test(html) &&
+    /loopVolumes:\s*\{[^}]*rain:0\.(2[5-9]|[3-9]\d)[^}]*casinoBar:0\.0[5-9][^}]*pokerRoom:0\.0[1-6][^}]*jazz:0\.(2[5-9]|[3-9]\d)/.test(html)
+);
+
+check(
+  'blackjack actions use the shared casino card and chip sound cues',
+  /async function doBlackjackStart[\s\S]*playCasinoCue\(['"]chipDrop['"][\s\S]*playCasinoCue\(['"]cardDrop['"]/.test(html) &&
+    /async function doBlackjackAction[\s\S]*playCasinoCue\(['"]cardDrop['"][\s\S]*playCasinoCue\(['"]cardPlace['"][\s\S]*playCasinoCue\(['"]cardSlap['"][\s\S]*playCasinoCue\(['"]chipDrop['"]/.test(html)
+);
+
+check(
   'holdem table has action animation hooks for seats and dealer/card events',
   /function\s+triggerHoldemActionFx/.test(html) &&
     /holdem-seat-action-/.test(html) &&
     /data-seat-id=/.test(html) &&
     /playCasinoCue/.test(html.slice(html.indexOf('async function doHoldemAction'), html.indexOf('function renderLog')))
+);
+
+check(
+  'landing page uses the local bullfight image as static default',
+  fs.existsSync('assets/landing/after-a-bullfight-wide.png') &&
+    /\/assets\/landing\/after-a-bullfight-wide\.png/.test(index) &&
+    /const\s+LANDING_STATIC_ART/.test(index) &&
+    /function\s+gShowStaticLanding/.test(index)
+);
+
+const gShowFirstBlock = index.slice(index.indexOf('function gShowFirst'), index.indexOf('function gShowStaticLanding'));
+
+check(
+  'landing background load handlers are attached before assigning image src',
+  gShowFirstBlock.indexOf('bgFront.onload') !== -1 &&
+    gShowFirstBlock.indexOf('bgFront.src = gUrl(art)') !== -1 &&
+    gShowFirstBlock.indexOf('bgFront.onload') < gShowFirstBlock.indexOf('bgFront.src = gUrl(art)')
+);
+
+check(
+  'landing page exposes The Gallery with living background toggle and museum mode',
+  />The Gallery<\/button>/.test(index) &&
+    /Toggle living background/.test(index) &&
+    /The Museum/.test(index) &&
+    /function\s+toggleLivingBackground/.test(index) &&
+    !/>Immersion<\/button>/.test(index)
 );
 
 check(
