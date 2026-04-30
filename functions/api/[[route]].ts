@@ -18,7 +18,29 @@ export interface Env {
 
 type Row = Record<string, unknown>;
 
+type NewsSource = {
+  name: string;
+  url: string;
+};
+
+type NewsItem = {
+  source: string;
+  title: string;
+  link: string;
+  published_at: string;
+  summary: string;
+};
+
 const SAFE_TABLES = new Set(['notes', 'snippets', 'bookmarks', 'files']);
+const NEWS_CACHE_MS = 10 * 60 * 1000;
+const NEWS_RESPONSE_MAX_AGE_SECONDS = 300;
+const NEWS_SOURCES: NewsSource[] = [
+  { name: 'Dagens Nyheter', url: 'https://www.dn.se/rss/' },
+  { name: 'Aftonbladet', url: 'https://rss.aftonbladet.se/rss2/small/pages/sections/senastenytt/' },
+  { name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+  { name: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
+];
+let newsCache: { expiresAt: number; items: NewsItem[] } | null = null;
 
 // Reject the checked-in emergency hash so misconfigured deployments fail loudly.
 const KNOWN_FALLBACK_HASH = 'pbkdf2:100000:26e4335528b9f68528debae265f5e48f:cf80806a2013a029e1b07a79ce51be94be9fec26a5e1506a08320f950ce86476';
@@ -98,6 +120,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     // ── Public: all public items (no auth) ──────────────────────────────────
     if (resource === 'gallery' && id === 'impressionism' && method === 'GET') {
       return getImpressionistGallery();
+    }
+
+    if (resource === 'news' && !id && method === 'GET') {
+      return getNews();
     }
 
     if (resource === 'public' && id === 'items' && method === 'GET') {
@@ -818,6 +844,117 @@ async function fetchBookmarkMeta(request: Request): Promise<Response> {
 }
 
 // ─── Generic CRUD ─────────────────────────────────────────────────────────────
+
+async function getNews(): Promise<Response> {
+  const now = Date.now();
+  if (newsCache && newsCache.expiresAt > now) {
+    return newsJson({ items: newsCache.items, cached: true });
+  }
+
+  const settled = await Promise.allSettled(
+    NEWS_SOURCES.map(async source => {
+      const res = await fetch(source.url, {
+        headers: {
+          'Accept': 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5',
+          'User-Agent': 'sp1e.se news wire',
+        },
+      });
+      if (!res.ok) throw new Error(`${source.name} ${res.status}`);
+      return parseNewsItems(await res.text(), source).slice(0, 8);
+    })
+  );
+
+  const groups = settled
+    .filter((result): result is PromiseFulfilledResult<NewsItem[]> => result.status === 'fulfilled')
+    .map(result => result.value)
+    .filter(items => items.length > 0);
+
+  const items = roundRobinNews(groups, 14);
+  if (items.length) {
+    newsCache = { expiresAt: now + NEWS_CACHE_MS, items };
+    return newsJson({ items, cached: false });
+  }
+
+  if (newsCache?.items.length) {
+    return newsJson({ items: newsCache.items, cached: true, stale: true });
+  }
+
+  return newsJson({ items: [], cached: false });
+}
+
+function newsJson(data: unknown): Response {
+  return new Response(JSON.stringify(data), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': `public, max-age=${NEWS_RESPONSE_MAX_AGE_SECONDS}`,
+      ...cors(),
+    },
+  });
+}
+
+function parseNewsItems(xml: string, source: NewsSource): NewsItem[] {
+  const matches = Array.from(xml.matchAll(/<item\b[\s\S]*?<\/item>/gi));
+  return matches.map(match => {
+    const raw = match[0];
+    const title = readXmlTag(raw, 'title');
+    const link = readXmlTag(raw, 'link') || readXmlTag(raw, 'guid');
+    const pubDate = readXmlTag(raw, 'pubDate') || readXmlTag(raw, 'dc:date') || readXmlTag(raw, 'updated');
+    const summary = readXmlTag(raw, 'description') || readXmlTag(raw, 'summary');
+    const parsedDate = Date.parse(pubDate);
+    return {
+      source: source.name,
+      title,
+      link,
+      published_at: Number.isFinite(parsedDate) ? new Date(parsedDate).toISOString() : new Date().toISOString(),
+      summary,
+    };
+  }).filter(item => item.title && item.link);
+}
+
+function readXmlTag(xml: string, tag: string): string {
+  const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = xml.match(new RegExp(`<${escapedTag}\\b[^>]*>([\\s\\S]*?)<\\/${escapedTag}>`, 'i'));
+  if (!match) return '';
+  return decodeXml(stripHtml(stripCdata(match[1]))).replace(/\s+/g, ' ').trim();
+}
+
+function stripCdata(value: string): string {
+  return value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+}
+
+function stripHtml(value: string): string {
+  return value.replace(/<[^>]*>/g, ' ');
+}
+
+function decodeXml(value: string): string {
+  return value
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+function roundRobinNews(groups: NewsItem[][], limit: number): NewsItem[] {
+  const mixed: NewsItem[] = [];
+  let index = 0;
+  while (mixed.length < limit) {
+    let added = false;
+    for (const group of groups) {
+      if (group[index]) {
+        mixed.push(group[index]);
+        added = true;
+        if (mixed.length >= limit) break;
+      }
+    }
+    if (!added) break;
+    index += 1;
+  }
+  return mixed;
+}
 
 async function getImpressionistGallery(): Promise<Response> {
   const res = await fetch('https://api.artic.edu/api/v1/artworks/search', {
