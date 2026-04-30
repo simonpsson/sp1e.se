@@ -299,18 +299,18 @@
   .cards { display: flex; gap: 1rem; }
 
   .hub-card { padding: 0; }
-  .hub-symbol {
+  .hub-card svg {
     width: 78px;
-    height: 38px;
+    height: 78px;
     display: block;
   }
-  .hub-symbol path {
+  .hub-card svg path {
     fill: none;
     stroke: currentColor;
-    stroke-width: 8.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    vector-effect: non-scaling-stroke;
+    stroke-width: 10;
+    stroke-linecap: butt;
+    stroke-linejoin: miter;
+    stroke-miterlimit: 2;
   }
 
 
@@ -825,8 +825,15 @@
   <nav class="cards">
     <a class="card" id="mosquito-btn" href="/mosquito">Mosquito</a>
     <button class="card hub-card" id="hub-btn" aria-label="S.P. hub">
-      <svg class="hub-symbol" viewBox="0 0 120 80" aria-hidden="true" focusable="false">
-        <path id="hub-mark-sp" d="M100 64V18H25L49 40L25 64H66V18H100"></path>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="ΣΠ monogram">
+        <title>ΣΠ — Simon Pettersson</title>
+        <path d="M 50 24 L 50 76 L 14 76 L 50 50 L 14 24 L 86 24 L 86 76"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="10"
+              stroke-linecap="butt"
+              stroke-linejoin="miter"
+              stroke-miterlimit="2"/>
       </svg>
     </button>
   </nav>

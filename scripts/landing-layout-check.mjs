@@ -2,6 +2,8 @@ import fs from 'node:fs';
 
 const index = fs.readFileSync('index.html', 'utf8');
 const api = fs.readFileSync('functions/api/[[route]].ts', 'utf8');
+const monogramPath = 'assets/sp_monogram.svg';
+const monogram = fs.existsSync(monogramPath) ? fs.readFileSync(monogramPath, 'utf8') : '';
 
 const checks = [];
 function check(name, ok) {
@@ -59,13 +61,21 @@ check(
 );
 
 check(
-  'hub symbol is a single continuous stroked Sigma/Pi mark',
-  /viewBox=["']0 0 120 80["']/.test(index) &&
-    /id=["']hub-mark-sp["']/.test(index) &&
-    /stroke:\s*currentColor/.test(index) &&
-    /stroke-width:\s*8\.5/.test(index) &&
-    /stroke-linejoin:\s*round/.test(index) &&
-    /M100 64V18H25L49 40L25 64H66V18H100/.test(index) &&
+  'hub symbol uses the exact supplied Sigma/Pi monogram SVG',
+  fs.existsSync(monogramPath) &&
+    /viewBox=["']0 0 100 100["']/.test(monogram) &&
+    /aria-label=["']ΣΠ monogram["']/.test(monogram) &&
+    /<title>ΣΠ — Simon Pettersson<\/title>/.test(monogram) &&
+    /d=["']M 50 24 L 50 76 L 14 76 L 50 50 L 14 24 L 86 24 L 86 76["']/.test(monogram) &&
+    /fill=["']none["']/.test(monogram) &&
+    /stroke=["']currentColor["']/.test(monogram) &&
+    /stroke-width=["']10["']/.test(monogram) &&
+    /stroke-linecap=["']butt["']/.test(monogram) &&
+    /stroke-linejoin=["']miter["']/.test(monogram) &&
+    /stroke-miterlimit=["']2["']/.test(monogram) &&
+    /viewBox=["']0 0 100 100["']/.test(index) &&
+    /d=["']M 50 24 L 50 76 L 14 76 L 50 50 L 14 24 L 86 24 L 86 76["']/.test(index) &&
+    !/id=["']hub-mark-sp["']/.test(index) &&
     !/id=["']hub-mark-sigma["']/.test(index) &&
     !/id=["']hub-mark-pi["']/.test(index)
 );
