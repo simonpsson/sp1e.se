@@ -59,13 +59,15 @@ check(
 );
 
 check(
-  'hub symbol is one fused SVG path without visible Sigma/Pi seam',
+  'hub symbol is a single continuous stroked Sigma/Pi mark',
   /viewBox=["']0 0 120 80["']/.test(index) &&
     /id=["']hub-mark-sp["']/.test(index) &&
-    /fill=["']currentColor["']/.test(index) &&
+    /stroke:\s*currentColor/.test(index) &&
+    /stroke-width:\s*8\.5/.test(index) &&
+    /stroke-linejoin:\s*round/.test(index) &&
+    /M100 64V18H25L49 40L25 64H66V18H100/.test(index) &&
     !/id=["']hub-mark-sigma["']/.test(index) &&
-    !/id=["']hub-mark-pi["']/.test(index) &&
-    !/stroke-width:\s*[56]/.test(index)
+    !/id=["']hub-mark-pi["']/.test(index)
 );
 
 const protectedIndex = api.indexOf('Protected');
