@@ -28,6 +28,30 @@ check(
 );
 
 check(
+  'landing page no longer renders the cocktail banner',
+  !/id=["']cocktail-ad["']/.test(index) &&
+    !/initCocktailBanner/.test(index) &&
+    !/DR_THULE/.test(index)
+);
+
+check(
+  'landing text uses the same Cormorant typeface as the SP1E wordmark',
+  /body\s*\{[\s\S]*font-family:\s*'Cormorant Garamond',\s*serif/.test(index) &&
+    /\.landing-type-lock[\s\S]*font-family:\s*'Cormorant Garamond',\s*serif\s*!important/.test(index) &&
+    /<body class=["']landing-type-lock["']/.test(index)
+);
+
+check(
+  'news sources render as local logo wordmarks instead of generic text',
+  /function\s+renderNewsSourceLogo/.test(index) &&
+    /class="news-source-logo/.test(index) &&
+    /news-source-bbc/.test(index) &&
+    /news-source-dn/.test(index) &&
+    /news-source-aftonbladet/.test(index) &&
+    /news-source-aljazeera/.test(index)
+);
+
+check(
   'SP1E wordmark is a centered four-column HTML lockup',
   /class=["']sp1e-wordmark["']/.test(index) &&
     /grid-template-columns:\s*repeat\(4,\s*1fr\)/.test(index) &&
@@ -35,11 +59,13 @@ check(
 );
 
 check(
-  'hub symbol uses reference Sigma/Pi ids and 120x80 viewBox',
+  'hub symbol is one fused SVG path without visible Sigma/Pi seam',
   /viewBox=["']0 0 120 80["']/.test(index) &&
-    /id=["']hub-mark-sigma["']/.test(index) &&
-    /id=["']hub-mark-pi["']/.test(index) &&
-    /stroke-width:\s*[56]/.test(index)
+    /id=["']hub-mark-sp["']/.test(index) &&
+    /fill=["']currentColor["']/.test(index) &&
+    !/id=["']hub-mark-sigma["']/.test(index) &&
+    !/id=["']hub-mark-pi["']/.test(index) &&
+    !/stroke-width:\s*[56]/.test(index)
 );
 
 const protectedIndex = api.indexOf('Protected');
