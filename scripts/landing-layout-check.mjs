@@ -62,24 +62,26 @@ check(
 );
 
 check(
-  'hub symbol uses a fused wide Sigma/Pi mask without visible stroke seams',
+  'hub symbol uses a thin Scandinavian monoline Sigma/Pi mark',
   fs.existsSync(monogramPath) &&
     /viewBox=["']0 0 100 80["']/.test(monogram) &&
-    /id=["']sp-monogram-fused-mask["']/.test(monogram) &&
-    /id=["']sp-monogram-fused-shape["']/.test(monogram) &&
-    /d=["']M 53 16 L 53 64 L 18 64 L 40 40 L 18 16 L 82 16 L 82 64["']/.test(monogram) &&
-    /fill=["']currentColor["']/.test(monogram) &&
-    /mask=["']url\(#sp-monogram-fused-mask\)["']/.test(monogram) &&
-    !/stroke=["']currentColor["']/.test(monogram) &&
-    !/fill=["']none["']/.test(monogram) &&
+    /id=["']sp-monogram-line["']/.test(monogram) &&
+    /d=["']M 84 66 L 84 16 L 18 16 L 40 40 L 18 64 L 54 64 L 54 16["']/.test(monogram) &&
+    /fill=["']none["']/.test(monogram) &&
+    /stroke=["']currentColor["']/.test(monogram) &&
+    /stroke-width=["']7["']/.test(monogram) &&
+    /stroke-linecap=["']butt["']/.test(monogram) &&
+    /stroke-linejoin=["']miter["']/.test(monogram) &&
+    /stroke-miterlimit=["']2["']/.test(monogram) &&
+    !/mask=/.test(monogram) &&
     /class=["']hub-symbol["']/.test(hubButton) &&
     /viewBox=["']0 0 100 80["']/.test(hubButton) &&
-    /id=["']sp-monogram-fused-mask-inline["']/.test(hubButton) &&
-    /id=["']sp-monogram-fused-shape-inline["']/.test(hubButton) &&
-    /d=["']M 53 16 L 53 64 L 18 64 L 40 40 L 18 16 L 82 16 L 82 64["']/.test(hubButton) &&
-    /width:\s*92px/.test(index) &&
-    /height:\s*48px/.test(index) &&
-    !/stroke=["']currentColor["']/.test(hubButton) &&
+    /id=["']sp-monogram-line-inline["']/.test(hubButton) &&
+    /d=["']M 84 66 L 84 16 L 18 16 L 40 40 L 18 64 L 54 64 L 54 16["']/.test(hubButton) &&
+    /stroke-width=["']7["']/.test(hubButton) &&
+    /width:\s*100px/.test(index) &&
+    /height:\s*54px/.test(index) &&
+    !/mask=/.test(hubButton) &&
     !/id=["']hub-mark-sp["']/.test(hubButton) &&
     !/id=["']hub-mark-sigma["']/.test(hubButton) &&
     !/id=["']hub-mark-pi["']/.test(hubButton)
