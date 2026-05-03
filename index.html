@@ -87,13 +87,21 @@
   }
   body.immersive #google-search { opacity: 0; pointer-events: none; }
 
+  #news-hover-zone {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 5;
+    width: 28px;
+  }
   #news-panel {
     position: fixed;
     top: 6.05rem;
-    left: 2.1rem;
+    left: 1.15rem;
     z-index: 4;
-    width: 294px;
-    max-height: calc(100vh - 13rem);
+    width: 264px;
+    max-height: min(68vh, 640px);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -103,10 +111,27 @@
     box-shadow: 0 20px 70px rgba(0,0,0,0.30);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    transition: opacity 0.55s ease;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(calc(-100% - 30px)) scale(0.92);
+    transform-origin: left center;
+    transition:
+      transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 240ms ease,
+      filter 240ms ease;
+    filter: blur(1px);
+  }
+  #news-hover-zone:hover + #news-panel,
+  #news-panel:hover,
+  #news-panel:focus-within,
+  #news-panel.news-open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0) scale(0.92);
+    filter: none;
   }
   #news-panel-header {
-    padding: 0.9rem 1rem 0.72rem;
+    padding: 0.78rem 0.88rem 0.62rem;
     border-bottom: 1px solid rgba(255,255,255,0.08);
   }
   .news-kicker {
@@ -131,7 +156,7 @@
   }
   .news-item {
     display: block;
-    padding: 0.76rem 1rem 0.82rem;
+    padding: 0.68rem 0.88rem 0.72rem;
     border-bottom: 1px solid rgba(255,255,255,0.055);
     color: inherit;
     text-decoration: none;
@@ -157,7 +182,7 @@
     gap: 0.18rem;
     min-height: 1rem;
     color: rgba(255,255,255,0.72);
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     line-height: 1;
@@ -210,6 +235,7 @@
     font-size: 0.68rem;
     line-height: 1.5;
   }
+  body.immersive #news-hover-zone,
   body.immersive #news-panel { opacity: 0; pointer-events: none; }
 
   /* ── Background gallery ───────────────────────────── */
@@ -746,6 +772,7 @@
 
   /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 1180px) {
+    #news-hover-zone,
     #news-panel { display: none; }
   }
   @media (max-width: 768px) {
@@ -800,7 +827,8 @@
   <button type="submit">Sök</button>
 </form>
 
-<aside id="news-panel" aria-label="News wire">
+<div id="news-hover-zone" aria-hidden="true"></div>
+<aside id="news-panel" aria-label="News wire" aria-hidden="true" inert>
   <div id="news-panel-header">
     <span class="news-kicker">Omvärld</span>
     <span class="news-title">News wire</span>
@@ -824,7 +852,7 @@
               d="M 84 66 L 84 16 L 18 16 L 40 40 L 18 64 L 54 64 L 54 16"
               fill="none"
               stroke="currentColor"
-              stroke-width="7"
+              stroke-width="5"
               stroke-linecap="butt"
               stroke-linejoin="miter"
               stroke-miterlimit="2"/>
@@ -911,7 +939,30 @@ const hubBtn = document.getElementById('hub-btn');
 const mosquitoBtn = document.getElementById('mosquito-btn');
 const stage  = document.querySelector('.stage');
 
+const newsHoverZone = document.getElementById('news-hover-zone');
+const newsPanel = document.getElementById('news-panel');
 const newsList = document.getElementById('news-list');
+
+function setNewsPanelOpen(open) {
+  if (!newsPanel) return;
+  newsPanel.classList.toggle('news-open', open);
+  newsPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
+  if (open) newsPanel.removeAttribute('inert');
+  else newsPanel.setAttribute('inert', '');
+}
+
+if (newsHoverZone && newsPanel) {
+  const openNewsPanel = () => setNewsPanelOpen(true);
+  const closeNewsPanel = (event) => {
+    const next = event.relatedTarget;
+    if (next instanceof Node && (newsHoverZone.contains(next) || newsPanel.contains(next))) return;
+    setNewsPanelOpen(false);
+  };
+  newsHoverZone.addEventListener('mouseenter', openNewsPanel);
+  newsPanel.addEventListener('mouseenter', openNewsPanel);
+  newsHoverZone.addEventListener('mouseleave', closeNewsPanel);
+  newsPanel.addEventListener('mouseleave', closeNewsPanel);
+}
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({
@@ -1205,9 +1256,9 @@ const GCACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const GFADE  = 3000;
 const GBASE  = 'https://www.artic.edu/iiif/2';
 const LANDING_STATIC_ART = {
-  image_url: '/assets/landing/berlin-alley-wide.png',
+  image_url: '/assets/landing/gallery-wall-wide.png',
   artist_title: 'SP1E',
-  title: 'Berlin alley',
+  title: 'Gallery wall',
   date_display: ''
 };
 

@@ -23,11 +23,34 @@ check(
 check(
   'landing page has left news panel wired to /api/news',
   /id=["']news-panel["']/.test(index) &&
+    /id=["']news-hover-zone["']/.test(index) &&
     /id=["']news-list["']/.test(index) &&
     /news-kicker/.test(index) &&
     /News wire/.test(index) &&
     /fetch\(['"]\/api\/news['"]/.test(index) &&
+    /body\.immersive\s+#news-hover-zone/.test(index) &&
     /body\.immersive\s+#news-panel/.test(index)
+);
+
+check(
+  'news panel is compact and reveals from the left edge on hover',
+  /#news-hover-zone\s*\{[\s\S]*position:\s*fixed[\s\S]*left:\s*0[\s\S]*width:\s*28px/.test(index) &&
+    /#news-panel\s*\{[\s\S]*width:\s*264px[\s\S]*transform:\s*translateX\(calc\(-100% - 30px\)\)\s*scale\(0\.92\)/.test(index) &&
+    /#news-hover-zone:hover\s*\+\s*#news-panel/.test(index) &&
+    /#news-panel:hover/.test(index) &&
+    /#news-panel:focus-within/.test(index) &&
+    /#news-panel\.news-open/.test(index) &&
+    /aria-hidden=["']true["']/.test(index) &&
+    /\sinert\b/.test(index) &&
+    /function\s+setNewsPanelOpen/.test(index) &&
+    /pointer-events:\s*none/.test(index) &&
+    /pointer-events:\s*auto/.test(index)
+);
+
+check(
+  'landing page uses the gallery-wall static background asset',
+  /const\s+LANDING_STATIC_ART\s*=\s*\{[\s\S]*image_url:\s*['"]\/assets\/landing\/gallery-wall-wide\.png['"][\s\S]*title:\s*['"]Gallery wall['"]/.test(index) &&
+    fs.existsSync('assets/landing/gallery-wall-wide.png')
 );
 
 check(
@@ -69,7 +92,7 @@ check(
     /d=["']M 84 66 L 84 16 L 18 16 L 40 40 L 18 64 L 54 64 L 54 16["']/.test(monogram) &&
     /fill=["']none["']/.test(monogram) &&
     /stroke=["']currentColor["']/.test(monogram) &&
-    /stroke-width=["']7["']/.test(monogram) &&
+    /stroke-width=["']5["']/.test(monogram) &&
     /stroke-linecap=["']butt["']/.test(monogram) &&
     /stroke-linejoin=["']miter["']/.test(monogram) &&
     /stroke-miterlimit=["']2["']/.test(monogram) &&
@@ -78,7 +101,7 @@ check(
     /viewBox=["']0 0 100 80["']/.test(hubButton) &&
     /id=["']sp-monogram-line-inline["']/.test(hubButton) &&
     /d=["']M 84 66 L 84 16 L 18 16 L 40 40 L 18 64 L 54 64 L 54 16["']/.test(hubButton) &&
-    /stroke-width=["']7["']/.test(hubButton) &&
+    /stroke-width=["']5["']/.test(hubButton) &&
     /width:\s*100px/.test(index) &&
     /height:\s*54px/.test(index) &&
     !/mask=/.test(hubButton) &&
