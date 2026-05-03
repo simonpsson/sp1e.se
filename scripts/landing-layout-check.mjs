@@ -4,6 +4,7 @@ const index = fs.readFileSync('index.html', 'utf8');
 const api = fs.readFileSync('functions/api/[[route]].ts', 'utf8');
 const monogramPath = 'assets/sp_monogram.svg';
 const monogram = fs.existsSync(monogramPath) ? fs.readFileSync(monogramPath, 'utf8') : '';
+const hubButton = index.match(/<button class=["']card hub-card["'][\s\S]*?<\/button>/)?.[0] ?? '';
 
 const checks = [];
 function check(name, ok) {
@@ -61,23 +62,27 @@ check(
 );
 
 check(
-  'hub symbol uses the exact supplied Sigma/Pi monogram SVG',
+  'hub symbol uses a fused wide Sigma/Pi mask without visible stroke seams',
   fs.existsSync(monogramPath) &&
-    /viewBox=["']0 0 100 100["']/.test(monogram) &&
-    /aria-label=["']ΣΠ monogram["']/.test(monogram) &&
-    /<title>ΣΠ — Simon Pettersson<\/title>/.test(monogram) &&
-    /d=["']M 50 24 L 50 76 L 14 76 L 50 50 L 14 24 L 86 24 L 86 76["']/.test(monogram) &&
-    /fill=["']none["']/.test(monogram) &&
-    /stroke=["']currentColor["']/.test(monogram) &&
-    /stroke-width=["']10["']/.test(monogram) &&
-    /stroke-linecap=["']butt["']/.test(monogram) &&
-    /stroke-linejoin=["']miter["']/.test(monogram) &&
-    /stroke-miterlimit=["']2["']/.test(monogram) &&
-    /viewBox=["']0 0 100 100["']/.test(index) &&
-    /d=["']M 50 24 L 50 76 L 14 76 L 50 50 L 14 24 L 86 24 L 86 76["']/.test(index) &&
-    !/id=["']hub-mark-sp["']/.test(index) &&
-    !/id=["']hub-mark-sigma["']/.test(index) &&
-    !/id=["']hub-mark-pi["']/.test(index)
+    /viewBox=["']0 0 100 80["']/.test(monogram) &&
+    /id=["']sp-monogram-fused-mask["']/.test(monogram) &&
+    /id=["']sp-monogram-fused-shape["']/.test(monogram) &&
+    /d=["']M 53 16 L 53 64 L 18 64 L 40 40 L 18 16 L 82 16 L 82 64["']/.test(monogram) &&
+    /fill=["']currentColor["']/.test(monogram) &&
+    /mask=["']url\(#sp-monogram-fused-mask\)["']/.test(monogram) &&
+    !/stroke=["']currentColor["']/.test(monogram) &&
+    !/fill=["']none["']/.test(monogram) &&
+    /class=["']hub-symbol["']/.test(hubButton) &&
+    /viewBox=["']0 0 100 80["']/.test(hubButton) &&
+    /id=["']sp-monogram-fused-mask-inline["']/.test(hubButton) &&
+    /id=["']sp-monogram-fused-shape-inline["']/.test(hubButton) &&
+    /d=["']M 53 16 L 53 64 L 18 64 L 40 40 L 18 16 L 82 16 L 82 64["']/.test(hubButton) &&
+    /width:\s*92px/.test(index) &&
+    /height:\s*48px/.test(index) &&
+    !/stroke=["']currentColor["']/.test(hubButton) &&
+    !/id=["']hub-mark-sp["']/.test(hubButton) &&
+    !/id=["']hub-mark-sigma["']/.test(hubButton) &&
+    !/id=["']hub-mark-pi["']/.test(hubButton)
 );
 
 const protectedIndex = api.indexOf('Protected');

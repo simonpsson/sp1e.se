@@ -299,18 +299,11 @@
   .cards { display: flex; gap: 1rem; }
 
   .hub-card { padding: 0; }
-  .hub-card svg {
-    width: 78px;
-    height: 78px;
+  .hub-symbol {
+    width: 92px;
+    height: 48px;
     display: block;
-  }
-  .hub-card svg path {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 10;
-    stroke-linecap: butt;
-    stroke-linejoin: miter;
-    stroke-miterlimit: 2;
+    overflow: visible;
   }
 
 
@@ -825,15 +818,18 @@
   <nav class="cards">
     <a class="card" id="mosquito-btn" href="/mosquito">Mosquito</a>
     <button class="card hub-card" id="hub-btn" aria-label="S.P. hub">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="ΣΠ monogram">
+      <svg class="hub-symbol" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 80" role="img" aria-label="ΣΠ monogram">
         <title>ΣΠ — Simon Pettersson</title>
-        <path d="M 50 24 L 50 76 L 14 76 L 50 50 L 14 24 L 86 24 L 86 76"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="10"
-              stroke-linecap="butt"
-              stroke-linejoin="miter"
-              stroke-miterlimit="2"/>
+        <defs>
+          <mask id="sp-monogram-fused-mask-inline" maskUnits="userSpaceOnUse">
+            <rect x="0" y="0" width="100" height="80" fill="#000"/>
+            <path d="M 53 16 L 53 64 L 18 64 L 40 40 L 18 16 L 82 16 L 82 64"
+                  style="fill:none;stroke:#fff;stroke-width:10;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:2"/>
+            <rect x="48" y="11" width="10" height="10" fill="#fff"/>
+            <rect x="48" y="59" width="10" height="10" fill="#fff"/>
+          </mask>
+        </defs>
+        <rect id="sp-monogram-fused-shape-inline" x="0" y="0" width="100" height="80" fill="currentColor" mask="url(#sp-monogram-fused-mask-inline)"/>
       </svg>
     </button>
   </nav>
