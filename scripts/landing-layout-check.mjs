@@ -21,6 +21,20 @@ check(
 );
 
 check(
+  'landing search is minimal: no Google placeholder and Lambda submit',
+  /<input\s+type=["']search["']\s+name=["']q["'][^>]*aria-label=["']Sökfråga["'][^>]*>/.test(index) &&
+    !/<input\s+type=["']search["']\s+name=["']q["'][^>]*placeholder=/.test(index) &&
+    !/Sök på Google/.test(index) &&
+    /<button\s+type=["']submit["']\s+aria-label=["']Sök["']>\s*Λ\s*<\/button>/.test(index)
+);
+
+check(
+  'landing static background is brighter than the previous heavy overlay',
+  /#bg-overlay\s*\{[\s\S]*background:\s*rgba\(0,\s*0,\s*0,\s*0\.48\)/.test(index) &&
+    !/background:\s*rgba\(0,\s*0,\s*0,\s*0\.62\)/.test(index)
+);
+
+check(
   'landing page has left news panel wired to /api/news',
   /id=["']news-panel["']/.test(index) &&
     /id=["']news-hover-zone["']/.test(index) &&
