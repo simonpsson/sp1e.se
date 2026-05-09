@@ -873,7 +873,7 @@
               stroke-miterlimit="2"/>
       </svg>
     </button>
-    <a class="card fredagsfett-card" id="fredagsfett-btn" href="/fredagsfett">Fredagsfett</a>
+    <a class="card fredagsfett-card" id="fredagsfett-btn" href="/fredagsfett/">Fredagsfett</a>
   </nav>
 </main>
 
@@ -953,6 +953,7 @@ const modal  = document.getElementById('modal');
 const input  = document.getElementById('pw-input');
 const hubBtn = document.getElementById('hub-btn');
 const mosquitoBtn = document.getElementById('mosquito-btn');
+const fredagsfettBtn = document.getElementById('fredagsfett-btn');
 const stage  = document.querySelector('.stage');
 
 const newsHoverZone = document.getElementById('news-hover-zone');
@@ -1060,6 +1061,7 @@ let errorTimer = null;
 let loginTarget = '/hub';
 
 function sanitizeTarget(target) {
+  if (target === '/fredagsfett' || target === '/fredagsfett/') return '/fredagsfett/';
   return target === '/mosquito' ? '/mosquito' : '/hub';
 }
 
@@ -1112,6 +1114,10 @@ async function attemptLogin() {
 
 hubBtn.addEventListener('click', () => openModal('/hub'));
 mosquitoBtn.addEventListener('click', e => { e.preventDefault(); openModal('/mosquito'); });
+fredagsfettBtn.addEventListener('click', e => {
+  e.preventDefault();
+  location.assign('/fredagsfett/');
+});
 input.addEventListener('keydown', e => {
   if (e.key === 'Enter')  attemptLogin();
   if (e.key === 'Escape') closeModal();

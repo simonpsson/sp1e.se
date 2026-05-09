@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const index = fs.readFileSync('index.html', 'utf8');
 const api = fs.readFileSync('functions/api/[[route]].ts', 'utf8');
+const redirects = fs.readFileSync('_redirects', 'utf8');
 const monogramPath = 'assets/sp_monogram.svg';
 const monogram = fs.existsSync(monogramPath) ? fs.readFileSync(monogramPath, 'utf8') : '';
 const hubButton = index.match(/<button class=["']card hub-card["'][\s\S]*?<\/button>/)?.[0] ?? '';
@@ -101,9 +102,18 @@ check(
 check(
   'landing page exposes Fredagsfett as a secondary CTA',
   /id=["']fredagsfett-btn["']/.test(index) &&
-    /href=["']\/fredagsfett["']/.test(index) &&
+    /href=["']\/fredagsfett\/["']/.test(index) &&
     />Fredagsfett<\/a>/.test(index) &&
     /\.fredagsfett-card\s*\{[\s\S]*flex:\s*0 0 180px[\s\S]*height:\s*52px/.test(index)
+);
+
+check(
+  'Fredagsfett landing route is explicitly served by Pages and click navigation is not modal-gated',
+  /\/fredagsfett\s+\/fredagsfett\/index\.html\s+200/.test(redirects) &&
+    /\/fredagsfett\/\s+\/fredagsfett\/index\.html\s+200/.test(redirects) &&
+    /const\s+fredagsfettBtn\s*=\s*document\.getElementById\(['"]fredagsfett-btn['"]\)/.test(index) &&
+    /fredagsfettBtn\.addEventListener\(['"]click['"][\s\S]*location\.assign\(['"]\/fredagsfett\/['"]\)/.test(index) &&
+    !/openModal\(['"]\/fredagsfett/.test(index)
 );
 
 check(
