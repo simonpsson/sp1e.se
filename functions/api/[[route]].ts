@@ -14,6 +14,10 @@ export interface Env {
   SPOTIFY_CLIENT_ID: string;
   SPOTIFY_CLIENT_SECRET: string;
   SPOTIFY_REDIRECT_URI: string;
+  FF_PASSWORD?: string;
+  FF_SESSION_SECRET?: string;
+  FF_DEVICE_HASH_SALT?: string;
+  FF_ADMIN_NAMES?: string;
 }
 
 type Row = Record<string, unknown>;
@@ -50,6 +54,10 @@ const MAX_BANK_ACTION_AMOUNT = 10_000_000;
 const SIMULATE_THROTTLE_MS = 75_000;
 const BOT_NPC_COOLDOWN_MS = 7 * 60 * 1000;
 const BOT_ACTIONS_PER_TICK = 3;
+const FREDAGSFETT_SESSION_COOKIE = 'ff_session';
+const FREDAGSFETT_SESSION_MAX_AGE_SECONDS = 2 * 365 * 24 * 60 * 60;
+const FREDAGSFETT_AUTH_WINDOW_SECONDS = 10 * 60;
+const FREDAGSFETT_AUTH_MAX_ATTEMPTS = 5;
 
 const DEFAULT_CATEGORIES = [
   { id: 'power-bi',   name: 'Power BI',   icon: '⚡', sortOrder: 1 },
@@ -109,6 +117,14 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'login'  && method === 'POST') return handleLogin(request, env);
       if (id === 'logout' && method === 'POST') return handleLogout(request, env);
       if (id === 'check'  && method === 'GET')  return handleCheck(request, env);
+      return json({ error: 'not found' }, 404);
+    }
+
+    if (resource === 'fredagsfett') {
+      if (id === 'auth'     && method === 'POST') return fredagsfettAuth(request, env);
+      if (id === 'session'  && method === 'GET')  return fredagsfettSession(request, env);
+      if (id === 'register' && method === 'POST') return fredagsfettRegister(request, env);
+      if (id === 'logout'   && method === 'POST') return fredagsfettLogout();
       return json({ error: 'not found' }, 404);
     }
 
@@ -9681,6 +9697,381 @@ function spotifyBasicAuth(env: Env): string {
 }
 
 // ─── Auth handlers ────────────────────────────────────────────────────────────
+
+type FredagsfettConfig = {
+  password: string;
+  sessionSecret: string;
+  hashSalt: string;
+  adminNames: Set<string>;
+};
+
+type FredagsfettSessionPayload = {
+  v: 1;
+  deviceId: string;
+  userId: string | null;
+  exp: number;
+};
+
+type FredagsfettDeviceRow = {
+  id: string;
+  user_id: string | null;
+  ip_hash: string;
+  user_agent_hash: string;
+  revoked_at: string | null;
+};
+
+type FredagsfettUserRow = {
+  id: string;
+  name: string;
+  is_admin: number;
+  deleted_at: string | null;
+};
+
+async function fredagsfettAuth(request: Request, env: Env): Promise<Response> {
+  const cfg = fredagsfettConfig(env);
+  if (!cfg.ok) return cfg.response;
+
+  let body: { password?: string };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+
+  if (typeof body.password !== 'string') return json({ error: 'Lösenord krävs.' }, 400);
+
+  const fingerprint = await fredagsfettFingerprint(request, cfg.value);
+  const throttle = await fredagsfettAuthThrottle(env, fingerprint.ipHash);
+  if (throttle.throttled) {
+    return json({ error: 'För många försök. Vänta en stund.', next_allowed_at: throttle.nextAllowedAt }, 429);
+  }
+
+  const valid = constantTimeStringEqual(body.password, cfg.value.password);
+  await fredagsfettRecordAuthAttempt(env, fingerprint.ipHash, throttle.windowStart);
+  if (!valid) {
+    await sleep(220 + Math.random() * 220);
+    return json({ error: 'Fel lösenord.' }, 401);
+  }
+
+  const device = await fredagsfettFindOrCreateDevice(env, fingerprint.ipHash, fingerprint.userAgentHash);
+  const user = device.user_id ? await fredagsfettLoadUser(env, device.user_id) : null;
+  const token = await signFredagsfettSession({
+    v: 1,
+    deviceId: device.id,
+    userId: user?.id ?? null,
+    exp: fredagsfettSessionExpiry(),
+  }, cfg.value.sessionSecret);
+
+  return fredagsfettJson({
+    success: true,
+    authenticated: true,
+    needs_registration: !user,
+    user: user ? fredagsfettUserPayload(user) : null,
+  }, 200, fredagsfettSessionCookie(token));
+}
+
+async function fredagsfettSession(request: Request, env: Env): Promise<Response> {
+  const cfg = fredagsfettConfig(env);
+  if (!cfg.ok) return cfg.response;
+
+  const cookie = getCookie(request, FREDAGSFETT_SESSION_COOKIE);
+  if (cookie) {
+    const session = await fredagsfettSessionFromCookie(env, cookie, cfg.value.sessionSecret);
+    if (session) {
+      await fredagsfettTouchDevice(env, session.device.id);
+      return json({
+        authenticated: true,
+        needs_registration: !session.user,
+        user: session.user ? fredagsfettUserPayload(session.user) : null,
+      });
+    }
+  }
+
+  const fingerprint = await fredagsfettFingerprint(request, cfg.value);
+  const device = await env.DB.prepare(
+    `SELECT id, user_id, ip_hash, user_agent_hash, revoked_at
+       FROM ff_devices
+      WHERE ip_hash = ? AND user_agent_hash = ? AND revoked_at IS NULL AND user_id IS NOT NULL`
+  ).bind(fingerprint.ipHash, fingerprint.userAgentHash).first<FredagsfettDeviceRow>();
+
+  if (!device?.user_id) return json({ authenticated: false, needs_registration: true, user: null });
+
+  const user = await fredagsfettLoadUser(env, device.user_id);
+  if (!user) return json({ authenticated: false, needs_registration: true, user: null });
+
+  await fredagsfettTouchDevice(env, device.id);
+  const token = await signFredagsfettSession({
+    v: 1,
+    deviceId: device.id,
+    userId: user.id,
+    exp: fredagsfettSessionExpiry(),
+  }, cfg.value.sessionSecret);
+
+  return fredagsfettJson({
+    authenticated: true,
+    restored: true,
+    needs_registration: false,
+    user: fredagsfettUserPayload(user),
+  }, 200, fredagsfettSessionCookie(token));
+}
+
+async function fredagsfettRegister(request: Request, env: Env): Promise<Response> {
+  const cfg = fredagsfettConfig(env);
+  if (!cfg.ok) return cfg.response;
+
+  const cookie = getCookie(request, FREDAGSFETT_SESSION_COOKIE);
+  if (!cookie) return json({ error: 'Session saknas.' }, 401);
+
+  const session = await fredagsfettSessionFromCookie(env, cookie, cfg.value.sessionSecret);
+  if (!session) return json({ error: 'Sessionen är ogiltig.' }, 401);
+
+  if (session.user) {
+    return json({
+      success: true,
+      needs_registration: false,
+      user: fredagsfettUserPayload(session.user),
+    });
+  }
+
+  let body: { name?: string };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+
+  const name = normalizeFredagsfettName(body.name);
+  if (!name) return json({ error: 'Ange ett namn mellan 2 och 80 tecken.' }, 400);
+
+  const userId = crypto.randomUUID();
+  const isAdmin = cfg.value.adminNames.has(name.toLocaleLowerCase('sv-SE')) ? 1 : 0;
+  try {
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO ff_users (id, name, is_admin, created_at, updated_at)
+         VALUES (?, ?, ?, datetime('now'), datetime('now'))`
+      ).bind(userId, name, isAdmin),
+      env.DB.prepare(
+        `UPDATE ff_devices SET user_id = ?, last_seen_at = datetime('now') WHERE id = ? AND revoked_at IS NULL`
+      ).bind(userId, session.device.id),
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO ff_group_members (group_id, user_id, role) VALUES ('fredagsfett', ?, ?)`
+      ).bind(userId, isAdmin ? 'admin' : 'member'),
+    ]);
+  } catch (err) {
+    const msg = errorMessage(err);
+    if (/unique|constraint/i.test(msg)) return json({ error: 'Namnet är upptaget. Välj ett annat namn.' }, 409);
+    throw err;
+  }
+
+  const user = await fredagsfettLoadUser(env, userId);
+  const token = await signFredagsfettSession({
+    v: 1,
+    deviceId: session.device.id,
+    userId,
+    exp: fredagsfettSessionExpiry(),
+  }, cfg.value.sessionSecret);
+
+  return fredagsfettJson({
+    success: true,
+    needs_registration: false,
+    user: user ? fredagsfettUserPayload(user) : { id: userId, name, is_admin: !!isAdmin },
+  }, 200, fredagsfettSessionCookie(token));
+}
+
+function fredagsfettLogout(): Response {
+  return fredagsfettJson({ success: true }, 200, clearFredagsfettSessionCookie());
+}
+
+function fredagsfettConfig(env: Env): { ok: true; value: FredagsfettConfig } | { ok: false; response: Response } {
+  const password = env.FF_PASSWORD?.trim();
+  const sessionSecret = env.FF_SESSION_SECRET?.trim();
+  const hashSalt = env.FF_DEVICE_HASH_SALT?.trim();
+  if (!password || !sessionSecret || !hashSalt) {
+    return { ok: false, response: json({ error: 'Fredagsfett är inte konfigurerat.' }, 500) };
+  }
+  return {
+    ok: true,
+    value: {
+      password,
+      sessionSecret,
+      hashSalt,
+      adminNames: new Set((env.FF_ADMIN_NAMES ?? '').split(',').map(n => n.trim().toLocaleLowerCase('sv-SE')).filter(Boolean)),
+    },
+  };
+}
+
+async function fredagsfettFingerprint(request: Request, cfg: FredagsfettConfig): Promise<{ ipHash: string; userAgentHash: string }> {
+  const ip = request.headers.get('CF-Connecting-IP')
+    ?? request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
+    ?? 'unknown';
+  const userAgent = request.headers.get('User-Agent') ?? 'unknown';
+  return {
+    ipHash: await hashFredagsfettFingerprint(cfg.hashSalt, ip),
+    userAgentHash: await hashFredagsfettFingerprint(cfg.hashSalt, userAgent),
+  };
+}
+
+async function hashFredagsfettFingerprint(salt: string, value: string): Promise<string> {
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${value}`));
+  return toHex(new Uint8Array(bytes));
+}
+
+async function fredagsfettAuthThrottle(env: Env, ipHash: string): Promise<{ throttled: boolean; windowStart: string; nextAllowedAt: string }> {
+  const windowMs = FREDAGSFETT_AUTH_WINDOW_SECONDS * 1000;
+  const startedAtMs = Math.floor(Date.now() / windowMs) * windowMs;
+  const windowStart = new Date(startedAtMs).toISOString();
+  const nextAllowedAt = new Date(startedAtMs + windowMs).toISOString();
+  await env.DB.prepare(`DELETE FROM ff_auth_attempts WHERE last_attempt_at < datetime('now', '-1 day')`).run().catch(() => {});
+  const row = await env.DB.prepare(
+    `SELECT attempts FROM ff_auth_attempts WHERE ip_hash = ? AND window_start = ?`
+  ).bind(ipHash, windowStart).first<{ attempts: number }>();
+  return { throttled: Number(row?.attempts ?? 0) >= FREDAGSFETT_AUTH_MAX_ATTEMPTS, windowStart, nextAllowedAt };
+}
+
+async function fredagsfettRecordAuthAttempt(env: Env, ipHash: string, windowStart: string): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO ff_auth_attempts (ip_hash, window_start, attempts, last_attempt_at)
+     VALUES (?, ?, 1, datetime('now'))
+     ON CONFLICT(ip_hash, window_start) DO UPDATE SET
+       attempts = attempts + 1,
+       last_attempt_at = datetime('now')`
+  ).bind(ipHash, windowStart).run();
+}
+
+async function fredagsfettFindOrCreateDevice(env: Env, ipHash: string, userAgentHash: string): Promise<FredagsfettDeviceRow> {
+  const existing = await env.DB.prepare(
+    `SELECT id, user_id, ip_hash, user_agent_hash, revoked_at
+       FROM ff_devices
+      WHERE ip_hash = ? AND user_agent_hash = ? AND revoked_at IS NULL`
+  ).bind(ipHash, userAgentHash).first<FredagsfettDeviceRow>();
+  if (existing) {
+    await fredagsfettTouchDevice(env, existing.id);
+    return existing;
+  }
+
+  const revoked = await env.DB.prepare(
+    `SELECT id, user_id, ip_hash, user_agent_hash, revoked_at
+       FROM ff_devices
+      WHERE ip_hash = ? AND user_agent_hash = ?
+      ORDER BY created_at DESC
+      LIMIT 1`
+  ).bind(ipHash, userAgentHash).first<FredagsfettDeviceRow>();
+  if (revoked) {
+    await env.DB.prepare(
+      `UPDATE ff_devices SET revoked_at = NULL, last_seen_at = datetime('now') WHERE id = ?`
+    ).bind(revoked.id).run();
+    return { ...revoked, revoked_at: null };
+  }
+
+  const id = crypto.randomUUID();
+  await env.DB.prepare(
+    `INSERT INTO ff_devices (id, ip_hash, user_agent_hash, created_at, last_seen_at)
+     VALUES (?, ?, ?, datetime('now'), datetime('now'))`
+  ).bind(id, ipHash, userAgentHash).run();
+  return { id, user_id: null, ip_hash: ipHash, user_agent_hash: userAgentHash, revoked_at: null };
+}
+
+async function fredagsfettTouchDevice(env: Env, deviceId: string): Promise<void> {
+  await env.DB.prepare(`UPDATE ff_devices SET last_seen_at = datetime('now') WHERE id = ?`).bind(deviceId).run().catch(() => {});
+}
+
+async function fredagsfettLoadUser(env: Env, userId: string): Promise<FredagsfettUserRow | null> {
+  return await env.DB.prepare(
+    `SELECT id, name, is_admin, deleted_at FROM ff_users WHERE id = ? AND deleted_at IS NULL`
+  ).bind(userId).first<FredagsfettUserRow>() ?? null;
+}
+
+async function fredagsfettSessionFromCookie(env: Env, token: string, secret: string): Promise<{ payload: FredagsfettSessionPayload; device: FredagsfettDeviceRow; user: FredagsfettUserRow | null } | null> {
+  const payload = await verifyFredagsfettSessionToken(token, secret);
+  if (!payload) return null;
+  const device = await env.DB.prepare(
+    `SELECT id, user_id, ip_hash, user_agent_hash, revoked_at FROM ff_devices WHERE id = ? AND revoked_at IS NULL`
+  ).bind(payload.deviceId).first<FredagsfettDeviceRow>();
+  if (!device) return null;
+  const userId = device.user_id ?? payload.userId;
+  const user = userId ? await fredagsfettLoadUser(env, userId) : null;
+  return { payload, device, user };
+}
+
+function fredagsfettUserPayload(user: FredagsfettUserRow): { id: string; name: string; is_admin: boolean } {
+  return { id: user.id, name: user.name, is_admin: !!user.is_admin };
+}
+
+function normalizeFredagsfettName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const name = raw.replace(/\s+/g, ' ').trim();
+  if (name.length < 2 || name.length > 80) return null;
+  return name;
+}
+
+function fredagsfettSessionExpiry(): number {
+  return Math.floor(Date.now() / 1000) + FREDAGSFETT_SESSION_MAX_AGE_SECONDS;
+}
+
+async function signFredagsfettSession(payload: FredagsfettSessionPayload, secret: string): Promise<string> {
+  const encodedPayload = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
+  const signature = await hmacSha256Base64Url(secret, encodedPayload);
+  return `${encodedPayload}.${signature}`;
+}
+
+async function verifyFredagsfettSessionToken(token: string, secret: string): Promise<FredagsfettSessionPayload | null> {
+  const [encodedPayload, signature] = token.split('.');
+  if (!encodedPayload || !signature) return null;
+  const expected = await hmacSha256Base64Url(secret, encodedPayload);
+  if (!constantTimeStringEqual(signature, expected)) return null;
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(encodedPayload))) as FredagsfettSessionPayload;
+    if (payload.v !== 1 || !payload.deviceId || typeof payload.exp !== 'number') return null;
+    if (payload.exp <= Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+async function hmacSha256Base64Url(secret: string, data: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+  return base64UrlEncode(new Uint8Array(sig));
+}
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlDecode(value: string): Uint8Array {
+  const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4);
+  const bin = atob(padded);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function constantTimeStringEqual(a: string, b: string): boolean {
+  const aBytes = new TextEncoder().encode(a);
+  const bBytes = new TextEncoder().encode(b);
+  const len = Math.max(aBytes.length, bBytes.length);
+  let diff = aBytes.length ^ bBytes.length;
+  for (let i = 0; i < len; i++) diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+  return diff === 0;
+}
+
+function fredagsfettSessionCookie(token: string): string {
+  return `${FREDAGSFETT_SESSION_COOKIE}=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${FREDAGSFETT_SESSION_MAX_AGE_SECONDS}`;
+}
+
+function clearFredagsfettSessionCookie(): string {
+  return `${FREDAGSFETT_SESSION_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
+}
+
+function fredagsfettJson(data: unknown, status = 200, cookie?: string): Response {
+  const headers = new Headers({ 'Content-Type': 'application/json', ...cors() });
+  if (cookie) headers.append('Set-Cookie', cookie);
+  return new Response(JSON.stringify(data), { status, headers });
+}
 
 async function handleLogin(request: Request, env: Env): Promise<Response> {
   let body: { password?: string };

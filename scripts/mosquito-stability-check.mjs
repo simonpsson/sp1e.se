@@ -161,9 +161,9 @@ check(
 );
 
 check(
-  'landing page uses the local bullfight image as static default',
-  fs.existsSync('assets/landing/after-a-bullfight-wide.png') &&
-    /\/assets\/landing\/after-a-bullfight-wide\.png/.test(index) &&
+  'landing page uses the local gallery wall image as static default',
+  fs.existsSync('assets/landing/gallery-wall-wide.png') &&
+    /\/assets\/landing\/gallery-wall-wide\.png/.test(index) &&
     /const\s+LANDING_STATIC_ART/.test(index) &&
     /function\s+gShowStaticLanding/.test(index)
 );
