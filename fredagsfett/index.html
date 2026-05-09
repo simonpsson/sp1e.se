@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fredagsfett</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050505;
+    --panel: rgba(10, 10, 10, 0.72);
+    --line: rgba(255,255,255,0.12);
+    --text: rgba(255,255,255,0.88);
+    --muted: rgba(255,255,255,0.48);
+    --hot: rgba(255,255,255,0.94);
+    --accent: rgba(205, 176, 110, 0.88);
+    --danger: rgba(255, 104, 84, 0.92);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0;
+    display: grid;
+    place-items: center;
+    padding: 2rem;
+    background:
+      linear-gradient(to bottom, rgba(0,0,0,0.22), rgba(0,0,0,0.72)),
+      url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
+      var(--bg);
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 50% 46%, rgba(255,255,255,0.08), transparent 30rem),
+      linear-gradient(90deg, rgba(0,0,0,0.62), transparent 34%, transparent 66%, rgba(0,0,0,0.62));
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    width: min(720px, 100%);
+  }
+
+  .mark {
+    display: block;
+    margin: 0 auto 1.4rem;
+    width: 156px;
+    color: rgba(255,255,255,0.9);
+    font-size: 2.85rem;
+    font-weight: 300;
+    line-height: 1;
+    letter-spacing: 0.22em;
+    text-align: center;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.75);
+  }
+
+  .room {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--panel);
+    box-shadow: 0 28px 100px rgba(0,0,0,0.48);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    overflow: hidden;
+  }
+
+  header {
+    padding: 1.5rem 1.6rem 1.1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  h1 {
+    margin: 0;
+    color: var(--hot);
+    font-size: clamp(2.4rem, 7vw, 4.2rem);
+    font-weight: 300;
+    line-height: 0.95;
+    letter-spacing: 0.08em;
+  }
+
+  .kicker,
+  label,
+  .tiny,
+  button,
+  .link-card span {
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  .kicker {
+    margin: 0 0 0.65rem;
+    color: var(--accent);
+    font-size: 0.72rem;
+  }
+
+  .subtitle {
+    max-width: 46rem;
+    margin: 0.8rem 0 0;
+    color: var(--muted);
+    font-size: 1.12rem;
+    line-height: 1.5;
+  }
+
+  .panel {
+    display: none;
+    padding: 1.6rem;
+  }
+  .panel.active { display: block; }
+
+  form {
+    display: grid;
+    gap: 0.85rem;
+    max-width: 440px;
+  }
+
+  label {
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+
+  input {
+    width: 100%;
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 10px;
+    background: rgba(0,0,0,0.42);
+    color: var(--text);
+    padding: 0.95rem 1rem;
+    font: 1.1rem 'Cormorant Garamond', serif;
+    outline: none;
+  }
+
+  input:focus {
+    border-color: rgba(255,255,255,0.38);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.05);
+  }
+
+  button,
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.045);
+    color: rgba(255,255,255,0.74);
+    padding: 0.78rem 1rem;
+    font-size: 0.72rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  button:hover,
+  .button:hover,
+  button:focus-visible,
+  .button:focus-visible {
+    color: var(--hot);
+    border-color: rgba(255,255,255,0.32);
+    outline: none;
+  }
+
+  button[disabled] { opacity: 0.45; cursor: wait; }
+
+  .error {
+    min-height: 1.25rem;
+    color: var(--danger);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .link-card {
+    min-height: 120px;
+    padding: 1rem;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.035);
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .link-card strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--hot);
+    font-size: 1.6rem;
+    font-weight: 500;
+  }
+
+  .link-card span {
+    display: block;
+    color: var(--muted);
+    font-size: 0.65rem;
+    line-height: 1.45;
+  }
+
+  .link-card.soon { opacity: 0.62; pointer-events: none; }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.2rem;
+  }
+
+  .tiny {
+    color: var(--muted);
+    font-size: 0.68rem;
+  }
+
+  @media (max-width: 620px) {
+    body { padding: 1rem; }
+    header, .panel { padding: 1.2rem; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="mark" aria-label="SP1E">SP1E</div>
+  <section class="room" aria-live="polite">
+    <header>
+      <p class="kicker">privat rum</p>
+      <h1>Fredagsfett</h1>
+      <p class="subtitle">Ett litet låst rum för sommarplaner, kanotlogistik och ekonomin runt det. Inga konton utåt, bara en signerad enhetssession.</p>
+    </header>
+
+    <section class="panel active" id="loading-panel">
+      <p class="tiny">Kontrollerar session...</p>
+    </section>
+
+    <section class="panel" id="login-panel">
+      <form id="login-form">
+        <label for="password-input">Lösenord</label>
+        <input id="password-input" type="password" autocomplete="current-password" required>
+        <button type="submit">Lås upp</button>
+        <div class="error" id="login-error"></div>
+      </form>
+    </section>
+
+    <section class="panel" id="register-panel">
+      <form id="register-form">
+        <label for="name-input">Registrera namn på den här enheten</label>
+        <input id="name-input" type="text" autocomplete="name" maxlength="80" required>
+        <button type="submit">Spara namn</button>
+        <div class="error" id="register-error"></div>
+      </form>
+    </section>
+
+    <section class="panel" id="hub-panel">
+      <p class="tiny" id="welcome-line"></p>
+      <div class="grid">
+        <a class="link-card soon" href="/fredagsfett/kalender" aria-disabled="true">
+          <strong>Kalender</strong>
+          <span>Kommer i nästa steg: tillgänglighet, noteringar och bästa datum.</span>
+        </a>
+        <a class="link-card soon" href="/fredagsfett/sp1wise" aria-disabled="true">
+          <strong>SP1Wise</strong>
+          <span>Kommer efter kalendern: utgifter, saldon och settle-up.</span>
+        </a>
+        <a class="link-card" id="admin-link" href="/fredagsfett/admin" hidden>
+          <strong>Admin</strong>
+          <span>Hantera namn och enheter.</span>
+        </a>
+      </div>
+      <div class="toolbar">
+        <a class="button" href="/">Till sp1e.se</a>
+        <button id="logout-btn" type="button">Logga ut</button>
+      </div>
+    </section>
+  </section>
+</main>
+
+<script>
+const panels = {
+  loading: document.getElementById('loading-panel'),
+  login: document.getElementById('login-panel'),
+  register: document.getElementById('register-panel'),
+  hub: document.getElementById('hub-panel'),
+};
+const nextPath = new URLSearchParams(location.search).get('next');
+
+function showPanel(name) {
+  Object.entries(panels).forEach(([key, el]) => el.classList.toggle('active', key === name));
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(data.error || 'Något gick fel.');
+  return data;
+}
+
+function renderState(data) {
+  if (!data.authenticated) return showPanel('login');
+  if (data.needs_registration) return showPanel('register');
+
+  if (nextPath && nextPath !== '/fredagsfett' && nextPath !== '/fredagsfett/') {
+    location.href = nextPath;
+    return;
+  }
+
+  const user = data.user || {};
+  document.getElementById('welcome-line').textContent = `Inloggad som ${user.name || 'okänd'}.`;
+  document.getElementById('admin-link').hidden = !user.is_admin;
+  showPanel('hub');
+}
+
+async function loadSession() {
+  try {
+    renderState(await api('/api/fredagsfett/session'));
+  } catch (err) {
+    document.getElementById('login-error').textContent = err.message;
+    showPanel('login');
+  }
+}
+
+document.getElementById('login-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector('button');
+  const error = document.getElementById('login-error');
+  button.disabled = true;
+  error.textContent = '';
+  try {
+    renderState(await api('/api/fredagsfett/auth', {
+      method: 'POST',
+      body: JSON.stringify({ password: document.getElementById('password-input').value }),
+    }));
+  } catch (err) {
+    error.textContent = err.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById('register-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector('button');
+  const error = document.getElementById('register-error');
+  button.disabled = true;
+  error.textContent = '';
+  try {
+    renderState(await api('/api/fredagsfett/register', {
+      method: 'POST',
+      body: JSON.stringify({ name: document.getElementById('name-input').value }),
+    }));
+  } catch (err) {
+    error.textContent = err.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await api('/api/fredagsfett/logout', { method: 'POST', body: '{}' }).catch(() => {});
+  location.href = '/fredagsfett';
+});
+
+void loadSession();
+</script>
+</body>
+</html>

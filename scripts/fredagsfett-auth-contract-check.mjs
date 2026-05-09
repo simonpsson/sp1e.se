@@ -6,6 +6,8 @@ const files = {
   migration: 'fredagsfett-migration-001.sql',
   schema: 'schema.sql',
   envExample: '.dev.vars.example',
+  gateway: 'fredagsfett/index.html',
+  admin: 'fredagsfett/admin/index.html',
 };
 
 const read = path => fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : '';
@@ -14,6 +16,8 @@ const middleware = read(files.middleware);
 const migration = read(files.migration);
 const schema = read(files.schema);
 const envExample = read(files.envExample);
+const gateway = read(files.gateway);
+const admin = read(files.admin);
 
 const checks = [];
 function check(name, ok) {
@@ -26,12 +30,18 @@ check('Fredagsfett migration exists with users/devices/auth tables', /CREATE TAB
 check('Fredagsfett migration includes calendar and sp1wise tables', /CREATE TABLE IF NOT EXISTS ff_availability/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_expenses/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_expense_shares/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_settlements/.test(migration));
 check('Cumulative schema includes Fredagsfett tables', /CREATE TABLE IF NOT EXISTS ff_users/.test(schema) && /CREATE TABLE IF NOT EXISTS ff_devices/.test(schema) && /CREATE TABLE IF NOT EXISTS ff_availability/.test(schema) && /CREATE TABLE IF NOT EXISTS ff_groups/.test(schema));
 check('Fredagsfett API dispatch exists', /resource === ['"]fredagsfett['"]/.test(api) && /fredagsfettAuth/.test(api) && /fredagsfettRegister/.test(api) && /fredagsfettSession/.test(api) && /fredagsfettLogout/.test(api));
+check('Fredagsfett admin API dispatch exists', /fredagsfettAdminUsers/.test(api) && /fredagsfettAdminUpdateUser/.test(api) && /fredagsfettAdminDeleteUser/.test(api) && /fredagsfettAdminRevokeDevice/.test(api));
 check('Fredagsfett auth uses signed HTTP-only Lax cookie', /ff_session/.test(api) && /HttpOnly;\s*Secure;\s*SameSite=Lax/.test(api) && /signFredagsfettSession/.test(api) && /verifyFredagsfettSessionToken/.test(api));
 check('Fredagsfett auth uses constant-time password comparison', /constantTimeStringEqual/.test(api) && /FF_PASSWORD/.test(api));
 check('Fredagsfett auth rate limiting is D1-backed', /ff_auth_attempts/.test(api) && /FREDAGSFETT_AUTH_MAX_ATTEMPTS/.test(api));
 check('Fredagsfett device restore hashes IP and user-agent', /ip_hash/.test(api) && /user_agent_hash/.test(api) && /hashFredagsfettFingerprint/.test(api));
+check('Fredagsfett admin API requires admin server-side', /async function requireFredagsfettAdmin/.test(api) && /if \(!session\.user\.is_admin\)/.test(api));
 check('Fredagsfett middleware protects section and API routes', /onRequest/.test(middleware) && /\/fredagsfett/.test(middleware) && /\/api\/fredagsfett/.test(middleware) && /verifyFredagsfettMiddlewareSession/.test(middleware));
 check('Middleware allows auth and session probes without session cookie', /\/api\/fredagsfett\/auth/.test(middleware) && /\/api\/fredagsfett\/session/.test(middleware));
+check('Fredagsfett gateway page has login/register/hub flow', /id=["']login-form["']/.test(gateway) && /id=["']register-form["']/.test(gateway) && /id=["']hub-panel["']/.test(gateway) && /\/api\/fredagsfett\/auth/.test(gateway) && /\/api\/fredagsfett\/register/.test(gateway));
+check('Fredagsfett gateway exposes admin link only for admins', /id=["']admin-link["']/.test(gateway) && /user\.is_admin/.test(gateway));
+check('Fredagsfett admin page lists users and devices', /\/api\/fredagsfett\/admin\/users/.test(admin) && /data-action=["']save["']/.test(admin) && /data-action=["']delete["']/.test(admin) && /data-action=["']revoke["']/.test(admin));
+check('Fredagsfett admin page uses non-mock API mutations', /method:\s*['"]PATCH['"]/.test(admin) && /method:\s*['"]DELETE['"]/.test(admin));
 
 const failed = checks.filter(c => !c.ok);
 for (const c of checks) console.log(`${c.ok ? 'OK  ' : 'FAIL'} ${c.name}`);
