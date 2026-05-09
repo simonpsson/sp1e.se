@@ -125,6 +125,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'session'  && method === 'GET')  return fredagsfettSession(request, env);
       if (id === 'register' && method === 'POST') return fredagsfettRegister(request, env);
       if (id === 'logout'   && method === 'POST') return fredagsfettLogout();
+      if (id === 'admin' && sub === 'users' && !action && method === 'GET') return fredagsfettAdminUsers(request, env);
+      if (id === 'admin' && sub === 'users' && action && method === 'PATCH') return fredagsfettAdminUpdateUser(request, env, action);
+      if (id === 'admin' && sub === 'users' && action && method === 'DELETE') return fredagsfettAdminDeleteUser(request, env, action);
+      if (id === 'admin' && sub === 'devices' && action && method === 'DELETE') return fredagsfettAdminRevokeDevice(request, env, action);
       return json({ error: 'not found' }, 404);
     }
 
@@ -317,6 +321,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
 
   } catch (err) {
     if (err instanceof AuthError) return json({ error: 'Unauthorized' }, 401);
+    if (err instanceof HttpError) return json({ error: err.message }, err.status);
     console.error(err);
     return json({ error: 'internal error' }, 500);
   }
@@ -9727,6 +9732,24 @@ type FredagsfettUserRow = {
   deleted_at: string | null;
 };
 
+type FredagsfettAdminUserRow = {
+  id: string;
+  name: string;
+  is_admin: number;
+  created_at: string;
+  updated_at: string;
+  device_count: number;
+  active_device_count: number;
+};
+
+type FredagsfettAdminDeviceRow = {
+  id: string;
+  user_id: string | null;
+  created_at: string;
+  last_seen_at: string;
+  revoked_at: string | null;
+};
+
 async function fredagsfettAuth(request: Request, env: Env): Promise<Response> {
   const cfg = fredagsfettConfig(env);
   if (!cfg.ok) return cfg.response;
@@ -9875,6 +9898,122 @@ async function fredagsfettRegister(request: Request, env: Env): Promise<Response
 
 function fredagsfettLogout(): Response {
   return fredagsfettJson({ success: true }, 200, clearFredagsfettSessionCookie());
+}
+
+async function fredagsfettAdminUsers(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettAdmin(request, env);
+  const users = await env.DB.prepare(
+    `SELECT u.id, u.name, u.is_admin, u.created_at, u.updated_at,
+            COUNT(d.id) AS device_count,
+            SUM(CASE WHEN d.revoked_at IS NULL THEN 1 ELSE 0 END) AS active_device_count
+       FROM ff_users u
+       LEFT JOIN ff_devices d ON d.user_id = u.id
+      WHERE u.deleted_at IS NULL
+      GROUP BY u.id
+      ORDER BY u.created_at ASC`
+  ).all<FredagsfettAdminUserRow>();
+  const devices = await env.DB.prepare(
+    `SELECT id, user_id, created_at, last_seen_at, revoked_at
+       FROM ff_devices
+      WHERE user_id IS NOT NULL
+      ORDER BY last_seen_at DESC`
+  ).all<FredagsfettAdminDeviceRow>();
+  const devicesByUser = new Map<string, FredagsfettAdminDeviceRow[]>();
+  for (const device of devices.results ?? []) {
+    if (!device.user_id) continue;
+    const list = devicesByUser.get(device.user_id) ?? [];
+    list.push(device);
+    devicesByUser.set(device.user_id, list);
+  }
+  return json({
+    user: fredagsfettUserPayload(session.user),
+    users: (users.results ?? []).map(user => ({
+      id: user.id,
+      name: user.name,
+      is_admin: !!user.is_admin,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+      device_count: Number(user.device_count ?? 0),
+      active_device_count: Number(user.active_device_count ?? 0),
+      devices: (devicesByUser.get(user.id) ?? []).map(device => ({
+        id: device.id,
+        created_at: device.created_at,
+        last_seen_at: device.last_seen_at,
+        revoked_at: device.revoked_at,
+        is_current: device.id === session.device.id,
+      })),
+    })),
+  });
+}
+
+async function fredagsfettAdminUpdateUser(request: Request, env: Env, userId: string): Promise<Response> {
+  await requireFredagsfettAdmin(request, env);
+  let body: { name?: string };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+
+  const name = normalizeFredagsfettName(body.name);
+  if (!name) return json({ error: 'Ange ett namn mellan 2 och 80 tecken.' }, 400);
+
+  try {
+    const result = await env.DB.prepare(
+      `UPDATE ff_users
+          SET name = ?, updated_at = datetime('now')
+        WHERE id = ? AND deleted_at IS NULL`
+    ).bind(name, userId).run();
+    if (!result.meta?.changes) return json({ error: 'Användaren hittades inte.' }, 404);
+  } catch (err) {
+    const msg = errorMessage(err);
+    if (/unique|constraint/i.test(msg)) return json({ error: 'Namnet är upptaget. Välj ett annat namn.' }, 409);
+    throw err;
+  }
+
+  const user = await fredagsfettLoadUser(env, userId);
+  return json({ success: true, user: user ? fredagsfettUserPayload(user) : null });
+}
+
+async function fredagsfettAdminDeleteUser(request: Request, env: Env, userId: string): Promise<Response> {
+  const session = await requireFredagsfettAdmin(request, env);
+  if (userId === session.user.id) return json({ error: 'Du kan inte ta bort din egen admin-användare.' }, 400);
+
+  const result = await env.DB.prepare(
+    `UPDATE ff_users
+        SET deleted_at = datetime('now'), updated_at = datetime('now')
+      WHERE id = ? AND deleted_at IS NULL`
+  ).bind(userId).run();
+  if (!result.meta?.changes) return json({ error: 'Användaren hittades inte.' }, 404);
+
+  await env.DB.prepare(
+    `UPDATE ff_devices SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL`
+  ).bind(userId).run();
+  return json({ success: true });
+}
+
+async function fredagsfettAdminRevokeDevice(request: Request, env: Env, deviceId: string): Promise<Response> {
+  const session = await requireFredagsfettAdmin(request, env);
+  if (deviceId === session.device.id) return json({ error: 'Du kan inte återkalla enheten du använder just nu.' }, 400);
+  const result = await env.DB.prepare(
+    `UPDATE ff_devices SET revoked_at = datetime('now') WHERE id = ? AND revoked_at IS NULL`
+  ).bind(deviceId).run();
+  if (!result.meta?.changes) return json({ error: 'Enheten hittades inte eller är redan återkallad.' }, 404);
+  return json({ success: true });
+}
+
+async function requireFredagsfettUser(request: Request, env: Env): Promise<{ cfg: FredagsfettConfig; payload: FredagsfettSessionPayload; device: FredagsfettDeviceRow; user: FredagsfettUserRow }> {
+  const cfg = fredagsfettConfig(env);
+  if (!cfg.ok) throw new HttpError(500, 'Fredagsfett är inte konfigurerat.');
+  const cookie = getCookie(request, FREDAGSFETT_SESSION_COOKIE);
+  if (!cookie) throw new HttpError(401, 'Session saknas.');
+  const session = await fredagsfettSessionFromCookie(env, cookie, cfg.value.sessionSecret);
+  if (!session?.user) throw new HttpError(401, 'Sessionen är ogiltig eller saknar registrerat namn.');
+  await fredagsfettTouchDevice(env, session.device.id);
+  return { cfg: cfg.value, payload: session.payload, device: session.device, user: session.user };
+}
+
+async function requireFredagsfettAdmin(request: Request, env: Env): Promise<{ cfg: FredagsfettConfig; payload: FredagsfettSessionPayload; device: FredagsfettDeviceRow; user: FredagsfettUserRow }> {
+  const session = await requireFredagsfettUser(request, env);
+  if (!session.user.is_admin) throw new HttpError(403, 'Admin krävs.');
+  return session;
 }
 
 function fredagsfettConfig(env: Env): { ok: true; value: FredagsfettConfig } | { ok: false; response: Response } {
@@ -10142,6 +10281,14 @@ export async function requireAuth(request: Request, env: Env): Promise<void> {
 
 class AuthError extends Error {
   constructor() { super('Unauthorized'); }
+}
+
+class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
 }
 
 // ─── PBKDF2 ───────────────────────────────────────────────────────────────────

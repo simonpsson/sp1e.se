@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fredagsfett Admin</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050505;
+    --panel: rgba(9, 9, 9, 0.76);
+    --line: rgba(255,255,255,0.12);
+    --text: rgba(255,255,255,0.86);
+    --muted: rgba(255,255,255,0.48);
+    --accent: rgba(205, 176, 110, 0.9);
+    --danger: rgba(255, 104, 84, 0.92);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: clamp(1rem, 4vw, 3rem);
+    background:
+      linear-gradient(to bottom, rgba(0,0,0,0.22), rgba(0,0,0,0.78)),
+      url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
+      var(--bg);
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+  }
+  main {
+    max-width: 1080px;
+    margin: 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--panel);
+    box-shadow: 0 28px 100px rgba(0,0,0,0.5);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.4rem 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(2.2rem, 7vw, 4rem);
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    line-height: 0.95;
+  }
+  .mono, button, input, .status {
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+  }
+  .mono { color: var(--muted); font-size: 0.72rem; }
+  .content { padding: 1.5rem; }
+  .status { min-height: 1.4rem; color: var(--danger); font-size: 0.74rem; }
+  .users {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .user-card {
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.035);
+    padding: 1rem;
+  }
+  .user-top {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto auto;
+    gap: 0.75rem;
+    align-items: center;
+  }
+  input {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    background: rgba(0,0,0,0.36);
+    color: var(--text);
+    padding: 0.7rem 0.8rem;
+    font-size: 0.76rem;
+    text-transform: none;
+    letter-spacing: 0.03em;
+  }
+  button, .button {
+    min-height: 42px;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.045);
+    color: rgba(255,255,255,0.72);
+    padding: 0.7rem 0.85rem;
+    font-size: 0.68rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  button:hover, .button:hover { border-color: rgba(255,255,255,0.32); color: rgba(255,255,255,0.95); }
+  button.danger { color: var(--danger); border-color: rgba(255,104,84,0.34); }
+  button[disabled] { opacity: 0.42; cursor: not-allowed; }
+  .badge {
+    display: inline-flex;
+    margin-left: 0.5rem;
+    border: 1px solid rgba(205,176,110,0.35);
+    border-radius: 999px;
+    color: var(--accent);
+    padding: 0.12rem 0.45rem;
+    font: 0.62rem 'DM Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .devices {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 0.9rem;
+  }
+  .device {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.65rem;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    color: var(--muted);
+  }
+  .device strong { color: rgba(255,255,255,0.72); font-weight: 500; }
+  .revoked { opacity: 0.48; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: center; }
+  @media (max-width: 720px) {
+    header { align-items: flex-start; flex-direction: column; }
+    .user-top { grid-template-columns: 1fr; }
+    .device { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <p class="mono">Fredagsfett</p>
+      <h1>Admin</h1>
+    </div>
+    <div class="toolbar">
+      <a class="button" href="/fredagsfett">Till hubben</a>
+      <button id="refresh-btn" type="button">Uppdatera</button>
+    </div>
+  </header>
+  <section class="content">
+    <div class="status" id="status">Laddar...</div>
+    <div class="users" id="users"></div>
+  </section>
+</main>
+
+<script>
+const statusEl = document.getElementById('status');
+const usersEl = document.getElementById('users');
+
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(data.error || 'Något gick fel.');
+  return data;
+}
+
+function fmt(value) {
+  if (!value) return '-';
+  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString('sv-SE');
+}
+
+function setStatus(message, ok = false) {
+  statusEl.textContent = message || '';
+  statusEl.style.color = ok ? 'rgba(170,230,190,0.9)' : '';
+}
+
+function renderUsers(users) {
+  usersEl.innerHTML = users.map(user => `
+    <article class="user-card" data-user-id="${user.id}">
+      <div class="user-top">
+        <label>
+          <span class="mono">Namn${user.is_admin ? '<span class="badge">admin</span>' : ''}</span>
+          <input value="${escapeHtml(user.name)}" maxlength="80">
+        </label>
+        <button type="button" data-action="save">Spara</button>
+        <button type="button" class="danger" data-action="delete">Ta bort</button>
+      </div>
+      <p class="mono">${user.active_device_count} aktiva enheter · skapad ${fmt(user.created_at)}</p>
+      <div class="devices">
+        ${(user.devices || []).map((device, index) => `
+          <div class="device ${device.revoked_at ? 'revoked' : ''}" data-device-id="${device.id}">
+            <div>
+              <strong>Enhet ${index + 1}${device.is_current ? ' · nuvarande' : ''}</strong><br>
+              <span class="mono">Senast: ${fmt(device.last_seen_at)}${device.revoked_at ? ' · återkallad ' + fmt(device.revoked_at) : ''}</span>
+            </div>
+            <button type="button" class="danger" data-action="revoke" ${device.revoked_at || device.is_current ? 'disabled' : ''}>Återkalla</button>
+          </div>
+        `).join('') || '<p class="mono">Inga enheter.</p>'}
+      </div>
+    </article>
+  `).join('');
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+async function loadUsers() {
+  setStatus('Laddar...');
+  try {
+    const data = await api('/api/fredagsfett/admin/users');
+    renderUsers(data.users || []);
+    setStatus(`Inloggad admin: ${data.user?.name || 'okänd'}.`, true);
+  } catch (err) {
+    setStatus(err.message);
+  }
+}
+
+usersEl.addEventListener('click', async event => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const userCard = button.closest('.user-card');
+  const action = button.dataset.action;
+  button.disabled = true;
+  try {
+    if (action === 'save') {
+      await api(`/api/fredagsfett/admin/users/${encodeURIComponent(userCard.dataset.userId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: userCard.querySelector('input').value }),
+      });
+      setStatus('Namnet sparades.', true);
+    }
+    if (action === 'delete') {
+      if (!confirm('Ta bort användaren och återkalla alla enheter?')) return;
+      await api(`/api/fredagsfett/admin/users/${encodeURIComponent(userCard.dataset.userId)}`, { method: 'DELETE' });
+      setStatus('Användaren togs bort.', true);
+    }
+    if (action === 'revoke') {
+      const device = button.closest('.device');
+      await api(`/api/fredagsfett/admin/devices/${encodeURIComponent(device.dataset.deviceId)}`, { method: 'DELETE' });
+      setStatus('Enheten återkallades.', true);
+    }
+    await loadUsers();
+  } catch (err) {
+    setStatus(err.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById('refresh-btn').addEventListener('click', loadUsers);
+void loadUsers();
+</script>
+</body>
+</html>
