@@ -58,6 +58,22 @@ check(
 );
 
 check(
+  'round-end screen has an escape route and inline admin unlock',
+  /id=["']round-exit-btn["']/.test(html) &&
+    /id=["']round-admin-toggle-btn["']/.test(html) &&
+    /id=["']round-admin-password["']/.test(html) &&
+    /id=["']round-admin-unlock-btn["']/.test(html) &&
+    /function\s+unlockRoundAdmin/.test(html) &&
+    /function\s+setRoundAdminPanelOpen/.test(html) &&
+    /location\.href\s*=\s*['"]\/['"]/.test(html)
+);
+
+check(
+  'round-start flow translates missing admin session into actionable Swedish UI',
+  /async function startNextRound[\s\S]*Admin unlock required[\s\S]*Lås upp adminläget först[\s\S]*setRoundAdminPanelOpen\(true\)/.test(html)
+);
+
+check(
   'NPC bot policies are explicit and personality-driven',
   /NPC_BOT_POLICIES/.test(api) && /botPolicyFor/.test(api)
 );

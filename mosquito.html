@@ -44,6 +44,10 @@ button.primary:hover:not(:disabled){background:rgba(194,58,34,.14);color:var(--w
 .round-entry{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:0;}
 .round-entry strong{color:var(--white);}
 .round-entry span{font-size:11px;color:var(--dim);}
+.round-admin-panel{display:none;gap:10px;align-items:center;flex-wrap:wrap;padding:14px;background:rgba(0,0,0,.26);border:1px solid var(--border);}
+.round-admin-panel.open{display:flex;}
+.round-admin-panel input{min-width:220px;flex:1;}
+.round-admin-status{font-size:11px;color:var(--dim);line-height:1.7;width:100%;}
 
 /* ─── Create ──────────────────────────────────────────────────────────────── */
 #screen-create{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px;}
@@ -910,7 +914,15 @@ button.primary{
     <div id="round-list" class="round-list"></div>
     <div class="boot-actions">
       <button id="round-next-btn" class="primary">STARTA NÄSTA RUNDA</button>
+      <button id="round-admin-toggle-btn">LÅS UPP ADMIN</button>
       <button id="round-refresh-btn">UPPDATERA HALL OF FAME</button>
+      <button id="round-exit-btn">TILL SP1E</button>
+    </div>
+    <div id="round-admin-panel" class="round-admin-panel" aria-hidden="true">
+      <div class="round-admin-status">Start av ny runda kräver adminläge. Använd samma adminlösenord som i Dev Console.</div>
+      <input id="round-admin-password" type="password" placeholder="Adminlösenord" autocomplete="current-password" spellcheck="false">
+      <button id="round-admin-unlock-btn" class="primary">LÅS UPP & STARTA</button>
+      <div id="round-admin-msg" class="amsg"></div>
     </div>
     <div id="round-msg" class="amsg"></div>
   </div>
@@ -2059,6 +2071,21 @@ function bindShellControls(){
   });
   const roundNext=document.getElementById('round-next-btn');
   if(roundNext) roundNext.addEventListener('click',startNextRound);
+  const roundAdminToggle=document.getElementById('round-admin-toggle-btn');
+  if(roundAdminToggle) roundAdminToggle.addEventListener('click',()=>setRoundAdminPanelOpen(true));
+  const roundAdminUnlock=document.getElementById('round-admin-unlock-btn');
+  if(roundAdminUnlock) roundAdminUnlock.addEventListener('click',unlockRoundAdmin);
+  const roundAdminPassword=document.getElementById('round-admin-password');
+  if(roundAdminPassword){
+    roundAdminPassword.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        unlockRoundAdmin();
+      }
+    });
+  }
+  const roundExit=document.getElementById('round-exit-btn');
+  if(roundExit) roundExit.addEventListener('click',()=>{ location.href='/'; });
   const lvlClose=document.getElementById('lvlup-close');
   if(lvlClose) lvlClose.addEventListener('click',()=>document.getElementById('lvlup-overlay').classList.remove('show'));
   const tbLogout=document.getElementById('tb-logout-btn');
@@ -2074,9 +2101,28 @@ function latestHallRound(){
   return { number: keys[0], entries: G.hallOfFame[String(keys[0])]||G.hallOfFame[keys[0]]||[] };
 }
 
+function setRoundAdminPanelOpen(open){
+  const panel=document.getElementById('round-admin-panel');
+  if(!panel) return;
+  panel.classList.toggle('open',!!open);
+  panel.setAttribute('aria-hidden',open?'false':'true');
+  if(open){
+    const input=document.getElementById('round-admin-password');
+    if(input) requestAnimationFrame(()=>input.focus());
+  }
+}
+
+function renderRoundAdminUi(){
+  const toggle=document.getElementById('round-admin-toggle-btn');
+  const panel=document.getElementById('round-admin-panel');
+  if(toggle) toggle.style.display=G.admin.authenticated?'none':'inline-flex';
+  if(panel&&G.admin.authenticated) setRoundAdminPanelOpen(false);
+}
+
 function renderRoundScreen(){
   const list=document.getElementById('round-list');
   const copy=document.getElementById('round-copy');
+  renderRoundAdminUi();
   const latest=latestHallRound();
   if(copy){
     if(latest){
@@ -2107,6 +2153,14 @@ async function startNextRound(){
   const res=await post('new-round',{});
   G.busy=false;
   if(res.error){
+    if(res._status===403||res.error==='Admin unlock required.'){
+      G.admin={authenticated:false,expiresAt:null};
+      setMsg('round-msg','Lås upp adminläget först för att starta nästa runda.','err');
+      setMsg('round-admin-msg','Adminsession saknas eller har gått ut. Ange adminlösenordet och försök igen.','err');
+      setRoundAdminPanelOpen(true);
+      renderRoundAdminUi();
+      return;
+    }
     setMsg('round-msg',res.error,'err');
     return;
   }
@@ -2124,6 +2178,31 @@ async function startNextRound(){
   selectSide('eastside');
   setMsg('create-err',res.message||'Ny runda startad. Skapa din karaktär.','info');
   showScreen('create');
+}
+
+async function unlockRoundAdmin(){
+  const input=document.getElementById('round-admin-password');
+  const password=(input&&input.value||'').trim();
+  if(!password){
+    setMsg('round-admin-msg','Ange adminlösenordet först.','err');
+    setRoundAdminPanelOpen(true);
+    return;
+  }
+  if(G.busy) return;
+  G.busy=true;
+  setMsg('round-admin-msg','Låser upp adminläget...','info');
+  const res=await post('admin-auth',{password});
+  G.busy=false;
+  if(res.error){
+    setMsg('round-admin-msg',res.error,'err');
+    return;
+  }
+  if(input) input.value='';
+  G.admin={authenticated:true,expiresAt:res.expires_at||null};
+  setMsg('round-admin-msg','Adminläget är upplåst. Startar nästa runda...','ok');
+  setMsg('round-msg','','');
+  renderRoundAdminUi();
+  await startNextRound();
 }
 
 function calcEnergy(){
