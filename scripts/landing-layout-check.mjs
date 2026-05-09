@@ -30,7 +30,7 @@ check(
 
 check(
   'landing static background is brighter than the previous heavy overlay',
-  /#bg-overlay\s*\{[\s\S]*background:\s*rgba\(0,\s*0,\s*0,\s*0\.48\)/.test(index) &&
+  /#bg-overlay\s*\{[\s\S]*background:\s*rgba\(0,\s*0,\s*0,\s*0\.10\)/.test(index) &&
     !/background:\s*rgba\(0,\s*0,\s*0,\s*0\.62\)/.test(index)
 );
 
