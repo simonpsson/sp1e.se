@@ -30,7 +30,7 @@ check(
 
 check(
   'landing static background is brighter than the previous heavy overlay',
-  /#bg-overlay\s*\{[\s\S]*background:\s*rgba\(0,\s*0,\s*0,\s*0\.10\)/.test(index) &&
+  /#bg-overlay\s*\{[\s\S]*background:\s*rgba\(0,\s*0,\s*0,\s*0\.20\)/.test(index) &&
     !/background:\s*rgba\(0,\s*0,\s*0,\s*0\.62\)/.test(index)
 );
 
@@ -99,6 +99,14 @@ check(
 );
 
 check(
+  'landing page exposes Fredagsfett as a secondary CTA',
+  /id=["']fredagsfett-btn["']/.test(index) &&
+    /href=["']\/fredagsfett["']/.test(index) &&
+    />Fredagsfett<\/a>/.test(index) &&
+    /\.fredagsfett-card\s*\{[\s\S]*flex:\s*0 0 180px[\s\S]*height:\s*52px/.test(index)
+);
+
+check(
   'hub symbol uses a thin Scandinavian monoline Sigma/Pi mark',
   fs.existsSync(monogramPath) &&
     /viewBox=["']0 0 100 80["']/.test(monogram) &&
@@ -106,7 +114,7 @@ check(
     /d=["']M 84 66 L 84 16 L 18 16 L 40 40 L 18 64 L 54 64 L 54 16["']/.test(monogram) &&
     /fill=["']none["']/.test(monogram) &&
     /stroke=["']currentColor["']/.test(monogram) &&
-    /stroke-width=["']5["']/.test(monogram) &&
+    /stroke-width=["']4\.2["']/.test(monogram) &&
     /stroke-linecap=["']butt["']/.test(monogram) &&
     /stroke-linejoin=["']miter["']/.test(monogram) &&
     /stroke-miterlimit=["']2["']/.test(monogram) &&
@@ -115,9 +123,9 @@ check(
     /viewBox=["']0 0 100 80["']/.test(hubButton) &&
     /id=["']sp-monogram-line-inline["']/.test(hubButton) &&
     /d=["']M 84 66 L 84 16 L 18 16 L 40 40 L 18 64 L 54 64 L 54 16["']/.test(hubButton) &&
-    /stroke-width=["']5["']/.test(hubButton) &&
-    /width:\s*100px/.test(index) &&
-    /height:\s*54px/.test(index) &&
+    /stroke-width=["']4\.2["']/.test(hubButton) &&
+    /width:\s*78px/.test(index) &&
+    /height:\s*42px/.test(index) &&
     !/mask=/.test(hubButton) &&
     !/id=["']hub-mark-sp["']/.test(hubButton) &&
     !/id=["']hub-mark-sigma["']/.test(hubButton) &&
