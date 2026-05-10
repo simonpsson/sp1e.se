@@ -126,7 +126,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'auth'     && method === 'POST') return fredagsfettAuth(request, env);
       if (id === 'session'  && method === 'GET')  return fredagsfettSession(request, env);
       if (id === 'register' && method === 'POST') return fredagsfettRegister(request, env);
-      if (id === 'logout'   && method === 'POST') return fredagsfettLogout();
+      if (id === 'logout'   && method === 'POST') return fredagsfettLogout(request, env);
       if (id === 'admin' && sub === 'users' && !action && method === 'GET') return fredagsfettAdminUsers(request, env);
       if (id === 'admin' && sub === 'users' && action && method === 'PATCH') return fredagsfettAdminUpdateUser(request, env, action);
       if (id === 'admin' && sub === 'users' && action && method === 'DELETE') return fredagsfettAdminDeleteUser(request, env, action);
@@ -9706,7 +9706,7 @@ function spotifyBasicAuth(env: Env): string {
 // ─── Auth handlers ────────────────────────────────────────────────────────────
 
 type FredagsfettConfig = {
-  password: string;
+  passwordCandidates: string[];
   sessionSecret: string;
   hashSalt: string;
   adminNames: Set<string>;
@@ -9768,7 +9768,7 @@ async function fredagsfettAuth(request: Request, env: Env): Promise<Response> {
     return json({ error: 'För många försök. Vänta en stund.', next_allowed_at: throttle.nextAllowedAt }, 429);
   }
 
-  const valid = constantTimeStringEqual(body.password, cfg.value.password);
+  const valid = fredagsfettPasswordMatches(body.password, cfg.value.passwordCandidates);
   await fredagsfettRecordAuthAttempt(env, fingerprint.ipHash, throttle.windowStart);
   if (!valid) {
     await sleep(220 + Math.random() * 220);
@@ -9898,7 +9898,17 @@ async function fredagsfettRegister(request: Request, env: Env): Promise<Response
   }, 200, fredagsfettSessionCookie(token));
 }
 
-function fredagsfettLogout(): Response {
+async function fredagsfettLogout(request: Request, env: Env): Promise<Response> {
+  const cfg = fredagsfettConfig(env);
+  const cookie = getCookie(request, FREDAGSFETT_SESSION_COOKIE);
+  if (cfg.ok && cookie) {
+    const session = await fredagsfettSessionFromCookie(env, cookie, cfg.value.sessionSecret);
+    if (session) {
+      await env.DB.prepare(
+        `UPDATE ff_devices SET revoked_at = datetime('now'), last_seen_at = datetime('now') WHERE id = ?`
+      ).bind(session.device.id).run().catch(() => {});
+    }
+  }
   return fredagsfettJson({ success: true }, 200, clearFredagsfettSessionCookie());
 }
 
@@ -10019,16 +10029,20 @@ async function requireFredagsfettAdmin(request: Request, env: Env): Promise<{ cf
 }
 
 function fredagsfettConfig(env: Env): { ok: true; value: FredagsfettConfig } | { ok: false; response: Response } {
-  const password = env.FF_PASSWORD?.trim() || DEFAULT_FREDAGSFETT_PASSWORD;
+  const configuredPassword = env.FF_PASSWORD?.trim();
+  const passwordCandidates = Array.from(new Set([
+    configuredPassword,
+    DEFAULT_FREDAGSFETT_PASSWORD,
+  ].filter((value): value is string => Boolean(value))));
   const sessionSecret = env.FF_SESSION_SECRET?.trim();
   const hashSalt = env.FF_DEVICE_HASH_SALT?.trim();
-  if (!password || !sessionSecret || !hashSalt) {
+  if (!passwordCandidates.length || !sessionSecret || !hashSalt) {
     return { ok: false, response: json({ error: 'Fredagsfett är inte konfigurerat.' }, 500) };
   }
   return {
     ok: true,
     value: {
-      password,
+      passwordCandidates,
       sessionSecret,
       hashSalt,
       adminNames: new Set((env.FF_ADMIN_NAMES ?? '').split(',').map(n => n.trim().toLocaleLowerCase('sv-SE')).filter(Boolean)),
@@ -10198,6 +10212,14 @@ function constantTimeStringEqual(a: string, b: string): boolean {
   let diff = aBytes.length ^ bBytes.length;
   for (let i = 0; i < len; i++) diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
   return diff === 0;
+}
+
+function fredagsfettPasswordMatches(input: string, candidates: string[]): boolean {
+  let matched = false;
+  for (const candidate of candidates) {
+    matched = constantTimeStringEqual(input, candidate) || matched;
+  }
+  return matched;
 }
 
 function fredagsfettSessionCookie(token: string): string {
