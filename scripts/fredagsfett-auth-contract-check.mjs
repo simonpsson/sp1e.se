@@ -26,6 +26,7 @@ function check(name, ok) {
 
 check('Fredagsfett env vars are declared in API Env', /FF_PASSWORD\??:\s*string/.test(api) && /FF_SESSION_SECRET\??:\s*string/.test(api) && /FF_DEVICE_HASH_SALT\??:\s*string/.test(api) && /FF_ADMIN_NAMES\??:\s*string/.test(api));
 check('Fredagsfett env vars are documented in .dev.vars.example', /FF_PASSWORD=/.test(envExample) && /FF_SESSION_SECRET=/.test(envExample) && /FF_DEVICE_HASH_SALT=/.test(envExample) && /FF_ADMIN_NAMES=/.test(envExample));
+check('Fredagsfett default entry password is updated to farskfisk', /DEFAULT_FREDAGSFETT_PASSWORD\s*=\s*['"]färskfisk['"]/.test(api) && /FF_PASSWORD=färskfisk/.test(envExample));
 check('Fredagsfett migration exists with users/devices/auth tables', /CREATE TABLE IF NOT EXISTS ff_users/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_devices/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_auth_attempts/.test(migration));
 check('Fredagsfett migration includes calendar and sp1wise tables', /CREATE TABLE IF NOT EXISTS ff_availability/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_expenses/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_expense_shares/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_settlements/.test(migration));
 check('Cumulative schema includes Fredagsfett tables', /CREATE TABLE IF NOT EXISTS ff_users/.test(schema) && /CREATE TABLE IF NOT EXISTS ff_devices/.test(schema) && /CREATE TABLE IF NOT EXISTS ff_availability/.test(schema) && /CREATE TABLE IF NOT EXISTS ff_groups/.test(schema));
@@ -39,6 +40,8 @@ check('Fredagsfett admin API requires admin server-side', /async function requir
 check('Fredagsfett middleware protects section and API routes', /onRequest/.test(middleware) && /\/fredagsfett/.test(middleware) && /\/api\/fredagsfett/.test(middleware) && /verifyFredagsfettMiddlewareSession/.test(middleware));
 check('Middleware allows auth and session probes without session cookie', /\/api\/fredagsfett\/auth/.test(middleware) && /\/api\/fredagsfett\/session/.test(middleware));
 check('Fredagsfett gateway page has login/register/hub flow', /id=["']login-form["']/.test(gateway) && /id=["']register-form["']/.test(gateway) && /id=["']hub-panel["']/.test(gateway) && /\/api\/fredagsfett\/auth/.test(gateway) && /\/api\/fredagsfett\/register/.test(gateway));
+check('Fredagsfett login screen keeps the minimal landing-page lock aesthetic', /body\.login-mode/.test(gateway) && /room\.login-lock/.test(gateway) && /password-input/.test(gateway) && /aria-label=["']Lösenord['"]/.test(gateway));
+check('Fredagsfett gateway has no visible mojibake strings', !/[ÃÂ]/.test(gateway));
 check('Fredagsfett gateway exposes admin link only for admins', /id=["']admin-link["']/.test(gateway) && /user\.is_admin/.test(gateway));
 check('Fredagsfett admin page lists users and devices', /\/api\/fredagsfett\/admin\/users/.test(admin) && /data-action=["']save["']/.test(admin) && /data-action=["']delete["']/.test(admin) && /data-action=["']revoke["']/.test(admin));
 check('Fredagsfett admin page uses non-mock API mutations', /method:\s*['"]PATCH['"]/.test(admin) && /method:\s*['"]DELETE['"]/.test(admin));
