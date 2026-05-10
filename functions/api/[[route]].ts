@@ -58,6 +58,8 @@ const FREDAGSFETT_SESSION_COOKIE = 'ff_session';
 const FREDAGSFETT_SESSION_MAX_AGE_SECONDS = 2 * 365 * 24 * 60 * 60;
 const FREDAGSFETT_AUTH_WINDOW_SECONDS = 10 * 60;
 const FREDAGSFETT_AUTH_MAX_ATTEMPTS = 5;
+// Local/dev fallback only. Production should set FF_PASSWORD in Cloudflare Pages secrets.
+const DEFAULT_FREDAGSFETT_PASSWORD = 'färskfisk';
 
 const DEFAULT_CATEGORIES = [
   { id: 'power-bi',   name: 'Power BI',   icon: '⚡', sortOrder: 1 },
@@ -10017,7 +10019,7 @@ async function requireFredagsfettAdmin(request: Request, env: Env): Promise<{ cf
 }
 
 function fredagsfettConfig(env: Env): { ok: true; value: FredagsfettConfig } | { ok: false; response: Response } {
-  const password = env.FF_PASSWORD?.trim();
+  const password = env.FF_PASSWORD?.trim() || DEFAULT_FREDAGSFETT_PASSWORD;
   const sessionSecret = env.FF_SESSION_SECRET?.trim();
   const hashSalt = env.FF_DEVICE_HASH_SALT?.trim();
   if (!password || !sessionSecret || !hashSalt) {
