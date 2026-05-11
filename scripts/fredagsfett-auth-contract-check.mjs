@@ -41,13 +41,13 @@ check('Fredagsfett logout revokes the active device so auto-restore does not imm
 check('Fredagsfett admin API requires admin server-side', /async function requireFredagsfettAdmin/.test(api) && /if \(!session\.user\.is_admin\)/.test(api));
 check('Fredagsfett middleware protects section and API routes', /onRequest/.test(middleware) && /\/fredagsfett/.test(middleware) && /\/api\/fredagsfett/.test(middleware) && /verifyFredagsfettMiddlewareSession/.test(middleware));
 check('Middleware allows auth and session probes without session cookie', /\/api\/fredagsfett\/auth/.test(middleware) && /\/api\/fredagsfett\/session/.test(middleware));
-check('Fredagsfett gateway page has login/register/hub flow', /id=["']login-form["']/.test(gateway) && /id=["']register-form["']/.test(gateway) && /id=["']hub-panel["']/.test(gateway) && /\/api\/fredagsfett\/auth/.test(gateway) && /\/api\/fredagsfett\/register/.test(gateway));
+check('Fredagsfett gateway has login/register flow and redirects registered users to Kalender', /id=["']login-form["']/.test(gateway) && /id=["']register-form["']/.test(gateway) && !/id=["']hub-panel["']/.test(gateway) && /location\.(?:href|assign)\s*=\s*['"]\/fredagsfett\/kalender['"]/.test(gateway) && /\/api\/fredagsfett\/auth/.test(gateway) && /\/api\/fredagsfett\/register/.test(gateway));
 check('Fredagsfett login screen keeps the minimal landing-page lock aesthetic', /body\.login-mode/.test(gateway) && /room\.login-lock/.test(gateway) && /password-input/.test(gateway) && /aria-label=["']Lösenord['"]/.test(gateway));
 check('Fredagsfett login shell is viewport-centered, not stuck to the top edge', /body\.login-mode\s*\{[\s\S]*min-height:\s*100dvh/.test(gateway) && /body\.login-mode\s+main\s*\{[\s\S]*place-items:\s*center[\s\S]*transform:\s*translateY\(-4vh\)/.test(gateway));
 check('Fredagsfett password field stays dark under browser autofill/focus', /color-scheme:\s*dark/.test(gateway) && /-webkit-autofill/.test(gateway) && /-webkit-text-fill-color/.test(gateway));
 check('Fredagsfett password field submits explicitly on Enter', /passwordInput\.addEventListener\(['"]keydown['"]/.test(gateway) && /event\.key === ['"]Enter['"]/.test(gateway) && /loginForm\.requestSubmit/.test(gateway));
 check('Fredagsfett gateway has no visible mojibake strings', !/[ÃÂ]/.test(gateway));
-check('Fredagsfett gateway exposes admin link only for admins', /id=["']admin-link["']/.test(gateway) && /user\.is_admin/.test(gateway));
+check('Fredagsfett gateway no longer exposes an admin link in the removed hub', !/id=["']admin-link["']/.test(gateway) && !/user\.is_admin/.test(gateway));
 check('Fredagsfett admin page lists users and devices', /\/api\/fredagsfett\/admin\/users/.test(admin) && /data-action=["']save["']/.test(admin) && /data-action=["']delete["']/.test(admin) && /data-action=["']revoke["']/.test(admin));
 check('Fredagsfett admin page uses non-mock API mutations', /method:\s*['"]PATCH['"]/.test(admin) && /method:\s*['"]DELETE['"]/.test(admin));
 

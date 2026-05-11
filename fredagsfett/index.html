@@ -78,17 +78,26 @@
     transform: translateY(-4vh);
   }
 
-  .mark {
-    display: block;
+  .sp1e-wordmark {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     margin: 0 auto 1.4rem;
     width: 156px;
     color: rgba(255,255,255,0.9);
+    font-family: 'Cormorant Garamond', serif;
     font-size: 2.85rem;
     font-weight: 300;
     line-height: 1;
-    letter-spacing: 0.22em;
     text-align: center;
     text-shadow: 0 2px 24px rgba(0,0,0,0.75);
+    font-variant-numeric: lining-nums;
+    font-feature-settings: 'lnum' 1;
+    user-select: none;
+  }
+
+  .sp1e-wordmark span {
+    display: block;
+    text-align: center;
   }
 
   .room {
@@ -112,7 +121,7 @@
     overflow: visible;
   }
 
-  body.login-mode .mark,
+  body.login-mode .sp1e-wordmark,
   .room.login-lock header {
     display: none;
   }
@@ -358,7 +367,9 @@
 </head>
 <body>
 <main>
-  <div class="mark" aria-label="SP1E">SP1E</div>
+  <div class="sp1e-wordmark" aria-label="SP1E" role="img">
+    <span>S</span><span>P</span><span>1</span><span>E</span>
+  </div>
   <section class="room" id="fredagsfett-room" aria-live="polite">
     <header>
       <p class="kicker">privat rum</p>
@@ -388,27 +399,6 @@
       </form>
     </section>
 
-    <section class="panel" id="hub-panel">
-      <p class="tiny" id="welcome-line"></p>
-      <div class="grid">
-        <a class="link-card" href="/fredagsfett/kalender">
-          <strong>Kalender</strong>
-          <span>Markera tillgänglighet, lämna noteringar och hitta bästa datumet.</span>
-        </a>
-        <a class="link-card" href="/fredagsfett/sp1wise">
-          <strong>SP1Wise</strong>
-          <span>Dela utgifter, se saldon, settle-up och exportera CSV.</span>
-        </a>
-        <a class="link-card" id="admin-link" href="/fredagsfett/admin" hidden>
-          <strong>Admin</strong>
-          <span>Hantera namn och enheter.</span>
-        </a>
-      </div>
-      <div class="toolbar">
-        <a class="button" href="/">Till sp1e.se</a>
-        <button id="logout-btn" type="button">Logga ut</button>
-      </div>
-    </section>
   </section>
 </main>
 
@@ -417,7 +407,6 @@ const panels = {
   loading: document.getElementById('loading-panel'),
   login: document.getElementById('login-panel'),
   register: document.getElementById('register-panel'),
-  hub: document.getElementById('hub-panel'),
 };
 const room = document.getElementById('fredagsfett-room');
 const loginForm = document.getElementById('login-form');
@@ -425,7 +414,7 @@ const passwordInput = document.getElementById('password-input');
 const nextPath = new URLSearchParams(location.search).get('next');
 
 function showPanel(name) {
-  Object.entries(panels).forEach(([key, el]) => el.classList.toggle('active', key === name));
+  Object.entries(panels).forEach(([key, el]) => el?.classList.toggle('active', key === name));
   const isLogin = name === 'login';
   document.body.classList.toggle('login-mode', isLogin);
   room.classList.toggle('login-lock', isLogin);
@@ -453,10 +442,7 @@ function renderState(data) {
     return;
   }
 
-  const user = data.user || {};
-  document.getElementById('welcome-line').textContent = `Inloggad som ${user.name || 'okänd'}.`;
-  document.getElementById('admin-link').hidden = !user.is_admin;
-  showPanel('hub');
+  location.href = '/fredagsfett/kalender';
 }
 
 async function loadSession() {
@@ -511,11 +497,6 @@ document.getElementById('register-form').addEventListener('submit', async event 
   } finally {
     button.disabled = false;
   }
-});
-
-document.getElementById('logout-btn').addEventListener('click', async () => {
-  await api('/api/fredagsfett/logout', { method: 'POST', body: '{}' }).catch(() => {});
-  location.href = '/fredagsfett';
 });
 
 void loadSession();

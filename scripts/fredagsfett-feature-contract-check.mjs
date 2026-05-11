@@ -25,7 +25,7 @@ function check(name, ok) {
   console.error(`FAIL ${name}`);
 }
 
-check('Fredagsfett hub enables Kalender and SP1Wise cards', /href=["']\/fredagsfett\/kalender["']/.test(hub) && /href=["']\/fredagsfett\/sp1wise["']/.test(hub) && !/link-card soon/.test(hub));
+check('Fredagsfett entry skips the old hub and sends registered users straight to Kalender', !/id=["']hub-panel["']/.test(hub) && !/class=["']link-card/.test(hub) && /location\.(?:href|assign)\s*=\s*['"]\/fredagsfett\/kalender['"]/.test(hub));
 check('Fredagsfett static routes exist for Kalender and SP1Wise', fs.existsSync(files.calendar) && fs.existsSync(files.sp1wise));
 check('Redirects serve Kalender and SP1Wise as Pages routes', /\/fredagsfett\/kalender\s+\/fredagsfett\/kalender\/index\.html\s+200/.test(redirects) && /\/fredagsfett\/sp1wise\s+\/fredagsfett\/sp1wise\/index\.html\s+200/.test(redirects));
 
@@ -35,6 +35,9 @@ check('Availability API ranks best dates', /best_dates/.test(api) && /available_
 check('Calendar page renders month grid and summer shortcuts', /calendar-grid/.test(calendar) && /Juni/.test(calendar) && /Juli/.test(calendar) && /Augusti/.test(calendar));
 check('Calendar page can save available maybe unavailable and notes', /AVAILABLE/.test(calendar) && /MAYBE/.test(calendar) && /UNAVAILABLE/.test(calendar) && /note-input/.test(calendar) && /\/api\/fredagsfett\/availability/.test(calendar));
 check('Calendar page polls for updates', /setInterval\(\s*loadAvailability\s*,\s*15000\s*\)/.test(calendar));
+check('Calendar page has direct SP1Wise navigation without old hub link', /href=["']\/fredagsfett\/sp1wise["']/.test(calendar) && !/>\s*Hub\s*</i.test(calendar));
+check('Calendar removes intro copy and note placeholder text', !/class=["']subtitle["']/.test(calendar) && !/placeholder=/.test(calendar));
+check('Calendar uses exact SP1E four-column wordmark from landing page', /class=["']sp1e-wordmark["']/.test(calendar) && /<span>S<\/span><span>P<\/span><span>1<\/span><span>E<\/span>/.test(calendar) && !/class=["']mark["'][^>]*>SP1E/.test(calendar));
 
 check('SP1Wise API dispatch exists', /fredagsfettSp1wise/.test(api) && /id === ['"]sp1wise['"]/.test(api));
 check('SP1Wise API supports groups, expenses, settlements, comments and CSV export', /fredagsfettSp1wiseGroups/.test(api) && /fredagsfettSp1wiseCreateExpense/.test(api) && /fredagsfettSp1wiseCreateSettlement/.test(api) && /fredagsfettSp1wiseCreateComment/.test(api) && /text\/csv/.test(api));
