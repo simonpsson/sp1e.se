@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fredagsfett · SP1Wise</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050505;
+    --panel: rgba(10, 10, 10, 0.74);
+    --card: rgba(255,255,255,0.04);
+    --line: rgba(255,255,255,0.12);
+    --line-hot: rgba(205,176,110,0.45);
+    --text: rgba(255,255,255,0.88);
+    --muted: rgba(255,255,255,0.50);
+    --faint: rgba(255,255,255,0.30);
+    --accent: rgba(205,176,110,0.92);
+    --danger: rgba(255,104,84,0.94);
+    --green: rgba(143,207,154,0.96);
+    --red: rgba(214,111,100,0.96);
+  }
+  * { box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    margin: 0;
+    padding: clamp(1rem, 4vw, 2.5rem);
+    background:
+      linear-gradient(to bottom, rgba(0,0,0,0.22), rgba(0,0,0,0.76)),
+      url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
+      var(--bg);
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 52% 24%, rgba(255,255,255,0.08), transparent 24rem),
+      linear-gradient(90deg, rgba(0,0,0,0.70), transparent 34%, transparent 66%, rgba(0,0,0,0.70));
+  }
+  main {
+    position: relative;
+    z-index: 1;
+    width: min(1220px, 100%);
+    margin: 0 auto;
+  }
+  .mark {
+    margin: 0 0 1.35rem;
+    color: rgba(255,255,255,0.9);
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 300;
+    letter-spacing: 0.22em;
+    text-align: center;
+  }
+  .room {
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    overflow: hidden;
+    background: var(--panel);
+    box-shadow: 0 30px 110px rgba(0,0,0,0.52);
+    backdrop-filter: blur(18px);
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: clamp(1.2rem, 3vw, 1.8rem);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  h1, h2, h3, p { margin-top: 0; }
+  h1 {
+    margin-bottom: 0.55rem;
+    color: rgba(255,255,255,0.94);
+    font-size: clamp(2.7rem, 8vw, 5rem);
+    font-weight: 300;
+    line-height: 0.95;
+    letter-spacing: 0.08em;
+  }
+  h2 {
+    margin-bottom: 0.35rem;
+    color: rgba(255,255,255,0.9);
+    font-size: 1.9rem;
+    font-weight: 400;
+  }
+  h3 {
+    margin: 0 0 0.75rem;
+    color: rgba(255,255,255,0.84);
+    font-size: 1.35rem;
+    font-weight: 500;
+  }
+  .mono, .kicker, button, .button, label, select, input, .tiny {
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .kicker {
+    margin-bottom: 0.55rem;
+    color: var(--accent);
+    font-size: 0.72rem;
+  }
+  .subtitle {
+    max-width: 50rem;
+    margin-bottom: 0;
+    color: var(--muted);
+    font-size: 1.16rem;
+    line-height: 1.5;
+  }
+  .nav {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .button, button {
+    min-height: 42px;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.045);
+    color: rgba(255,255,255,0.76);
+    padding: 0.72rem 0.95rem;
+    font-size: 0.68rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .button:hover, button:hover, .button:focus-visible, button:focus-visible {
+    color: rgba(255,255,255,0.94);
+    border-color: var(--line-hot);
+    outline: none;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 1rem;
+    padding: clamp(1rem, 3vw, 1.6rem);
+  }
+  .stack { display: grid; gap: 1rem; }
+  .card {
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.035);
+    padding: 1rem;
+  }
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .balance-list, .debt-list, .activity-list, .expense-list {
+    display: grid;
+    gap: 0.65rem;
+  }
+  .balance-row, .debt-row, .activity-row, .expense-row {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 0.8rem;
+    background: rgba(0,0,0,0.24);
+  }
+  .positive { color: var(--green); }
+  .negative { color: var(--red); }
+  .amount {
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+  }
+  form {
+    display: grid;
+    gap: 0.75rem;
+  }
+  label {
+    display: grid;
+    gap: 0.35rem;
+    color: var(--muted);
+    font-size: 0.66rem;
+  }
+  input, select, textarea {
+    width: 100%;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    background: rgba(0,0,0,0.35);
+    color: var(--text);
+    padding: 0.75rem 0.8rem;
+    outline: none;
+  }
+  textarea {
+    min-height: 82px;
+    resize: vertical;
+    font: 1rem 'Cormorant Garamond', serif;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--line-hot); }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .participants {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.75rem;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    background: rgba(0,0,0,0.16);
+  }
+  .participants label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  .participants input { width: auto; }
+  .comments {
+    margin-top: 0.7rem;
+    display: grid;
+    gap: 0.35rem;
+  }
+  .comment {
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  .error {
+    min-height: 1.2rem;
+    color: var(--danger);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+  }
+  .tiny { color: var(--muted); font-size: 0.66rem; }
+  @media (max-width: 920px) {
+    header, .layout { grid-template-columns: 1fr; }
+    header { display: block; }
+    .nav { margin-top: 1rem; }
+  }
+  @media (max-width: 620px) {
+    body { padding: 0.75rem; }
+    .form-grid, .summary { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="mark">SP1E</div>
+  <section class="room">
+    <header>
+      <div>
+        <p class="kicker">Fredagsfett</p>
+        <h1>SP1Wise</h1>
+        <p class="subtitle">En liten Splitwise-klon för resan: utgifter, saldon, settle-up och CSV när någon vill granska kvittona.</p>
+      </div>
+      <nav class="nav" aria-label="Fredagsfett navigation">
+        <a class="button" href="/fredagsfett">Hub</a>
+        <a class="button" href="/fredagsfett/kalender">Kalender</a>
+        <button id="export-csv" type="button">Exportera CSV</button>
+      </nav>
+    </header>
+    <div class="layout">
+      <section class="stack">
+        <div class="card">
+          <p class="kicker">Saldo</p>
+          <div class="summary">
+            <div>
+              <h3>Personer</h3>
+              <div class="balance-list" id="balance-list"></div>
+            </div>
+            <div>
+              <h3>Förenklad skuld</h3>
+              <div class="debt-list" id="debt-list"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Utgifter</h3>
+          <div class="expense-list" id="expense-list"></div>
+        </div>
+        <div class="card">
+          <h3>Aktivitet</h3>
+          <div class="activity-list" id="activity-list"></div>
+        </div>
+      </section>
+      <aside class="stack">
+        <div class="card">
+          <p class="kicker">Ny utgift</p>
+          <form id="expense-form" class="expense-form">
+            <label>Beskrivning
+              <input id="expense-description" required maxlength="140" placeholder="Kanothyra">
+            </label>
+            <div class="form-grid">
+              <label>Belopp
+                <input id="expense-amount" required inputmode="decimal" placeholder="1200">
+              </label>
+              <label>Datum
+                <input id="expense-date" type="date" required>
+              </label>
+            </div>
+            <label>Betalare
+              <select id="expense-paid-by"></select>
+            </label>
+            <label>Delning
+              <select id="expense-split-method">
+                <option value="equal">Lika</option>
+                <option value="amount">Specifika belopp</option>
+                <option value="percent">Procent</option>
+                <option value="shares">Shares</option>
+              </select>
+            </label>
+            <div class="participants" id="expense-participants"></div>
+            <button type="submit">Lägg till utgift</button>
+          </form>
+        </div>
+        <div class="card">
+          <p class="kicker">Settle up</p>
+          <form id="settlement-form" class="settlement-form">
+            <div class="form-grid">
+              <label>Från
+                <select id="settlement-from"></select>
+              </label>
+              <label>Till
+                <select id="settlement-to"></select>
+              </label>
+            </div>
+            <label>Belopp
+              <input id="settlement-amount" inputmode="decimal" required placeholder="250">
+            </label>
+            <label>Notering
+              <input id="settlement-note" maxlength="180" placeholder="Swish">
+            </label>
+            <button type="submit">Registrera betalning</button>
+          </form>
+        </div>
+        <div class="card">
+          <p class="kicker">Kommentar</p>
+          <form id="comment-form" class="comment-form">
+            <label>Utgift
+              <select id="comment-expense"></select>
+            </label>
+            <label>Kommentar
+              <textarea id="comment-body" maxlength="500" placeholder="Vem tog kvittot?"></textarea>
+            </label>
+            <button type="submit">Kommentera</button>
+          </form>
+          <div class="error" id="sp1wise-error"></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+</main>
+<script>
+let state = {
+  group: { id: 'fredagsfett' },
+  user: null,
+  members: [],
+  expenses: [],
+  balances: [],
+  simplified_debts: [],
+  activity: [],
+};
+const errorBox = document.getElementById('sp1wise-error');
+
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(data.error || 'Något gick fel.');
+  return data;
+}
+
+function kr(cents) {
+  return `${(Number(cents || 0) / 100).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
+}
+
+function optionRows(selectedId) {
+  return state.members.map(member => `<option value="${member.id}" ${member.id === selectedId ? 'selected' : ''}>${escapeHtml(member.name)}</option>`).join('');
+}
+
+function renderForms() {
+  const ownId = state.user?.id || state.members[0]?.id || '';
+  document.getElementById('expense-paid-by').innerHTML = optionRows(ownId);
+  document.getElementById('settlement-from').innerHTML = optionRows(ownId);
+  document.getElementById('settlement-to').innerHTML = optionRows(state.members.find(member => member.id !== ownId)?.id || ownId);
+  document.getElementById('comment-expense').innerHTML = state.expenses.map(expense => `<option value="${expense.id}">${escapeHtml(expense.description)} · ${kr(expense.amount_cents)}</option>`).join('');
+  document.getElementById('expense-participants').innerHTML = state.members.map(member => `
+    <label><input type="checkbox" value="${member.id}" checked> ${escapeHtml(member.name)}</label>
+  `).join('');
+}
+
+function renderState() {
+  document.getElementById('balance-list').innerHTML = state.balances.length
+    ? state.balances.map(row => `<div class="balance-row"><strong>${escapeHtml(row.name)}</strong><div class="${row.amount_cents >= 0 ? 'positive' : 'negative'} amount">${kr(row.amount_cents)}</div></div>`).join('')
+    : '<p class="tiny">Inga saldon ännu.</p>';
+  document.getElementById('debt-list').innerHTML = state.simplified_debts.length
+    ? state.simplified_debts.map(row => `<div class="debt-row"><strong>${escapeHtml(row.from_name)} → ${escapeHtml(row.to_name)}</strong><div class="amount">${kr(row.amount_cents)}</div></div>`).join('')
+    : '<p class="tiny">Alla är kvitt just nu.</p>';
+  document.getElementById('expense-list').innerHTML = state.expenses.length
+    ? state.expenses.map(expense => `
+      <article class="expense-row">
+        <div class="nav" style="justify-content:space-between">
+          <strong>${escapeHtml(expense.description)}</strong>
+          <span class="amount">${kr(expense.amount_cents)}</span>
+        </div>
+        <p class="tiny">${escapeHtml(expense.date)} · betald av ${escapeHtml(expense.paid_by_name)} · ${escapeHtml(expense.split_method)}</p>
+        <div class="tiny">${expense.shares.map(share => `${escapeHtml(share.user_name)} ${kr(share.amount_cents)}`).join(' · ')}</div>
+        <div class="comments">${expense.comments.map(comment => `<div class="comment"><strong>${escapeHtml(comment.user_name)}:</strong> ${escapeHtml(comment.body)}</div>`).join('')}</div>
+        <div class="nav" style="margin-top:0.75rem">
+          <button type="button" data-edit-expense="${expense.id}">Redigera</button>
+          <button type="button" data-delete-expense="${expense.id}">Ta bort</button>
+        </div>
+      </article>
+    `).join('')
+    : '<p class="tiny">Inga utgifter ännu.</p>';
+  document.getElementById('activity-list').innerHTML = state.activity.length
+    ? state.activity.map(row => `<div class="activity-row"><strong>${escapeHtml(row.message)}</strong><div class="tiny">${escapeHtml(row.created_at)}</div></div>`).join('')
+    : '<p class="tiny">Ingen aktivitet ännu.</p>';
+  renderForms();
+}
+
+async function loadSp1wise() {
+  errorBox.textContent = '';
+  state = await api(`/api/fredagsfett/sp1wise?group_id=${encodeURIComponent(state.group?.id || 'fredagsfett')}`);
+  renderState();
+}
+
+async function submitExpense(event) {
+  event.preventDefault();
+  errorBox.textContent = '';
+  const form = event.currentTarget;
+  const participants = Array.from(document.querySelectorAll('#expense-participants input:checked')).map(input => input.value);
+  try {
+    state = await api('/api/fredagsfett/sp1wise/expenses', {
+      method: 'POST',
+      body: JSON.stringify({
+        group_id: state.group.id,
+        description: document.getElementById('expense-description').value,
+        amount: document.getElementById('expense-amount').value,
+        date: document.getElementById('expense-date').value,
+        paid_by_id: document.getElementById('expense-paid-by').value,
+        split_method: document.getElementById('expense-split-method').value,
+        participants,
+      }),
+    });
+    form.reset();
+    document.getElementById('expense-date').value = new Date().toISOString().slice(0, 10);
+    renderState();
+  } catch (err) {
+    errorBox.textContent = err.message;
+  }
+}
+
+async function submitSettlement(event) {
+  event.preventDefault();
+  errorBox.textContent = '';
+  const form = event.currentTarget;
+  try {
+    state = await api('/api/fredagsfett/sp1wise/settlements', {
+      method: 'POST',
+      body: JSON.stringify({
+        group_id: state.group.id,
+        from_user_id: document.getElementById('settlement-from').value,
+        to_user_id: document.getElementById('settlement-to').value,
+        amount: document.getElementById('settlement-amount').value,
+        note: document.getElementById('settlement-note').value,
+        date: new Date().toISOString().slice(0, 10),
+      }),
+    });
+    form.reset();
+    renderState();
+  } catch (err) {
+    errorBox.textContent = err.message;
+  }
+}
+
+async function submitComment(event) {
+  event.preventDefault();
+  errorBox.textContent = '';
+  try {
+    state = await api('/api/fredagsfett/sp1wise/comments', {
+      method: 'POST',
+      body: JSON.stringify({
+        expense_id: document.getElementById('comment-expense').value,
+        body: document.getElementById('comment-body').value,
+      }),
+    });
+    document.getElementById('comment-body').value = '';
+    renderState();
+  } catch (err) {
+    errorBox.textContent = err.message;
+  }
+}
+
+document.getElementById('expense-form').addEventListener('submit', submitExpense);
+document.getElementById('settlement-form').addEventListener('submit', submitSettlement);
+document.getElementById('comment-form').addEventListener('submit', submitComment);
+document.getElementById('export-csv').addEventListener('click', () => {
+  location.href = `/api/fredagsfett/sp1wise/export?group_id=${encodeURIComponent(state.group.id)}`;
+});
+document.getElementById('expense-list').addEventListener('click', async event => {
+  const editId = event.target.closest('[data-edit-expense]')?.dataset.editExpense;
+  const deleteId = event.target.closest('[data-delete-expense]')?.dataset.deleteExpense;
+  try {
+    if (editId) {
+      const expense = state.expenses.find(row => row.id === editId);
+      const description = prompt('Ny beskrivning', expense?.description || '');
+      if (!description) return;
+      const amount = prompt('Nytt belopp', expense ? String(expense.amount_cents / 100) : '');
+      if (!amount) return;
+      state = await api(`/api/fredagsfett/sp1wise/expenses/${editId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ description, amount }),
+      });
+      renderState();
+    }
+    if (deleteId && confirm('Ta bort utgiften?')) {
+      state = await api(`/api/fredagsfett/sp1wise/expenses/${deleteId}`, { method: 'DELETE' });
+      renderState();
+    }
+  } catch (err) {
+    errorBox.textContent = err.message;
+  }
+});
+
+async function boot() {
+  try {
+    const session = await api('/api/fredagsfett/session');
+    if (!session.authenticated || session.needs_registration) {
+      location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/sp1wise')}`;
+      return;
+    }
+    document.getElementById('expense-date').value = new Date().toISOString().slice(0, 10);
+    await loadSp1wise();
+  } catch {
+    location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/sp1wise')}`;
+  }
+}
+void boot();
+</script>
+</body>
+</html>

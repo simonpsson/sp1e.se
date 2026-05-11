@@ -127,6 +127,18 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'session'  && method === 'GET')  return fredagsfettSession(request, env);
       if (id === 'register' && method === 'POST') return fredagsfettRegister(request, env);
       if (id === 'logout'   && method === 'POST') return fredagsfettLogout(request, env);
+      if (id === 'availability' && !sub && method === 'GET') return fredagsfettAvailabilityList(request, env);
+      if (id === 'availability' && !sub && method === 'POST') return fredagsfettAvailabilityUpsert(request, env);
+      if (id === 'availability' && !sub && method === 'DELETE') return fredagsfettAvailabilityDelete(request, env);
+      if (id === 'sp1wise' && !sub && method === 'GET') return fredagsfettSp1wise(request, env);
+      if (id === 'sp1wise' && sub === 'groups' && !action && method === 'GET') return fredagsfettSp1wiseGroups(request, env);
+      if (id === 'sp1wise' && sub === 'groups' && !action && method === 'POST') return fredagsfettSp1wiseCreateGroup(request, env);
+      if (id === 'sp1wise' && sub === 'expenses' && !action && method === 'POST') return fredagsfettSp1wiseCreateExpense(request, env);
+      if (id === 'sp1wise' && sub === 'expenses' && action && method === 'PATCH') return fredagsfettSp1wiseUpdateExpense(request, env, action);
+      if (id === 'sp1wise' && sub === 'expenses' && action && method === 'DELETE') return fredagsfettSp1wiseDeleteExpense(request, env, action);
+      if (id === 'sp1wise' && sub === 'settlements' && !action && method === 'POST') return fredagsfettSp1wiseCreateSettlement(request, env);
+      if (id === 'sp1wise' && sub === 'comments' && !action && method === 'POST') return fredagsfettSp1wiseCreateComment(request, env);
+      if (id === 'sp1wise' && sub === 'export' && !action && method === 'GET') return fredagsfettSp1wiseExport(request, env);
       if (id === 'admin' && sub === 'users' && !action && method === 'GET') return fredagsfettAdminUsers(request, env);
       if (id === 'admin' && sub === 'users' && action && method === 'PATCH') return fredagsfettAdminUpdateUser(request, env, action);
       if (id === 'admin' && sub === 'users' && action && method === 'DELETE') return fredagsfettAdminDeleteUser(request, env, action);
@@ -9752,6 +9764,73 @@ type FredagsfettAdminDeviceRow = {
   revoked_at: string | null;
 };
 
+type FredagsfettAvailabilityRow = {
+  id: string;
+  user_id: string;
+  user_name: string;
+  date: string;
+  status: 'AVAILABLE' | 'MAYBE' | 'UNAVAILABLE';
+  note: string | null;
+  updated_at: string;
+};
+
+type FredagsfettMemberRow = {
+  id: string;
+  name: string;
+  is_admin: number;
+};
+
+type FredagsfettGroupRow = {
+  id: string;
+  name: string;
+  created_at: string;
+};
+
+type FredagsfettExpenseRow = {
+  id: string;
+  group_id: string;
+  paid_by_id: string;
+  paid_by_name: string;
+  amount_cents: number;
+  currency: string;
+  description: string;
+  date: string;
+  split_method: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type FredagsfettExpenseShareRow = {
+  id: string;
+  expense_id: string;
+  user_id: string;
+  user_name: string;
+  amount_cents: number;
+};
+
+type FredagsfettSettlementRow = {
+  id: string;
+  group_id: string;
+  from_user_id: string;
+  from_user_name: string;
+  to_user_id: string;
+  to_user_name: string;
+  amount_cents: number;
+  currency: string;
+  date: string;
+  note: string | null;
+  created_at: string;
+};
+
+type FredagsfettCommentRow = {
+  id: string;
+  expense_id: string;
+  user_id: string;
+  user_name: string;
+  body: string;
+  created_at: string;
+};
+
 async function fredagsfettAuth(request: Request, env: Env): Promise<Response> {
   const cfg = fredagsfettConfig(env);
   if (!cfg.ok) return cfg.response;
@@ -9912,6 +9991,289 @@ async function fredagsfettLogout(request: Request, env: Env): Promise<Response> 
   return fredagsfettJson({ success: true }, 200, clearFredagsfettSessionCookie());
 }
 
+async function fredagsfettAvailabilityList(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const url = new URL(request.url);
+  const month = normalizeFredagsfettMonth(url.searchParams.get('month')) ?? currentFredagsfettMonth();
+  const nextMonth = addMonthsToFredagsfettMonth(month, 1);
+
+  const entries = await env.DB.prepare(
+    `SELECT a.id, a.user_id, u.name AS user_name, a.date, a.status, a.note, a.updated_at
+       FROM ff_availability a
+       JOIN ff_users u ON u.id = a.user_id AND u.deleted_at IS NULL
+      WHERE a.date >= ? AND a.date < ?
+      ORDER BY a.date ASC, u.name COLLATE NOCASE ASC`
+  ).bind(month, nextMonth).all<FredagsfettAvailabilityRow>();
+
+  const bestDates = await env.DB.prepare(
+    `SELECT a.date,
+            SUM(CASE WHEN a.status = 'AVAILABLE' THEN 1 ELSE 0 END) AS available_count,
+            SUM(CASE WHEN a.status = 'MAYBE' THEN 1 ELSE 0 END) AS maybe_count,
+            SUM(CASE WHEN a.status = 'UNAVAILABLE' THEN 1 ELSE 0 END) AS unavailable_count
+       FROM ff_availability a
+       JOIN ff_users u ON u.id = a.user_id AND u.deleted_at IS NULL
+      WHERE a.date >= date('now')
+      GROUP BY a.date
+      ORDER BY available_count DESC, unavailable_count ASC, maybe_count DESC, a.date ASC
+      LIMIT 8`
+  ).all<{ date: string; available_count: number; maybe_count: number; unavailable_count: number }>();
+
+  return json({
+    user: fredagsfettUserPayload(session.user),
+    month,
+    entries: (entries.results ?? []).map(entry => ({
+      ...entry,
+      is_self: entry.user_id === session.user.id,
+    })),
+    best_dates: (bestDates.results ?? []).map(row => ({
+      date: row.date,
+      available_count: Number(row.available_count ?? 0),
+      maybe_count: Number(row.maybe_count ?? 0),
+      unavailable_count: Number(row.unavailable_count ?? 0),
+    })),
+  });
+}
+
+async function fredagsfettAvailabilityUpsert(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  let body: { date?: string; status?: string; note?: string | null };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+
+  const date = normalizeFredagsfettDate(body.date);
+  if (!date) return json({ error: 'Ogiltigt datum.' }, 400);
+  const status = normalizeFredagsfettAvailabilityStatus(body.status);
+  if (!status) return json({ error: 'Välj Tillgänglig, Kanske eller Inte tillgänglig.' }, 400);
+  const note = normalizeFredagsfettShortText(body.note, 240);
+
+  const id = crypto.randomUUID();
+  await env.DB.prepare(
+    `INSERT INTO ff_availability (id, user_id, date, status, note, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(user_id, date) DO UPDATE SET
+       status = excluded.status,
+       note = excluded.note,
+       updated_at = datetime('now')`
+  ).bind(id, session.user.id, date, status, note).run();
+
+  await fredagsfettLog(env, 'fredagsfett', session.user.id, 'availability', 'availability', date, `${session.user.name} markerade ${fredagsfettAvailabilityLabel(status).toLowerCase()} ${date}.`);
+  return json({ success: true });
+}
+
+async function fredagsfettAvailabilityDelete(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const date = normalizeFredagsfettDate(new URL(request.url).searchParams.get('date'));
+  if (!date) return json({ error: 'Ogiltigt datum.' }, 400);
+  await env.DB.prepare(`DELETE FROM ff_availability WHERE user_id = ? AND date = ?`).bind(session.user.id, date).run();
+  return json({ success: true });
+}
+
+async function fredagsfettSp1wise(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  await fredagsfettEnsureDefaultMembership(env, session.user.id, !!session.user.is_admin);
+  const url = new URL(request.url);
+  const groupId = normalizeFredagsfettId(url.searchParams.get('group_id')) ?? 'fredagsfett';
+  return json(await fredagsfettBuildSp1wiseState(env, session.user, groupId));
+}
+
+async function fredagsfettSp1wiseGroups(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  await fredagsfettEnsureDefaultMembership(env, session.user.id, !!session.user.is_admin);
+  const groups = await env.DB.prepare(
+    `SELECT g.id, g.name, g.created_at
+       FROM ff_groups g
+       JOIN ff_group_members gm ON gm.group_id = g.id
+      WHERE gm.user_id = ?
+      ORDER BY g.created_at ASC`
+  ).bind(session.user.id).all<FredagsfettGroupRow>();
+  return json({ groups: groups.results ?? [] });
+}
+
+async function fredagsfettSp1wiseCreateGroup(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  let body: { name?: string };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+  const name = normalizeFredagsfettShortText(body.name, 80);
+  if (!name) return json({ error: 'Ange ett gruppnamn.' }, 400);
+  const id = `ff-${crypto.randomUUID()}`;
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO ff_groups (id, name, created_at) VALUES (?, ?, datetime('now'))`).bind(id, name),
+    env.DB.prepare(`INSERT INTO ff_group_members (group_id, user_id, role, created_at) VALUES (?, ?, 'admin', datetime('now'))`).bind(id, session.user.id),
+  ]);
+  return json({ success: true, group: { id, name } });
+}
+
+async function fredagsfettSp1wiseCreateExpense(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  let body: {
+    group_id?: string;
+    paid_by_id?: string;
+    amount?: number | string;
+    currency?: string;
+    description?: string;
+    date?: string;
+    split_method?: string;
+    participants?: string[];
+    shares?: Array<{ user_id?: string; amount?: number | string; percent?: number | string; shares?: number | string }>;
+  };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+
+  const groupId = normalizeFredagsfettId(body.group_id) ?? 'fredagsfett';
+  const members = await fredagsfettLoadGroupMembers(env, groupId);
+  if (!members.some(member => member.id === session.user.id)) return json({ error: 'Du är inte medlem i gruppen.' }, 403);
+  const paidById = normalizeFredagsfettId(body.paid_by_id) ?? session.user.id;
+  if (!members.some(member => member.id === paidById)) return json({ error: 'Betalaren finns inte i gruppen.' }, 400);
+  const amountCents = parseFredagsfettMoney(body.amount);
+  if (!amountCents || amountCents > 10_000_000_00) return json({ error: 'Ange ett rimligt belopp.' }, 400);
+  const description = normalizeFredagsfettShortText(body.description, 140);
+  if (!description) return json({ error: 'Ange en beskrivning.' }, 400);
+  const date = normalizeFredagsfettDate(body.date) ?? currentFredagsfettDate();
+  const currency = normalizeFredagsfettCurrency(body.currency);
+  const splitMethod = normalizeFredagsfettSplitMethod(body.split_method);
+  const shares = buildFredagsfettExpenseShares(amountCents, splitMethod, body, members);
+  if (!shares.length) return json({ error: 'Kunde inte räkna ut delningen.' }, 400);
+
+  const expenseId = crypto.randomUUID();
+  const statements = [
+    env.DB.prepare(
+      `INSERT INTO ff_expenses (id, group_id, paid_by_id, amount_cents, currency, description, date, split_method, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+    ).bind(expenseId, groupId, paidById, amountCents, currency, description, date, splitMethod),
+    ...shares.map(share => env.DB.prepare(
+      `INSERT INTO ff_expense_shares (id, expense_id, user_id, amount_cents) VALUES (?, ?, ?, ?)`
+    ).bind(crypto.randomUUID(), expenseId, share.user_id, share.amount_cents)),
+    fredagsfettLogStatement(env, groupId, session.user.id, 'expense', 'expense', expenseId, `${session.user.name} lade till ${description} på ${formatFredagsfettKr(amountCents)}.`),
+  ];
+  await env.DB.batch(statements);
+  return json({ success: true, ...(await fredagsfettBuildSp1wiseState(env, session.user, groupId)) });
+}
+
+async function fredagsfettSp1wiseUpdateExpense(request: Request, env: Env, expenseId: string): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  let body: { amount?: number | string; description?: string; date?: string };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+
+  const expense = await fredagsfettLoadExpenseForMember(env, expenseId, session.user.id);
+  if (!expense) return json({ error: 'Utgiften hittades inte.' }, 404);
+  const amountCents = parseFredagsfettMoney(body.amount) ?? Number(expense.amount_cents);
+  const description = normalizeFredagsfettShortText(body.description, 140) ?? expense.description;
+  const date = normalizeFredagsfettDate(body.date) ?? expense.date;
+  const currentShares = await env.DB.prepare(
+    `SELECT user_id, amount_cents FROM ff_expense_shares WHERE expense_id = ? ORDER BY user_id ASC`
+  ).bind(expenseId).all<{ user_id: string; amount_cents: number }>();
+  const shareUsers = (currentShares.results ?? []).map(share => share.user_id);
+  const members = await fredagsfettLoadGroupMembers(env, expense.group_id);
+  const shares = distributeFredagsfettEqual(amountCents, shareUsers.length ? shareUsers : members.map(member => member.id));
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE ff_expenses SET amount_cents = ?, description = ?, date = ?, updated_at = datetime('now') WHERE id = ?`
+    ).bind(amountCents, description, date, expenseId),
+    env.DB.prepare(`DELETE FROM ff_expense_shares WHERE expense_id = ?`).bind(expenseId),
+    ...shares.map(share => env.DB.prepare(
+      `INSERT INTO ff_expense_shares (id, expense_id, user_id, amount_cents) VALUES (?, ?, ?, ?)`
+    ).bind(crypto.randomUUID(), expenseId, share.user_id, share.amount_cents)),
+    fredagsfettLogStatement(env, expense.group_id, session.user.id, 'expense_update', 'expense', expenseId, `${session.user.name} ändrade ${description}.`),
+  ]);
+  return json({ success: true, ...(await fredagsfettBuildSp1wiseState(env, session.user, expense.group_id)) });
+}
+
+async function fredagsfettSp1wiseDeleteExpense(request: Request, env: Env, expenseId: string): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const expense = await fredagsfettLoadExpenseForMember(env, expenseId, session.user.id);
+  if (!expense) return json({ error: 'Utgiften hittades inte.' }, 404);
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE ff_expenses SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).bind(expenseId),
+    fredagsfettLogStatement(env, expense.group_id, session.user.id, 'expense_delete', 'expense', expenseId, `${session.user.name} tog bort ${expense.description}.`),
+  ]);
+  return json({ success: true, ...(await fredagsfettBuildSp1wiseState(env, session.user, expense.group_id)) });
+}
+
+async function fredagsfettSp1wiseCreateSettlement(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  let body: { group_id?: string; from_user_id?: string; to_user_id?: string; amount?: number | string; currency?: string; date?: string; note?: string };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+
+  const groupId = normalizeFredagsfettId(body.group_id) ?? 'fredagsfett';
+  const members = await fredagsfettLoadGroupMembers(env, groupId);
+  if (!members.some(member => member.id === session.user.id)) return json({ error: 'Du är inte medlem i gruppen.' }, 403);
+  const fromUserId = normalizeFredagsfettId(body.from_user_id);
+  const toUserId = normalizeFredagsfettId(body.to_user_id);
+  if (!fromUserId || !toUserId || fromUserId === toUserId) return json({ error: 'Välj två olika personer.' }, 400);
+  if (!members.some(member => member.id === fromUserId) || !members.some(member => member.id === toUserId)) return json({ error: 'Personen finns inte i gruppen.' }, 400);
+  const amountCents = parseFredagsfettMoney(body.amount);
+  if (!amountCents) return json({ error: 'Ange ett belopp.' }, 400);
+  const date = normalizeFredagsfettDate(body.date) ?? currentFredagsfettDate();
+  const note = normalizeFredagsfettShortText(body.note, 180);
+  const id = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO ff_settlements (id, group_id, from_user_id, to_user_id, amount_cents, currency, date, note, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+    ).bind(id, groupId, fromUserId, toUserId, amountCents, normalizeFredagsfettCurrency(body.currency), date, note),
+    fredagsfettLogStatement(env, groupId, session.user.id, 'settlement', 'settlement', id, `${session.user.name} registrerade en betalning på ${formatFredagsfettKr(amountCents)}.`),
+  ]);
+  return json({ success: true, ...(await fredagsfettBuildSp1wiseState(env, session.user, groupId)) });
+}
+
+async function fredagsfettSp1wiseCreateComment(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  let body: { expense_id?: string; body?: string };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+  const expenseId = normalizeFredagsfettId(body.expense_id);
+  const commentBody = normalizeFredagsfettShortText(body.body, 500);
+  if (!expenseId || !commentBody) return json({ error: 'Kommentaren saknar innehåll.' }, 400);
+  const expense = await fredagsfettLoadExpenseForMember(env, expenseId, session.user.id);
+  if (!expense) return json({ error: 'Utgiften hittades inte.' }, 404);
+  const id = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO ff_comments (id, expense_id, user_id, body, created_at) VALUES (?, ?, ?, ?, datetime('now'))`
+    ).bind(id, expenseId, session.user.id, commentBody),
+    fredagsfettLogStatement(env, expense.group_id, session.user.id, 'comment', 'expense', expenseId, `${session.user.name} kommenterade ${expense.description}.`),
+  ]);
+  return json({ success: true, ...(await fredagsfettBuildSp1wiseState(env, session.user, expense.group_id)) });
+}
+
+async function fredagsfettSp1wiseExport(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const groupId = normalizeFredagsfettId(new URL(request.url).searchParams.get('group_id')) ?? 'fredagsfett';
+  const state = await fredagsfettBuildSp1wiseState(env, session.user, groupId);
+  const lines = [
+    ['typ', 'datum', 'beskrivning', 'betalare/fran', 'till', 'belopp', 'valuta'].join(','),
+    ...state.expenses.map(expense => [
+      'expense',
+      expense.date,
+      csvFredagsfett(expense.description),
+      csvFredagsfett(expense.paid_by_name),
+      '',
+      (expense.amount_cents / 100).toFixed(2),
+      expense.currency,
+    ].join(',')),
+    ...state.settlements.map(settlement => [
+      'settlement',
+      settlement.date,
+      csvFredagsfett(settlement.note || 'Settle up'),
+      csvFredagsfett(settlement.from_user_name),
+      csvFredagsfett(settlement.to_user_name),
+      (settlement.amount_cents / 100).toFixed(2),
+      settlement.currency,
+    ].join(',')),
+  ];
+  return new Response(lines.join('\n'), {
+    headers: {
+      ...cors(),
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="sp1wise-${groupId}.csv"`,
+    },
+  });
+}
+
 async function fredagsfettAdminUsers(request: Request, env: Env): Promise<Response> {
   const session = await requireFredagsfettAdmin(request, env);
   const users = await env.DB.prepare(
@@ -10009,6 +10371,340 @@ async function fredagsfettAdminRevokeDevice(request: Request, env: Env, deviceId
   ).bind(deviceId).run();
   if (!result.meta?.changes) return json({ error: 'Enheten hittades inte eller är redan återkallad.' }, 404);
   return json({ success: true });
+}
+
+async function fredagsfettBuildSp1wiseState(env: Env, user: FredagsfettUserRow, groupId: string) {
+  await fredagsfettEnsureDefaultMembership(env, user.id, !!user.is_admin);
+  const membership = await env.DB.prepare(
+    `SELECT group_id FROM ff_group_members WHERE group_id = ? AND user_id = ?`
+  ).bind(groupId, user.id).first<{ group_id: string }>();
+  if (!membership) throw new HttpError(403, 'Du är inte medlem i gruppen.');
+
+  const group = await env.DB.prepare(
+    `SELECT id, name, created_at FROM ff_groups WHERE id = ?`
+  ).bind(groupId).first<FredagsfettGroupRow>();
+  if (!group) throw new HttpError(404, 'Gruppen hittades inte.');
+
+  const groups = await env.DB.prepare(
+    `SELECT g.id, g.name, g.created_at
+       FROM ff_groups g
+       JOIN ff_group_members gm ON gm.group_id = g.id
+      WHERE gm.user_id = ?
+      ORDER BY g.created_at ASC`
+  ).bind(user.id).all<FredagsfettGroupRow>();
+  const members = await fredagsfettLoadGroupMembers(env, groupId);
+  const expenses = await env.DB.prepare(
+    `SELECT e.id, e.group_id, e.paid_by_id, u.name AS paid_by_name, e.amount_cents, e.currency,
+            e.description, e.date, e.split_method, e.created_at, e.updated_at
+       FROM ff_expenses e
+       JOIN ff_users u ON u.id = e.paid_by_id
+      WHERE e.group_id = ? AND e.deleted_at IS NULL
+      ORDER BY e.date DESC, e.created_at DESC`
+  ).bind(groupId).all<FredagsfettExpenseRow>();
+  const expenseIds = (expenses.results ?? []).map(expense => expense.id);
+
+  const shares = expenseIds.length
+    ? await env.DB.prepare(
+        `SELECT s.id, s.expense_id, s.user_id, u.name AS user_name, s.amount_cents
+           FROM ff_expense_shares s
+           JOIN ff_users u ON u.id = s.user_id
+          WHERE s.expense_id IN (${expenseIds.map(() => '?').join(',')})
+          ORDER BY u.name COLLATE NOCASE ASC`
+      ).bind(...expenseIds).all<FredagsfettExpenseShareRow>()
+    : { results: [] as FredagsfettExpenseShareRow[] };
+  const comments = expenseIds.length
+    ? await env.DB.prepare(
+        `SELECT c.id, c.expense_id, c.user_id, u.name AS user_name, c.body, c.created_at
+           FROM ff_comments c
+           JOIN ff_users u ON u.id = c.user_id
+          WHERE c.expense_id IN (${expenseIds.map(() => '?').join(',')})
+          ORDER BY c.created_at ASC`
+      ).bind(...expenseIds).all<FredagsfettCommentRow>()
+    : { results: [] as FredagsfettCommentRow[] };
+  const settlements = await env.DB.prepare(
+    `SELECT st.id, st.group_id, st.from_user_id, fu.name AS from_user_name,
+            st.to_user_id, tu.name AS to_user_name, st.amount_cents, st.currency,
+            st.date, st.note, st.created_at
+       FROM ff_settlements st
+       JOIN ff_users fu ON fu.id = st.from_user_id
+       JOIN ff_users tu ON tu.id = st.to_user_id
+      WHERE st.group_id = ?
+      ORDER BY st.date DESC, st.created_at DESC`
+  ).bind(groupId).all<FredagsfettSettlementRow>();
+  const activity = await env.DB.prepare(
+    `SELECT id, user_id AS actor_id, type, body AS message, created_at
+       FROM ff_activity_log
+      WHERE group_id = ?
+      ORDER BY created_at DESC
+      LIMIT 40`
+  ).bind(groupId).all<{ id: string; actor_id: string | null; type: string; message: string; created_at: string }>();
+
+  const sharesByExpense = new Map<string, FredagsfettExpenseShareRow[]>();
+  for (const share of shares.results ?? []) {
+    const list = sharesByExpense.get(share.expense_id) ?? [];
+    list.push(share);
+    sharesByExpense.set(share.expense_id, list);
+  }
+  const commentsByExpense = new Map<string, FredagsfettCommentRow[]>();
+  for (const comment of comments.results ?? []) {
+    const list = commentsByExpense.get(comment.expense_id) ?? [];
+    list.push(comment);
+    commentsByExpense.set(comment.expense_id, list);
+  }
+
+  const balances = new Map<string, number>();
+  for (const member of members) balances.set(member.id, 0);
+  for (const expense of expenses.results ?? []) {
+    balances.set(expense.paid_by_id, (balances.get(expense.paid_by_id) ?? 0) + Number(expense.amount_cents));
+    for (const share of sharesByExpense.get(expense.id) ?? []) {
+      balances.set(share.user_id, (balances.get(share.user_id) ?? 0) - Number(share.amount_cents));
+    }
+  }
+  for (const settlement of settlements.results ?? []) {
+    balances.set(settlement.from_user_id, (balances.get(settlement.from_user_id) ?? 0) + Number(settlement.amount_cents));
+    balances.set(settlement.to_user_id, (balances.get(settlement.to_user_id) ?? 0) - Number(settlement.amount_cents));
+  }
+
+  const balanceRows = members.map(member => ({
+    user_id: member.id,
+    name: member.name,
+    amount_cents: balances.get(member.id) ?? 0,
+  }));
+
+  return {
+    user: fredagsfettUserPayload(user),
+    group,
+    groups: groups.results ?? [],
+    members: members.map(member => ({ id: member.id, name: member.name, is_admin: !!member.is_admin })),
+    expenses: (expenses.results ?? []).map(expense => ({
+      ...expense,
+      amount_cents: Number(expense.amount_cents),
+      shares: (sharesByExpense.get(expense.id) ?? []).map(share => ({ ...share, amount_cents: Number(share.amount_cents) })),
+      comments: commentsByExpense.get(expense.id) ?? [],
+    })),
+    settlements: (settlements.results ?? []).map(settlement => ({ ...settlement, amount_cents: Number(settlement.amount_cents) })),
+    balances: balanceRows,
+    simplified_debts: fredagsfettSimplifyDebts(balanceRows),
+    activity: activity.results ?? [],
+  };
+}
+
+async function fredagsfettEnsureDefaultMembership(env: Env, userId: string, isAdmin: boolean): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare(`INSERT OR IGNORE INTO ff_groups (id, name, created_at) VALUES ('fredagsfett', 'Fredagsfett', datetime('now'))`),
+    env.DB.prepare(`INSERT OR IGNORE INTO ff_group_members (group_id, user_id, role, created_at) VALUES ('fredagsfett', ?, ?, datetime('now'))`).bind(userId, isAdmin ? 'admin' : 'member'),
+  ]);
+}
+
+async function fredagsfettLoadGroupMembers(env: Env, groupId: string): Promise<FredagsfettMemberRow[]> {
+  const members = await env.DB.prepare(
+    `SELECT u.id, u.name, u.is_admin
+       FROM ff_group_members gm
+       JOIN ff_users u ON u.id = gm.user_id AND u.deleted_at IS NULL
+      WHERE gm.group_id = ?
+      ORDER BY u.name COLLATE NOCASE ASC`
+  ).bind(groupId).all<FredagsfettMemberRow>();
+  return members.results ?? [];
+}
+
+async function fredagsfettLoadExpenseForMember(env: Env, expenseId: string, userId: string): Promise<FredagsfettExpenseRow | null> {
+  const id = normalizeFredagsfettId(expenseId);
+  if (!id) return null;
+  return await env.DB.prepare(
+    `SELECT e.id, e.group_id, e.paid_by_id, u.name AS paid_by_name, e.amount_cents, e.currency,
+            e.description, e.date, e.split_method, e.created_at, e.updated_at
+       FROM ff_expenses e
+       JOIN ff_group_members gm ON gm.group_id = e.group_id AND gm.user_id = ?
+       JOIN ff_users u ON u.id = e.paid_by_id
+      WHERE e.id = ? AND e.deleted_at IS NULL`
+  ).bind(userId, id).first<FredagsfettExpenseRow>();
+}
+
+function fredagsfettSimplifyDebts(balances: Array<{ user_id: string; name: string; amount_cents: number }>) {
+  const debtors = balances
+    .filter(row => row.amount_cents < 0)
+    .map(row => ({ ...row, amount_cents: Math.abs(row.amount_cents) }))
+    .sort((a, b) => b.amount_cents - a.amount_cents);
+  const creditors = balances
+    .filter(row => row.amount_cents > 0)
+    .map(row => ({ ...row }))
+    .sort((a, b) => b.amount_cents - a.amount_cents);
+  const result: Array<{ from_user_id: string; from_name: string; to_user_id: string; to_name: string; amount_cents: number }> = [];
+  let i = 0;
+  let j = 0;
+  while (i < debtors.length && j < creditors.length) {
+    const amount = Math.min(debtors[i].amount_cents, creditors[j].amount_cents);
+    if (amount > 0) {
+      result.push({
+        from_user_id: debtors[i].user_id,
+        from_name: debtors[i].name,
+        to_user_id: creditors[j].user_id,
+        to_name: creditors[j].name,
+        amount_cents: amount,
+      });
+    }
+    debtors[i].amount_cents -= amount;
+    creditors[j].amount_cents -= amount;
+    if (debtors[i].amount_cents <= 0) i++;
+    if (creditors[j].amount_cents <= 0) j++;
+  }
+  return result;
+}
+
+function buildFredagsfettExpenseShares(
+  amountCents: number,
+  splitMethod: string,
+  body: { participants?: string[]; shares?: Array<{ user_id?: string; amount?: number | string; percent?: number | string; shares?: number | string }> },
+  members: FredagsfettMemberRow[]
+): Array<{ user_id: string; amount_cents: number }> {
+  const memberIds = new Set(members.map(member => member.id));
+  const requestedParticipants = (body.participants ?? []).map(normalizeFredagsfettId).filter((id): id is string => !!id && memberIds.has(id));
+  const participants = requestedParticipants.length ? requestedParticipants : members.map(member => member.id);
+  if (!participants.length) return [];
+
+  if (splitMethod === 'AMOUNTS') {
+    const rows = (body.shares ?? [])
+      .map(share => ({ user_id: normalizeFredagsfettId(share.user_id), amount_cents: parseFredagsfettMoney(share.amount) }))
+      .filter((share): share is { user_id: string; amount_cents: number } => !!share.user_id && memberIds.has(share.user_id) && !!share.amount_cents);
+    const total = rows.reduce((sum, row) => sum + row.amount_cents, 0);
+    return total === amountCents ? rows : [];
+  }
+
+  if (splitMethod === 'PERCENT') {
+    const rows = (body.shares ?? [])
+      .map(share => ({ user_id: normalizeFredagsfettId(share.user_id), percent: Number(String(share.percent ?? '').replace(',', '.')) }))
+      .filter((share): share is { user_id: string; percent: number } => !!share.user_id && memberIds.has(share.user_id) && Number.isFinite(share.percent) && share.percent > 0);
+    const percentTotal = rows.reduce((sum, row) => sum + row.percent, 0);
+    if (Math.abs(percentTotal - 100) > 0.01) return [];
+    let remaining = amountCents;
+    return rows.map((row, index) => {
+      const amount = index === rows.length - 1 ? remaining : Math.round(amountCents * (row.percent / 100));
+      remaining -= amount;
+      return { user_id: row.user_id, amount_cents: amount };
+    });
+  }
+
+  if (splitMethod === 'SHARES') {
+    const rows = (body.shares ?? [])
+      .map(share => ({ user_id: normalizeFredagsfettId(share.user_id), shares: Number(String(share.shares ?? '').replace(',', '.')) }))
+      .filter((share): share is { user_id: string; shares: number } => !!share.user_id && memberIds.has(share.user_id) && Number.isFinite(share.shares) && share.shares > 0);
+    const shareTotal = rows.reduce((sum, row) => sum + row.shares, 0);
+    if (!shareTotal) return [];
+    let remaining = amountCents;
+    return rows.map((row, index) => {
+      const amount = index === rows.length - 1 ? remaining : Math.round(amountCents * (row.shares / shareTotal));
+      remaining -= amount;
+      return { user_id: row.user_id, amount_cents: amount };
+    });
+  }
+
+  return distributeFredagsfettEqual(amountCents, participants);
+}
+
+function distributeFredagsfettEqual(amountCents: number, userIds: string[]): Array<{ user_id: string; amount_cents: number }> {
+  const uniqueIds = Array.from(new Set(userIds.map(normalizeFredagsfettId).filter((id): id is string => !!id)));
+  if (!uniqueIds.length) return [];
+  const base = Math.floor(amountCents / uniqueIds.length);
+  let remainder = amountCents - base * uniqueIds.length;
+  return uniqueIds.map(userId => {
+    const extra = remainder > 0 ? 1 : 0;
+    remainder -= extra;
+    return { user_id: userId, amount_cents: base + extra };
+  });
+}
+
+function normalizeFredagsfettMonth(value: string | null | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}-01T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return value;
+}
+
+function addMonthsToFredagsfettMonth(month: string, offset: number): string {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const date = new Date(Date.UTC(year, monthNumber - 1 + offset, 1));
+  return date.toISOString().slice(0, 7);
+}
+
+function currentFredagsfettMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function currentFredagsfettDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeFredagsfettDate(value: string | null | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null;
+  return value;
+}
+
+function normalizeFredagsfettAvailabilityStatus(value: string | null | undefined): FredagsfettAvailabilityRow['status'] | null {
+  if (value === 'AVAILABLE' || value === 'MAYBE' || value === 'UNAVAILABLE') return value;
+  return null;
+}
+
+function fredagsfettAvailabilityLabel(status: FredagsfettAvailabilityRow['status']): string {
+  if (status === 'AVAILABLE') return 'Tillgänglig';
+  if (status === 'MAYBE') return 'Kanske';
+  return 'Inte tillgänglig';
+}
+
+function normalizeFredagsfettShortText(value: unknown, maxLength: number): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim().replace(/\s+/g, ' ');
+  if (!text) return null;
+  return text.slice(0, maxLength);
+}
+
+function normalizeFredagsfettId(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const id = value.trim();
+  return /^[a-zA-Z0-9_-]{1,80}$/.test(id) ? id : null;
+}
+
+function normalizeFredagsfettCurrency(value: unknown): string {
+  if (typeof value !== 'string') return 'SEK';
+  const currency = value.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(currency) ? currency : 'SEK';
+}
+
+function normalizeFredagsfettSplitMethod(value: unknown): 'EQUAL' | 'AMOUNTS' | 'PERCENT' | 'SHARES' {
+  const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (raw === 'amount' || raw === 'amounts') return 'AMOUNTS';
+  if (raw === 'percent') return 'PERCENT';
+  if (raw === 'shares') return 'SHARES';
+  return 'EQUAL';
+}
+
+function parseFredagsfettMoney(value: unknown): number | null {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  const n = typeof value === 'number' ? value : Number(value.replace(/\s/g, '').replace(',', '.'));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100);
+}
+
+function formatFredagsfettKr(amountCents: number): string {
+  return `${(amountCents / 100).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr`;
+}
+
+async function fredagsfettLog(env: Env, groupId: string, actorId: string | null, type: string, entityType: string | null, entityId: string | null, message: string): Promise<void> {
+  await fredagsfettLogStatement(env, groupId, actorId, type, entityType, entityId, message).run();
+}
+
+function fredagsfettLogStatement(env: Env, groupId: string, actorId: string | null, type: string, entityType: string | null, entityId: string | null, message: string) {
+  return env.DB.prepare(
+    `INSERT INTO ff_activity_log (id, group_id, user_id, type, entity_type, entity_id, body, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+  ).bind(crypto.randomUUID(), groupId, actorId, type, entityType, entityId, message);
+}
+
+function csvFredagsfett(value: unknown): string {
+  const text = String(value ?? '');
+  if (!/[",\n]/.test(text)) return text;
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 async function requireFredagsfettUser(request: Request, env: Env): Promise<{ cfg: FredagsfettConfig; payload: FredagsfettSessionPayload; device: FredagsfettDeviceRow; user: FredagsfettUserRow }> {

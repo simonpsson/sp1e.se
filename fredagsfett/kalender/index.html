@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fredagsfett · Kalender</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050505;
+    --panel: rgba(10, 10, 10, 0.74);
+    --card: rgba(255,255,255,0.04);
+    --line: rgba(255,255,255,0.12);
+    --line-hot: rgba(205,176,110,0.45);
+    --text: rgba(255,255,255,0.88);
+    --muted: rgba(255,255,255,0.50);
+    --faint: rgba(255,255,255,0.30);
+    --accent: rgba(205,176,110,0.92);
+    --danger: rgba(255,104,84,0.94);
+    --available: #8fcf9a;
+    --maybe: #d9bd67;
+    --unavailable: #d66f64;
+  }
+  * { box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    margin: 0;
+    padding: clamp(1rem, 4vw, 2.5rem);
+    background:
+      linear-gradient(to bottom, rgba(0,0,0,0.22), rgba(0,0,0,0.74)),
+      url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
+      var(--bg);
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 52% 24%, rgba(255,255,255,0.08), transparent 24rem),
+      linear-gradient(90deg, rgba(0,0,0,0.70), transparent 34%, transparent 66%, rgba(0,0,0,0.70));
+  }
+  main {
+    position: relative;
+    z-index: 1;
+    width: min(1180px, 100%);
+    margin: 0 auto;
+  }
+  .mark {
+    margin: 0 0 1.35rem;
+    color: rgba(255,255,255,0.9);
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 300;
+    letter-spacing: 0.22em;
+    text-align: center;
+  }
+  .room {
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    overflow: hidden;
+    background: var(--panel);
+    box-shadow: 0 30px 110px rgba(0,0,0,0.52);
+    backdrop-filter: blur(18px);
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: clamp(1.2rem, 3vw, 1.8rem);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  h1, h2, h3, p { margin-top: 0; }
+  h1 {
+    margin-bottom: 0.55rem;
+    color: rgba(255,255,255,0.94);
+    font-size: clamp(2.7rem, 8vw, 5rem);
+    font-weight: 300;
+    line-height: 0.95;
+    letter-spacing: 0.08em;
+  }
+  h2 {
+    margin-bottom: 0.35rem;
+    color: rgba(255,255,255,0.9);
+    font-size: 2rem;
+    font-weight: 400;
+  }
+  h3 {
+    margin-bottom: 0.75rem;
+    color: rgba(255,255,255,0.84);
+    font-size: 1.3rem;
+    font-weight: 500;
+  }
+  .mono, .kicker, button, .button, label, .weekday, .tiny, .status-pill {
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .kicker {
+    margin-bottom: 0.55rem;
+    color: var(--accent);
+    font-size: 0.72rem;
+  }
+  .subtitle {
+    max-width: 48rem;
+    margin-bottom: 0;
+    color: var(--muted);
+    font-size: 1.16rem;
+    line-height: 1.5;
+  }
+  .nav {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .button, button {
+    min-height: 42px;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.045);
+    color: rgba(255,255,255,0.76);
+    padding: 0.72rem 0.95rem;
+    font-size: 0.68rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .button:hover, button:hover, .button:focus-visible, button:focus-visible {
+    color: rgba(255,255,255,0.94);
+    border-color: var(--line-hot);
+    outline: none;
+  }
+  button.active { border-color: var(--accent); color: rgba(255,255,255,0.94); }
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 1rem;
+    padding: clamp(1rem, 3vw, 1.6rem);
+  }
+  .calendar-card, aside {
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.035);
+  }
+  .calendar-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .month-tools {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .summer {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding: 0 1rem 1rem;
+  }
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1px;
+    padding: 1px;
+    background: rgba(255,255,255,0.08);
+  }
+  .weekday, .day {
+    background: rgba(5,5,5,0.84);
+  }
+  .weekday {
+    padding: 0.65rem 0.55rem;
+    color: var(--faint);
+    font-size: 0.62rem;
+  }
+  .day {
+    min-height: 112px;
+    padding: 0.65rem;
+    text-align: left;
+    color: var(--text);
+  }
+  .day.blank { opacity: 0.35; }
+  .day.selected {
+    outline: 1px solid var(--accent);
+    outline-offset: -2px;
+    background: rgba(205,176,110,0.07);
+  }
+  .day-number {
+    display: flex;
+    justify-content: space-between;
+    color: rgba(255,255,255,0.84);
+    font-size: 1.05rem;
+  }
+  .answers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.8rem;
+  }
+  .avatar {
+    display: inline-flex;
+    width: 26px;
+    height: 26px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: #050505;
+    font: 0.68rem 'DM Mono', monospace;
+  }
+  .avatar[data-status="AVAILABLE"] { background: var(--available); }
+  .avatar[data-status="MAYBE"] { background: var(--maybe); }
+  .avatar[data-status="UNAVAILABLE"] { background: var(--unavailable); }
+  aside {
+    align-self: start;
+    padding: 1rem;
+  }
+  .panel-block + .panel-block {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  label {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: var(--muted);
+    font-size: 0.68rem;
+  }
+  textarea {
+    width: 100%;
+    min-height: 94px;
+    resize: vertical;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    background: rgba(0,0,0,0.35);
+    color: var(--text);
+    padding: 0.85rem;
+    font: 1rem 'Cormorant Garamond', serif;
+    outline: none;
+  }
+  textarea:focus { border-color: var(--line-hot); }
+  .status-row {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+  }
+  .status-pill[data-status="AVAILABLE"].active { border-color: var(--available); }
+  .status-pill[data-status="MAYBE"].active { border-color: var(--maybe); }
+  .status-pill[data-status="UNAVAILABLE"].active { border-color: var(--unavailable); }
+  .error {
+    min-height: 1.2rem;
+    color: var(--danger);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+  }
+  .best-list, .detail-list {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .best-item, .detail-item {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 0.75rem;
+    background: rgba(0,0,0,0.22);
+    color: var(--muted);
+  }
+  .best-item strong, .detail-item strong {
+    display: block;
+    color: var(--text);
+    font-size: 1.05rem;
+  }
+  .tiny { color: var(--muted); font-size: 0.66rem; }
+  @media (max-width: 860px) {
+    header, .layout { grid-template-columns: 1fr; }
+    header { display: block; }
+    .nav { margin-top: 1rem; }
+    .day { min-height: 94px; }
+  }
+  @media (max-width: 620px) {
+    body { padding: 0.75rem; }
+    .calendar-grid { font-size: 0.9rem; }
+    .day { min-height: 78px; padding: 0.5rem; }
+    .weekday { padding: 0.45rem 0.3rem; letter-spacing: 0.04em; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="mark">SP1E</div>
+  <section class="room">
+    <header>
+      <div>
+        <p class="kicker">Fredagsfett</p>
+        <h1>Kalender</h1>
+        <p class="subtitle">Markera sommardagar, lämna en kort notering och låt bästa datumet stiga fram utan gruppchatt-kaos.</p>
+      </div>
+      <nav class="nav" aria-label="Fredagsfett navigation">
+        <a class="button" href="/fredagsfett">Hub</a>
+        <a class="button" href="/fredagsfett/sp1wise">SP1Wise</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <section class="calendar-card">
+        <div class="calendar-head">
+          <button id="prev-month" type="button">Föregående</button>
+          <h2 id="month-title">Laddar...</h2>
+          <button id="next-month" type="button">Nästa</button>
+        </div>
+        <div class="summer" aria-label="Sommarvy">
+          <button type="button" data-summer="06">Juni</button>
+          <button type="button" data-summer="07">Juli</button>
+          <button type="button" data-summer="08">Augusti</button>
+        </div>
+        <div class="calendar-grid" id="calendar-grid" aria-live="polite"></div>
+      </section>
+      <aside>
+        <section class="panel-block">
+          <p class="kicker">Vald dag</p>
+          <h3 id="selected-date-title">Välj ett datum</h3>
+          <div class="status-row">
+            <button class="status-pill" type="button" data-status="AVAILABLE">Tillgänglig</button>
+            <button class="status-pill" type="button" data-status="MAYBE">Kanske</button>
+            <button class="status-pill" type="button" data-status="UNAVAILABLE">Inte tillgänglig</button>
+          </div>
+          <label for="note-input">Notering</label>
+          <textarea id="note-input" maxlength="240" placeholder="Ex: kan ta bilen, behöver flytväst, kan bara efter lunch."></textarea>
+          <div class="nav" style="margin-top:0.8rem">
+            <button id="save-availability" type="button">Spara</button>
+            <button id="delete-availability" type="button">Rensa</button>
+          </div>
+          <div class="error" id="calendar-error"></div>
+        </section>
+        <section class="panel-block">
+          <p class="kicker">Bästa datum hittills</p>
+          <div class="best-list" id="best-dates"></div>
+        </section>
+        <section class="panel-block">
+          <p class="kicker">Svar på vald dag</p>
+          <div class="detail-list" id="day-details"></div>
+        </section>
+      </aside>
+    </div>
+  </section>
+</main>
+<script>
+const state = {
+  user: null,
+  month: new Date().toISOString().slice(0, 7),
+  entries: [],
+  bestDates: [],
+  selectedDate: new Date().toISOString().slice(0, 10),
+  selectedStatus: 'AVAILABLE',
+};
+const monthTitle = document.getElementById('month-title');
+const grid = document.getElementById('calendar-grid');
+const errorBox = document.getElementById('calendar-error');
+const noteInput = document.getElementById('note-input');
+
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(data.error || 'Något gick fel.');
+  return data;
+}
+
+function monthName(month) {
+  const [year, m] = month.split('-').map(Number);
+  return new Date(year, m - 1, 1).toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
+}
+
+function addMonths(month, delta) {
+  const [year, m] = month.split('-').map(Number);
+  return new Date(Date.UTC(year, m - 1 + delta, 1)).toISOString().slice(0, 7);
+}
+
+function initials(name) {
+  return (name || '?').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+}
+
+function entriesForDate(date) {
+  return state.entries.filter(entry => entry.date === date);
+}
+
+function selfEntry(date) {
+  return entriesForDate(date).find(entry => entry.is_self);
+}
+
+function renderCalendar() {
+  monthTitle.textContent = monthName(state.month);
+  const [year, m] = state.month.split('-').map(Number);
+  const first = new Date(year, m - 1, 1);
+  const days = new Date(year, m, 0).getDate();
+  const startOffset = (first.getDay() + 6) % 7;
+  const weekdays = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
+  grid.innerHTML = weekdays.map(day => `<div class="weekday">${day}</div>`).join('');
+  for (let i = 0; i < startOffset; i++) {
+    grid.insertAdjacentHTML('beforeend', '<div class="day blank" aria-hidden="true"></div>');
+  }
+  for (let day = 1; day <= days; day++) {
+    const date = `${state.month}-${String(day).padStart(2, '0')}`;
+    const entries = entriesForDate(date);
+    const selected = date === state.selectedDate ? ' selected' : '';
+    const chips = entries.map(entry => `<span class="avatar" data-status="${entry.status}" title="${entry.user_name}: ${entry.status}">${initials(entry.user_name)}</span>`).join('');
+    grid.insertAdjacentHTML('beforeend', `
+      <button class="day${selected}" type="button" data-date="${date}">
+        <span class="day-number"><span>${day}</span><span class="tiny">${entries.length || ''}</span></span>
+        <span class="answers">${chips}</span>
+      </button>
+    `);
+  }
+  renderSelectedDay();
+}
+
+function renderSelectedDay() {
+  document.getElementById('selected-date-title').textContent = state.selectedDate || 'Välj ett datum';
+  document.querySelectorAll('[data-status]').forEach(button => {
+    if (button.classList.contains('status-pill')) button.classList.toggle('active', button.dataset.status === state.selectedStatus);
+  });
+  const own = selfEntry(state.selectedDate);
+  if (own && document.activeElement !== noteInput) {
+    state.selectedStatus = own.status;
+    noteInput.value = own.note || '';
+  }
+  document.querySelectorAll('.status-pill').forEach(button => button.classList.toggle('active', button.dataset.status === state.selectedStatus));
+  const details = entriesForDate(state.selectedDate);
+  document.getElementById('day-details').innerHTML = details.length
+    ? details.map(entry => `<div class="detail-item"><strong>${entry.user_name}</strong><span>${statusLabel(entry.status)}</span>${entry.note ? `<p>${escapeHtml(entry.note)}</p>` : ''}</div>`).join('')
+    : '<p class="tiny">Inga svar ännu.</p>';
+}
+
+function renderBestDates() {
+  document.getElementById('best-dates').innerHTML = state.bestDates.length
+    ? state.bestDates.map(row => `<div class="best-item"><strong>${row.date}</strong><span>${row.available_count} ja · ${row.maybe_count} kanske · ${row.unavailable_count} nej</span></div>`).join('')
+    : '<p class="tiny">Inga datum rankade ännu.</p>';
+}
+
+function statusLabel(status) {
+  if (status === 'AVAILABLE') return 'Tillgänglig';
+  if (status === 'MAYBE') return 'Kanske';
+  return 'Inte tillgänglig';
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
+}
+
+async function loadAvailability() {
+  errorBox.textContent = '';
+  const data = await api(`/api/fredagsfett/availability?month=${encodeURIComponent(state.month)}`);
+  state.user = data.user;
+  state.entries = data.entries || [];
+  state.bestDates = data.best_dates || [];
+  const own = selfEntry(state.selectedDate);
+  if (own && document.activeElement !== noteInput) {
+    state.selectedStatus = own.status;
+    noteInput.value = own.note || '';
+  }
+  renderCalendar();
+  renderBestDates();
+}
+
+async function saveAvailability() {
+  errorBox.textContent = '';
+  try {
+    await api('/api/fredagsfett/availability', {
+      method: 'POST',
+      body: JSON.stringify({ date: state.selectedDate, status: state.selectedStatus, note: noteInput.value }),
+    });
+    await loadAvailability();
+  } catch (err) {
+    errorBox.textContent = err.message;
+  }
+}
+
+async function deleteAvailability() {
+  errorBox.textContent = '';
+  try {
+    await api(`/api/fredagsfett/availability?date=${encodeURIComponent(state.selectedDate)}`, { method: 'DELETE' });
+    noteInput.value = '';
+    await loadAvailability();
+  } catch (err) {
+    errorBox.textContent = err.message;
+  }
+}
+
+grid.addEventListener('click', event => {
+  const button = event.target.closest('[data-date]');
+  if (!button) return;
+  state.selectedDate = button.dataset.date;
+  const own = selfEntry(state.selectedDate);
+  state.selectedStatus = own?.status || 'AVAILABLE';
+  noteInput.value = own?.note || '';
+  renderCalendar();
+});
+
+document.querySelectorAll('.status-pill').forEach(button => {
+  button.addEventListener('click', () => {
+    state.selectedStatus = button.dataset.status;
+    renderSelectedDay();
+  });
+});
+document.getElementById('save-availability').addEventListener('click', saveAvailability);
+document.getElementById('delete-availability').addEventListener('click', deleteAvailability);
+document.getElementById('prev-month').addEventListener('click', () => { state.month = addMonths(state.month, -1); void loadAvailability(); });
+document.getElementById('next-month').addEventListener('click', () => { state.month = addMonths(state.month, 1); void loadAvailability(); });
+document.querySelectorAll('[data-summer]').forEach(button => {
+  button.addEventListener('click', () => {
+    state.month = `${new Date().getFullYear()}-${button.dataset.summer}`;
+    state.selectedDate = `${state.month}-01`;
+    noteInput.value = '';
+    void loadAvailability();
+  });
+});
+
+async function boot() {
+  try {
+    const session = await api('/api/fredagsfett/session');
+    if (!session.authenticated || session.needs_registration) {
+      location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/kalender')}`;
+      return;
+    }
+    await loadAvailability();
+    setInterval(loadAvailability, 15000);
+  } catch {
+    location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/kalender')}`;
+  }
+}
+
+void boot();
+</script>
+</body>
+</html>
