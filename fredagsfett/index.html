@@ -328,7 +328,12 @@
     line-height: 1.45;
   }
 
-  .link-card.soon { opacity: 0.62; pointer-events: none; }
+  .link-card:hover,
+  .link-card:focus-visible {
+    border-color: rgba(205, 176, 110, 0.45);
+    background: rgba(255,255,255,0.06);
+    outline: none;
+  }
 
   .toolbar {
     display: flex;
@@ -386,13 +391,13 @@
     <section class="panel" id="hub-panel">
       <p class="tiny" id="welcome-line"></p>
       <div class="grid">
-        <a class="link-card soon" href="/fredagsfett/kalender" aria-disabled="true">
+        <a class="link-card" href="/fredagsfett/kalender">
           <strong>Kalender</strong>
-          <span>Kommer i nästa steg: tillgänglighet, noteringar och bästa datum.</span>
+          <span>Markera tillgänglighet, lämna noteringar och hitta bästa datumet.</span>
         </a>
-        <a class="link-card soon" href="/fredagsfett/sp1wise" aria-disabled="true">
+        <a class="link-card" href="/fredagsfett/sp1wise">
           <strong>SP1Wise</strong>
-          <span>Kommer efter kalendern: utgifter, saldon och settle-up.</span>
+          <span>Dela utgifter, se saldon, settle-up och exportera CSV.</span>
         </a>
         <a class="link-card" id="admin-link" href="/fredagsfett/admin" hidden>
           <strong>Admin</strong>

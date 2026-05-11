@@ -110,7 +110,7 @@ check(
 check(
   'Fredagsfett landing route is explicitly served by Pages and click navigation is not modal-gated',
   /\/fredagsfett\s+\/fredagsfett\/index\.html\s+200/.test(redirects) &&
-    /\/fredagsfett\/\s+\/fredagsfett\/index\.html\s+200/.test(redirects) &&
+    !/\/fredagsfett\/\s+\/fredagsfett\/index\.html\s+200/.test(redirects) &&
     /const\s+fredagsfettBtn\s*=\s*document\.getElementById\(['"]fredagsfett-btn['"]\)/.test(index) &&
     /fredagsfettBtn\.addEventListener\(['"]click['"][\s\S]*location\.assign\(['"]\/fredagsfett\/['"]\)/.test(index) &&
     !/openModal\(['"]\/fredagsfett/.test(index)
