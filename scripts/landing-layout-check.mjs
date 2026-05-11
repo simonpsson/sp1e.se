@@ -100,10 +100,10 @@ check(
 );
 
 check(
-  'landing page exposes Fredagsfett as a secondary CTA',
+  'landing page exposes 𓀂 as a secondary CTA',
   /id=["']fredagsfett-btn["']/.test(index) &&
     /href=["']\/fredagsfett\/["']/.test(index) &&
-    />Fredagsfett<\/a>/.test(index) &&
+    />𓀂<\/a>/.test(index) &&
     /\.fredagsfett-card\s*\{[\s\S]*flex:\s*0 0 180px[\s\S]*height:\s*52px/.test(index)
 );
 

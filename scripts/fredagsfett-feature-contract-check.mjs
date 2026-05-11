@@ -26,6 +26,7 @@ function check(name, ok) {
 }
 
 check('Fredagsfett entry skips the old hub and sends registered users straight to Kalender', !/id=["']hub-panel["']/.test(hub) && !/class=["']link-card/.test(hub) && /location\.(?:href|assign)\s*=\s*['"]\/fredagsfett\/kalender['"]/.test(hub));
+check('Fredagsfett visible section labels use 𓀂 while routes stay stable', /<title>𓀂<\/title>/.test(hub) && /<h1>𓀂<\/h1>/.test(hub) && /<title>𓀂 · Kalender<\/title>/.test(calendar) && /<p class=["']kicker["']>𓀂<\/p>/.test(calendar) && /<title>𓀂 · SP1Wise<\/title>/.test(sp1wise) && /<p class=["']kicker["']>𓀂<\/p>/.test(sp1wise));
 check('Fredagsfett static routes exist for Kalender and SP1Wise', fs.existsSync(files.calendar) && fs.existsSync(files.sp1wise));
 check('Redirects serve Kalender and SP1Wise as Pages routes', /\/fredagsfett\/kalender\s+\/fredagsfett\/kalender\/index\.html\s+200/.test(redirects) && /\/fredagsfett\/sp1wise\s+\/fredagsfett\/sp1wise\/index\.html\s+200/.test(redirects));
 
