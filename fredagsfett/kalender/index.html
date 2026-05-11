@@ -51,12 +51,24 @@
     width: min(1180px, 100%);
     margin: 0 auto;
   }
-  .mark {
-    margin: 0 0 1.35rem;
+  .sp1e-wordmark {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    width: 156px;
+    margin: 0 auto 1.35rem;
     color: rgba(255,255,255,0.9);
-    font-size: clamp(2rem, 5vw, 3rem);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.85rem;
     font-weight: 300;
-    letter-spacing: 0.22em;
+    line-height: 1;
+    text-align: center;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.70);
+    font-variant-numeric: lining-nums;
+    font-feature-settings: 'lnum' 1;
+    user-select: none;
+  }
+  .sp1e-wordmark span {
+    display: block;
     text-align: center;
   }
   .room {
@@ -104,13 +116,6 @@
     margin-bottom: 0.55rem;
     color: var(--accent);
     font-size: 0.72rem;
-  }
-  .subtitle {
-    max-width: 48rem;
-    margin-bottom: 0;
-    color: var(--muted);
-    font-size: 1.16rem;
-    line-height: 1.5;
   }
   .nav {
     display: flex;
@@ -292,16 +297,16 @@
 </head>
 <body>
 <main>
-  <div class="mark">SP1E</div>
+  <div class="sp1e-wordmark" aria-label="SP1E" role="img">
+    <span>S</span><span>P</span><span>1</span><span>E</span>
+  </div>
   <section class="room">
     <header>
       <div>
         <p class="kicker">Fredagsfett</p>
         <h1>Kalender</h1>
-        <p class="subtitle">Markera sommardagar, lämna en kort notering och låt bästa datumet stiga fram utan gruppchatt-kaos.</p>
       </div>
       <nav class="nav" aria-label="Fredagsfett navigation">
-        <a class="button" href="/fredagsfett">Hub</a>
         <a class="button" href="/fredagsfett/sp1wise">SP1Wise</a>
       </nav>
     </header>
@@ -329,7 +334,7 @@
             <button class="status-pill" type="button" data-status="UNAVAILABLE">Inte tillgänglig</button>
           </div>
           <label for="note-input">Notering</label>
-          <textarea id="note-input" maxlength="240" placeholder="Ex: kan ta bilen, behöver flytväst, kan bara efter lunch."></textarea>
+          <textarea id="note-input" maxlength="240"></textarea>
           <div class="nav" style="margin-top:0.8rem">
             <button id="save-availability" type="button">Spara</button>
             <button id="delete-availability" type="button">Rensa</button>
