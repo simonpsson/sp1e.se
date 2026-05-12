@@ -123,6 +123,10 @@
     gap: 0.75rem;
     flex-wrap: wrap;
   }
+  .admin-nav {
+    flex-direction: column;
+    align-items: flex-end;
+  }
   .button, button {
     min-height: 42px;
     border: 1px solid rgba(255,255,255,0.14);
@@ -133,6 +137,16 @@
     font-size: 0.68rem;
     cursor: pointer;
     text-decoration: none;
+  }
+  .icon-button {
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    line-height: 1;
   }
   .button:hover, button:hover, .button:focus-visible, button:focus-visible {
     color: rgba(255,255,255,0.94);
@@ -250,10 +264,48 @@
     outline: none;
   }
   textarea:focus { border-color: var(--line-hot); }
+  input[type="time"], input[type="text"] {
+    width: 100%;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    background: rgba(0,0,0,0.35);
+    color: var(--text);
+    padding: 0.72rem 0.78rem;
+    font: 0.86rem 'DM Mono', monospace;
+    outline: none;
+  }
+  input[type="time"]:focus, input[type="text"]:focus { border-color: var(--line-hot); }
+  .time-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin-bottom: 0.85rem;
+  }
+  .time-comment {
+    margin-bottom: 0.85rem;
+  }
   .status-row {
     display: grid;
     gap: 0.5rem;
     margin-bottom: 0.85rem;
+  }
+  .day-times {
+    display: grid;
+    gap: 0.28rem;
+    margin-top: 0.55rem;
+  }
+  .time-chip {
+    display: inline-flex;
+    max-width: 100%;
+    width: fit-content;
+    border: 1px solid rgba(205,176,110,0.32);
+    border-radius: 999px;
+    background: rgba(205,176,110,0.08);
+    color: rgba(255,255,255,0.78);
+    padding: 0.2rem 0.42rem;
+    font: 0.58rem 'DM Mono', monospace;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
   }
   .status-pill[data-status="AVAILABLE"].active { border-color: var(--available); }
   .status-pill[data-status="MAYBE"].active { border-color: var(--maybe); }
@@ -306,8 +358,9 @@
         <p class="kicker">𓀂</p>
         <h1>Kalender</h1>
       </div>
-      <nav class="nav" aria-label="𓀂 navigation">
+      <nav class="nav admin-nav" aria-label="𓀂 navigation">
         <a class="button" href="/fredagsfett/sp1wise">SP1Wise</a>
+        <a class="button icon-button" href="/fredagsfett/admin" aria-label="Dev console" title="Dev console">⚙</a>
       </nav>
     </header>
     <div class="layout">
@@ -332,6 +385,21 @@
             <button class="status-pill" type="button" data-status="AVAILABLE">Tillgänglig</button>
             <button class="status-pill" type="button" data-status="MAYBE">Kanske</button>
             <button class="status-pill" type="button" data-status="UNAVAILABLE">Inte tillgänglig</button>
+          </div>
+          <label>Tidsintervall</label>
+          <div class="time-fields">
+            <div>
+              <label for="time-start-input">Från</label>
+              <input id="time-start-input" type="time">
+            </div>
+            <div>
+              <label for="time-end-input">Till</label>
+              <input id="time-end-input" type="time">
+            </div>
+          </div>
+          <div class="time-comment">
+            <label for="time-note-input">Kommentar på tiden</label>
+            <input id="time-note-input" type="text" maxlength="160">
           </div>
           <label for="note-input">Notering</label>
           <textarea id="note-input" maxlength="240"></textarea>
@@ -361,11 +429,17 @@ const state = {
   bestDates: [],
   selectedDate: new Date().toISOString().slice(0, 10),
   selectedStatus: 'AVAILABLE',
+  selectedStartTime: '',
+  selectedEndTime: '',
+  selectedTimeNote: '',
 };
 const monthTitle = document.getElementById('month-title');
 const grid = document.getElementById('calendar-grid');
 const errorBox = document.getElementById('calendar-error');
 const noteInput = document.getElementById('note-input');
+const timeStartInput = document.getElementById('time-start-input');
+const timeEndInput = document.getElementById('time-end-input');
+const timeNoteInput = document.getElementById('time-note-input');
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -401,6 +475,23 @@ function selfEntry(date) {
   return entriesForDate(date).find(entry => entry.is_self);
 }
 
+function formatTimeWindow(entry) {
+  if (!entry?.start_time || !entry?.end_time) return '';
+  return `${entry.start_time}-${entry.end_time}`;
+}
+
+function applyOwnEntryToForm(entry, resetIfMissing = false) {
+  if (!entry && !resetIfMissing) return;
+  state.selectedStatus = entry?.status || 'AVAILABLE';
+  state.selectedStartTime = entry?.start_time || '';
+  state.selectedEndTime = entry?.end_time || '';
+  state.selectedTimeNote = entry?.time_note || '';
+  if (document.activeElement !== noteInput) noteInput.value = entry?.note || '';
+  if (document.activeElement !== timeStartInput) timeStartInput.value = state.selectedStartTime;
+  if (document.activeElement !== timeEndInput) timeEndInput.value = state.selectedEndTime;
+  if (document.activeElement !== timeNoteInput) timeNoteInput.value = state.selectedTimeNote;
+}
+
 function renderCalendar() {
   monthTitle.textContent = monthName(state.month);
   const [year, m] = state.month.split('-').map(Number);
@@ -417,10 +508,15 @@ function renderCalendar() {
     const entries = entriesForDate(date);
     const selected = date === state.selectedDate ? ' selected' : '';
     const chips = entries.map(entry => `<span class="avatar" data-status="${entry.status}" title="${entry.user_name}: ${entry.status}">${initials(entry.user_name)}</span>`).join('');
+    const timeChips = entries
+      .filter(entry => entry.start_time && entry.end_time)
+      .map(entry => `<span class="time-chip" title="${escapeHtml(entry.user_name)} ${escapeHtml(entry.time_note || '')}">${escapeHtml(formatTimeWindow(entry))}</span>`)
+      .join('');
     grid.insertAdjacentHTML('beforeend', `
       <button class="day${selected}" type="button" data-date="${date}">
         <span class="day-number"><span>${day}</span><span class="tiny">${entries.length || ''}</span></span>
         <span class="answers">${chips}</span>
+        <span class="day-times">${timeChips}</span>
       </button>
     `);
   }
@@ -433,14 +529,11 @@ function renderSelectedDay() {
     if (button.classList.contains('status-pill')) button.classList.toggle('active', button.dataset.status === state.selectedStatus);
   });
   const own = selfEntry(state.selectedDate);
-  if (own && document.activeElement !== noteInput) {
-    state.selectedStatus = own.status;
-    noteInput.value = own.note || '';
-  }
+  applyOwnEntryToForm(own);
   document.querySelectorAll('.status-pill').forEach(button => button.classList.toggle('active', button.dataset.status === state.selectedStatus));
   const details = entriesForDate(state.selectedDate);
   document.getElementById('day-details').innerHTML = details.length
-    ? details.map(entry => `<div class="detail-item"><strong>${entry.user_name}</strong><span>${statusLabel(entry.status)}</span>${entry.note ? `<p>${escapeHtml(entry.note)}</p>` : ''}</div>`).join('')
+    ? details.map(entry => `<div class="detail-item"><strong>${escapeHtml(entry.user_name)}</strong><span>${statusLabel(entry.status)}</span>${formatTimeWindow(entry) ? `<span class="time-chip">${escapeHtml(formatTimeWindow(entry))}</span>` : ''}${entry.time_note ? `<p>${escapeHtml(entry.time_note)}</p>` : ''}${entry.note ? `<p>${escapeHtml(entry.note)}</p>` : ''}</div>`).join('')
     : '<p class="tiny">Inga svar ännu.</p>';
 }
 
@@ -467,10 +560,7 @@ async function loadAvailability() {
   state.entries = data.entries || [];
   state.bestDates = data.best_dates || [];
   const own = selfEntry(state.selectedDate);
-  if (own && document.activeElement !== noteInput) {
-    state.selectedStatus = own.status;
-    noteInput.value = own.note || '';
-  }
+  applyOwnEntryToForm(own);
   renderCalendar();
   renderBestDates();
 }
@@ -480,7 +570,14 @@ async function saveAvailability() {
   try {
     await api('/api/fredagsfett/availability', {
       method: 'POST',
-      body: JSON.stringify({ date: state.selectedDate, status: state.selectedStatus, note: noteInput.value }),
+      body: JSON.stringify({
+        date: state.selectedDate,
+        status: state.selectedStatus,
+        note: noteInput.value,
+        start_time: timeStartInput.value,
+        end_time: timeEndInput.value,
+        time_note: timeNoteInput.value,
+      }),
     });
     await loadAvailability();
   } catch (err) {
@@ -493,6 +590,12 @@ async function deleteAvailability() {
   try {
     await api(`/api/fredagsfett/availability?date=${encodeURIComponent(state.selectedDate)}`, { method: 'DELETE' });
     noteInput.value = '';
+    timeStartInput.value = '';
+    timeEndInput.value = '';
+    timeNoteInput.value = '';
+    state.selectedStartTime = '';
+    state.selectedEndTime = '';
+    state.selectedTimeNote = '';
     await loadAvailability();
   } catch (err) {
     errorBox.textContent = err.message;
@@ -504,8 +607,7 @@ grid.addEventListener('click', event => {
   if (!button) return;
   state.selectedDate = button.dataset.date;
   const own = selfEntry(state.selectedDate);
-  state.selectedStatus = own?.status || 'AVAILABLE';
-  noteInput.value = own?.note || '';
+  applyOwnEntryToForm(own, true);
   renderCalendar();
 });
 
@@ -524,6 +626,9 @@ document.querySelectorAll('[data-summer]').forEach(button => {
     state.month = `${new Date().getFullYear()}-${button.dataset.summer}`;
     state.selectedDate = `${state.month}-01`;
     noteInput.value = '';
+    timeStartInput.value = '';
+    timeEndInput.value = '';
+    timeNoteInput.value = '';
     void loadAvailability();
   });
 });

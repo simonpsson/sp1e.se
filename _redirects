@@ -17,6 +17,7 @@
 /game-migration-holdem.sql       /  301
 /game-migration-accounts.sql     /  301
 /fredagsfett-migration-001.sql   /  301
+/fredagsfett-migration-002-availability-times.sql   /  301
 /game-talents-schema.sql         /  301
 /game-talents-seed.sql           /  301
 /seed-dax-categories.sql         /  301

@@ -18,6 +18,7 @@ export interface Env {
   FF_SESSION_SECRET?: string;
   FF_DEVICE_HASH_SALT?: string;
   FF_ADMIN_NAMES?: string;
+  FF_ADMIN_PASSWORD?: string;
 }
 
 type Row = Record<string, unknown>;
@@ -55,11 +56,15 @@ const SIMULATE_THROTTLE_MS = 75_000;
 const BOT_NPC_COOLDOWN_MS = 7 * 60 * 1000;
 const BOT_ACTIONS_PER_TICK = 3;
 const FREDAGSFETT_SESSION_COOKIE = 'ff_session';
+const FREDAGSFETT_ADMIN_COOKIE = 'ff_admin_session';
 const FREDAGSFETT_SESSION_MAX_AGE_SECONDS = 2 * 365 * 24 * 60 * 60;
+const FREDAGSFETT_ADMIN_SESSION_MAX_AGE_SECONDS = 2 * 60 * 60;
 const FREDAGSFETT_AUTH_WINDOW_SECONDS = 10 * 60;
 const FREDAGSFETT_AUTH_MAX_ATTEMPTS = 5;
 // Local/dev fallback only. Production should set FF_PASSWORD in Cloudflare Pages secrets.
 const DEFAULT_FREDAGSFETT_PASSWORD = 'färskfisk';
+// Local/dev fallback for the 𓀂 admin console. Production may set FF_ADMIN_PASSWORD.
+const DEFAULT_FREDAGSFETT_ADMIN_PASSWORD = 'Adderall123!';
 
 const DEFAULT_CATEGORIES = [
   { id: 'power-bi',   name: 'Power BI',   icon: '⚡', sortOrder: 1 },
@@ -139,6 +144,9 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'sp1wise' && sub === 'settlements' && !action && method === 'POST') return fredagsfettSp1wiseCreateSettlement(request, env);
       if (id === 'sp1wise' && sub === 'comments' && !action && method === 'POST') return fredagsfettSp1wiseCreateComment(request, env);
       if (id === 'sp1wise' && sub === 'export' && !action && method === 'GET') return fredagsfettSp1wiseExport(request, env);
+      if (id === 'admin' && sub === 'auth' && !action && method === 'POST') return fredagsfettAdminAuth(request, env);
+      if (id === 'admin' && sub === 'status' && !action && method === 'GET') return fredagsfettAdminStatus(request, env);
+      if (id === 'admin' && sub === 'logout' && !action && method === 'POST') return fredagsfettAdminLogout(request, env);
       if (id === 'admin' && sub === 'users' && !action && method === 'GET') return fredagsfettAdminUsers(request, env);
       if (id === 'admin' && sub === 'users' && action && method === 'PATCH') return fredagsfettAdminUpdateUser(request, env, action);
       if (id === 'admin' && sub === 'users' && action && method === 'DELETE') return fredagsfettAdminDeleteUser(request, env, action);
@@ -9731,6 +9739,12 @@ type FredagsfettSessionPayload = {
   exp: number;
 };
 
+type FredagsfettAdminPayload = {
+  v: 1;
+  scope: 'fredagsfett-admin';
+  exp: number;
+};
+
 type FredagsfettDeviceRow = {
   id: string;
   user_id: string | null;
@@ -9771,6 +9785,9 @@ type FredagsfettAvailabilityRow = {
   date: string;
   status: 'AVAILABLE' | 'MAYBE' | 'UNAVAILABLE';
   note: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  time_note: string | null;
   updated_at: string;
 };
 
@@ -9993,12 +10010,14 @@ async function fredagsfettLogout(request: Request, env: Env): Promise<Response> 
 
 async function fredagsfettAvailabilityList(request: Request, env: Env): Promise<Response> {
   const session = await requireFredagsfettUser(request, env);
+  await fredagsfettEnsureAvailabilityTimeColumns(env);
   const url = new URL(request.url);
   const month = normalizeFredagsfettMonth(url.searchParams.get('month')) ?? currentFredagsfettMonth();
   const nextMonth = addMonthsToFredagsfettMonth(month, 1);
 
   const entries = await env.DB.prepare(
-    `SELECT a.id, a.user_id, u.name AS user_name, a.date, a.status, a.note, a.updated_at
+    `SELECT a.id, a.user_id, u.name AS user_name, a.date, a.status, a.note,
+            a.start_time, a.end_time, a.time_note, a.updated_at
        FROM ff_availability a
        JOIN ff_users u ON u.id = a.user_id AND u.deleted_at IS NULL
       WHERE a.date >= ? AND a.date < ?
@@ -10036,7 +10055,8 @@ async function fredagsfettAvailabilityList(request: Request, env: Env): Promise<
 
 async function fredagsfettAvailabilityUpsert(request: Request, env: Env): Promise<Response> {
   const session = await requireFredagsfettUser(request, env);
-  let body: { date?: string; status?: string; note?: string | null };
+  await fredagsfettEnsureAvailabilityTimeColumns(env);
+  let body: { date?: string; status?: string; note?: string | null; start_time?: string | null; end_time?: string | null; time_note?: string | null };
   try { body = await request.json(); }
   catch { return json({ error: 'Ogiltig JSON.' }, 400); }
 
@@ -10045,23 +10065,37 @@ async function fredagsfettAvailabilityUpsert(request: Request, env: Env): Promis
   const status = normalizeFredagsfettAvailabilityStatus(body.status);
   if (!status) return json({ error: 'Välj Tillgänglig, Kanske eller Inte tillgänglig.' }, 400);
   const note = normalizeFredagsfettShortText(body.note, 240);
+  const startTime = normalizeFredagsfettTime(body.start_time);
+  const endTime = normalizeFredagsfettTime(body.end_time);
+  const timeNote = normalizeFredagsfettTimeNote(body.time_note);
+  if ((body.start_time || body.end_time || timeNote) && (!startTime || !endTime)) {
+    return json({ error: 'Ange både start- och sluttid för tidsraden.' }, 400);
+  }
+  if (startTime && endTime && startTime >= endTime) {
+    return json({ error: 'Sluttiden måste vara efter starttiden.' }, 400);
+  }
 
   const id = crypto.randomUUID();
   await env.DB.prepare(
-    `INSERT INTO ff_availability (id, user_id, date, status, note, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `INSERT INTO ff_availability (id, user_id, date, status, note, start_time, end_time, time_note, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
      ON CONFLICT(user_id, date) DO UPDATE SET
        status = excluded.status,
        note = excluded.note,
+       start_time = excluded.start_time,
+       end_time = excluded.end_time,
+       time_note = excluded.time_note,
        updated_at = datetime('now')`
-  ).bind(id, session.user.id, date, status, note).run();
+  ).bind(id, session.user.id, date, status, note, startTime, endTime, timeNote).run();
 
-  await fredagsfettLog(env, 'fredagsfett', session.user.id, 'availability', 'availability', date, `${session.user.name} markerade ${fredagsfettAvailabilityLabel(status).toLowerCase()} ${date}.`);
+  const timeSummary = startTime && endTime ? ` ${startTime}-${endTime}` : '';
+  await fredagsfettLog(env, 'fredagsfett', session.user.id, 'availability', 'availability', date, `${session.user.name} markerade ${fredagsfettAvailabilityLabel(status).toLowerCase()} ${date}${timeSummary}.`);
   return json({ success: true });
 }
 
 async function fredagsfettAvailabilityDelete(request: Request, env: Env): Promise<Response> {
   const session = await requireFredagsfettUser(request, env);
+  await fredagsfettEnsureAvailabilityTimeColumns(env);
   const date = normalizeFredagsfettDate(new URL(request.url).searchParams.get('date'));
   if (!date) return json({ error: 'Ogiltigt datum.' }, 400);
   await env.DB.prepare(`DELETE FROM ff_availability WHERE user_id = ? AND date = ?`).bind(session.user.id, date).run();
@@ -10272,6 +10306,47 @@ async function fredagsfettSp1wiseExport(request: Request, env: Env): Promise<Res
       'Content-Disposition': `attachment; filename="sp1wise-${groupId}.csv"`,
     },
   });
+}
+
+async function fredagsfettAdminAuth(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  let body: { password?: string };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+
+  if (typeof body.password !== 'string' || !body.password) {
+    return json({ error: 'Ange adminlösenordet.' }, 400);
+  }
+
+  const candidates = fredagsfettAdminPasswordCandidates(env);
+  if (!fredagsfettPasswordMatches(body.password, candidates)) {
+    return json({ error: 'Fel adminlösenord.' }, 401);
+  }
+
+  const token = await signFredagsfettAdminSession({
+    v: 1,
+    scope: 'fredagsfett-admin',
+    exp: fredagsfettAdminSessionExpiry(),
+  }, session.cfg.sessionSecret);
+
+  return fredagsfettJson({
+    success: true,
+    unlocked: true,
+    user: fredagsfettUserPayload(session.user),
+  }, 200, fredagsfettAdminSessionCookie(token));
+}
+
+async function fredagsfettAdminStatus(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  return json({
+    unlocked: await fredagsfettHasAdminUnlock(request, session.cfg.sessionSecret),
+    user: fredagsfettUserPayload(session.user),
+  });
+}
+
+async function fredagsfettAdminLogout(request: Request, env: Env): Promise<Response> {
+  await requireFredagsfettUser(request, env);
+  return fredagsfettJson({ success: true, unlocked: false }, 200, clearFredagsfettAdminSessionCookie());
 }
 
 async function fredagsfettAdminUsers(request: Request, env: Env): Promise<Response> {
@@ -10634,11 +10709,38 @@ function currentFredagsfettDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+async function fredagsfettEnsureAvailabilityTimeColumns(env: Env): Promise<void> {
+  const info = await env.DB.prepare(`PRAGMA table_info(ff_availability)`).all<{ name: string }>();
+  const columns = new Set((info.results ?? []).map(column => column.name));
+  const additions: Array<[string, string]> = [
+    ['start_time', `ALTER TABLE ff_availability ADD COLUMN start_time TEXT`],
+    ['end_time', `ALTER TABLE ff_availability ADD COLUMN end_time TEXT`],
+    ['time_note', `ALTER TABLE ff_availability ADD COLUMN time_note TEXT`],
+  ];
+  for (const [column, sql] of additions) {
+    if (columns.has(column)) continue;
+    try {
+      await env.DB.prepare(sql).run();
+      columns.add(column);
+    } catch (error) {
+      if (!String(error).toLowerCase().includes('duplicate column')) throw error;
+    }
+  }
+}
+
 function normalizeFredagsfettDate(value: string | null | undefined): string | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const date = new Date(`${value}T00:00:00Z`);
   if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null;
   return value;
+}
+
+function normalizeFredagsfettTime(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const time = value.trim();
+  if (!time) return null;
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
+  return time;
 }
 
 function normalizeFredagsfettAvailabilityStatus(value: string | null | undefined): FredagsfettAvailabilityRow['status'] | null {
@@ -10657,6 +10759,10 @@ function normalizeFredagsfettShortText(value: unknown, maxLength: number): strin
   const text = value.trim().replace(/\s+/g, ' ');
   if (!text) return null;
   return text.slice(0, maxLength);
+}
+
+function normalizeFredagsfettTimeNote(value: unknown): string | null {
+  return normalizeFredagsfettShortText(value, 160);
 }
 
 function normalizeFredagsfettId(value: unknown): string | null {
@@ -10720,7 +10826,7 @@ async function requireFredagsfettUser(request: Request, env: Env): Promise<{ cfg
 
 async function requireFredagsfettAdmin(request: Request, env: Env): Promise<{ cfg: FredagsfettConfig; payload: FredagsfettSessionPayload; device: FredagsfettDeviceRow; user: FredagsfettUserRow }> {
   const session = await requireFredagsfettUser(request, env);
-  if (!session.user.is_admin) throw new HttpError(403, 'Admin krävs.');
+  await fredagsfettRequireAdminUnlock(request, session.cfg.sessionSecret);
   return session;
 }
 
@@ -10854,7 +10960,24 @@ function fredagsfettSessionExpiry(): number {
   return Math.floor(Date.now() / 1000) + FREDAGSFETT_SESSION_MAX_AGE_SECONDS;
 }
 
+function fredagsfettAdminSessionExpiry(): number {
+  return Math.floor(Date.now() / 1000) + FREDAGSFETT_ADMIN_SESSION_MAX_AGE_SECONDS;
+}
+
+function fredagsfettAdminPasswordCandidates(env: Env): string[] {
+  return Array.from(new Set([
+    env.FF_ADMIN_PASSWORD?.trim(),
+    DEFAULT_FREDAGSFETT_ADMIN_PASSWORD,
+  ].filter((value): value is string => Boolean(value))));
+}
+
 async function signFredagsfettSession(payload: FredagsfettSessionPayload, secret: string): Promise<string> {
+  const encodedPayload = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
+  const signature = await hmacSha256Base64Url(secret, encodedPayload);
+  return `${encodedPayload}.${signature}`;
+}
+
+async function signFredagsfettAdminSession(payload: FredagsfettAdminPayload, secret: string): Promise<string> {
   const encodedPayload = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
   const signature = await hmacSha256Base64Url(secret, encodedPayload);
   return `${encodedPayload}.${signature}`;
@@ -10872,6 +10995,33 @@ async function verifyFredagsfettSessionToken(token: string, secret: string): Pro
     return payload;
   } catch {
     return null;
+  }
+}
+
+async function verifyFredagsfettAdminSessionToken(token: string, secret: string): Promise<FredagsfettAdminPayload | null> {
+  const [encodedPayload, signature] = token.split('.');
+  if (!encodedPayload || !signature) return null;
+  const expected = await hmacSha256Base64Url(secret, encodedPayload);
+  if (!constantTimeStringEqual(signature, expected)) return null;
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(encodedPayload))) as FredagsfettAdminPayload;
+    if (payload.v !== 1 || payload.scope !== 'fredagsfett-admin' || typeof payload.exp !== 'number') return null;
+    if (payload.exp <= Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+async function fredagsfettHasAdminUnlock(request: Request, secret: string): Promise<boolean> {
+  const cookie = getCookie(request, FREDAGSFETT_ADMIN_COOKIE);
+  if (!cookie) return false;
+  return !!await verifyFredagsfettAdminSessionToken(cookie, secret);
+}
+
+async function fredagsfettRequireAdminUnlock(request: Request, secret: string): Promise<void> {
+  if (!await fredagsfettHasAdminUnlock(request, secret)) {
+    throw new HttpError(403, 'Adminlås kräver lösenord.');
   }
 }
 
@@ -10924,6 +11074,14 @@ function fredagsfettSessionCookie(token: string): string {
 
 function clearFredagsfettSessionCookie(): string {
   return `${FREDAGSFETT_SESSION_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
+}
+
+function fredagsfettAdminSessionCookie(token: string): string {
+  return `${FREDAGSFETT_ADMIN_COOKIE}=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${FREDAGSFETT_ADMIN_SESSION_MAX_AGE_SECONDS}`;
+}
+
+function clearFredagsfettAdminSessionCookie(): string {
+  return `${FREDAGSFETT_ADMIN_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
 }
 
 function fredagsfettJson(data: unknown, status = 200, cookie?: string): Response {

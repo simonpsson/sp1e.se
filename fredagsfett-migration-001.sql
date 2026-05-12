@@ -57,6 +57,9 @@ CREATE TABLE IF NOT EXISTS ff_availability (
   date       TEXT NOT NULL,
   status     TEXT NOT NULL CHECK (status IN ('AVAILABLE', 'MAYBE', 'UNAVAILABLE')),
   note       TEXT,
+  start_time TEXT,
+  end_time   TEXT,
+  time_note  TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(user_id, date)
