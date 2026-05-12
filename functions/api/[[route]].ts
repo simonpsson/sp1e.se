@@ -10421,15 +10421,19 @@ async function fredagsfettAdminUpdateUser(request: Request, env: Env, userId: st
   const bindings: unknown[] = [];
 
   if ('name' in body) {
-    const name = normalizeFredagsfettShortText(body.name as string, 80);
-    if (!name) return json({ error: 'Ange ett namn.' }, 400);
+    const name = normalizeFredagsfettName(body.name as string);
+    if (!name) return json({ error: 'Ange ett namn mellan 2 och 80 tecken.' }, 400);
     updates.push('name = ?');
     bindings.push(name);
   }
   if ('is_admin' in body) {
-    const flag = body.is_admin === 1 || body.is_admin === true || body.is_admin === '1' ? 1 : 0;
+    const truthy = body.is_admin === 1 || body.is_admin === true || body.is_admin === '1';
+    const falsy = body.is_admin === 0 || body.is_admin === false || body.is_admin === '0';
+    if (!truthy && !falsy) {
+      return json({ error: 'is_admin måste vara 0/1 eller true/false.' }, 400);
+    }
     updates.push('is_admin = ?');
-    bindings.push(flag);
+    bindings.push(truthy ? 1 : 0);
   }
   if (!updates.length) return json({ error: 'Inget att uppdatera.' }, 400);
 
