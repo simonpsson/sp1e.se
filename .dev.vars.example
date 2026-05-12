@@ -23,5 +23,7 @@ FF_PASSWORD=färskfisk
 # Generate with: node -e "console.log(crypto.randomUUID()+crypto.randomUUID())"
 FF_SESSION_SECRET=replace_with_long_random_secret
 FF_DEVICE_HASH_SALT=replace_with_long_random_salt
+# Optional admin console password for /fredagsfett/admin. Local fallback is Adderall123!.
+FF_ADMIN_PASSWORD=Adderall123!
 # Comma-separated names that should become admins when registered.
 FF_ADMIN_NAMES=Simon

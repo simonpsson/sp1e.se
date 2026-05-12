@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>𓀂 Admin</title>
+<title>𓀂 Dev Console</title>
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -63,6 +63,19 @@
   }
   .mono { color: var(--muted); font-size: 0.72rem; }
   .content { padding: 1.5rem; }
+  .lock-card {
+    width: min(460px, 100%);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.035);
+    padding: 1.25rem;
+  }
+  .lock-card form {
+    display: grid;
+    gap: 0.8rem;
+    margin-top: 0.9rem;
+  }
+  .admin-console[hidden], .lock-card[hidden], #admin-logout-btn[hidden] { display: none; }
   .status { min-height: 1.4rem; color: var(--danger); font-size: 0.74rem; }
   .users {
     display: grid;
@@ -148,20 +161,38 @@
   <header>
     <div>
       <p class="mono">𓀂</p>
-      <h1>Admin</h1>
+      <h1>Dev Console</h1>
     </div>
     <div class="toolbar">
       <a class="button" href="/fredagsfett/kalender">Till kalendern</a>
       <button id="refresh-btn" type="button">Uppdatera</button>
+      <button id="admin-logout-btn" type="button" hidden>Lås admin</button>
     </div>
   </header>
   <section class="content">
-    <div class="status" id="status">Laddar...</div>
-    <div class="users" id="users"></div>
+    <section class="lock-card" id="lock-panel">
+      <p class="mono">Adminlås</p>
+      <form id="admin-login-form">
+        <label for="admin-password" class="mono">Lösenord</label>
+        <input id="admin-password" type="password" autocomplete="current-password" aria-label="Adminlösenord" required>
+        <button type="submit">Lås upp</button>
+        <div class="status" id="admin-login-error"></div>
+      </form>
+    </section>
+    <section class="admin-console" id="admin-console" hidden>
+      <div class="status" id="status">Laddar...</div>
+      <div class="users" id="users"></div>
+    </section>
   </section>
 </main>
 
 <script>
+const lockPanel = document.getElementById('lock-panel');
+const adminConsole = document.getElementById('admin-console');
+const adminLoginForm = document.getElementById('admin-login-form');
+const adminPasswordInput = document.getElementById('admin-password');
+const adminLoginError = document.getElementById('admin-login-error');
+const adminLogoutBtn = document.getElementById('admin-logout-btn');
 const statusEl = document.getElementById('status');
 const usersEl = document.getElementById('users');
 
@@ -173,7 +204,11 @@ async function api(path, options = {}) {
   });
   const text = await res.text();
   const data = text ? JSON.parse(text) : {};
-  if (!res.ok) throw new Error(data.error || 'Något gick fel.');
+  if (!res.ok) {
+    const error = new Error(data.error || 'Något gick fel.');
+    error.status = res.status;
+    throw error;
+  }
   return data;
 }
 
@@ -185,6 +220,13 @@ function fmt(value) {
 function setStatus(message, ok = false) {
   statusEl.textContent = message || '';
   statusEl.style.color = ok ? 'rgba(170,230,190,0.9)' : '';
+}
+
+function setAdminUnlocked(unlocked) {
+  lockPanel.hidden = unlocked;
+  adminConsole.hidden = !unlocked;
+  adminLogoutBtn.hidden = !unlocked;
+  if (!unlocked) usersEl.innerHTML = '';
 }
 
 function renderUsers(users) {
@@ -222,9 +264,15 @@ async function loadUsers() {
   setStatus('Laddar...');
   try {
     const data = await api('/api/fredagsfett/admin/users');
+    setAdminUnlocked(true);
     renderUsers(data.users || []);
     setStatus(`Inloggad admin: ${data.user?.name || 'okänd'}.`, true);
   } catch (err) {
+    if (err.status === 403) {
+      setAdminUnlocked(false);
+      setStatus('');
+      return;
+    }
     setStatus(err.message);
   }
 }
@@ -259,6 +307,29 @@ usersEl.addEventListener('click', async event => {
   } finally {
     button.disabled = false;
   }
+});
+
+adminLoginForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  adminLoginError.textContent = '';
+  const password = adminPasswordInput.value;
+  try {
+    await api('/api/fredagsfett/admin/auth', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
+    adminPasswordInput.value = '';
+    setAdminUnlocked(true);
+    await loadUsers();
+  } catch (err) {
+    adminLoginError.textContent = err.message;
+  }
+});
+
+adminLogoutBtn.addEventListener('click', async () => {
+  await api('/api/fredagsfett/admin/logout', { method: 'POST' }).catch(() => {});
+  setAdminUnlocked(false);
+  setStatus('');
 });
 
 document.getElementById('refresh-btn').addEventListener('click', loadUsers);
