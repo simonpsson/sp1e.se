@@ -56,6 +56,13 @@ check('SP1Wise page has direct Kalender navigation without old hub link', /href=
 check('SP1Wise removes intro copy and uses exact SP1E four-column wordmark', !/class=["']subtitle["']/.test(sp1wise) && /class=["']sp1e-wordmark["']/.test(sp1wise) && /<span>S<\/span><span>P<\/span><span>1<\/span><span>E<\/span>/.test(sp1wise) && !/class=["']mark["'][^>]*>SP1E/.test(sp1wise));
 check('SP1Wise heading uses lining numeric 1 styling', /h1\s*\{[\s\S]*font-variant-numeric:\s*lining-nums[\s\S]*font-feature-settings:\s*'lnum' 1/.test(sp1wise));
 
+check('Events GET list endpoint exists and is user-gated',
+  /fredagsfettEventsList/.test(api)
+  && /id === ['"]events['"]/.test(api)
+  && /requireFredagsfettUser\(request, env\)/.test(api));
+check('Events GET joins availability for attendees',
+  /fredagsfettEventsList[\s\S]*?ff_availability[\s\S]*?status IN \('AVAILABLE','MAYBE'\)/.test(api));
+
 if (failures) {
   console.error(`\n${failures} Fredagsfett feature contract checks failed.`);
   process.exit(1);

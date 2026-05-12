@@ -135,6 +135,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'availability' && !sub && method === 'GET') return fredagsfettAvailabilityList(request, env);
       if (id === 'availability' && !sub && method === 'POST') return fredagsfettAvailabilityUpsert(request, env);
       if (id === 'availability' && !sub && method === 'DELETE') return fredagsfettAvailabilityDelete(request, env);
+      if (id === 'events' && !sub && method === 'GET')  return fredagsfettEventsList(request, env);
       if (id === 'sp1wise' && !sub && method === 'GET') return fredagsfettSp1wise(request, env);
       if (id === 'sp1wise' && sub === 'groups' && !action && method === 'GET') return fredagsfettSp1wiseGroups(request, env);
       if (id === 'sp1wise' && sub === 'groups' && !action && method === 'POST') return fredagsfettSp1wiseCreateGroup(request, env);
@@ -10109,6 +10110,61 @@ async function fredagsfettAvailabilityDelete(request: Request, env: Env): Promis
   if (!date) return json({ error: 'Ogiltigt datum.' }, 400);
   await env.DB.prepare(`DELETE FROM ff_availability WHERE user_id = ? AND date = ?`).bind(session.user.id, date).run();
   return json({ success: true });
+}
+
+async function fredagsfettEventsList(request: Request, env: Env): Promise<Response> {
+  await requireFredagsfettUser(request, env);
+  const groupId = 'fredagsfett';
+  const url = new URL(request.url);
+  // Workers run in UTC by default, so this matches the YYYY-MM-DD strings stored in D1.
+  const today = new Date();
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+  const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const from = normalizeFredagsfettDate(url.searchParams.get('from')) ?? firstOfMonth;
+  const to = normalizeFredagsfettDate(url.searchParams.get('to')) ?? lastOfMonth;
+
+  const events = await env.DB.prepare(
+    `SELECT e.id, e.date, e.status, e.host_user_id, e.title, e.location,
+            e.start_time, e.end_time, e.notes, e.created_by_user_id,
+            e.created_at, e.updated_at, e.cancelled_at,
+            host.name AS host_name
+       FROM ff_events e
+       LEFT JOIN ff_users host ON host.id = e.host_user_id
+      WHERE e.group_id = ? AND e.date >= ? AND e.date <= ?
+      ORDER BY e.date ASC`
+  ).bind(groupId, from, to).all<{
+    id: string; date: string; status: string;
+    host_user_id: string | null; host_name: string | null;
+    title: string | null; location: string | null;
+    start_time: string | null; end_time: string | null;
+    notes: string | null; created_by_user_id: string | null;
+    created_at: string; updated_at: string; cancelled_at: string | null;
+  }>();
+
+  const attendeesByDate = new Map<string, Array<{ user_id: string; name: string; status: string }>>();
+  if (events.results?.length) {
+    const dates = events.results.map(e => e.date);
+    const placeholders = dates.map(() => '?').join(',');
+    const rows = await env.DB.prepare(
+      `SELECT a.date, a.user_id, a.status, u.name
+         FROM ff_availability a
+         JOIN ff_users u ON u.id = a.user_id
+        WHERE a.date IN (${placeholders})
+          AND a.status IN ('AVAILABLE','MAYBE')
+          AND u.deleted_at IS NULL`
+    ).bind(...dates).all<{ date: string; user_id: string; status: string; name: string }>();
+    for (const r of rows.results ?? []) {
+      const list = attendeesByDate.get(r.date) ?? [];
+      list.push({ user_id: r.user_id, name: r.name, status: r.status });
+      attendeesByDate.set(r.date, list);
+    }
+  }
+
+  const items = (events.results ?? []).map(e => ({
+    ...e,
+    attendees: attendeesByDate.get(e.date) ?? [],
+  }));
+  return json({ events: items, from, to });
 }
 
 async function fredagsfettSp1wise(request: Request, env: Env): Promise<Response> {
