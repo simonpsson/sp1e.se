@@ -10833,7 +10833,7 @@ async function requireFredagsfettAdmin(request: Request, env: Env): Promise<{ cf
 async function requireFredagsfettAdminUser(request: Request, env: Env): Promise<{ cfg: FredagsfettConfig; payload: FredagsfettSessionPayload; device: FredagsfettDeviceRow; user: FredagsfettUserRow }> {
   const session = await requireFredagsfettUser(request, env);
   if (!session.user.is_admin) {
-    throw fredagsfettJson({ error: 'not_admin' }, 403);
+    throw new HttpError(403, 'not_admin');
   }
   return session;
 }
