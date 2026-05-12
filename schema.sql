@@ -326,3 +326,24 @@ CREATE TABLE IF NOT EXISTS ff_activity_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ff_activity_group_created ON ff_activity_log (group_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS ff_events (
+  id                  TEXT PRIMARY KEY,
+  group_id            TEXT NOT NULL REFERENCES ff_groups(id) ON DELETE CASCADE,
+  date                TEXT NOT NULL,
+  status              TEXT NOT NULL CHECK (status IN ('LOCKED','CANCELLED')) DEFAULT 'LOCKED',
+  host_user_id        TEXT REFERENCES ff_users(id) ON DELETE SET NULL,
+  title               TEXT,
+  location            TEXT,
+  start_time          TEXT,
+  end_time            TEXT,
+  notes               TEXT,
+  created_by_user_id  TEXT REFERENCES ff_users(id) ON DELETE SET NULL,
+  created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
+  cancelled_at        TEXT,
+  UNIQUE(group_id, date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ff_events_group_date ON ff_events (group_id, date);
+CREATE INDEX IF NOT EXISTS idx_ff_events_status ON ff_events (status);

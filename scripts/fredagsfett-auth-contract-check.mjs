@@ -56,6 +56,20 @@ check('Fredagsfett admin page lists users and devices after unlock', /\/api\/fre
 check('Fredagsfett admin page uses non-mock API mutations', /method:\s*['"]PATCH['"]/.test(admin) && /method:\s*['"]DELETE['"]/.test(admin));
 check('Fredagsfett admin page uses 𓀂 dev console chrome and links back to Kalender', /<title>𓀂 Dev Console<\/title>/.test(admin) && /<h1>Dev Console<\/h1>/.test(admin) && />Till kalendern<\/a>/.test(admin) && /href=["']\/fredagsfett\/kalender["']/.test(admin));
 
+const migration003 = read('fredagsfett-migration-003-events.sql');
+check('ff_events migration creates the table with required columns',
+  /CREATE TABLE IF NOT EXISTS ff_events/.test(migration003)
+  && /UNIQUE\(group_id, date\)/.test(migration003)
+  && /status\s+TEXT\s+NOT NULL\s+CHECK \(status IN \('LOCKED','CANCELLED'\)\)/.test(migration003)
+  && /host_user_id\s+TEXT REFERENCES ff_users\(id\) ON DELETE SET NULL/.test(migration003)
+  && /idx_ff_events_group_date/.test(migration003));
+check('Cumulative schema includes ff_events',
+  /CREATE TABLE IF NOT EXISTS ff_events/.test(schema));
+check('requireFredagsfettAdminUser helper exists and gates on is_admin',
+  /async function requireFredagsfettAdminUser/.test(api)
+  && /requireFredagsfettUser\(request, env\)/.test(api)
+  && /not_admin/.test(api));
+
 const failed = checks.filter(c => !c.ok);
 for (const c of checks) console.log(`${c.ok ? 'OK  ' : 'FAIL'} ${c.name}`);
 
