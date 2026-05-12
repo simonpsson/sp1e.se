@@ -9959,7 +9959,16 @@ async function fredagsfettRegister(request: Request, env: Env): Promise<Response
   if (!name) return json({ error: 'Ange ett namn mellan 2 och 80 tecken.' }, 400);
 
   const userId = crypto.randomUUID();
-  const isAdmin = cfg.value.adminNames.has(name.toLocaleLowerCase('sv-SE')) ? 1 : 0;
+  const nameIsAdminListed = cfg.value.adminNames.has(name.toLocaleLowerCase('sv-SE'));
+
+  // Safety net: if no admins exist yet, the first registrant is auto-promoted.
+  // This unblocks recovery after a DB wipe even when FF_ADMIN_NAMES isn't set.
+  const adminCountRow = await env.DB.prepare(
+    `SELECT COUNT(*) as cnt FROM ff_users WHERE is_admin = 1 AND deleted_at IS NULL`
+  ).first<{ cnt: number }>();
+  const zeroAdminsExist = !adminCountRow || adminCountRow.cnt === 0;
+
+  const isAdmin = nameIsAdminListed || zeroAdminsExist ? 1 : 0;
   try {
     await env.DB.batch([
       env.DB.prepare(
@@ -10397,19 +10406,40 @@ async function fredagsfettAdminUsers(request: Request, env: Env): Promise<Respon
 
 async function fredagsfettAdminUpdateUser(request: Request, env: Env, userId: string): Promise<Response> {
   await requireFredagsfettAdmin(request, env);
-  let body: { name?: string };
+
+  let body: Record<string, unknown>;
   try { body = await request.json(); }
   catch { return json({ error: 'Ogiltig JSON.' }, 400); }
 
-  const name = normalizeFredagsfettName(body.name);
-  if (!name) return json({ error: 'Ange ett namn mellan 2 och 80 tecken.' }, 400);
+  const ALLOWED_FIELDS = new Set(['name', 'is_admin']);
+  const unknown = Object.keys(body).filter(k => !ALLOWED_FIELDS.has(k));
+  if (unknown.length) {
+    return json({ error: 'unknown_field', fields: unknown }, 400);
+  }
+
+  const updates: string[] = [];
+  const bindings: unknown[] = [];
+
+  if ('name' in body) {
+    const name = normalizeFredagsfettShortText(body.name as string, 80);
+    if (!name) return json({ error: 'Ange ett namn.' }, 400);
+    updates.push('name = ?');
+    bindings.push(name);
+  }
+  if ('is_admin' in body) {
+    const flag = body.is_admin === 1 || body.is_admin === true || body.is_admin === '1' ? 1 : 0;
+    updates.push('is_admin = ?');
+    bindings.push(flag);
+  }
+  if (!updates.length) return json({ error: 'Inget att uppdatera.' }, 400);
+
+  updates.push("updated_at = datetime('now')");
+  bindings.push(userId);
 
   try {
     const result = await env.DB.prepare(
-      `UPDATE ff_users
-          SET name = ?, updated_at = datetime('now')
-        WHERE id = ? AND deleted_at IS NULL`
-    ).bind(name, userId).run();
+      `UPDATE ff_users SET ${updates.join(', ')} WHERE id = ? AND deleted_at IS NULL`
+    ).bind(...bindings).run();
     if (!result.meta?.changes) return json({ error: 'Användaren hittades inte.' }, 404);
   } catch (err) {
     const msg = errorMessage(err);

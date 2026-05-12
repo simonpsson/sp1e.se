@@ -69,6 +69,13 @@ check('requireFredagsfettAdminUser helper exists and gates on is_admin',
   /async function requireFredagsfettAdminUser/.test(api)
   && /requireFredagsfettUser\(request, env\)/.test(api)
   && /not_admin/.test(api));
+check('Register auto-promotes first user when zero admins exist',
+  /SELECT COUNT\(\*\) as cnt FROM ff_users WHERE is_admin = 1/.test(api)
+  && /zero[_ ]?admins?/i.test(api));
+check('Admin user PATCH accepts is_admin and rejects unknown fields',
+  /fredagsfettAdminUpdateUser/.test(api)
+  && /body\.is_admin/.test(api)
+  && /unknown_field|unknown field/i.test(api));
 
 const failed = checks.filter(c => !c.ok);
 for (const c of checks) console.log(`${c.ok ? 'OK  ' : 'FAIL'} ${c.name}`);
