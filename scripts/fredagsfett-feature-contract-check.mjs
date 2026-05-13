@@ -111,6 +111,18 @@ check('Calendar edit form always sends both time keys (value or empty string)',
   /start_time:\s*timeStartInput\.value\s*(\?\?|\|\|)\s*['"]/.test(calendar)
   && /end_time:\s*timeEndInput\.value\s*(\?\?|\|\|)\s*['"]/.test(calendar));
 
+check('Calendar has a view-mode toggle for initials / heatmap',
+  /data-view-mode=["']initials["']/.test(calendar)
+  && /data-view-mode=["']heatmap["']/.test(calendar)
+  && /Värmekarta/.test(calendar));
+check('Calendar persists view mode in sessionStorage',
+  /ff-calendar-view-mode/.test(calendar));
+check('Calendar replaces "Bästa datum" panel with "Inlåsta fredagar"',
+  /Inlåsta fredagar/.test(calendar)
+  && /id=["']locked-events-list["']/.test(calendar)
+  && !/Bästa datum/.test(calendar) // header text removed
+);
+
 if (failures) {
   console.error(`\n${failures} Fredagsfett feature contract checks failed.`);
   process.exit(1);

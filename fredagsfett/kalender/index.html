@@ -184,6 +184,11 @@
     flex-wrap: wrap;
     padding: 0 1rem 1rem;
   }
+  .view-mode { display: inline-flex; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .view-mode button { border: 0; padding: 0.4rem 0.75rem; background: transparent; color: var(--muted); }
+  .view-mode button[aria-pressed="true"] { background: rgba(205,176,110,0.12); color: var(--text); }
+  .day.heatmap-mode .answers { display: none; }
+  .day.heatmap-mode .count { display: inline-block; font-family: 'DM Mono', monospace; font-size: 0.85rem; color: var(--text); margin-top: 0.6rem; }
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -316,7 +321,7 @@
     font-family: 'DM Mono', monospace;
     font-size: 0.72rem;
   }
-  .best-list, .detail-list {
+  .best-list, .detail-list, .locked-events-list {
     display: grid;
     gap: 0.55rem;
   }
@@ -332,6 +337,25 @@
     color: var(--text);
     font-size: 1.05rem;
   }
+  .locked-row {
+    display: grid;
+    gap: 0.18rem;
+    text-align: left;
+    border: 1px solid var(--line-hot);
+    border-radius: 12px;
+    padding: 0.75rem;
+    background: rgba(205,176,110,0.06);
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'Cormorant Garamond', serif;
+    text-transform: none;
+    letter-spacing: 0;
+    min-height: 0;
+  }
+  .locked-row:hover, .locked-row:focus-visible { border-color: var(--accent); }
+  .locked-row .locked-date { color: var(--accent); font: 0.68rem 'DM Mono', monospace; letter-spacing: 0.12em; text-transform: uppercase; }
+  .locked-row .locked-title { color: var(--text); font-size: 1.05rem; }
+  .locked-row .locked-host, .locked-row .locked-count { color: var(--muted); font: 0.66rem 'DM Mono', monospace; letter-spacing: 0.06em; }
   .tiny { color: var(--muted); font-size: 0.66rem; }
   .event-card { border: 1px solid var(--line-hot); border-radius: 12px; padding: 0.85rem; background: rgba(205,176,110,0.08); margin-bottom: 0.8rem; }
   .event-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-bottom: 0.35rem; }
@@ -406,6 +430,10 @@
           <button type="button" data-summer="06">Juni</button>
           <button type="button" data-summer="07">Juli</button>
           <button type="button" data-summer="08">Augusti</button>
+          <div class="view-mode" role="tablist" aria-label="Vy">
+            <button type="button" data-view-mode="initials" aria-pressed="true">Initialer</button>
+            <button type="button" data-view-mode="heatmap"  aria-pressed="false">Värmekarta</button>
+          </div>
         </div>
         <div class="calendar-grid" id="calendar-grid" aria-live="polite"></div>
       </section>
@@ -491,8 +519,9 @@
           <div class="error" id="calendar-error"></div>
         </section>
         <section class="panel-block">
-          <p class="kicker">Bästa datum hittills</p>
-          <div class="best-list" id="best-dates"></div>
+          <h3>Inlåsta fredagar</h3>
+          <div class="locked-events-list" id="locked-events-list"></div>
+          <div class="tiny" id="locked-events-empty" hidden>Inga inlåsta datum framåt. <span id="best-dates-hint"></span></div>
         </section>
         <section class="panel-block">
           <p class="kicker">Svar på vald dag</p>
@@ -503,6 +532,11 @@
   </section>
 </main>
 <script>
+// Group size fallback for heatmap tint. The /api/fredagsfett/admin/users endpoint
+// is admin-only, so non-admins can't fetch it; we use a constant for this tiny
+// private group. renderCalendar refines this from observed availability entries.
+const GROUP_SIZE_FALLBACK = 4;
+
 const state = {
   user: null,
   month: new Date().toISOString().slice(0, 7),
@@ -514,6 +548,7 @@ const state = {
   selectedEndTime: '',
   selectedTimeNote: '',
   tapBusy: false,
+  viewMode: sessionStorage.getItem('ff-calendar-view-mode') === 'heatmap' ? 'heatmap' : 'initials',
 };
 let currentSession = null;
 const eventsByDate = new Map();
@@ -555,6 +590,23 @@ async function api(path, options = {}) {
 function monthName(month) {
   const [year, m] = month.split('-').map(Number);
   return new Date(year, m - 1, 1).toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
+}
+
+function formatSwedishDate(date) {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('sv-SE', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+}
+
+function observedGroupSize() {
+  // Derive group size from the union of users seen in the current availability
+  // payload — the admin /users endpoint is gated. Falls back to constant.
+  const ids = new Set();
+  for (const entry of state.entries) {
+    if (entry.user_id) ids.add(entry.user_id);
+  }
+  return Math.max(GROUP_SIZE_FALLBACK, ids.size);
 }
 
 function addMonths(month, delta) {
@@ -684,6 +736,8 @@ function renderCalendar() {
   for (let i = 0; i < startOffset; i++) {
     grid.insertAdjacentHTML('beforeend', '<div class="day blank" aria-hidden="true"></div>');
   }
+  const isHeatmap = state.viewMode === 'heatmap';
+  const groupSize = observedGroupSize();
   for (let day = 1; day <= days; day++) {
     const date = `${state.month}-${String(day).padStart(2, '0')}`;
     const entries = entriesForDate(date);
@@ -694,13 +748,26 @@ function renderCalendar() {
       .filter(entry => entry.start_time && entry.end_time)
       .map(entry => `<span class="time-chip" title="${escapeHtml(entry.user_name)} ${escapeHtml(entry.time_note || '')}">${escapeHtml(formatTimeWindow(entry))}</span>`)
       .join('');
-    const dayMarkup = event && event.status === 'LOCKED'
-      ? `<button class="day locked-event${selected}" type="button" data-date="${date}">`
-      : `<button class="day${selected}" type="button" data-date="${date}">`;
+    const yesCount = entries.filter(e => e.status === 'AVAILABLE').length;
+    const maybeCount = entries.filter(e => e.status === 'MAYBE').length;
+    const score = yesCount + maybeCount * 0.5;
+    const intensity = Math.min(1, score / Math.max(1, groupSize));
+    const heatStyle = isHeatmap && intensity > 0
+      ? ` style="background: rgba(143,207,154,${(0.08 + intensity * 0.42).toFixed(3)});"`
+      : '';
+    const heatmapCls = isHeatmap ? ' heatmap-mode' : '';
+    const isLocked = event && event.status === 'LOCKED';
+    const dayMarkup = isLocked
+      ? `<button class="day locked-event${heatmapCls}${selected}" type="button" data-date="${date}"${heatStyle}>`
+      : `<button class="day${heatmapCls}${selected}" type="button" data-date="${date}"${heatStyle}>`;
+    const countMarkup = isHeatmap
+      ? `<span class="count">${yesCount}${maybeCount ? `+${maybeCount}` : ''}</span>`
+      : '';
     grid.insertAdjacentHTML('beforeend', `
       ${dayMarkup}
         <span class="day-number"><span>${day}</span><span class="tiny">${entries.length || ''}</span></span>
         <span class="answers">${chips}</span>
+        ${countMarkup}
         <span class="day-times">${timeChips}</span>
       </button>
     `);
@@ -827,10 +894,30 @@ function closeLockForm() {
   renderEventForSelectedDay();
 }
 
-function renderBestDates() {
-  document.getElementById('best-dates').innerHTML = state.bestDates.length
-    ? state.bestDates.map(row => `<div class="best-item"><strong>${row.date}</strong><span>${row.available_count} ja · ${row.maybe_count} kanske · ${row.unavailable_count} nej</span></div>`).join('')
-    : '<p class="tiny">Inga datum rankade ännu.</p>';
+function renderLockedEvents() {
+  const list = document.getElementById('locked-events-list');
+  const empty = document.getElementById('locked-events-empty');
+  const hint = document.getElementById('best-dates-hint');
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = [...eventsByDate.values()]
+    .filter(event => event.status === 'LOCKED' && event.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (upcoming.length) {
+    list.innerHTML = upcoming.map(event => `<button type="button" class="locked-row" data-date="${event.date}">
+   <span class="locked-date">${formatSwedishDate(event.date)}</span>
+   ${event.title ? `<span class="locked-title">${escapeHtml(event.title)}</span>` : ''}
+   ${event.host_name ? `<span class="locked-host">hos ${escapeHtml(event.host_name)}</span>` : ''}
+   <span class="locked-count">${(event.attendees || []).length} ja</span>
+ </button>`).join('');
+    empty.hidden = true;
+  } else {
+    list.innerHTML = '';
+    // Fallback: surface the best-dates ranking as a hint when nothing is locked.
+    hint.innerHTML = state.bestDates.length
+      ? `Tipsade datum: ${state.bestDates.slice(0, 3).map(row => `${row.date} (${row.available_count} ja)`).join(' · ')}.`
+      : '';
+    empty.hidden = false;
+  }
 }
 
 function statusLabel(status) {
@@ -852,7 +939,7 @@ async function loadAvailability() {
   const own = selfEntry(state.selectedDate);
   applyOwnEntryToForm(own);
   renderCalendar();
-  renderBestDates();
+  renderLockedEvents();
 }
 
 async function loadEvents() {
@@ -875,6 +962,7 @@ async function loadEvents() {
 async function reloadCalendarData() {
   await Promise.all([loadAvailability(), loadEvents()]);
   renderCalendar();
+  renderLockedEvents();
 }
 
 async function saveAvailability() {
@@ -957,6 +1045,7 @@ lockEventForm.addEventListener('submit', async event => {
     lockEventForm.hidden = true;
     await loadEvents();
     renderCalendar();
+    renderLockedEvents();
   } catch (err) {
     lockEventError.textContent = err.message;
   } finally {
@@ -997,6 +1086,7 @@ eventCard.addEventListener('click', async event => {
       await api(`/api/fredagsfett/events/${encodeURIComponent(ev.id)}`, { method: 'DELETE' });
       await loadEvents();
       renderCalendar();
+      renderLockedEvents();
     } catch (err) {
       errorBox.textContent = err.message;
     }
@@ -1024,6 +1114,35 @@ document.querySelectorAll('[data-summer]').forEach(button => {
     lockEventForm.hidden = true;
     void reloadCalendarData();
   });
+});
+
+document.querySelectorAll('[data-view-mode]').forEach(button => {
+  // Reflect the persisted mode on initial paint so the buttons match state.viewMode.
+  button.setAttribute('aria-pressed', button.dataset.viewMode === state.viewMode ? 'true' : 'false');
+  button.addEventListener('click', () => {
+    state.viewMode = button.dataset.viewMode === 'heatmap' ? 'heatmap' : 'initials';
+    sessionStorage.setItem('ff-calendar-view-mode', state.viewMode);
+    document.querySelectorAll('[data-view-mode]').forEach(b => {
+      b.setAttribute('aria-pressed', b.dataset.viewMode === state.viewMode ? 'true' : 'false');
+    });
+    renderCalendar();
+  });
+});
+
+document.getElementById('locked-events-list').addEventListener('click', event => {
+  const row = event.target.closest('.locked-row');
+  if (!row) return;
+  const date = row.dataset.date;
+  if (!date) return;
+  state.selectedDate = date;
+  // Jump the grid to the event's month if we aren't already there.
+  const targetMonth = date.slice(0, 7);
+  if (targetMonth !== state.month) {
+    state.month = targetMonth;
+    void reloadCalendarData();
+  } else {
+    renderCalendar();
+  }
 });
 
 async function boot() {
