@@ -90,6 +90,20 @@ check('Availability upsert distinguishes missing key from empty string',
 check('Availability upsert allows standalone start_time when default applies',
   !/(body\.start_time \|\| body\.end_time \|\| timeNote)\s*\)\s*&&\s*\(!startTime \|\| !endTime\)/.test(api));
 
+check('Calendar loads events alongside availability',
+  /loadEvents/.test(calendar)
+  && /\/api\/fredagsfett\/events/.test(calendar));
+check('Calendar reads is_admin from session and gates the lock button',
+  /session\.user\.is_admin/.test(calendar)
+  && /lock-event-btn/.test(calendar));
+check('Calendar renders LOCKED events with a glyph and ring',
+  /class=["']day[^"']*locked-event/.test(calendar)
+  && /𓀂/.test(calendar));
+check('Calendar shows event-card with edit and cancel actions for admins',
+  /id=["']event-card["']/.test(calendar)
+  && /data-action=["']edit-event["']/.test(calendar)
+  && /data-action=["']cancel-event["']/.test(calendar));
+
 if (failures) {
   console.error(`\n${failures} Fredagsfett feature contract checks failed.`);
   process.exit(1);

@@ -333,6 +333,17 @@
     font-size: 1.05rem;
   }
   .tiny { color: var(--muted); font-size: 0.66rem; }
+  .event-card { border: 1px solid var(--line-hot); border-radius: 12px; padding: 0.85rem; background: rgba(205,176,110,0.08); margin-bottom: 0.8rem; }
+  .event-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-bottom: 0.35rem; }
+  .event-card-head strong { color: var(--accent); font-size: 1.1rem; }
+  .event-card .tiny { display: block; margin-bottom: 0.18rem; }
+  .lock-event-btn { margin-top: 0.6rem; }
+  .lock-event-form { display: grid; gap: 0.55rem; margin-top: 0.6rem; padding: 0.75rem; border: 1px solid var(--line-hot); border-radius: 12px; background: rgba(205,176,110,0.05); }
+  .lock-event-form select { width: 100%; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; background: rgba(0,0,0,0.35); color: var(--text); padding: 0.72rem 0.78rem; font: 0.86rem 'DM Mono', monospace; outline: none; }
+  .lock-event-form select:focus { border-color: var(--line-hot); }
+  .day.locked-event { border-color: var(--line-hot); box-shadow: inset 0 0 0 1px var(--line-hot); }
+  .day.locked-event::before { content: '𓀂'; display: block; color: var(--accent); }
+  body:not(.is-admin) [data-admin-only] { display: none !important; }
   @media (max-width: 860px) {
     header, .layout { grid-template-columns: 1fr; }
     header { display: block; }
@@ -379,8 +390,57 @@
       </section>
       <aside>
         <section class="panel-block">
+          <div id="event-card" class="event-card" hidden>
+            <div class="event-card-head">
+              <strong id="event-card-title">Inlåst</strong>
+              <span id="event-card-time" class="tiny"></span>
+            </div>
+            <div id="event-card-host" class="tiny"></div>
+            <div id="event-card-location" class="tiny"></div>
+            <div id="event-card-notes"></div>
+            <div class="nav admin-only" data-admin-only style="margin-top:0.6rem">
+              <button type="button" data-action="edit-event">Redigera</button>
+              <button type="button" data-action="cancel-event">Avbryt</button>
+            </div>
+          </div>
           <p class="kicker">Vald dag</p>
           <h3 id="selected-date-title">Välj ett datum</h3>
+          <button id="lock-event-btn" type="button" class="lock-event-btn admin-only" data-admin-only hidden>Lås in dagen</button>
+          <form id="lock-event-form" class="lock-event-form admin-only" data-admin-only hidden>
+            <div>
+              <label for="lock-title-input">Titel</label>
+              <input id="lock-title-input" type="text" maxlength="80">
+            </div>
+            <div>
+              <label for="lock-host-select">Värd</label>
+              <select id="lock-host-select">
+                <option value="">— Ingen vald —</option>
+              </select>
+            </div>
+            <div>
+              <label for="lock-location-input">Plats</label>
+              <input id="lock-location-input" type="text" maxlength="200">
+            </div>
+            <div class="time-fields">
+              <div>
+                <label for="lock-start-input">Från</label>
+                <input id="lock-start-input" type="time">
+              </div>
+              <div>
+                <label for="lock-end-input">Till</label>
+                <input id="lock-end-input" type="time">
+              </div>
+            </div>
+            <div>
+              <label for="lock-notes-input">Anteckningar</label>
+              <textarea id="lock-notes-input" maxlength="500"></textarea>
+            </div>
+            <div class="nav" style="margin-top:0.2rem">
+              <button type="submit">Bekräfta inlåsning</button>
+              <button type="button" data-action="cancel-lock-form">Avbryt</button>
+            </div>
+            <div class="error" id="lock-event-error"></div>
+          </form>
           <div class="status-row">
             <button class="status-pill" type="button" data-status="AVAILABLE">Tillgänglig</button>
             <button class="status-pill" type="button" data-status="MAYBE">Kanske</button>
@@ -433,6 +493,8 @@ const state = {
   selectedEndTime: '',
   selectedTimeNote: '',
 };
+let currentSession = null;
+const eventsByDate = new Map();
 const monthTitle = document.getElementById('month-title');
 const grid = document.getElementById('calendar-grid');
 const errorBox = document.getElementById('calendar-error');
@@ -440,6 +502,21 @@ const noteInput = document.getElementById('note-input');
 const timeStartInput = document.getElementById('time-start-input');
 const timeEndInput = document.getElementById('time-end-input');
 const timeNoteInput = document.getElementById('time-note-input');
+const eventCard = document.getElementById('event-card');
+const eventCardTitle = document.getElementById('event-card-title');
+const eventCardTime = document.getElementById('event-card-time');
+const eventCardHost = document.getElementById('event-card-host');
+const eventCardLocation = document.getElementById('event-card-location');
+const eventCardNotes = document.getElementById('event-card-notes');
+const lockEventBtn = document.getElementById('lock-event-btn');
+const lockEventForm = document.getElementById('lock-event-form');
+const lockTitleInput = document.getElementById('lock-title-input');
+const lockHostSelect = document.getElementById('lock-host-select');
+const lockLocationInput = document.getElementById('lock-location-input');
+const lockStartInput = document.getElementById('lock-start-input');
+const lockEndInput = document.getElementById('lock-end-input');
+const lockNotesInput = document.getElementById('lock-notes-input');
+const lockEventError = document.getElementById('lock-event-error');
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -507,13 +584,17 @@ function renderCalendar() {
     const date = `${state.month}-${String(day).padStart(2, '0')}`;
     const entries = entriesForDate(date);
     const selected = date === state.selectedDate ? ' selected' : '';
+    const event = eventsByDate.get(date);
     const chips = entries.map(entry => `<span class="avatar" data-status="${entry.status}" title="${entry.user_name}: ${entry.status}">${initials(entry.user_name)}</span>`).join('');
     const timeChips = entries
       .filter(entry => entry.start_time && entry.end_time)
       .map(entry => `<span class="time-chip" title="${escapeHtml(entry.user_name)} ${escapeHtml(entry.time_note || '')}">${escapeHtml(formatTimeWindow(entry))}</span>`)
       .join('');
+    const dayMarkup = event && event.status === 'LOCKED'
+      ? `<button class="day locked-event${selected}" type="button" data-date="${date}">`
+      : `<button class="day${selected}" type="button" data-date="${date}">`;
     grid.insertAdjacentHTML('beforeend', `
-      <button class="day${selected}" type="button" data-date="${date}">
+      ${dayMarkup}
         <span class="day-number"><span>${day}</span><span class="tiny">${entries.length || ''}</span></span>
         <span class="answers">${chips}</span>
         <span class="day-times">${timeChips}</span>
@@ -531,10 +612,110 @@ function renderSelectedDay() {
   const own = selfEntry(state.selectedDate);
   applyOwnEntryToForm(own);
   document.querySelectorAll('.status-pill').forEach(button => button.classList.toggle('active', button.dataset.status === state.selectedStatus));
+  renderEventForSelectedDay();
   const details = entriesForDate(state.selectedDate);
   document.getElementById('day-details').innerHTML = details.length
     ? details.map(entry => `<div class="detail-item"><strong>${escapeHtml(entry.user_name)}</strong><span>${statusLabel(entry.status)}</span>${formatTimeWindow(entry) ? `<span class="time-chip">${escapeHtml(formatTimeWindow(entry))}</span>` : ''}${entry.time_note ? `<p>${escapeHtml(entry.time_note)}</p>` : ''}${entry.note ? `<p>${escapeHtml(entry.note)}</p>` : ''}</div>`).join('')
     : '<p class="tiny">Inga svar ännu.</p>';
+}
+
+function renderEventForSelectedDay() {
+  const event = eventsByDate.get(state.selectedDate);
+  const isAdmin = !!(currentSession && currentSession.user && currentSession.user.is_admin);
+  const hasActiveEvent = event && event.status === 'LOCKED';
+  if (hasActiveEvent) {
+    eventCard.hidden = false;
+    eventCardTitle.textContent = event.title || 'Inlåst';
+    eventCardTime.textContent = formatTimeWindow(event) || '';
+    eventCardHost.textContent = event.host_name ? `Värd: ${event.host_name}` : '';
+    eventCardHost.hidden = !event.host_name;
+    eventCardLocation.textContent = event.location ? `Plats: ${event.location}` : '';
+    eventCardLocation.hidden = !event.location;
+    eventCardNotes.textContent = event.notes || '';
+    eventCardNotes.hidden = !event.notes;
+  } else {
+    eventCard.hidden = true;
+  }
+  // Lock button: visible to admins when there is no active LOCKED event for this date.
+  const canLock = isAdmin && !hasActiveEvent;
+  lockEventBtn.hidden = !canLock || !lockEventForm.hidden;
+  if (lockEventForm.hidden) {
+    // ensure form stays hidden until user opens it
+  }
+}
+
+function buildHostOptions() {
+  if (!lockHostSelect) return;
+  const seen = new Map();
+  for (const entry of state.entries) {
+    if (entry.user_id && entry.user_name && !seen.has(entry.user_id)) {
+      seen.set(entry.user_id, entry.user_name);
+    }
+  }
+  for (const event of eventsByDate.values()) {
+    if (event.host_user_id && event.host_name && !seen.has(event.host_user_id)) {
+      seen.set(event.host_user_id, event.host_name);
+    }
+    for (const att of event.attendees || []) {
+      if (att.user_id && att.name && !seen.has(att.user_id)) {
+        seen.set(att.user_id, att.name);
+      }
+    }
+  }
+  if (currentSession?.user?.id && currentSession?.user?.name && !seen.has(currentSession.user.id)) {
+    seen.set(currentSession.user.id, currentSession.user.name);
+  }
+  const previous = lockHostSelect.value;
+  const options = ['<option value="">— Ingen vald —</option>'];
+  for (const [id, name] of seen) {
+    options.push(`<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`);
+  }
+  lockHostSelect.innerHTML = options.join('');
+  if (previous && seen.has(previous)) lockHostSelect.value = previous;
+}
+
+function weekdayDefaultTimes(date) {
+  const [y, m, d] = date.split('-').map(Number);
+  const dow = new Date(y, m - 1, d).getDay(); // 0=Sun, 5=Fri, 6=Sat
+  if (dow === 5) return { start: '18:00', end: '23:00' };
+  if (dow === 6) return { start: '17:00', end: '23:00' };
+  if (dow === 0) return { start: '12:00', end: '17:00' };
+  return { start: '', end: '' };
+}
+
+function majorityTimePair(date) {
+  const entries = entriesForDate(date).filter(e => e.status === 'AVAILABLE' && e.start_time && e.end_time);
+  if (entries.length) {
+    const counts = new Map();
+    for (const e of entries) {
+      const key = `${e.start_time}|${e.end_time}`;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const [start, end] = sorted[0][0].split('|');
+    return { start, end };
+  }
+  return weekdayDefaultTimes(date);
+}
+
+function openLockForm(prefill = {}) {
+  buildHostOptions();
+  const heuristic = majorityTimePair(state.selectedDate);
+  lockTitleInput.value = prefill.title || '';
+  lockHostSelect.value = prefill.host_user_id || '';
+  lockLocationInput.value = prefill.location || '';
+  lockStartInput.value = prefill.start_time || heuristic.start;
+  lockEndInput.value = prefill.end_time || heuristic.end;
+  lockNotesInput.value = prefill.notes || '';
+  lockEventError.textContent = '';
+  lockEventForm.hidden = false;
+  lockEventBtn.hidden = true;
+}
+
+function closeLockForm() {
+  lockEventForm.hidden = true;
+  lockEventError.textContent = '';
+  renderEventForSelectedDay();
 }
 
 function renderBestDates() {
@@ -563,6 +744,40 @@ async function loadAvailability() {
   applyOwnEntryToForm(own);
   renderCalendar();
   renderBestDates();
+}
+
+async function loadEvents() {
+  const [year, m] = state.month.split('-').map(Number);
+  const from = `${state.month}-01`;
+  const lastDay = new Date(year, m, 0).getDate();
+  const to = `${state.month}-${String(lastDay).padStart(2, '0')}`;
+  try {
+    const data = await api(`/api/fredagsfett/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    eventsByDate.clear();
+    for (const event of data.events || []) {
+      eventsByDate.set(event.date, event);
+    }
+  } catch (err) {
+    // Non-fatal: events overlay is optional; surface in console only.
+    console.warn('loadEvents failed', err);
+  }
+}
+
+async function loadSession() {
+  try {
+    const session = await api('/api/fredagsfett/session');
+    currentSession = session;
+    const isAdmin = !!(session.user && session.user.is_admin);
+    document.body.classList.toggle('is-admin', isAdmin);
+  } catch (err) {
+    currentSession = null;
+    document.body.classList.remove('is-admin');
+  }
+}
+
+async function reloadCalendarData() {
+  await Promise.all([loadAvailability(), loadEvents()]);
+  renderCalendar();
 }
 
 async function saveAvailability() {
@@ -608,7 +823,76 @@ grid.addEventListener('click', event => {
   state.selectedDate = button.dataset.date;
   const own = selfEntry(state.selectedDate);
   applyOwnEntryToForm(own, true);
+  lockEventForm.hidden = true;
   renderCalendar();
+});
+
+lockEventBtn.addEventListener('click', () => {
+  openLockForm();
+});
+
+lockEventForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  lockEventError.textContent = '';
+  const payload = {
+    date: state.selectedDate,
+    title: lockTitleInput.value.trim() || null,
+    host_user_id: lockHostSelect.value || null,
+    location: lockLocationInput.value.trim() || null,
+    start_time: lockStartInput.value || null,
+    end_time: lockEndInput.value || null,
+    notes: lockNotesInput.value.trim() || null,
+  };
+  const submitBtn = lockEventForm.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    await api('/api/fredagsfett/events', { method: 'POST', body: JSON.stringify(payload) });
+    lockEventForm.hidden = true;
+    await loadEvents();
+    renderCalendar();
+  } catch (err) {
+    lockEventError.textContent = err.message;
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+});
+
+lockEventForm.addEventListener('click', event => {
+  const cancelBtn = event.target.closest('[data-action="cancel-lock-form"]');
+  if (cancelBtn) {
+    event.preventDefault();
+    closeLockForm();
+  }
+});
+
+eventCard.addEventListener('click', async event => {
+  const editBtn = event.target.closest('[data-action="edit-event"]');
+  const cancelBtn = event.target.closest('[data-action="cancel-event"]');
+  if (editBtn) {
+    const ev = eventsByDate.get(state.selectedDate);
+    if (!ev) return;
+    openLockForm({
+      title: ev.title || '',
+      host_user_id: ev.host_user_id || '',
+      location: ev.location || '',
+      start_time: ev.start_time || '',
+      end_time: ev.end_time || '',
+      notes: ev.notes || '',
+    });
+    return;
+  }
+  if (cancelBtn) {
+    const ev = eventsByDate.get(state.selectedDate);
+    if (!ev) return;
+    if (!window.confirm(`Avbryt eventet för ${state.selectedDate}?`)) return;
+    try {
+      await api(`/api/fredagsfett/events/${encodeURIComponent(ev.id)}`, { method: 'DELETE' });
+      await loadEvents();
+      renderCalendar();
+    } catch (err) {
+      errorBox.textContent = err.message;
+    }
+  }
 });
 
 document.querySelectorAll('.status-pill').forEach(button => {
@@ -619,8 +903,8 @@ document.querySelectorAll('.status-pill').forEach(button => {
 });
 document.getElementById('save-availability').addEventListener('click', saveAvailability);
 document.getElementById('delete-availability').addEventListener('click', deleteAvailability);
-document.getElementById('prev-month').addEventListener('click', () => { state.month = addMonths(state.month, -1); void loadAvailability(); });
-document.getElementById('next-month').addEventListener('click', () => { state.month = addMonths(state.month, 1); void loadAvailability(); });
+document.getElementById('prev-month').addEventListener('click', () => { state.month = addMonths(state.month, -1); lockEventForm.hidden = true; void reloadCalendarData(); });
+document.getElementById('next-month').addEventListener('click', () => { state.month = addMonths(state.month, 1); lockEventForm.hidden = true; void reloadCalendarData(); });
 document.querySelectorAll('[data-summer]').forEach(button => {
   button.addEventListener('click', () => {
     state.month = `${new Date().getFullYear()}-${button.dataset.summer}`;
@@ -629,7 +913,8 @@ document.querySelectorAll('[data-summer]').forEach(button => {
     timeStartInput.value = '';
     timeEndInput.value = '';
     timeNoteInput.value = '';
-    void loadAvailability();
+    lockEventForm.hidden = true;
+    void reloadCalendarData();
   });
 });
 
@@ -640,8 +925,12 @@ async function boot() {
       location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/kalender')}`;
       return;
     }
-    await loadAvailability();
+    currentSession = session;
+    document.body.classList.toggle('is-admin', !!(session.user && session.user.is_admin));
+    await Promise.all([loadAvailability(), loadEvents(), loadSession()]);
+    renderCalendar();
     setInterval(loadAvailability, 15000);
+    setInterval(() => { void loadEvents().then(renderCalendar); }, 15000);
   } catch {
     location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/kalender')}`;
   }
