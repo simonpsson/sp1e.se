@@ -104,6 +104,13 @@ check('Calendar shows event-card with edit and cancel actions for admins',
   && /data-action=["']edit-event["']/.test(calendar)
   && /data-action=["']cancel-event["']/.test(calendar));
 
+check('Calendar implements tap-cycle on day cells with sessionStorage hint',
+  /tapCycleStatus|cycleAvailability/.test(calendar)
+  && /ff-tap-cycle-hint-seen/.test(calendar));
+check('Calendar edit form always sends both time keys (value or empty string)',
+  /start_time:\s*timeStartInput\.value\s*(\?\?|\|\|)\s*['"]/.test(calendar)
+  && /end_time:\s*timeEndInput\.value\s*(\?\?|\|\|)\s*['"]/.test(calendar));
+
 if (failures) {
   console.error(`\n${failures} Fredagsfett feature contract checks failed.`);
   process.exit(1);

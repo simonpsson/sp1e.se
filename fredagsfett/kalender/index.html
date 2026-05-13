@@ -344,6 +344,27 @@
   .day.locked-event { border-color: var(--line-hot); box-shadow: inset 0 0 0 1px var(--line-hot); }
   .day.locked-event::before { content: '𓀂'; display: block; color: var(--accent); }
   body:not(.is-admin) [data-admin-only] { display: none !important; }
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 1.4rem;
+    z-index: 50;
+    transform: translateX(-50%);
+    max-width: min(92vw, 28rem);
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--line-hot);
+    border-radius: 12px;
+    background: rgba(10,10,10,0.92);
+    color: var(--text);
+    font: 0.78rem 'DM Mono', monospace;
+    letter-spacing: 0.06em;
+    box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+    animation: ff-toast-in 0.22s ease-out;
+  }
+  @keyframes ff-toast-in {
+    from { opacity: 0; transform: translate(-50%, 12px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
   @media (max-width: 860px) {
     header, .layout { grid-template-columns: 1fr; }
     header { display: block; }
@@ -550,6 +571,79 @@ function entriesForDate(date) {
 
 function selfEntry(date) {
   return entriesForDate(date).find(entry => entry.is_self);
+}
+
+// Optimistically patch state.entries with the user's new status for `date`,
+// then re-render the calendar. No refetch — caller revalidates via loadAvailability().
+function applyOptimisticStatus(date, nextStatus) {
+  const idx = state.entries.findIndex(entry => entry.date === date && entry.is_self);
+  if (nextStatus === null) {
+    if (idx !== -1) state.entries.splice(idx, 1);
+  } else if (idx !== -1) {
+    state.entries[idx] = { ...state.entries[idx], status: nextStatus };
+  } else {
+    state.entries.push({
+      date,
+      status: nextStatus,
+      is_self: true,
+      user_id: state.user?.id || currentSession?.user?.id || null,
+      user_name: state.user?.name || currentSession?.user?.name || '',
+      note: null,
+      start_time: null,
+      end_time: null,
+      time_note: null,
+    });
+  }
+  renderCalendar();
+}
+
+let toastTimer = null;
+function showToast(message) {
+  let toast = document.getElementById('ff-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'ff-toast';
+    toast.className = 'toast';
+    toast.setAttribute('role', 'status');
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.remove();
+    toastTimer = null;
+  }, 4000);
+}
+
+function showTapCycleHintOnce() {
+  if (sessionStorage.getItem('ff-tap-cycle-hint-seen')) return;
+  sessionStorage.setItem('ff-tap-cycle-hint-seen', '1');
+  showToast('Tryck igen för att växla mellan tillgänglig / kanske / inte tillgänglig.');
+}
+
+const TAP_CYCLE = ['AVAILABLE', 'MAYBE', 'UNAVAILABLE', null];
+async function tapCycleStatus(date) {
+  const current = selfEntry(date)?.status ?? null;
+  const idx = TAP_CYCLE.indexOf(current);
+  const next = TAP_CYCLE[(idx + 1) % TAP_CYCLE.length];
+  const prevState = current;
+  applyOptimisticStatus(date, next);
+  try {
+    if (next === null) {
+      await api(`/api/fredagsfett/availability?date=${encodeURIComponent(date)}`, { method: 'DELETE' });
+    } else {
+      // Tap-cycle never sends time fields — server applies weekday default.
+      await api('/api/fredagsfett/availability', {
+        method: 'POST',
+        body: JSON.stringify({ date, status: next }),
+      });
+    }
+    await loadAvailability();
+    showTapCycleHintOnce();
+  } catch (err) {
+    applyOptimisticStatus(date, prevState);
+    errorBox.textContent = err.message;
+  }
 }
 
 function formatTimeWindow(entry) {
@@ -781,10 +875,12 @@ async function saveAvailability() {
       body: JSON.stringify({
         date: state.selectedDate,
         status: state.selectedStatus,
-        note: noteInput.value,
-        start_time: timeStartInput.value,
-        end_time: timeEndInput.value,
-        time_note: timeNoteInput.value,
+        note: noteInput.value || null,
+        // '' signals "intentionally cleared", not "missing" — server must not
+        // re-apply the weekday default over an explicit user choice.
+        start_time: timeStartInput.value || '',
+        end_time: timeEndInput.value || '',
+        time_note: timeNoteInput.value || null,
       }),
     });
     await loadAvailability();
@@ -813,10 +909,14 @@ async function deleteAvailability() {
 grid.addEventListener('click', event => {
   const button = event.target.closest('[data-date]');
   if (!button) return;
-  state.selectedDate = button.dataset.date;
-  const own = selfEntry(state.selectedDate);
+  const date = button.dataset.date;
+  state.selectedDate = date;
+  const own = selfEntry(date);
   applyOwnEntryToForm(own, true);
   lockEventForm.hidden = true;
+  // Cycle the user's own availability on the same tap. The side panel still
+  // opens (via renderCalendar -> renderSelectedDay) so time/notes can be edited.
+  void tapCycleStatus(date);
   renderCalendar();
 });
 
