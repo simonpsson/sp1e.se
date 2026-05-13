@@ -149,6 +149,30 @@
   .device strong { color: rgba(255,255,255,0.72); font-weight: 500; }
   .revoked { opacity: 0.48; }
   .toolbar { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: center; }
+  .tiny { font: 0.66rem 'DM Mono', monospace; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+  .user-audit { margin-top: 0.55rem; }
+  .user-admin {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+    font: 0.7rem 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .user-admin input[type="checkbox"] {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+  .user-rename {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.6rem;
+    margin-top: 0.6rem;
+  }
   @media (max-width: 720px) {
     header { align-items: flex-start; flex-direction: column; }
     .user-top { grid-template-columns: 1fr; }
@@ -212,6 +236,29 @@ async function api(path, options = {}) {
   return data;
 }
 
+// Thin stub — Task 11 will replace this with the robust wrapper.
+async function adminApi(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(data.error || `${res.status}`);
+  return data;
+}
+
+function latestSeen(devices) {
+  if (!Array.isArray(devices) || devices.length === 0) return '—';
+  let latest = null;
+  for (const device of devices) {
+    if (!device || !device.last_seen_at) continue;
+    if (!latest || device.last_seen_at > latest) latest = device.last_seen_at;
+  }
+  return latest || '—';
+}
+
 function fmt(value) {
   if (!value) return '-';
   return new Date(value.replace(' ', 'T') + 'Z').toLocaleString('sv-SE');
@@ -240,7 +287,18 @@ function renderUsers(users) {
         <button type="button" data-action="save">Spara</button>
         <button type="button" class="danger" data-action="delete">Ta bort</button>
       </div>
-      <p class="mono">${user.active_device_count} aktiva enheter · skapad ${fmt(user.created_at)}</p>
+      <p class="mono">${user.active_device_count} aktiva enheter</p>
+      <div class="user-audit tiny">
+        Skapad ${escapeHtml(fmt(user.created_at))} · Senast inloggad ${escapeHtml(fmt(latestSeen(user.devices)))}
+      </div>
+      <label class="user-admin">
+        <input type="checkbox" data-action="toggle-admin" ${user.is_admin ? 'checked' : ''}>
+        Admin
+      </label>
+      <div class="user-rename">
+        <input type="text" data-rename-input value="${escapeHtml(user.name)}" maxlength="80">
+        <button type="button" data-action="rename">Spara namn</button>
+      </div>
       <div class="devices">
         ${(user.devices || []).map((device, index) => `
           <div class="device ${device.revoked_at ? 'revoked' : ''}" data-device-id="${device.id}">
@@ -282,18 +340,28 @@ usersEl.addEventListener('click', async event => {
   if (!button) return;
   const userCard = button.closest('.user-card');
   const action = button.dataset.action;
+  const userId = userCard.dataset.userId;
   button.disabled = true;
   try {
     if (action === 'save') {
-      await api(`/api/fredagsfett/admin/users/${encodeURIComponent(userCard.dataset.userId)}`, {
+      const topInput = userCard.querySelector('.user-top input');
+      await api(`/api/fredagsfett/admin/users/${encodeURIComponent(userId)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name: userCard.querySelector('input').value }),
+        body: JSON.stringify({ name: topInput.value }),
+      });
+      setStatus('Namnet sparades.', true);
+    }
+    if (action === 'rename') {
+      const input = userCard.querySelector('[data-rename-input]');
+      await adminApi(`/api/fredagsfett/admin/users/${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: input.value.trim() }),
       });
       setStatus('Namnet sparades.', true);
     }
     if (action === 'delete') {
       if (!confirm('Ta bort användaren och återkalla alla enheter?')) return;
-      await api(`/api/fredagsfett/admin/users/${encodeURIComponent(userCard.dataset.userId)}`, { method: 'DELETE' });
+      await api(`/api/fredagsfett/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
       setStatus('Användaren togs bort.', true);
     }
     if (action === 'revoke') {
@@ -306,6 +374,28 @@ usersEl.addEventListener('click', async event => {
     setStatus(err.message);
   } finally {
     button.disabled = false;
+  }
+});
+
+usersEl.addEventListener('change', async event => {
+  const checkbox = event.target.closest('input[type="checkbox"][data-action="toggle-admin"]');
+  if (!checkbox) return;
+  const userCard = checkbox.closest('.user-card');
+  const userId = userCard.dataset.userId;
+  const checked = checkbox.checked;
+  checkbox.disabled = true;
+  try {
+    await adminApi(`/api/fredagsfett/admin/users/${encodeURIComponent(userId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_admin: checked ? 1 : 0 }),
+    });
+    setStatus(checked ? 'Användaren är nu admin.' : 'Adminrollen togs bort.', true);
+    await loadUsers();
+  } catch (err) {
+    checkbox.checked = !checked;
+    setStatus(err.message);
+  } finally {
+    checkbox.disabled = false;
   }
 });
 

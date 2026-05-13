@@ -76,6 +76,15 @@ check('Admin user PATCH accepts is_admin and rejects unknown fields',
   /fredagsfettAdminUpdateUser/.test(api)
   && /body\.is_admin/.test(api)
   && /unknown_field|unknown field/i.test(api));
+check('Dev console renders admin toggle per user and PATCHes is_admin',
+  /data-action=["']toggle-admin["']/.test(admin)
+  && /is_admin/.test(admin)
+  && /method:\s*['"]PATCH['"]/.test(admin));
+check('Dev console can rename a user inline',
+  /data-action=["']rename["']/.test(admin)
+  && /name:\s*\w+\.value\.trim\(\)/.test(admin));
+check('Dev console shows audit line with created_at and last_seen',
+  /Skapad/.test(admin) && /Senast inloggad/.test(admin));
 
 const failed = checks.filter(c => !c.ok);
 for (const c of checks) console.log(`${c.ok ? 'OK  ' : 'FAIL'} ${c.name}`);
