@@ -10118,8 +10118,10 @@ async function fredagsfettEventsList(request: Request, env: Env): Promise<Respon
   const url = new URL(request.url);
   // Workers run in UTC by default, so this matches the YYYY-MM-DD strings stored in D1.
   const today = new Date();
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-  const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const y = today.getUTCFullYear();
+  const m = today.getUTCMonth();
+  const firstOfMonth = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+  const lastOfMonth = new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10);
   const from = normalizeFredagsfettDate(url.searchParams.get('from')) ?? firstOfMonth;
   const to = normalizeFredagsfettDate(url.searchParams.get('to')) ?? lastOfMonth;
 
