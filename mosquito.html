@@ -2982,7 +2982,7 @@ async function doBank(action){
 }
 
 /* ─── Dev console ─────────────────────────────────────────────────────────── */
-/* â”€â”€â”€ Casino / Blackjack â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Casino / Blackjack */
 function setCasinoBet(value){
   const next=Math.max(100,Math.min(5000,Math.floor(Number(value)||0)));
   G.casinoBet=next||500;
@@ -3374,7 +3374,7 @@ function holdemActionKind(seatOrAction){
   if(a.includes('fold')) return 'fold';
   if(a.includes('check')) return 'check';
   if(a.includes('call')||a.includes('syn')) return 'call';
-  if(a.includes('raise')||a.includes('hÃ¶j')||a.includes('hoj')) return 'raise';
+  if(a.includes('raise')||a.includes('höj')||a.includes('hoj')) return 'raise';
   if(a.includes('bet')) return 'bet';
   return '';
 }
