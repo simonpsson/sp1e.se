@@ -10204,7 +10204,15 @@ async function fredagsfettEventsCreate(request: Request, env: Env): Promise<Resp
   }
 
   const groupId = 'fredagsfett';
-  const id = `ev-${crypto.randomUUID()}`;
+
+  // Reuse the existing row's id if this is a revive; otherwise mint a new id.
+  // SQLite's ON CONFLICT DO UPDATE keeps the original PK, so we must look it up
+  // rather than trusting the id we'd otherwise bind.
+  const existing = await env.DB.prepare(
+    `SELECT id FROM ff_events WHERE group_id = ? AND date = ?`
+  ).bind(groupId, date).first<{ id: string }>();
+  const id = existing?.id ?? `ev-${crypto.randomUUID()}`;
+
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO ff_events (id, group_id, date, status, host_user_id, title, location, start_time, end_time, notes, created_by_user_id, created_at, updated_at)
