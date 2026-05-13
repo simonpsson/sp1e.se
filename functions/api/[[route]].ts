@@ -136,6 +136,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'availability' && !sub && method === 'POST') return fredagsfettAvailabilityUpsert(request, env);
       if (id === 'availability' && !sub && method === 'DELETE') return fredagsfettAvailabilityDelete(request, env);
       if (id === 'events' && !sub && method === 'GET')  return fredagsfettEventsList(request, env);
+      if (id === 'events' && !sub && method === 'POST') return fredagsfettEventsCreate(request, env);
       if (id === 'sp1wise' && !sub && method === 'GET') return fredagsfettSp1wise(request, env);
       if (id === 'sp1wise' && sub === 'groups' && !action && method === 'GET') return fredagsfettSp1wiseGroups(request, env);
       if (id === 'sp1wise' && sub === 'groups' && !action && method === 'POST') return fredagsfettSp1wiseCreateGroup(request, env);
@@ -10167,6 +10168,61 @@ async function fredagsfettEventsList(request: Request, env: Env): Promise<Respon
     attendees: attendeesByDate.get(e.date) ?? [],
   }));
   return json({ events: items, from, to });
+}
+
+async function fredagsfettEventsCreate(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettAdminUser(request, env);
+  let body: {
+    date?: string;
+    title?: string | null;
+    host_user_id?: string | null;
+    location?: string | null;
+    start_time?: string | null;
+    end_time?: string | null;
+    notes?: string | null;
+  };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+
+  const date = normalizeFredagsfettDate(body.date);
+  if (!date) return json({ error: 'Ogiltigt datum.' }, 400);
+
+  const hostUserId = body.host_user_id ? normalizeFredagsfettId(body.host_user_id) : null;
+  if (body.host_user_id && !hostUserId) return json({ error: 'Ogiltig värd.' }, 400);
+  if (hostUserId) {
+    const exists = await env.DB.prepare(`SELECT 1 FROM ff_users WHERE id = ? AND deleted_at IS NULL`).bind(hostUserId).first();
+    if (!exists) return json({ error: 'Värden finns inte.' }, 400);
+  }
+
+  const title = normalizeFredagsfettShortText(body.title, 80);
+  const location = normalizeFredagsfettShortText(body.location, 200);
+  const startTime = normalizeFredagsfettTime(body.start_time);
+  const endTime = normalizeFredagsfettTime(body.end_time);
+  const notes = normalizeFredagsfettShortText(body.notes, 1000);
+  if (startTime && endTime && startTime >= endTime) {
+    return json({ error: 'Sluttiden måste vara efter starttiden.' }, 400);
+  }
+
+  const groupId = 'fredagsfett';
+  const id = `ev-${crypto.randomUUID()}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO ff_events (id, group_id, date, status, host_user_id, title, location, start_time, end_time, notes, created_by_user_id, created_at, updated_at)
+       VALUES (?, ?, ?, 'LOCKED', ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+       ON CONFLICT(group_id, date) DO UPDATE SET
+         status = 'LOCKED',
+         host_user_id = excluded.host_user_id,
+         title = excluded.title,
+         location = excluded.location,
+         start_time = excluded.start_time,
+         end_time = excluded.end_time,
+         notes = excluded.notes,
+         cancelled_at = NULL,
+         updated_at = datetime('now')`
+    ).bind(id, groupId, date, hostUserId, title, location, startTime, endTime, notes, session.user.id),
+    fredagsfettLogStatement(env, groupId, session.user.id, 'event_locked', 'event', id, `${session.user.name} låste in ${date}.`),
+  ]);
+  return json({ success: true, event_id: id });
 }
 
 async function fredagsfettSp1wise(request: Request, env: Env): Promise<Response> {

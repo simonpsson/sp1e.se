@@ -63,6 +63,14 @@ check('Events GET list endpoint exists and is user-gated',
 check('Events GET joins availability for attendees',
   /fredagsfettEventsList[\s\S]*?ff_availability[\s\S]*?status IN \('AVAILABLE','MAYBE'\)/.test(api));
 
+check('Events POST gated on requireFredagsfettAdminUser',
+  /fredagsfettEventsCreate/.test(api)
+  && /requireFredagsfettAdminUser\(request, env\)/.test(api));
+check('Events POST upserts via ON CONFLICT(group_id, date)',
+  /INSERT INTO ff_events[\s\S]*?ON CONFLICT\(group_id, date\)\s*DO UPDATE/.test(api));
+check('Events POST writes event_locked to activity log',
+  /event_locked/.test(api));
+
 if (failures) {
   console.error(`\n${failures} Fredagsfett feature contract checks failed.`);
   process.exit(1);
