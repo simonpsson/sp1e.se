@@ -10081,10 +10081,21 @@ async function fredagsfettAvailabilityUpsert(request: Request, env: Env): Promis
   const startTime = normalizeFredagsfettTime(body.start_time);
   const endTime = normalizeFredagsfettTime(body.end_time);
   const timeNote = normalizeFredagsfettTimeNote(body.time_note);
-  if ((body.start_time || body.end_time || timeNote) && (!startTime || !endTime)) {
-    return json({ error: 'Ange både start- och sluttid för tidsraden.' }, 400);
+
+  // Apply weekday default times only when both keys are missing entirely and status is AVAILABLE.
+  let appliedStart = startTime;
+  let appliedEnd = endTime;
+  if (status === 'AVAILABLE' && !('start_time' in body) && !('end_time' in body)) {
+    const def = fredagsfettWeekdayDefaultTimes(date);
+    appliedStart = def.start_time;
+    appliedEnd = def.end_time;
   }
-  if (startTime && endTime && startTime >= endTime) {
+
+  // time_note only makes sense if there is at least a start time.
+  if (timeNote && !appliedStart) {
+    return json({ error: 'Ange en starttid för tidskommentaren.' }, 400);
+  }
+  if (appliedStart && appliedEnd && appliedStart >= appliedEnd) {
     return json({ error: 'Sluttiden måste vara efter starttiden.' }, 400);
   }
 
@@ -10099,9 +10110,9 @@ async function fredagsfettAvailabilityUpsert(request: Request, env: Env): Promis
        end_time = excluded.end_time,
        time_note = excluded.time_note,
        updated_at = datetime('now')`
-  ).bind(id, session.user.id, date, status, note, startTime, endTime, timeNote).run();
+  ).bind(id, session.user.id, date, status, note, appliedStart, appliedEnd, timeNote).run();
 
-  const timeSummary = startTime && endTime ? ` ${startTime}-${endTime}` : '';
+  const timeSummary = appliedStart && appliedEnd ? ` ${appliedStart}-${appliedEnd}` : (appliedStart ? ` ${appliedStart}` : '');
   await fredagsfettLog(env, 'fredagsfett', session.user.id, 'availability', 'availability', date, `${session.user.name} markerade ${fredagsfettAvailabilityLabel(status).toLowerCase()} ${date}${timeSummary}.`);
   return json({ success: true });
 }
@@ -10971,6 +10982,15 @@ function normalizeFredagsfettTime(value: string | null | undefined): string | nu
   if (!time) return null;
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
   return time;
+}
+
+function fredagsfettWeekdayDefaultTimes(date: string): { start_time: string | null; end_time: string | null } {
+  // date is YYYY-MM-DD; compute UTC weekday (matches D1 storage, which is date-only).
+  const weekday = new Date(date + 'T00:00:00Z').getUTCDay(); // 0=Sun..6=Sat
+  if (weekday === 5) return { start_time: '18:00', end_time: null };
+  if (weekday === 6) return { start_time: '17:00', end_time: null };
+  if (weekday === 0) return { start_time: '12:00', end_time: null };
+  return { start_time: null, end_time: null };
 }
 
 function normalizeFredagsfettAvailabilityStatus(value: string | null | undefined): FredagsfettAvailabilityRow['status'] | null {

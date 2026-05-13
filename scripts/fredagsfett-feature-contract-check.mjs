@@ -82,6 +82,14 @@ check('Events DELETE soft-cancels with status=CANCELLED and cancelled_at',
 check('Events activity log emits event_updated and event_cancelled',
   /event_updated/.test(api) && /event_cancelled/.test(api));
 
+check('Availability upsert applies weekday default times when keys are missing',
+  /fredagsfettWeekdayDefaultTimes/.test(api)
+  && /18:00/.test(api) && /17:00/.test(api) && /12:00/.test(api));
+check('Availability upsert distinguishes missing key from empty string',
+  /'start_time' in body/.test(api) && /'end_time' in body/.test(api));
+check('Availability upsert allows standalone start_time when default applies',
+  !/(body\.start_time \|\| body\.end_time \|\| timeNote)\s*\)\s*&&\s*\(!startTime \|\| !endTime\)/.test(api));
+
 if (failures) {
   console.error(`\n${failures} Fredagsfett feature contract checks failed.`);
   process.exit(1);
