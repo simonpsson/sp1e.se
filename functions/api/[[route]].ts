@@ -10237,7 +10237,9 @@ async function fredagsfettEventsCreate(request: Request, env: Env): Promise<Resp
 
 async function fredagsfettEventsUpdate(request: Request, env: Env, eventId: string): Promise<Response> {
   const session = await requireFredagsfettAdminUser(request, env);
-  const event = await env.DB.prepare(`SELECT group_id, date FROM ff_events WHERE id = ?`).bind(eventId).first<{ group_id: string; date: string }>();
+  const event = await env.DB.prepare(
+    `SELECT group_id, date, start_time, end_time FROM ff_events WHERE id = ?`
+  ).bind(eventId).first<{ group_id: string; date: string; start_time: string | null; end_time: string | null }>();
   if (!event) return json({ error: 'Eventet finns inte.' }, 404);
 
   let body: Record<string, unknown>;
@@ -10252,8 +10254,17 @@ async function fredagsfettEventsUpdate(request: Request, env: Env, eventId: stri
   const bindings: unknown[] = [];
   if ('title' in body)        { updates.push('title = ?');        bindings.push(normalizeFredagsfettShortText(body.title as string, 80)); }
   if ('host_user_id' in body) {
-    const hostId = body.host_user_id ? normalizeFredagsfettId(body.host_user_id as string) : null;
-    updates.push('host_user_id = ?'); bindings.push(hostId);
+    let hostId: string | null = null;
+    if (body.host_user_id != null && body.host_user_id !== '') {
+      hostId = normalizeFredagsfettId(body.host_user_id as string);
+      if (!hostId) return json({ error: 'Ogiltig värd.' }, 400);
+      const exists = await env.DB.prepare(
+        `SELECT 1 FROM ff_users WHERE id = ? AND deleted_at IS NULL`
+      ).bind(hostId).first();
+      if (!exists) return json({ error: 'Värden finns inte.' }, 400);
+    }
+    updates.push('host_user_id = ?');
+    bindings.push(hostId);
   }
   if ('location' in body)     { updates.push('location = ?');     bindings.push(normalizeFredagsfettShortText(body.location as string, 200)); }
   if ('start_time' in body)   { updates.push('start_time = ?');   bindings.push(normalizeFredagsfettTime(body.start_time as string)); }
@@ -10265,6 +10276,14 @@ async function fredagsfettEventsUpdate(request: Request, env: Env, eventId: stri
     updates.push('status = ?'); bindings.push(s);
     if (s === 'CANCELLED') updates.push("cancelled_at = datetime('now')");
     else updates.push('cancelled_at = NULL');
+  }
+  // Compute the effective post-update time pair: a field present in the body wins,
+  // otherwise we keep the row's current value. This catches both "PATCH only start_time"
+  // and "PATCH only end_time" cases that the per-field validation alone would miss.
+  const effectiveStart = 'start_time' in body ? normalizeFredagsfettTime(body.start_time as string) : event.start_time;
+  const effectiveEnd   = 'end_time'   in body ? normalizeFredagsfettTime(body.end_time   as string) : event.end_time;
+  if (effectiveStart && effectiveEnd && effectiveStart >= effectiveEnd) {
+    return json({ error: 'Sluttiden måste vara efter starttiden.' }, 400);
   }
   if (!updates.length) return json({ error: 'Inget att uppdatera.' }, 400);
   updates.push("updated_at = datetime('now')");
