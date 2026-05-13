@@ -41,7 +41,7 @@ check('Availability time migration adds start, end and time note fields', /ALTER
 check('Availability API persists and returns time windows', /start_time/.test(api) && /end_time/.test(api) && /time_note/.test(api) && /normalizeFredagsfettTime/.test(api) && /normalizeFredagsfettTimeNote/.test(api));
 check('Calendar UI can enter a time range and time comment', /id=["']time-start-input["']/.test(calendar) && /id=["']time-end-input["']/.test(calendar) && /id=["']time-note-input["']/.test(calendar) && /Tidsintervall/.test(calendar));
 check('Calendar renders time windows visibly on days and detail cards', /class=["']time-chip["']/.test(calendar) && /formatTimeWindow/.test(calendar) && /time_note/.test(calendar));
-check('Calendar page polls for updates', /setInterval\(\s*loadAvailability\s*,\s*15000\s*\)/.test(calendar));
+check('Calendar page polls for updates', /setInterval\(\s*(loadAvailability|reloadCalendarData)\s*,\s*15000\s*\)/.test(calendar));
 check('Calendar page has direct SP1Wise navigation without old hub link', /href=["']\/fredagsfett\/sp1wise["']/.test(calendar) && !/>\s*Hub\s*</i.test(calendar));
 check('Calendar exposes a small gear link to the admin console', /href=["']\/fredagsfett\/admin["']/.test(calendar) && /class=["'][^"']*icon-button/.test(calendar) && />⚙<\/a>/.test(calendar));
 check('Calendar removes intro copy and note placeholder text', !/class=["']subtitle["']/.test(calendar) && !/placeholder=/.test(calendar));

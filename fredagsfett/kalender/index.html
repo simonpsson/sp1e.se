@@ -400,7 +400,7 @@
             <div id="event-card-notes"></div>
             <div class="nav admin-only" data-admin-only style="margin-top:0.6rem">
               <button type="button" data-action="edit-event">Redigera</button>
-              <button type="button" data-action="cancel-event">Avbryt</button>
+              <button type="button" data-action="cancel-event">Avbryt inlåsning</button>
             </div>
           </div>
           <p class="kicker">Vald dag</p>
@@ -644,9 +644,12 @@ function renderEventForSelectedDay() {
   }
 }
 
-function buildHostOptions() {
+function buildHostOptions(prefill) {
   if (!lockHostSelect) return;
   const seen = new Map();
+  if (prefill?.host_user_id && prefill?.host_name) {
+    seen.set(prefill.host_user_id, prefill.host_name);
+  }
   for (const entry of state.entries) {
     if (entry.user_id && entry.user_name && !seen.has(entry.user_id)) {
       seen.set(entry.user_id, entry.user_name);
@@ -674,6 +677,8 @@ function buildHostOptions() {
   if (previous && seen.has(previous)) lockHostSelect.value = previous;
 }
 
+// Client-side UI prefill only; intentionally includes end times. Server-side
+// fredagsfettWeekdayDefaultTimes uses only start times for tap-cycle defaults.
 function weekdayDefaultTimes(date) {
   const [y, m, d] = date.split('-').map(Number);
   const dow = new Date(y, m - 1, d).getDay(); // 0=Sun, 5=Fri, 6=Sat
@@ -691,7 +696,7 @@ function majorityTimePair(date) {
       const key = `${e.start_time}|${e.end_time}`;
       counts.set(key, (counts.get(key) || 0) + 1);
     }
-    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     const [start, end] = sorted[0][0].split('|');
     return { start, end };
   }
@@ -699,7 +704,7 @@ function majorityTimePair(date) {
 }
 
 function openLockForm(prefill = {}) {
-  buildHostOptions();
+  buildHostOptions(prefill);
   const heuristic = majorityTimePair(state.selectedDate);
   lockTitleInput.value = prefill.title || '';
   lockHostSelect.value = prefill.host_user_id || '';
@@ -747,31 +752,19 @@ async function loadAvailability() {
 }
 
 async function loadEvents() {
+  eventsByDate.clear();
   const [year, m] = state.month.split('-').map(Number);
   const from = `${state.month}-01`;
   const lastDay = new Date(year, m, 0).getDate();
   const to = `${state.month}-${String(lastDay).padStart(2, '0')}`;
   try {
     const data = await api(`/api/fredagsfett/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
-    eventsByDate.clear();
     for (const event of data.events || []) {
       eventsByDate.set(event.date, event);
     }
   } catch (err) {
     // Non-fatal: events overlay is optional; surface in console only.
     console.warn('loadEvents failed', err);
-  }
-}
-
-async function loadSession() {
-  try {
-    const session = await api('/api/fredagsfett/session');
-    currentSession = session;
-    const isAdmin = !!(session.user && session.user.is_admin);
-    document.body.classList.toggle('is-admin', isAdmin);
-  } catch (err) {
-    currentSession = null;
-    document.body.classList.remove('is-admin');
   }
 }
 
@@ -874,6 +867,7 @@ eventCard.addEventListener('click', async event => {
     openLockForm({
       title: ev.title || '',
       host_user_id: ev.host_user_id || '',
+      host_name: ev.host_name || '',
       location: ev.location || '',
       start_time: ev.start_time || '',
       end_time: ev.end_time || '',
@@ -927,10 +921,9 @@ async function boot() {
     }
     currentSession = session;
     document.body.classList.toggle('is-admin', !!(session.user && session.user.is_admin));
-    await Promise.all([loadAvailability(), loadEvents(), loadSession()]);
+    await Promise.all([loadAvailability(), loadEvents()]);
     renderCalendar();
-    setInterval(loadAvailability, 15000);
-    setInterval(() => { void loadEvents().then(renderCalendar); }, 15000);
+    setInterval(reloadCalendarData, 15000);
   } catch {
     location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/kalender')}`;
   }
