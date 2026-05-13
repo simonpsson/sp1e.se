@@ -10082,17 +10082,32 @@ async function fredagsfettAvailabilityUpsert(request: Request, env: Env): Promis
   const endTime = normalizeFredagsfettTime(body.end_time);
   const timeNote = normalizeFredagsfettTimeNote(body.time_note);
 
-  // Apply weekday default times only when both keys are missing entirely and status is AVAILABLE.
+  // When both time keys are missing from the body (tap-cycle path), do not clobber
+  // any existing time window. For AVAILABLE we substitute the weekday default;
+  // for MAYBE/UNAVAILABLE we preserve whatever was previously stored.
   let appliedStart = startTime;
   let appliedEnd = endTime;
-  if (status === 'AVAILABLE' && !('start_time' in body) && !('end_time' in body)) {
-    const def = fredagsfettWeekdayDefaultTimes(date);
-    appliedStart = def.start_time;
-    appliedEnd = def.end_time;
+  let appliedTimeNote = timeNote;
+  const timeKeysAbsent = !('start_time' in body) && !('end_time' in body);
+  if (timeKeysAbsent) {
+    if (status === 'AVAILABLE') {
+      const def = fredagsfettWeekdayDefaultTimes(date);
+      appliedStart = def.start_time;
+      appliedEnd = def.end_time;
+    } else {
+      const existing = await env.DB.prepare(
+        `SELECT start_time, end_time, time_note FROM ff_availability WHERE user_id = ? AND date = ?`
+      ).bind(session.user.id, date).first<{ start_time: string | null; end_time: string | null; time_note: string | null }>();
+      if (existing) {
+        appliedStart = existing.start_time;
+        appliedEnd = existing.end_time;
+        if (!('time_note' in body)) appliedTimeNote = existing.time_note;
+      }
+    }
   }
 
   // time_note only makes sense if there is at least a start time.
-  if (timeNote && !appliedStart) {
+  if (appliedTimeNote && !appliedStart) {
     return json({ error: 'Ange en starttid för tidskommentaren.' }, 400);
   }
   if (appliedStart && appliedEnd && appliedStart >= appliedEnd) {
@@ -10110,7 +10125,7 @@ async function fredagsfettAvailabilityUpsert(request: Request, env: Env): Promis
        end_time = excluded.end_time,
        time_note = excluded.time_note,
        updated_at = datetime('now')`
-  ).bind(id, session.user.id, date, status, note, appliedStart, appliedEnd, timeNote).run();
+  ).bind(id, session.user.id, date, status, note, appliedStart, appliedEnd, appliedTimeNote).run();
 
   const timeSummary = appliedStart && appliedEnd ? ` ${appliedStart}-${appliedEnd}` : (appliedStart ? ` ${appliedStart}` : '');
   await fredagsfettLog(env, 'fredagsfett', session.user.id, 'availability', 'availability', date, `${session.user.name} markerade ${fredagsfettAvailabilityLabel(status).toLowerCase()} ${date}${timeSummary}.`);

@@ -52,7 +52,7 @@ check('Fredagsfett password field submits explicitly on Enter', /passwordInput\.
 check('Fredagsfett gateway has no visible mojibake strings', !/[ÃÂ]/.test(gateway));
 check('Fredagsfett gateway no longer exposes an admin link in the removed hub', !/id=["']admin-link["']/.test(gateway) && !/user\.is_admin/.test(gateway));
 check('Fredagsfett admin page has password lock UI', /id=["']admin-login-form["']/.test(admin) && /id=["']admin-password["']/.test(admin) && /\/api\/fredagsfett\/admin\/auth/.test(admin) && /Adderall123!/.test(api));
-check('Fredagsfett admin page lists users and devices after unlock', /\/api\/fredagsfett\/admin\/users/.test(admin) && /data-action=["']save["']/.test(admin) && /data-action=["']delete["']/.test(admin) && /data-action=["']revoke["']/.test(admin));
+check('Fredagsfett admin page lists users and devices after unlock', /\/api\/fredagsfett\/admin\/users/.test(admin) && /data-action=["']rename["']/.test(admin) && /data-action=["']delete["']/.test(admin) && /data-action=["']revoke["']/.test(admin));
 check('Fredagsfett admin page uses non-mock API mutations', /method:\s*['"]PATCH['"]/.test(admin) && /method:\s*['"]DELETE['"]/.test(admin));
 check('Fredagsfett admin page uses 𓀂 dev console chrome and links back to Kalender', /<title>𓀂 Dev Console<\/title>/.test(admin) && /<h1>Dev Console<\/h1>/.test(admin) && />Till kalendern<\/a>/.test(admin) && /href=["']\/fredagsfett\/kalender["']/.test(admin));
 

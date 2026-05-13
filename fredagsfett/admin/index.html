@@ -277,19 +277,18 @@ function setAdminUnlocked(unlocked) {
 }
 
 function renderUsers(users) {
-  usersEl.innerHTML = users.map(user => `
+  usersEl.innerHTML = users.map(user => {
+    const seen = latestSeen(user.devices);
+    const seenLabel = seen === '—' ? '—' : fmt(seen);
+    return `
     <article class="user-card" data-user-id="${user.id}">
       <div class="user-top">
-        <label>
-          <span class="mono">Namn${user.is_admin ? '<span class="badge">admin</span>' : ''}</span>
-          <input value="${escapeHtml(user.name)}" maxlength="80">
-        </label>
-        <button type="button" data-action="save">Spara</button>
+        <strong class="user-name mono">${escapeHtml(user.name)}${user.is_admin ? '<span class="badge">admin</span>' : ''}</strong>
         <button type="button" class="danger" data-action="delete">Ta bort</button>
       </div>
       <p class="mono">${user.active_device_count} aktiva enheter</p>
       <div class="user-audit tiny">
-        Skapad ${escapeHtml(fmt(user.created_at))} · Senast inloggad ${escapeHtml(fmt(latestSeen(user.devices)))}
+        Skapad ${escapeHtml(fmt(user.created_at))} · Senast inloggad ${escapeHtml(seenLabel)}
       </div>
       <label class="user-admin">
         <input type="checkbox" data-action="toggle-admin" ${user.is_admin ? 'checked' : ''}>
@@ -311,7 +310,8 @@ function renderUsers(users) {
         `).join('') || '<p class="mono">Inga enheter.</p>'}
       </div>
     </article>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function escapeHtml(value) {
@@ -343,14 +343,6 @@ usersEl.addEventListener('click', async event => {
   const userId = userCard.dataset.userId;
   button.disabled = true;
   try {
-    if (action === 'save') {
-      const topInput = userCard.querySelector('.user-top input');
-      await api(`/api/fredagsfett/admin/users/${encodeURIComponent(userId)}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name: topInput.value }),
-      });
-      setStatus('Namnet sparades.', true);
-    }
     if (action === 'rename') {
       const input = userCard.querySelector('[data-rename-input]');
       await adminApi(`/api/fredagsfett/admin/users/${encodeURIComponent(userId)}`, {
