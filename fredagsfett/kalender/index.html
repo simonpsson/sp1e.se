@@ -513,6 +513,7 @@ const state = {
   selectedStartTime: '',
   selectedEndTime: '',
   selectedTimeNote: '',
+  tapBusy: false,
 };
 let currentSession = null;
 const eventsByDate = new Map();
@@ -623,11 +624,16 @@ function showTapCycleHintOnce() {
 
 const TAP_CYCLE = ['AVAILABLE', 'MAYBE', 'UNAVAILABLE', null];
 async function tapCycleStatus(date) {
-  const current = selfEntry(date)?.status ?? null;
+  // Snapshot the full entry, not just status, so revert restores notes/times intact.
+  const prevEntry = state.entries.find(e => e.date === date && e.is_self) || null;
+  const current = prevEntry?.status ?? null;
   const idx = TAP_CYCLE.indexOf(current);
   const next = TAP_CYCLE[(idx + 1) % TAP_CYCLE.length];
-  const prevState = current;
+
+  errorBox.textContent = ''; // clear any stale error from a previous tap or save
+  // Optimistic UI
   applyOptimisticStatus(date, next);
+
   try {
     if (next === null) {
       await api(`/api/fredagsfett/availability?date=${encodeURIComponent(date)}`, { method: 'DELETE' });
@@ -641,7 +647,11 @@ async function tapCycleStatus(date) {
     await loadAvailability();
     showTapCycleHintOnce();
   } catch (err) {
-    applyOptimisticStatus(date, prevState);
+    // Restore the full prior entry (or absence), not just status.
+    const i = state.entries.findIndex(e => e.date === date && e.is_self);
+    if (i !== -1) state.entries.splice(i, 1);
+    if (prevEntry) state.entries.push(prevEntry);
+    renderCalendar();
     errorBox.textContent = err.message;
   }
 }
@@ -916,7 +926,11 @@ grid.addEventListener('click', event => {
   lockEventForm.hidden = true;
   // Cycle the user's own availability on the same tap. The side panel still
   // opens (via renderCalendar -> renderSelectedDay) so time/notes can be edited.
-  void tapCycleStatus(date);
+  // Busy-gate prevents two rapid taps from interleaving POSTs and flickering.
+  if (!state.tapBusy) {
+    state.tapBusy = true;
+    tapCycleStatus(date).finally(() => { state.tapBusy = false; });
+  }
   renderCalendar();
 });
 
@@ -1023,6 +1037,8 @@ async function boot() {
     document.body.classList.toggle('is-admin', !!(session.user && session.user.is_admin));
     await Promise.all([loadAvailability(), loadEvents()]);
     renderCalendar();
+    // Note: a tap mid-poll may briefly flicker if loadAvailability returns before
+    // the tap's POST resolves. Last-write-wins on the server, self-corrects on next poll.
     setInterval(reloadCalendarData, 15000);
   } catch {
     location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/kalender')}`;
