@@ -542,6 +542,7 @@ const state = {
   month: new Date().toISOString().slice(0, 7),
   entries: [],
   bestDates: [],
+  upcomingEvents: [],
   selectedDate: new Date().toISOString().slice(0, 10),
   selectedStatus: 'AVAILABLE',
   selectedStartTime: '',
@@ -899,16 +900,21 @@ function renderLockedEvents() {
   const empty = document.getElementById('locked-events-empty');
   const hint = document.getElementById('best-dates-hint');
   const today = new Date().toISOString().slice(0, 10);
-  const upcoming = [...eventsByDate.values()]
+  const upcoming = (state.upcomingEvents || [])
     .filter(event => event.status === 'LOCKED' && event.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date));
   if (upcoming.length) {
-    list.innerHTML = upcoming.map(event => `<button type="button" class="locked-row" data-date="${event.date}">
+    list.innerHTML = upcoming.map(event => {
+      const attendees = event.attendees || [];
+      const ja = attendees.filter(a => a.status === 'AVAILABLE').length;
+      const kanske = attendees.filter(a => a.status === 'MAYBE').length;
+      return `<button type="button" class="locked-row" data-date="${event.date}">
    <span class="locked-date">${formatSwedishDate(event.date)}</span>
    ${event.title ? `<span class="locked-title">${escapeHtml(event.title)}</span>` : ''}
    ${event.host_name ? `<span class="locked-host">hos ${escapeHtml(event.host_name)}</span>` : ''}
-   <span class="locked-count">${(event.attendees || []).length} ja</span>
- </button>`).join('');
+   <span class="locked-count">${ja} ja${kanske ? ` · ${kanske} kanske` : ''}</span>
+ </button>`;
+    }).join('');
     empty.hidden = true;
   } else {
     list.innerHTML = '';
@@ -959,8 +965,21 @@ async function loadEvents() {
   }
 }
 
+async function loadUpcomingEvents() {
+  const today = new Date();
+  const to = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 6, 0)).toISOString().slice(0, 10);
+  const from = today.toISOString().slice(0, 10);
+  try {
+    const data = await api(`/api/fredagsfett/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    state.upcomingEvents = (data.events || []).filter(e => e.status === 'LOCKED' && e.date >= from);
+  } catch (err) {
+    console.error('loadUpcomingEvents failed', err);
+    state.upcomingEvents = [];
+  }
+}
+
 async function reloadCalendarData() {
-  await Promise.all([loadAvailability(), loadEvents()]);
+  await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents()]);
   renderCalendar();
   renderLockedEvents();
 }
@@ -1043,7 +1062,7 @@ lockEventForm.addEventListener('submit', async event => {
   try {
     await api('/api/fredagsfett/events', { method: 'POST', body: JSON.stringify(payload) });
     lockEventForm.hidden = true;
-    await loadEvents();
+    await Promise.all([loadEvents(), loadUpcomingEvents()]);
     renderCalendar();
     renderLockedEvents();
   } catch (err) {
@@ -1084,7 +1103,7 @@ eventCard.addEventListener('click', async event => {
     if (!window.confirm(`Avbryt eventet för ${state.selectedDate}?`)) return;
     try {
       await api(`/api/fredagsfett/events/${encodeURIComponent(ev.id)}`, { method: 'DELETE' });
-      await loadEvents();
+      await Promise.all([loadEvents(), loadUpcomingEvents()]);
       renderCalendar();
       renderLockedEvents();
     } catch (err) {
@@ -1154,7 +1173,7 @@ async function boot() {
     }
     currentSession = session;
     document.body.classList.toggle('is-admin', !!(session.user && session.user.is_admin));
-    await Promise.all([loadAvailability(), loadEvents()]);
+    await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents()]);
     renderCalendar();
     // Note: a tap mid-poll may briefly flicker if loadAvailability returns before
     // the tap's POST resolves. Last-write-wins on the server, self-corrects on next poll.
