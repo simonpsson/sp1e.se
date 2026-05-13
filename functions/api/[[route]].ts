@@ -137,6 +137,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'availability' && !sub && method === 'DELETE') return fredagsfettAvailabilityDelete(request, env);
       if (id === 'events' && !sub && method === 'GET')  return fredagsfettEventsList(request, env);
       if (id === 'events' && !sub && method === 'POST') return fredagsfettEventsCreate(request, env);
+      if (id === 'events' && sub && !action && method === 'PATCH')  return fredagsfettEventsUpdate(request, env, sub);
+      if (id === 'events' && sub && !action && method === 'DELETE') return fredagsfettEventsCancel(request, env, sub);
       if (id === 'sp1wise' && !sub && method === 'GET') return fredagsfettSp1wise(request, env);
       if (id === 'sp1wise' && sub === 'groups' && !action && method === 'GET') return fredagsfettSp1wiseGroups(request, env);
       if (id === 'sp1wise' && sub === 'groups' && !action && method === 'POST') return fredagsfettSp1wiseCreateGroup(request, env);
@@ -10231,6 +10233,59 @@ async function fredagsfettEventsCreate(request: Request, env: Env): Promise<Resp
     fredagsfettLogStatement(env, groupId, session.user.id, 'event_locked', 'event', id, `${session.user.name} låste in ${date}.`),
   ]);
   return json({ success: true, event_id: id });
+}
+
+async function fredagsfettEventsUpdate(request: Request, env: Env, eventId: string): Promise<Response> {
+  const session = await requireFredagsfettAdminUser(request, env);
+  const event = await env.DB.prepare(`SELECT group_id, date FROM ff_events WHERE id = ?`).bind(eventId).first<{ group_id: string; date: string }>();
+  if (!event) return json({ error: 'Eventet finns inte.' }, 404);
+
+  let body: Record<string, unknown>;
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+
+  const ALLOWED = new Set(['title', 'host_user_id', 'location', 'start_time', 'end_time', 'notes', 'status']);
+  const unknown = Object.keys(body).filter(k => !ALLOWED.has(k));
+  if (unknown.length) return json({ error: 'unknown_field', fields: unknown }, 400);
+
+  const updates: string[] = [];
+  const bindings: unknown[] = [];
+  if ('title' in body)        { updates.push('title = ?');        bindings.push(normalizeFredagsfettShortText(body.title as string, 80)); }
+  if ('host_user_id' in body) {
+    const hostId = body.host_user_id ? normalizeFredagsfettId(body.host_user_id as string) : null;
+    updates.push('host_user_id = ?'); bindings.push(hostId);
+  }
+  if ('location' in body)     { updates.push('location = ?');     bindings.push(normalizeFredagsfettShortText(body.location as string, 200)); }
+  if ('start_time' in body)   { updates.push('start_time = ?');   bindings.push(normalizeFredagsfettTime(body.start_time as string)); }
+  if ('end_time' in body)     { updates.push('end_time = ?');     bindings.push(normalizeFredagsfettTime(body.end_time as string)); }
+  if ('notes' in body)        { updates.push('notes = ?');        bindings.push(normalizeFredagsfettShortText(body.notes as string, 1000)); }
+  if ('status' in body) {
+    const s = String(body.status).toUpperCase();
+    if (s !== 'LOCKED' && s !== 'CANCELLED') return json({ error: 'Ogiltig status.' }, 400);
+    updates.push('status = ?'); bindings.push(s);
+    if (s === 'CANCELLED') updates.push("cancelled_at = datetime('now')");
+    else updates.push('cancelled_at = NULL');
+  }
+  if (!updates.length) return json({ error: 'Inget att uppdatera.' }, 400);
+  updates.push("updated_at = datetime('now')");
+  bindings.push(eventId);
+
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE ff_events SET ${updates.join(', ')} WHERE id = ?`).bind(...bindings),
+    fredagsfettLogStatement(env, event.group_id, session.user.id, 'event_updated', 'event', eventId, `${session.user.name} uppdaterade ${event.date}.`),
+  ]);
+  return json({ success: true });
+}
+
+async function fredagsfettEventsCancel(request: Request, env: Env, eventId: string): Promise<Response> {
+  const session = await requireFredagsfettAdminUser(request, env);
+  const event = await env.DB.prepare(`SELECT group_id, date FROM ff_events WHERE id = ? AND status = 'LOCKED'`).bind(eventId).first<{ group_id: string; date: string }>();
+  if (!event) return json({ error: 'Eventet finns inte eller är redan avbrutet.' }, 404);
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE ff_events SET status = 'CANCELLED', cancelled_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).bind(eventId),
+    fredagsfettLogStatement(env, event.group_id, session.user.id, 'event_cancelled', 'event', eventId, `${session.user.name} avbröt ${event.date}.`),
+  ]);
+  return json({ success: true });
 }
 
 async function fredagsfettSp1wise(request: Request, env: Env): Promise<Response> {

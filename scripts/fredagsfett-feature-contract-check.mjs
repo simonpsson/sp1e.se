@@ -71,6 +71,17 @@ check('Events POST upserts via ON CONFLICT(group_id, date)',
 check('Events POST writes event_locked to activity log',
   /event_locked/.test(api));
 
+check('Events PATCH updates non-date fields and bumps updated_at',
+  /fredagsfettEventsUpdate/.test(api)
+  && /requireFredagsfettAdminUser\(request, env\)/.test(api)
+  && /UPDATE ff_events SET[\s\S]*?updated_at = datetime\('now'\)/.test(api));
+check('Events DELETE soft-cancels with status=CANCELLED and cancelled_at',
+  /fredagsfettEventsCancel/.test(api)
+  && /status\s*=\s*'CANCELLED'/.test(api)
+  && /cancelled_at\s*=\s*datetime\('now'\)/.test(api));
+check('Events activity log emits event_updated and event_cancelled',
+  /event_updated/.test(api) && /event_cancelled/.test(api));
+
 if (failures) {
   console.error(`\n${failures} Fredagsfett feature contract checks failed.`);
   process.exit(1);
