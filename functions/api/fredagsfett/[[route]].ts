@@ -52,6 +52,25 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function toHex(b: Uint8Array): string {
+  return Array.from(b).map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+function fromHex(hex: string): Uint8Array {
+  return new Uint8Array((hex.match(/.{2}/g) ?? []).map(b => parseInt(b, 16)));
+}
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  try { return JSON.stringify(err); }
+  catch { return String(err); }
+}
+
 function constantTimeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
