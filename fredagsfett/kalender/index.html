@@ -189,6 +189,53 @@
   .view-mode button[aria-pressed="true"] { background: rgba(205,176,110,0.12); color: var(--text); }
   .day.heatmap-mode .answers { display: none; }
   .day.heatmap-mode .count { display: inline-block; font-family: 'DM Mono', monospace; font-size: 0.85rem; color: var(--text); margin-top: 0.6rem; }
+  /* A5 — tap-ripple feedback when a day cell is tapped */
+  .day { transition: transform 0.12s ease, background-color 0.18s ease; }
+  .day.tap-ripple { transform: scale(0.97); background-color: rgba(205,176,110,0.18); }
+  /* A6 — compact week view: a stacked list instead of a 7-column grid */
+  .calendar-grid.week-mode { display: grid; grid-template-columns: 1fr; gap: 0; padding: 0; background: transparent; }
+  .calendar-grid.week-mode .weekday { display: none; }
+  .calendar-grid.week-mode .day.blank { display: none; }
+  .calendar-grid.week-mode .day {
+    min-height: 0;
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .calendar-grid.week-mode .day-number { font-size: 0.95rem; }
+  .calendar-grid.week-mode .week-label {
+    display: inline-block;
+    margin-right: 0.55rem;
+    color: var(--accent);
+    font: 0.66rem 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .calendar-grid.week-mode .day:not(.in-week) { display: none; }
+  /* C2 — soft fade while the grid is being rebuilt on month change */
+  .calendar-grid { transition: opacity 0.15s ease; }
+  .calendar-grid.transitioning { opacity: 0.35; }
+  /* C3 — hover preview popover on locked-row in side panel */
+  .locked-row { position: relative; }
+  .locked-row .ll-preview {
+    position: absolute;
+    left: 0; right: 0; top: calc(100% + 4px);
+    z-index: 12;
+    display: none;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--line-hot);
+    border-radius: 12px;
+    background: rgba(8,8,8,0.96);
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.92rem;
+    line-height: 1.35;
+    box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+  }
+  .locked-row:hover .ll-preview, .locked-row:focus-visible .ll-preview { display: block; }
+  .ll-preview .ll-line { display: block; color: var(--muted); font: 0.68rem 'DM Mono', monospace; letter-spacing: 0.08em; }
+  @media (hover: none) { .locked-row .ll-preview { display: none !important; } }
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -507,6 +554,7 @@
           <div class="view-mode" role="tablist" aria-label="Vy">
             <button type="button" data-view-mode="initials" aria-pressed="true">Initialer</button>
             <button type="button" data-view-mode="heatmap"  aria-pressed="false">Värmekarta</button>
+            <button type="button" data-view-mode="week"     aria-pressed="false">Vecka</button>
           </div>
         </div>
         <div class="calendar-grid" id="calendar-grid" aria-live="polite"></div>
@@ -639,7 +687,7 @@ const state = {
   selectedEndTime: '',
   selectedTimeNote: '',
   tapBusy: false,
-  viewMode: sessionStorage.getItem('ff-calendar-view-mode') === 'heatmap' ? 'heatmap' : 'initials',
+  viewMode: (m => (m === 'heatmap' || m === 'week') ? m : 'initials')(sessionStorage.getItem('ff-calendar-view-mode')),
 };
 let currentSession = null;
 const eventsByDate = new Map();
@@ -818,11 +866,27 @@ function applyOwnEntryToForm(entry, resetIfMissing = false) {
 
 function renderCalendar() {
   monthTitle.textContent = monthName(state.month);
+  // A6 — week-mode toggles a single class on the grid; cells outside the
+  // current ISO week are hidden via .day:not(.in-week) display:none.
+  grid.classList.toggle('week-mode', state.viewMode === 'week');
   const [year, m] = state.month.split('-').map(Number);
   const first = new Date(year, m - 1, 1);
   const days = new Date(year, m, 0).getDate();
   const startOffset = (first.getDay() + 6) % 7;
   const weekdays = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
+  const isWeekMode = state.viewMode === 'week';
+  // Compute the ISO week range (Mon-Sun) anchored on today, used to filter
+  // visible cells when state.viewMode === 'week'. We keep .in-week as a class
+  // rather than skipping cells entirely so navigation/keyboard logic still works.
+  const todayDate = new Date();
+  todayDate.setUTCHours(0, 0, 0, 0);
+  const todayDow = todayDate.getUTCDay() || 7; // Mon=1..Sun=7
+  const weekStartDate = new Date(todayDate);
+  weekStartDate.setUTCDate(todayDate.getUTCDate() - (todayDow - 1));
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 6);
+  const weekStart = weekStartDate.toISOString().slice(0, 10);
+  const weekEnd = weekEndDate.toISOString().slice(0, 10);
   grid.innerHTML = weekdays.map(day => `<div class="weekday">${day}</div>`).join('');
   for (let i = 0; i < startOffset; i++) {
     grid.insertAdjacentHTML('beforeend', '<div class="day blank" aria-hidden="true"></div>');
@@ -855,15 +919,21 @@ function renderCalendar() {
       : '';
     const heatmapCls = isHeatmap ? ' heatmap-mode' : '';
     const isLocked = event && event.status === 'LOCKED';
+    const inWeek = date >= weekStart && date <= weekEnd;
+    const inWeekCls = inWeek ? ' in-week' : '';
     const dayMarkup = isLocked
-      ? `<button class="day locked-event${heatmapCls}${selected}${todayCls}" type="button" data-date="${date}"${heatStyle}${selfAttr}>`
-      : `<button class="day${heatmapCls}${selected}${todayCls}" type="button" data-date="${date}"${heatStyle}${selfAttr}>`;
+      ? `<button class="day locked-event${heatmapCls}${selected}${todayCls}${inWeekCls}" type="button" data-date="${date}"${heatStyle}${selfAttr}>`
+      : `<button class="day${heatmapCls}${selected}${todayCls}${inWeekCls}" type="button" data-date="${date}"${heatStyle}${selfAttr}>`;
     const countMarkup = isHeatmap
       ? `<span class="count">${yesCount}${maybeCount ? `+${maybeCount}` : ''}</span>`
       : '';
+    // Week mode prefixes the cell with the weekday label so the stacked list reads naturally.
+    const weekday = new Date(date + 'T00:00:00Z').getUTCDay();
+    const weekdayName = weekdays[(weekday + 6) % 7];
+    const weekLabel = isWeekMode ? `<span class="week-label">${weekdayName}</span>` : '';
     grid.insertAdjacentHTML('beforeend', `
       ${dayMarkup}
-        <span class="day-number"><span>${day}</span><span class="tiny">${entries.length || ''}</span></span>
+        <span class="day-number">${weekLabel}<span>${day}</span><span class="tiny">${entries.length || ''}</span></span>
         <span class="answers">${chips}</span>
         ${countMarkup}
         <span class="day-times">${timeChips}</span>
@@ -1016,11 +1086,22 @@ function renderLockedEvents() {
       const attendees = event.attendees || [];
       const ja = attendees.filter(a => a.status === 'AVAILABLE').length;
       const kanske = attendees.filter(a => a.status === 'MAYBE').length;
+      const timeRange = formatTimeWindow(event);
+      const yesNames = attendees.filter(a => a.status === 'AVAILABLE').map(a => a.name).join(', ');
+      // C3 — hover preview popover with full event details
+      const previewLines = [
+        event.location ? `<span class="ll-line">${escapeHtml(event.location)}</span>` : '',
+        timeRange ? `<span class="ll-line">Tid: ${escapeHtml(timeRange)}</span>` : '',
+        event.notes ? `<span class="ll-line">${escapeHtml(event.notes)}</span>` : '',
+        yesNames ? `<span class="ll-line">Ja: ${escapeHtml(yesNames)}</span>` : '',
+      ].filter(Boolean).join('');
+      const preview = previewLines ? `<div class="ll-preview" role="tooltip">${previewLines}</div>` : '';
       return `<button type="button" class="locked-row" data-date="${event.date}">
    <span class="locked-date">${formatSwedishDate(event.date)}</span>
    ${event.title ? `<span class="locked-title">${escapeHtml(event.title)}</span>` : ''}
    ${event.host_name ? `<span class="locked-host">hos ${escapeHtml(event.host_name)}</span>` : ''}
    <span class="locked-count">${ja} ja${kanske ? ` · ${kanske} kanske` : ''}</span>
+   ${preview}
  </button>`;
     }).join('');
     empty.hidden = true;
@@ -1159,9 +1240,16 @@ function renderPastEvents() {
 }
 
 async function reloadCalendarData() {
-  await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents()]);
-  renderCalendar();
-  renderLockedEvents();
+  // C2 — soft fade while the grid is being rebuilt
+  grid.classList.add('transitioning');
+  try {
+    await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents()]);
+    renderCalendar();
+    renderLockedEvents();
+  } finally {
+    // Give the browser one paint to apply the fade, then clear it
+    requestAnimationFrame(() => requestAnimationFrame(() => grid.classList.remove('transitioning')));
+  }
 }
 
 async function saveAvailability() {
@@ -1207,6 +1295,11 @@ grid.addEventListener('click', event => {
   const button = event.target.closest('[data-date]');
   if (!button) return;
   const date = button.dataset.date;
+  // A5 — tap-ripple feedback. Brief scale-down + tint, removed after the
+  // CSS transition completes (~250ms). The class is per-cell so multiple
+  // simultaneous ripples don't fight.
+  button.classList.add('tap-ripple');
+  setTimeout(() => button.classList.remove('tap-ripple'), 250);
   state.selectedDate = date;
   const own = selfEntry(date);
   applyOwnEntryToForm(own, true);
@@ -1219,6 +1312,34 @@ grid.addEventListener('click', event => {
     tapCycleStatus(date).finally(() => { state.tapBusy = false; });
   }
   renderCalendar();
+});
+
+// D3 — keyboard navigation on the grid: arrows move focus; Space/Enter cycles.
+// Cells are <button> elements so they're naturally Tab-focusable; this adds
+// arrow-key movement and cross-month navigation.
+grid.addEventListener('keydown', event => {
+  const cell = event.target.closest('.day[data-date]');
+  if (!cell) return;
+  const dx = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1
+    : event.key === 'ArrowDown' ? 7 : event.key === 'ArrowUp' ? -7 : 0;
+  if (!dx) return;
+  event.preventDefault();
+  const [y, m, d] = cell.dataset.date.split('-').map(Number);
+  const target = new Date(Date.UTC(y, m - 1, d));
+  target.setUTCDate(target.getUTCDate() + dx);
+  const targetDate = target.toISOString().slice(0, 10);
+  const targetMonth = targetDate.slice(0, 7);
+  state.selectedDate = targetDate;
+  if (targetMonth !== state.month) {
+    state.month = targetMonth;
+    void reloadCalendarData().then(() => {
+      // After rerender, focus the matching cell if visible.
+      requestAnimationFrame(() => grid.querySelector(`.day[data-date="${targetDate}"]`)?.focus());
+    });
+  } else {
+    renderCalendar();
+    requestAnimationFrame(() => grid.querySelector(`.day[data-date="${targetDate}"]`)?.focus());
+  }
 });
 
 lockEventBtn.addEventListener('click', () => {
@@ -1350,7 +1471,8 @@ document.querySelectorAll('[data-view-mode]').forEach(button => {
   // Reflect the persisted mode on initial paint so the buttons match state.viewMode.
   button.setAttribute('aria-pressed', button.dataset.viewMode === state.viewMode ? 'true' : 'false');
   button.addEventListener('click', () => {
-    state.viewMode = button.dataset.viewMode === 'heatmap' ? 'heatmap' : 'initials';
+    const requested = button.dataset.viewMode;
+    state.viewMode = (requested === 'heatmap' || requested === 'week') ? requested : 'initials';
     sessionStorage.setItem('ff-calendar-view-mode', state.viewMode);
     document.querySelectorAll('[data-view-mode]').forEach(b => {
       b.setAttribute('aria-pressed', b.dataset.viewMode === state.viewMode ? 'true' : 'false');
