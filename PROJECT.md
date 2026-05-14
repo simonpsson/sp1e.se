@@ -86,6 +86,8 @@
 | DELETE | `events/:id` | admin-user | Soft cancel (status=CANCELLED) |
 | GET    | `events/:id/comments` | user | List comments for a locked event |
 | POST   | `events/:id/comments` | user | Add a comment (body: `{ body }`) |
+| GET    | `ical-url` | user | Returns the caller's personalized iCal feed URL |
+| GET    | `ical/:token` | signed-token | Public iCal feed (text/calendar) of all LOCKED Fredagsfett events; token is HMAC over `ical:<userId>`. Bypasses cookie auth (calendar clients don't send cookies). |
 | GET | `sp1wise` | user | Group balances + simplified debts + expense list + activity |
 | GET/POST | `sp1wise/groups` | user | List / create sub-groups |
 | POST | `sp1wise/expenses` | user | Add expense (split by EQUAL/AMOUNTS/PERCENT/SHARES) |

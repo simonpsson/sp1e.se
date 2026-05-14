@@ -141,6 +141,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'events' && sub && !action && method === 'DELETE') return fredagsfettEventsCancel(request, env, sub);
       if (id === 'events' && sub && action === 'comments' && method === 'GET')  return fredagsfettEventCommentsList(request, env, sub);
       if (id === 'events' && sub && action === 'comments' && method === 'POST') return fredagsfettEventCommentsCreate(request, env, sub);
+      if (id === 'ical-url' && !sub && method === 'GET') return fredagsfettIcalUrl(request, env);
+      if (id === 'ical' && sub && !action && method === 'GET') return fredagsfettIcalFeed(request, env, sub);
       if (id === 'sp1wise' && !sub && method === 'GET') return fredagsfettSp1wise(request, env);
       if (id === 'sp1wise' && sub === 'groups' && !action && method === 'GET') return fredagsfettSp1wiseGroups(request, env);
       if (id === 'sp1wise' && sub === 'groups' && !action && method === 'POST') return fredagsfettSp1wiseCreateGroup(request, env);
@@ -10348,6 +10350,126 @@ async function fredagsfettEventCommentsList(request: Request, env: Env, eventId:
       ORDER BY c.created_at ASC`
   ).bind(eventId).all<{ id: string; user_id: string; user_name: string; body: string; created_at: string }>();
   return json({ comments: rows.results ?? [] });
+}
+
+// B4 — iCal feed per user. The signed token is the auth (calendar clients
+// don't send cookies). Token shape: <userId>.<hmac>. Stable per (userId, secret).
+async function fredagsfettIcalSign(userId: string, secret: string): Promise<string> {
+  const data = new TextEncoder().encode(`ical:${userId}`);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, data);
+  let bin = '';
+  for (const b of new Uint8Array(sig)) bin += String.fromCharCode(b);
+  const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return `${userId}.${b64}`;
+}
+
+async function fredagsfettIcalVerify(token: string, secret: string): Promise<string | null> {
+  const dot = token.indexOf('.');
+  if (dot <= 0 || dot === token.length - 1) return null;
+  const userId = token.slice(0, dot);
+  const expected = await fredagsfettIcalSign(userId, secret);
+  if (!constantTimeStringEqual(token, expected)) return null;
+  return userId;
+}
+
+async function fredagsfettIcalUrl(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const token = await fredagsfettIcalSign(session.user.id, session.cfg.sessionSecret);
+  const origin = new URL(request.url).origin;
+  return json({ url: `${origin}/api/fredagsfett/ical/${token}` });
+}
+
+async function fredagsfettIcalFeed(request: Request, env: Env, token: string): Promise<Response> {
+  const cfg = fredagsfettConfig(env);
+  if (!cfg.ok) return cfg.response;
+  const userId = await fredagsfettIcalVerify(token, cfg.value.sessionSecret);
+  if (!userId) return new Response('Invalid token', { status: 401 });
+  const user = await env.DB.prepare(
+    `SELECT id, name FROM ff_users WHERE id = ? AND deleted_at IS NULL`
+  ).bind(userId).first<{ id: string; name: string }>();
+  if (!user) return new Response('User not found', { status: 404 });
+
+  const events = await env.DB.prepare(
+    `SELECT e.id, e.date, e.title, e.location, e.start_time, e.end_time, e.notes,
+            host.name AS host_name
+       FROM ff_events e
+       LEFT JOIN ff_users host ON host.id = e.host_user_id
+      WHERE e.group_id = 'fredagsfett' AND e.status = 'LOCKED'
+      ORDER BY e.date ASC`
+  ).all<{
+    id: string; date: string; title: string | null; location: string | null;
+    start_time: string | null; end_time: string | null; notes: string | null; host_name: string | null;
+  }>();
+
+  const lines: string[] = [];
+  lines.push('BEGIN:VCALENDAR');
+  lines.push('VERSION:2.0');
+  lines.push('PRODID:-//sp1e.se//Fredagsfett//SV');
+  lines.push('CALSCALE:GREGORIAN');
+  lines.push('METHOD:PUBLISH');
+  lines.push('X-WR-CALNAME:Fredagsfett');
+  lines.push('X-WR-TIMEZONE:Europe/Stockholm');
+  for (const e of events.results ?? []) {
+    const dateNoSep = e.date.replace(/-/g, '');
+    const hasTimes = !!e.start_time;
+    const startStr = hasTimes
+      ? `${dateNoSep}T${e.start_time!.replace(':', '')}00`
+      : dateNoSep;
+    let endStr: string;
+    if (hasTimes && e.end_time) {
+      endStr = `${dateNoSep}T${e.end_time.replace(':', '')}00`;
+    } else if (hasTimes) {
+      // Start-only: default a 4-hour event for calendar clients that require DTEND.
+      const [h, m] = e.start_time!.split(':').map(Number);
+      const endH = String((h + 4) % 24).padStart(2, '0');
+      const endM = String(m).padStart(2, '0');
+      endStr = `${dateNoSep}T${endH}${endM}00`;
+    } else {
+      // All-day: DTEND is exclusive next day.
+      const next = new Date(e.date + 'T00:00:00Z');
+      next.setUTCDate(next.getUTCDate() + 1);
+      endStr = next.toISOString().slice(0, 10).replace(/-/g, '');
+    }
+    const summary = e.title ? e.title : 'Fredagsfett';
+    const descParts: string[] = [];
+    if (e.host_name) descParts.push(`Värd: ${e.host_name}`);
+    if (e.notes) descParts.push(e.notes);
+    const description = descParts.join('\\n');
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${e.id}@sp1e.se`);
+    lines.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}`);
+    if (hasTimes) {
+      lines.push(`DTSTART;TZID=Europe/Stockholm:${startStr}`);
+      lines.push(`DTEND;TZID=Europe/Stockholm:${endStr}`);
+    } else {
+      lines.push(`DTSTART;VALUE=DATE:${startStr}`);
+      lines.push(`DTEND;VALUE=DATE:${endStr}`);
+    }
+    lines.push(`SUMMARY:${fredagsfettIcalEscape(summary)}`);
+    if (description) lines.push(`DESCRIPTION:${fredagsfettIcalEscape(description)}`);
+    if (e.location) lines.push(`LOCATION:${fredagsfettIcalEscape(e.location)}`);
+    lines.push('END:VEVENT');
+  }
+  lines.push('END:VCALENDAR');
+
+  return new Response(lines.join('\r\n'), {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Cache-Control': 'public, max-age=300',
+    },
+  });
+}
+
+function fredagsfettIcalEscape(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 }
 
 async function fredagsfettEventCommentsCreate(request: Request, env: Env, eventId: string): Promise<Response> {

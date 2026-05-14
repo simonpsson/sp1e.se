@@ -487,6 +487,7 @@
       </div>
       <nav class="nav admin-nav" aria-label="𓀂 navigation">
         <a class="button" href="/fredagsfett/sp1wise">SP1Wise</a>
+        <button class="button" type="button" id="ical-copy-btn" title="Kopiera iCal-länk till urklipp">iCal</button>
         <a class="button icon-button" href="/fredagsfett/admin" aria-label="Dev console" title="Dev console">⚙</a>
       </nav>
     </header>
@@ -1387,6 +1388,28 @@ document.getElementById('past-events-list')?.addEventListener('click', event => 
     void reloadCalendarData();
   } else {
     renderCalendar();
+  }
+});
+
+// B4 — copy personal iCal feed URL to clipboard
+document.getElementById('ical-copy-btn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('ical-copy-btn');
+  btn.disabled = true;
+  try {
+    const data = await api('/api/fredagsfett/ical-url');
+    const url = data?.url || '';
+    if (!url) throw new Error('Kunde inte hämta länken.');
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('iCal-länken kopierad. Prenumerera i din kalenderapp.');
+    } catch {
+      // Fallback when clipboard isn't available (e.g. insecure context) — show a prompt
+      window.prompt('Kopiera den här länken till din kalenderapp:', url);
+    }
+  } catch (err) {
+    errorBox.textContent = err.message || 'Kunde inte hämta iCal-länken.';
+  } finally {
+    btn.disabled = false;
   }
 });
 

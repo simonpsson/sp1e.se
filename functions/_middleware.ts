@@ -21,6 +21,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
   if (!isFredagsfettPage && !isFredagsfettApi) return next();
   if (path === '/fredagsfett' || path === '/fredagsfett/' || path === '/fredagsfett/index.html') return next();
   if (path === '/api/fredagsfett/auth' || path === '/api/fredagsfett/session') return next();
+  // iCal feed is authenticated by the signed token in the URL, not a cookie —
+  // calendar clients (Google / Apple) don't send cookies.
+  if (path.startsWith('/api/fredagsfett/ical/')) return next();
 
   const session = await verifyFredagsfettMiddlewareSession(request, env);
   if (session) return next();
