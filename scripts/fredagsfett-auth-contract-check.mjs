@@ -85,6 +85,16 @@ check('Dev console can rename a user inline',
   && /name:\s*\w+\.value\.trim\(\)/.test(admin));
 check('Dev console shows audit line with created_at and last_seen',
   /Skapad/.test(admin) && /Senast inloggad/.test(admin));
+check('Dev console wraps fetch in adminApi with 401 re-auth handling',
+  /function adminApi/.test(admin)
+  && /res\.status === 401/.test(admin)
+  && /setAdminUnlocked\(false\)/.test(admin));
+check('Dev console confirms destructive actions in Swedish',
+  /window\.confirm\(['"`].*\?['"`]\)/.test(admin));
+check('Dev console preserves scroll position across refreshes',
+  /window\.scrollY/.test(admin) && /scrollTo\(/.test(admin));
+check('Dev console disables buttons while requests are in flight',
+  /button\.disabled = true/.test(admin) && /button\.disabled = false/.test(admin));
 
 const failed = checks.filter(c => !c.ok);
 for (const c of checks) console.log(`${c.ok ? 'OK  ' : 'FAIL'} ${c.name}`);

@@ -236,16 +236,29 @@ async function api(path, options = {}) {
   return data;
 }
 
-// Thin stub — Task 11 will replace this with the robust wrapper.
+// Robust wrapper for all post-unlock admin requests. Treats 401 as a soft
+// "session expired" — surfaces a re-auth prompt without losing context.
 async function adminApi(path, options = {}) {
   const res = await fetch(path, {
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   });
+  if (res.status === 401) {
+    setAdminUnlocked(false);
+    setStatus('Din admin-session löpte ut. Logga in igen.', false);
+    adminPasswordInput?.focus();
+    const err = new Error('admin_session_expired');
+    err.status = 401;
+    throw err;
+  }
   const text = await res.text();
   const data = text ? JSON.parse(text) : {};
-  if (!res.ok) throw new Error(data.error || `${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data.error || `${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 
@@ -319,13 +332,16 @@ function escapeHtml(value) {
 }
 
 async function loadUsers() {
+  const scrollY = window.scrollY;
   setStatus('Laddar...');
   try {
-    const data = await api('/api/fredagsfett/admin/users');
+    const data = await adminApi('/api/fredagsfett/admin/users');
     setAdminUnlocked(true);
     renderUsers(data.users || []);
     setStatus(`Inloggad admin: ${data.user?.name || 'okänd'}.`, true);
+    requestAnimationFrame(() => window.scrollTo(0, scrollY));
   } catch (err) {
+    if (err.status === 401) return; // adminApi already surfaced re-auth prompt
     if (err.status === 403) {
       setAdminUnlocked(false);
       setStatus('');
@@ -352,13 +368,20 @@ usersEl.addEventListener('click', async event => {
       setStatus('Namnet sparades.', true);
     }
     if (action === 'delete') {
-      if (!confirm('Ta bort användaren och återkalla alla enheter?')) return;
-      await api(`/api/fredagsfett/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+      if (!window.confirm('Ta bort användaren och återkalla alla enheter?')) {
+        button.disabled = false;
+        return;
+      }
+      await adminApi(`/api/fredagsfett/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
       setStatus('Användaren togs bort.', true);
     }
     if (action === 'revoke') {
+      if (!window.confirm('Återkalla den här enheten?')) {
+        button.disabled = false;
+        return;
+      }
       const device = button.closest('.device');
-      await api(`/api/fredagsfett/admin/devices/${encodeURIComponent(device.dataset.deviceId)}`, { method: 'DELETE' });
+      await adminApi(`/api/fredagsfett/admin/devices/${encodeURIComponent(device.dataset.deviceId)}`, { method: 'DELETE' });
       setStatus('Enheten återkallades.', true);
     }
     await loadUsers();

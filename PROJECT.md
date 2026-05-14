@@ -30,6 +30,10 @@
 | `/mosquito` | `mosquito.html` | Mosquito game — currently requires site auth for all game routes; character creation, crime, robbery, casino (blackjack, roulette, hold'em), gang, properties, leaderboard |
 | `/hub/note/*` | `hub/note/index.html` | Note detail/edit view |
 | `/visitor` | (redirect) | Redirects to `/mosquito` |
+| `/fredagsfett` | `fredagsfett/index.html` | Private gateway — password + device fingerprint, registers a name on first use |
+| `/fredagsfett/kalender` | `fredagsfett/kalender/index.html` | Group calendar — tap-cycle availability, weekday default times, heatmap mode, admin event lock-in, Inlåsta fredagar panel |
+| `/fredagsfett/sp1wise` | `fredagsfett/sp1wise/index.html` | Group expense split + settlements + CSV export |
+| `/fredagsfett/admin` | `fredagsfett/admin/index.html` | Dev console — manage users, rename, toggle `is_admin` flag, revoke devices |
 
 ## Landing Page Features
 
@@ -65,6 +69,40 @@
 | GET | `public/items` | — | Public items (is_public = 1) |
 | GET | `seed` | ✓ | Seed default categories + subcategories |
 
+### Fredagsfett routes (under `/api/fredagsfett/`)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `auth` | — | Password + device fingerprint → session cookie (2-year) |
+| POST | `register` | user | Register a name for this device's session (auto-promotes first admin) |
+| GET | `session` | user | Current session payload incl. `user.is_admin` |
+| POST | `logout` | user | Revokes the active device |
+| GET | `availability` | user | Group availability rows for a date window |
+| POST | `availability` | user | Upsert own availability; missing time keys → weekday default for AVAILABLE, preserve existing for MAYBE/UNAVAILABLE |
+| DELETE | `availability?date=` | user | Clear own availability for a date |
+| GET | `events` | user | List events in window (default current UTC month); attendees derived from availability |
+| POST | `events` | admin-user | Lock a date (upsert on `UNIQUE(group_id, date)`; revives a cancelled row) |
+| PATCH | `events/:id` | admin-user | Edit event fields; status toggle flips `cancelled_at` |
+| DELETE | `events/:id` | admin-user | Soft cancel (status=CANCELLED) |
+| GET | `sp1wise` | user | Group balances + simplified debts + expense list + activity |
+| GET/POST | `sp1wise/groups` | user | List / create sub-groups |
+| POST | `sp1wise/expenses` | user | Add expense (split by EQUAL/AMOUNTS/PERCENT/SHARES) |
+| PATCH/DELETE | `sp1wise/expenses/:id` | user | Edit / soft-delete expense |
+| POST | `sp1wise/settlements` | user | Record a payment |
+| POST | `sp1wise/comments` | user | Comment on an expense |
+| GET | `sp1wise/export` | user | CSV export |
+| POST | `admin/auth` | user | Unlock dev console (`ff_admin_session` cookie, 2 h) |
+| GET | `admin/users` | admin-cookie | List users with devices and audit timestamps |
+| PATCH | `admin/users/:id` | admin-cookie | Whitelist update (`name`, `is_admin`); rejects unknown fields |
+| DELETE | `admin/users/:id` | admin-cookie | Remove user |
+| DELETE | `admin/devices/:id` | admin-cookie | Revoke a device |
+| POST | `admin/logout` | admin-cookie | Clears the admin session cookie (user session preserved) |
+
+**Permission contexts:**
+- `user` — any registered group member via `ff_session`.
+- `admin-user` — user session whose `is_admin = 1`. Enforced server-side by `requireFredagsfettAdminUser`, gates event mutations from the calendar.
+- `admin-cookie` — separate `ff_admin_session` cookie from the dev-console password unlock. Required for managing the `is_admin` flag itself and other destructive ops.
+
 ## D1 Schema
 
 Two SQL bundles:
@@ -76,6 +114,7 @@ Two SQL bundles:
 - Run `npx wrangler d1 execute sp1e-db --remote --file=schema.sql` to apply
 - Game schema + seed: `game-schema.sql`, `game-seed.sql`, `game-talents-schema.sql`, `game-talents-seed.sql`
 - Round reset: `game-reset.sql` (truncates all game tables, seeds round 1 + 20 NPCs)
+- Fredagsfett schema lives in `fredagsfett-migration-001.sql` (auth/devices/calendar/sp1wise foundations) + `fredagsfett-migration-002-availability-times.sql` (time-window columns) + `fredagsfett-migration-003-events.sql` (`ff_events` lock-in table). All three are mirrored into `schema.sql`.
 
 ## DAX Deploy Flow
 
@@ -123,4 +162,10 @@ npx wrangler d1 execute sp1e-db --remote --command="SELECT name FROM sqlite_mast
 
 # Generate password hash
 node scripts/hash-password.js "your-password"
+
+# Apply Fredagsfett events migration (v3) to production
+npx wrangler d1 execute sp1e-db --remote --file=fredagsfett-migration-003-events.sql
+
+# Promote a Fredagsfett user to admin (one-time; auto-seed in code is a safety net)
+npx wrangler d1 execute sp1e-db --remote --command="UPDATE ff_users SET is_admin = 1 WHERE name = 'Simon'"
 ```
