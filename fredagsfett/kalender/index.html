@@ -213,6 +213,42 @@
     color: var(--accent) !important;
   }
   .ical-btn:hover { background: rgba(205,176,110,0.20) !important; }
+  /* Background themes — each variant retones the gallery wall background
+   * with overlays and CSS filters. No new image assets needed; the same
+   * /assets/landing/gallery-wall-wide.png stays, just lit differently. */
+  body.theme-sommarljus {
+    background:
+      linear-gradient(to bottom, rgba(255,235,180,0.10), rgba(40,28,8,0.55)),
+      url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
+      #1a1208;
+  }
+  body.theme-sommarljus::before {
+    background:
+      radial-gradient(circle at 50% 30%, rgba(255,220,150,0.16), transparent 22rem),
+      linear-gradient(90deg, rgba(60,40,18,0.55), transparent 32%, transparent 68%, rgba(60,40,18,0.55));
+  }
+  body.theme-park {
+    background:
+      linear-gradient(to bottom, rgba(140,190,140,0.10), rgba(8,22,12,0.65)),
+      url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
+      #061410;
+  }
+  body.theme-park::before {
+    background:
+      radial-gradient(circle at 50% 26%, rgba(170,210,170,0.12), transparent 22rem),
+      linear-gradient(90deg, rgba(8,30,18,0.55), transparent 32%, transparent 68%, rgba(8,30,18,0.55));
+  }
+  body.theme-cafe {
+    background:
+      linear-gradient(to bottom, rgba(255,200,150,0.10), rgba(40,18,8,0.62)),
+      url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
+      #1a0c06;
+  }
+  body.theme-cafe::before {
+    background:
+      radial-gradient(circle at 50% 28%, rgba(255,180,130,0.16), transparent 22rem),
+      linear-gradient(90deg, rgba(60,24,10,0.55), transparent 32%, transparent 68%, rgba(60,24,10,0.55));
+  }
   /* Left sidebar — news feed + chat */
   .left-sidebar { display: grid; gap: 1rem; align-content: start; }
   body.sidebar-collapsed .left-sidebar { display: none; }
@@ -638,6 +674,8 @@
       </div>
       <nav class="nav admin-nav" aria-label="𓀂 navigation">
         <a class="button" href="/fredagsfett/sp1wise">SP1Wise</a>
+        <a class="button" href="/fredagsfett/karta" title="Karta med ritbara rutter">🗺️ Karta</a>
+        <button class="button" type="button" id="theme-btn" title="Växla bakgrundstema">🎨 Tema</button>
         <button class="button ical-btn" type="button" id="ical-copy-btn" title="Kopiera din personliga iCal-länk. Klistra in den i Google Kalender, Apple Kalender eller annan kalenderapp för att prenumerera på inlåsta Fredagsfett-event.">📅 iCal-feed</button>
         <a class="button icon-button" href="/fredagsfett/admin" aria-label="Dev console" title="Dev console">⚙</a>
       </nav>
@@ -1921,6 +1959,25 @@ document.getElementById('sidebar-toggle-btn')?.addEventListener('click', event =
   const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
   sessionStorage.setItem('ff-sidebar-collapsed', isCollapsed ? '1' : '0');
   event.currentTarget.textContent = isCollapsed ? 'Visa sidopanel' : 'Dölj sidopanel';
+});
+
+// Background theme cycler — galleri / sommarljus / park / café
+const THEMES = ['galleri', 'sommarljus', 'park', 'cafe'];
+const THEME_LABELS = { galleri: 'Galleri (mörkt)', sommarljus: 'Sommarljus', park: 'Park', cafe: 'Café' };
+function applyTheme(name) {
+  for (const t of THEMES) document.body.classList.remove(`theme-${t}`);
+  if (name && name !== 'galleri') document.body.classList.add(`theme-${name}`);
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.title = `Tema: ${THEME_LABELS[name] || 'Galleri'} — klicka för att växla`;
+}
+const savedTheme = localStorage.getItem('ff-kalender-theme') || 'galleri';
+applyTheme(THEMES.includes(savedTheme) ? savedTheme : 'galleri');
+document.getElementById('theme-btn')?.addEventListener('click', () => {
+  const current = localStorage.getItem('ff-kalender-theme') || 'galleri';
+  const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
+  localStorage.setItem('ff-kalender-theme', next);
+  applyTheme(next);
+  showToast(`Tema: ${THEME_LABELS[next]}`);
 });
 
 // B2 — add a new item

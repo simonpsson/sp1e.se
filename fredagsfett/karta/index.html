@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>𓀂 · Karta</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/fredagsfett/style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" crossorigin>
+<style>
+  main { width: min(1400px, 100%); margin: 0 auto; padding: 0; }
+  .room { display: grid; grid-template-rows: auto 1fr; min-height: 78vh; }
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; padding: 1.4rem 1.6rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  h1 { margin: 0; font-size: clamp(2.4rem, 7vw, 4.2rem); font-weight: 300; line-height: 0.95; letter-spacing: 0.08em; color: rgba(255,255,255,0.94); }
+  .kicker { margin: 0 0 0.5rem; color: var(--accent); font-family: 'DM Mono', monospace; font-size: 0.66rem; letter-spacing: 0.16em; text-transform: uppercase; }
+  nav.nav { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  nav.nav .button {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.045);
+    color: rgba(255,255,255,0.78);
+    font: 0.72rem 'DM Mono', monospace; letter-spacing: 0.1em;
+    text-decoration: none; text-transform: uppercase;
+  }
+  nav.nav .button:hover { color: var(--text); border-color: rgba(255,255,255,0.32); }
+  .map-toolbar {
+    display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center;
+    padding: 0.7rem 1.2rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    color: var(--muted);
+    font: 0.7rem 'DM Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .map-toolbar button {
+    padding: 0.4rem 0.85rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+  }
+  .map-toolbar button:hover { color: var(--text); border-color: var(--line-hot); }
+  .map-toolbar .save-status { margin-left: auto; color: var(--faint); }
+  #map { width: 100%; height: 70vh; min-height: 480px; background: rgba(0,0,0,0.4); }
+  /* Tame Leaflet's default light controls to match our dark room */
+  .leaflet-control-attribution { background: rgba(0,0,0,0.5) !important; color: rgba(255,255,255,0.55) !important; }
+  .leaflet-control-attribution a { color: rgba(205,176,110,0.9) !important; }
+  .leaflet-bar a, .leaflet-draw-toolbar a {
+    background-color: rgba(15,15,15,0.92) !important;
+    color: var(--text) !important;
+    border-bottom-color: rgba(255,255,255,0.08) !important;
+  }
+  .leaflet-bar a:hover, .leaflet-draw-toolbar a:hover {
+    background-color: rgba(205,176,110,0.18) !important;
+  }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: rgba(12,12,12,0.96) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--line-hot) !important;
+  }
+  .saved-list {
+    padding: 0.7rem 1.2rem 1.2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.6rem;
+  }
+  .saved-card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.6rem 0.7rem;
+    background: rgba(255,255,255,0.025);
+    display: grid;
+    gap: 0.35rem;
+  }
+  .saved-card strong { color: var(--accent); font-size: 0.9rem; font-weight: 500; }
+  .saved-card .tiny { font-size: 0.62rem; }
+  .saved-card .row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .saved-card button { padding: 0.3rem 0.55rem; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; font: 0.62rem 'DM Mono', monospace; letter-spacing: 0.08em; }
+  .saved-card button:hover { color: var(--text); border-color: var(--line-hot); }
+  .saved-card button.danger:hover { border-color: var(--danger); color: var(--danger); }
+</style>
+</head>
+<body>
+<main>
+  <div class="sp1e-wordmark" aria-label="SP1E" role="img">
+    <span>S</span><span>P</span><span>1</span><span>E</span>
+  </div>
+  <section class="room">
+    <header>
+      <div>
+        <p class="kicker">𓀂</p>
+        <h1>Karta</h1>
+      </div>
+      <nav class="nav" aria-label="𓀂 navigation">
+        <a class="button" href="/fredagsfett/kalender">(S)planner</a>
+        <a class="button" href="/fredagsfett/sp1wise">SP1Wise</a>
+      </nav>
+    </header>
+    <div class="map-toolbar" role="toolbar" aria-label="Karta">
+      <button type="button" id="locate-btn" title="Centrera kartan på din position">📍 Min position</button>
+      <button type="button" id="stockholm-btn" title="Centrera på Stockholm">Stockholm</button>
+      <button type="button" id="save-btn" title="Spara nuvarande ritning som en namngiven rutt">💾 Spara rutt</button>
+      <button type="button" id="clear-btn" title="Rensa allt på kartan">Rensa</button>
+      <span class="save-status" id="save-status">Rita med verktygen till vänster på kartan.</span>
+    </div>
+    <div id="map"></div>
+    <div class="saved-list" id="saved-list"></div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js" crossorigin></script>
+<script>
+// ─ Auth gate (matches the other fredagsfett pages) ───────────────────────────
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(data.error || 'Något gick fel.');
+  return data;
+}
+
+async function gateOrInit() {
+  try {
+    const session = await api('/api/fredagsfett/session');
+    if (!session.authenticated || session.needs_registration) {
+      location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/karta')}`;
+      return;
+    }
+    initMap();
+  } catch {
+    location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/karta')}`;
+  }
+}
+
+// ─ Leaflet map + draw tools ──────────────────────────────────────────────────
+const STORAGE_KEY = 'ff-map-routes-v1';
+const STOCKHOLM = [59.3293, 18.0686];
+
+let map, drawn, drawControl;
+
+function initMap() {
+  map = L.map('map', { center: STOCKHOLM, zoom: 13 });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(map);
+
+  drawn = new L.FeatureGroup();
+  map.addLayer(drawn);
+
+  drawControl = new L.Control.Draw({
+    edit: { featureGroup: drawn, remove: true },
+    draw: {
+      polyline: { shapeOptions: { color: '#cdb06e', weight: 4 } },
+      polygon:  { allowIntersection: false, showArea: true, shapeOptions: { color: '#cdb06e' } },
+      rectangle:{ shapeOptions: { color: '#cdb06e' } },
+      circle:   { shapeOptions: { color: '#cdb06e' } },
+      marker: true,
+      circlemarker: false,
+    },
+  });
+  map.addControl(drawControl);
+
+  map.on(L.Draw.Event.CREATED, e => drawn.addLayer(e.layer));
+
+  document.getElementById('locate-btn').addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      setStatus('Geolokalisering stöds inte i den här webbläsaren.');
+      return;
+    }
+    setStatus('Hämtar din position...');
+    navigator.geolocation.getCurrentPosition(
+      pos => { map.setView([pos.coords.latitude, pos.coords.longitude], 15); setStatus('Centrerad på din position.'); },
+      err => { setStatus('Kunde inte hämta position: ' + err.message); },
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  });
+  document.getElementById('stockholm-btn').addEventListener('click', () => {
+    map.setView(STOCKHOLM, 13);
+    setStatus('Centrerad på Stockholm.');
+  });
+  document.getElementById('save-btn').addEventListener('click', saveCurrentRoute);
+  document.getElementById('clear-btn').addEventListener('click', () => {
+    if (!drawn.getLayers().length) return;
+    if (!window.confirm('Rensa alla ritningar på kartan?')) return;
+    drawn.clearLayers();
+    setStatus('Kartan rensad.');
+  });
+
+  renderSavedList();
+}
+
+function setStatus(text) {
+  document.getElementById('save-status').textContent = text;
+}
+
+function loadSaved() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+function persist(routes) { localStorage.setItem(STORAGE_KEY, JSON.stringify(routes)); }
+
+function saveCurrentRoute() {
+  if (!drawn.getLayers().length) { setStatus('Inget att spara — rita något först.'); return; }
+  const name = window.prompt('Namn på rutten?', `Rutt ${new Date().toLocaleDateString('sv-SE')}`);
+  if (!name) return;
+  const geojson = drawn.toGeoJSON();
+  const routes = loadSaved();
+  routes.push({ id: `r-${Date.now()}`, name, created_at: new Date().toISOString(), geojson });
+  persist(routes);
+  renderSavedList();
+  setStatus(`Sparade "${name}".`);
+}
+
+function renderSavedList() {
+  const wrap = document.getElementById('saved-list');
+  const routes = loadSaved();
+  if (!routes.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = routes.map(r => `
+    <div class="saved-card" data-route-id="${escapeAttr(r.id)}">
+      <strong>${escapeHtml(r.name)}</strong>
+      <span class="tiny">${escapeHtml((r.created_at || '').slice(0, 10))}</span>
+      <div class="row">
+        <button type="button" data-action="load">Ladda</button>
+        <button type="button" data-action="export">.geojson</button>
+        <button type="button" class="danger" data-action="delete">Ta bort</button>
+      </div>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('.saved-card').forEach(card => {
+    const id = card.dataset.routeId;
+    card.addEventListener('click', e => {
+      const action = e.target.closest('[data-action]')?.dataset.action;
+      if (!action) return;
+      const route = loadSaved().find(r => r.id === id);
+      if (!route) return;
+      if (action === 'load') loadRouteOnto(route);
+      if (action === 'export') downloadGeojson(route);
+      if (action === 'delete') deleteRoute(id);
+    });
+  });
+}
+
+function loadRouteOnto(route) {
+  drawn.clearLayers();
+  const layer = L.geoJSON(route.geojson, {
+    style: { color: '#cdb06e', weight: 4 },
+  });
+  layer.eachLayer(l => drawn.addLayer(l));
+  try { map.fitBounds(layer.getBounds(), { padding: [40, 40] }); } catch {}
+  setStatus(`Laddade "${route.name}".`);
+}
+
+function downloadGeojson(route) {
+  const blob = new Blob([JSON.stringify(route.geojson, null, 2)], { type: 'application/geo+json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${route.name.replace(/[^\w-]+/g, '_')}.geojson`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
+function deleteRoute(id) {
+  if (!window.confirm('Ta bort rutten?')) return;
+  const routes = loadSaved().filter(r => r.id !== id);
+  persist(routes);
+  renderSavedList();
+  setStatus('Rutten borttagen.');
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[ch]));
+}
+function escapeAttr(value) { return escapeHtml(value); }
+
+void gateOrInit();
+</script>
+</body>
+</html>
