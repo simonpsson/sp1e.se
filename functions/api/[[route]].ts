@@ -10029,13 +10029,13 @@ async function fredagsfettAvailabilityList(request: Request, env: Env): Promise<
   const nextMonth = addMonthsToFredagsfettMonth(month, 1);
 
   const entries = await env.DB.prepare(
-    `SELECT a.id, a.user_id, u.name AS user_name, a.date, a.status, a.note,
-            a.start_time, a.end_time, a.time_note, a.updated_at
+    `SELECT a.id, a.user_id, u.name AS user_name, u.is_admin AS user_is_admin,
+            a.date, a.status, a.note, a.start_time, a.end_time, a.time_note, a.updated_at
        FROM ff_availability a
        JOIN ff_users u ON u.id = a.user_id AND u.deleted_at IS NULL
       WHERE a.date >= ? AND a.date < ?
       ORDER BY a.date ASC, u.name COLLATE NOCASE ASC`
-  ).bind(month, nextMonth).all<FredagsfettAvailabilityRow>();
+  ).bind(month, nextMonth).all<FredagsfettAvailabilityRow & { user_is_admin: number }>();
 
   const bestDates = await env.DB.prepare(
     `SELECT a.date,
@@ -10055,6 +10055,7 @@ async function fredagsfettAvailabilityList(request: Request, env: Env): Promise<
     month,
     entries: (entries.results ?? []).map(entry => ({
       ...entry,
+      user_is_admin: !!entry.user_is_admin,
       is_self: entry.user_id === session.user.id,
     })),
     best_dates: (bestDates.results ?? []).map(row => ({

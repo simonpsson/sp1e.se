@@ -20,9 +20,9 @@
     --faint: rgba(255,255,255,0.30);
     --accent: rgba(205,176,110,0.92);
     --danger: rgba(255,104,84,0.94);
-    --available: #8fcf9a;
-    --maybe: #d9bd67;
-    --unavailable: #d66f64;
+    --available: #a3cdb0;
+    --maybe: #d4c285;
+    --unavailable: #d09a90;
   }
   * { box-sizing: border-box; }
   body {
@@ -205,10 +205,37 @@
     font-size: 0.62rem;
   }
   .day {
+    position: relative;
     min-height: 112px;
     padding: 0.65rem;
     text-align: left;
     color: var(--text);
+  }
+  /* A1 — small dot in the corner showing the current user's own status on this day */
+  .day::after {
+    content: '';
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    opacity: 0;
+    transition: opacity .15s ease;
+  }
+  .day[data-self-status="AVAILABLE"]::after   { background: var(--available); opacity: 1; }
+  .day[data-self-status="MAYBE"]::after       { background: var(--maybe); opacity: 1; }
+  .day[data-self-status="UNAVAILABLE"]::after { background: var(--unavailable); opacity: 1; }
+  /* A2 — today marker: small accent dot next to the day number */
+  .day.today .day-number > span:first-child::after {
+    content: '';
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    margin-left: 6px;
+    border-radius: 999px;
+    background: var(--accent);
+    transform: translateY(-2px);
   }
   .day.blank { opacity: 0.35; }
   .day.selected {
@@ -241,6 +268,36 @@
   .avatar[data-status="AVAILABLE"] { background: var(--available); }
   .avatar[data-status="MAYBE"] { background: var(--maybe); }
   .avatar[data-status="UNAVAILABLE"] { background: var(--unavailable); }
+  /* C4 — admin badge: thin gold ring on attendee chips, accent star in detail list */
+  .avatar[data-admin="1"] { box-shadow: 0 0 0 1.5px var(--accent); }
+  .admin-mark { color: var(--accent); margin-left: 0.3rem; font-size: 0.75em; }
+  /* A4 — next-event banner */
+  .next-event-banner {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.7rem 1.1rem;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: rgba(205,176,110,0.04);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .next-event-banner strong { color: var(--accent); font-weight: 400; }
+  .next-event-banner .ne-when { color: var(--text); }
+  /* D1 — persistent tap-cycle hint above the status pills */
+  .tap-hint {
+    margin: 0.15rem 0 0.55rem;
+    color: var(--faint);
+    font-style: italic;
+    font-size: 0.7rem;
+    line-height: 1.4;
+  }
   aside {
     align-self: start;
     padding: 1rem;
@@ -419,6 +476,7 @@
         <a class="button icon-button" href="/fredagsfett/admin" aria-label="Dev console" title="Dev console">⚙</a>
       </nav>
     </header>
+    <div id="next-event-banner" class="next-event-banner" hidden></div>
     <div class="layout">
       <section class="calendar-card">
         <div class="calendar-head">
@@ -430,6 +488,7 @@
           <button type="button" data-summer="06">Juni</button>
           <button type="button" data-summer="07">Juli</button>
           <button type="button" data-summer="08">Augusti</button>
+          <button type="button" id="mark-fridays-btn" title="Markera dig själv som tillgänglig på de kommande 4 fredagarna">Markera 4 fredagar</button>
           <div class="view-mode" role="tablist" aria-label="Vy">
             <button type="button" data-view-mode="initials" aria-pressed="true">Initialer</button>
             <button type="button" data-view-mode="heatmap"  aria-pressed="false">Värmekarta</button>
@@ -490,6 +549,7 @@
             </div>
             <div class="error" id="lock-event-error"></div>
           </form>
+          <p class="tap-hint">Tryck på en dag i kalendern för att växla mellan tillgänglig · kanske · inte tillgänglig.</p>
           <div class="status-row">
             <button class="status-pill" type="button" data-status="AVAILABLE">Tillgänglig</button>
             <button class="status-pill" type="button" data-status="MAYBE">Kanske</button>
@@ -519,7 +579,7 @@
           <div class="error" id="calendar-error"></div>
         </section>
         <section class="panel-block">
-          <h3>Inlåsta fredagar</h3>
+          <h3 id="locked-events-heading">Inlåsta fredagar</h3>
           <div class="locked-events-list" id="locked-events-list"></div>
           <div class="tiny" id="locked-events-empty" hidden>Inga inlåsta datum framåt. <span id="best-dates-hint"></span></div>
         </section>
@@ -739,12 +799,19 @@ function renderCalendar() {
   }
   const isHeatmap = state.viewMode === 'heatmap';
   const groupSize = observedGroupSize();
+  const todayStr = new Date().toISOString().slice(0, 10);
   for (let day = 1; day <= days; day++) {
     const date = `${state.month}-${String(day).padStart(2, '0')}`;
     const entries = entriesForDate(date);
     const selected = date === state.selectedDate ? ' selected' : '';
+    const todayCls = date === todayStr ? ' today' : '';
     const event = eventsByDate.get(date);
-    const chips = entries.map(entry => `<span class="avatar" data-status="${entry.status}" title="${entry.user_name}: ${entry.status}">${initials(entry.user_name)}</span>`).join('');
+    const ownEntry = entries.find(e => e.is_self);
+    const selfAttr = ownEntry ? ` data-self-status="${ownEntry.status}"` : '';
+    const chips = entries.map(entry => {
+      const adminAttr = entry.user_is_admin ? ' data-admin="1"' : '';
+      return `<span class="avatar" data-status="${entry.status}"${adminAttr} title="${entry.user_name}: ${entry.status}">${initials(entry.user_name)}</span>`;
+    }).join('');
     const timeChips = entries
       .filter(entry => entry.start_time && entry.end_time)
       .map(entry => `<span class="time-chip" title="${escapeHtml(entry.user_name)} ${escapeHtml(entry.time_note || '')}">${escapeHtml(formatTimeWindow(entry))}</span>`)
@@ -759,8 +826,8 @@ function renderCalendar() {
     const heatmapCls = isHeatmap ? ' heatmap-mode' : '';
     const isLocked = event && event.status === 'LOCKED';
     const dayMarkup = isLocked
-      ? `<button class="day locked-event${heatmapCls}${selected}" type="button" data-date="${date}"${heatStyle}>`
-      : `<button class="day${heatmapCls}${selected}" type="button" data-date="${date}"${heatStyle}>`;
+      ? `<button class="day locked-event${heatmapCls}${selected}${todayCls}" type="button" data-date="${date}"${heatStyle}${selfAttr}>`
+      : `<button class="day${heatmapCls}${selected}${todayCls}" type="button" data-date="${date}"${heatStyle}${selfAttr}>`;
     const countMarkup = isHeatmap
       ? `<span class="count">${yesCount}${maybeCount ? `+${maybeCount}` : ''}</span>`
       : '';
@@ -787,7 +854,10 @@ function renderSelectedDay() {
   renderEventForSelectedDay();
   const details = entriesForDate(state.selectedDate);
   document.getElementById('day-details').innerHTML = details.length
-    ? details.map(entry => `<div class="detail-item"><strong>${escapeHtml(entry.user_name)}</strong><span>${statusLabel(entry.status)}</span>${formatTimeWindow(entry) ? `<span class="time-chip">${escapeHtml(formatTimeWindow(entry))}</span>` : ''}${entry.time_note ? `<p>${escapeHtml(entry.time_note)}</p>` : ''}${entry.note ? `<p>${escapeHtml(entry.note)}</p>` : ''}</div>`).join('')
+    ? details.map(entry => {
+        const adminMark = entry.user_is_admin ? '<span class="admin-mark" aria-label="Admin" title="Admin">✦</span>' : '';
+        return `<div class="detail-item"><strong>${escapeHtml(entry.user_name)}${adminMark}</strong><span>${statusLabel(entry.status)}</span>${formatTimeWindow(entry) ? `<span class="time-chip">${escapeHtml(formatTimeWindow(entry))}</span>` : ''}${entry.time_note ? `<p>${escapeHtml(entry.time_note)}</p>` : ''}${entry.note ? `<p>${escapeHtml(entry.note)}</p>` : ''}</div>`;
+      }).join('')
     : '<p class="tiny">Inga svar ännu.</p>';
 }
 
@@ -899,10 +969,13 @@ function renderLockedEvents() {
   const list = document.getElementById('locked-events-list');
   const empty = document.getElementById('locked-events-empty');
   const hint = document.getElementById('best-dates-hint');
+  const heading = document.getElementById('locked-events-heading');
   const today = new Date().toISOString().slice(0, 10);
   const upcoming = (state.upcomingEvents || [])
     .filter(event => event.status === 'LOCKED' && event.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date));
+  // C5 — show count in header when non-zero
+  if (heading) heading.textContent = upcoming.length ? `Inlåsta fredagar (${upcoming.length})` : 'Inlåsta fredagar';
   if (upcoming.length) {
     list.innerHTML = upcoming.map(event => {
       const attendees = event.attendees || [];
@@ -924,6 +997,27 @@ function renderLockedEvents() {
       : '';
     empty.hidden = false;
   }
+  renderNextEventBanner(upcoming);
+}
+
+// A4 — countdown banner at the top of the kalender room
+function renderNextEventBanner(upcoming) {
+  const banner = document.getElementById('next-event-banner');
+  if (!banner) return;
+  const next = upcoming && upcoming.length ? upcoming[0] : null;
+  if (!next) {
+    banner.hidden = true;
+    banner.innerHTML = '';
+    return;
+  }
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayMs = Date.UTC(...todayStr.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
+  const nextMs  = Date.UTC(...next.date.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
+  const days = Math.round((nextMs - todayMs) / 86400000);
+  const when = days <= 0 ? 'idag' : days === 1 ? 'imorgon' : `om ${days} dagar`;
+  const titleSuffix = next.title ? ` · ${escapeHtml(next.title)}` : '';
+  banner.innerHTML = `<span>Nästa fredagsfett: <strong>${escapeHtml(formatSwedishDate(next.date))}</strong>${titleSuffix}</span><span class="ne-when">${escapeHtml(when)}</span>`;
+  banner.hidden = false;
 }
 
 function statusLabel(status) {
@@ -1133,6 +1227,37 @@ document.querySelectorAll('[data-summer]').forEach(button => {
     lockEventForm.hidden = true;
     void reloadCalendarData();
   });
+});
+
+// A3 — bulk mark next 4 Fridays as AVAILABLE (server applies Friday default time)
+document.getElementById('mark-fridays-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('mark-fridays-btn');
+  btn.disabled = true;
+  errorBox.textContent = '';
+  try {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const dow = today.getUTCDay();
+    const daysToFirstFriday = dow === 5 ? 0 : (5 - dow + 7) % 7;
+    const dates = [];
+    for (let i = 0; i < 4; i++) {
+      const d = new Date(today);
+      d.setUTCDate(today.getUTCDate() + daysToFirstFriday + i * 7);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    for (const date of dates) {
+      await api('/api/fredagsfett/availability', {
+        method: 'POST',
+        body: JSON.stringify({ date, status: 'AVAILABLE' }),
+      });
+    }
+    await reloadCalendarData();
+    showToast(`${dates.length} fredagar markerade som tillgänglig.`);
+  } catch (err) {
+    errorBox.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 document.querySelectorAll('[data-view-mode]').forEach(button => {
