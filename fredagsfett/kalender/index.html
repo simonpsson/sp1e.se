@@ -465,6 +465,37 @@
   .event-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-bottom: 0.35rem; }
   .event-card-head strong { color: var(--accent); font-size: 1.1rem; }
   .event-card .tiny { display: block; margin-bottom: 0.18rem; }
+  /* B2 — event items checklist */
+  .event-items { margin-top: 0.85rem; padding-top: 0.7rem; border-top: 1px dashed rgba(205,176,110,0.25); }
+  .event-items h4, .event-photos h4, .event-spotify h4, .activity-feed h4, .event-comments h4 { margin: 0 0 0.4rem; font: 0.66rem 'DM Mono', monospace; letter-spacing: 0.12em; color: var(--accent); text-transform: uppercase; }
+  .event-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0; }
+  .event-item-label { flex: 1; color: var(--text); }
+  .event-item-claim { font: 0.62rem 'DM Mono', monospace; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; padding: 0.18rem 0.5rem; border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; cursor: pointer; background: transparent; }
+  .event-item-claim.claimed { color: var(--accent); border-color: var(--line-hot); background: rgba(205,176,110,0.10); }
+  .event-item-remove { color: var(--faint); border: 0; background: transparent; cursor: pointer; padding: 0.18rem 0.4rem; font: 0.7rem 'DM Mono', monospace; }
+  .event-item-remove:hover { color: var(--danger); }
+  .event-item-form { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+  .event-item-form input { flex: 1; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; background: rgba(0,0,0,0.35); color: var(--text); padding: 0.45rem 0.65rem; font: 0.86rem 'Cormorant Garamond', serif; outline: none; }
+  .event-item-form input:focus { border-color: var(--line-hot); }
+  /* B5 — event photos */
+  .event-photos { margin-top: 0.85rem; padding-top: 0.7rem; border-top: 1px dashed rgba(205,176,110,0.25); }
+  .event-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 0.4rem; margin-top: 0.4rem; }
+  .event-photo-thumb { position: relative; aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
+  .event-photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .event-photo-thumb .remove { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border: 0; border-radius: 999px; background: rgba(0,0,0,0.7); color: var(--text); cursor: pointer; line-height: 1; font-size: 0.7rem; }
+  .event-photo-thumb .remove:hover { background: var(--danger); color: #050505; }
+  .event-photo-upload { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.5rem; font: 0.7rem 'DM Mono', monospace; letter-spacing: 0.08em; color: var(--muted); cursor: pointer; }
+  .event-photo-upload input { display: none; }
+  .event-photo-upload-label { padding: 0.4rem 0.7rem; border: 1px dashed rgba(205,176,110,0.4); border-radius: 10px; color: var(--accent); text-transform: uppercase; }
+  /* B6 — Spotify link */
+  .event-spotify { margin-top: 0.85rem; padding-top: 0.7rem; border-top: 1px dashed rgba(205,176,110,0.25); }
+  .event-spotify a { display: inline-flex; align-items: center; gap: 0.4rem; color: #1ed760; text-decoration: none; font: 0.78rem 'DM Mono', monospace; letter-spacing: 0.06em; }
+  .event-spotify a:hover { text-decoration: underline; }
+  /* E3 — activity feed */
+  .activity-feed { max-height: 320px; overflow-y: auto; }
+  .activity-row { padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.86rem; }
+  .activity-row:last-child { border-bottom: 0; }
+  .activity-row .av-when { display: block; color: var(--faint); font: 0.62rem 'DM Mono', monospace; letter-spacing: 0.08em; margin-top: 0.12rem; }
   /* B1 — event comments */
   .event-comments { margin-top: 0.85rem; padding-top: 0.7rem; border-top: 1px dashed rgba(205,176,110,0.25); }
   .event-comments h4 { margin: 0 0 0.4rem; font: 0.66rem 'DM Mono', monospace; letter-spacing: 0.12em; color: var(--accent); text-transform: uppercase; }
@@ -573,6 +604,27 @@
               <button type="button" data-action="edit-event">Redigera</button>
               <button type="button" data-action="cancel-event">Avbryt inlåsning</button>
             </div>
+            <div class="event-items">
+              <h4>Vad tar ni med?</h4>
+              <div id="event-items-list" aria-live="polite"></div>
+              <form id="event-item-form" class="event-item-form">
+                <input id="event-item-input" type="text" maxlength="80" aria-label="Lägg till sak">
+                <button type="submit">Lägg till</button>
+              </form>
+            </div>
+            <div class="event-photos">
+              <h4>Bilder</h4>
+              <div id="event-photo-grid" class="event-photo-grid" aria-live="polite"></div>
+              <label class="event-photo-upload">
+                <span class="event-photo-upload-label">Ladda upp bild</span>
+                <input id="event-photo-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+              </label>
+              <div class="error" id="event-photo-error"></div>
+            </div>
+            <div id="event-spotify" class="event-spotify" hidden>
+              <h4>Spellista</h4>
+              <a id="event-spotify-link" href="#" target="_blank" rel="noopener noreferrer">🎵 Öppna spellistan</a>
+            </div>
             <div class="event-comments">
               <h4>Kommentarer</h4>
               <div id="event-comments-list" aria-live="polite"></div>
@@ -614,6 +666,10 @@
             <div>
               <label for="lock-notes-input">Anteckningar</label>
               <textarea id="lock-notes-input" maxlength="500"></textarea>
+            </div>
+            <div>
+              <label for="lock-spotify-input">Spotify-spellista (URL)</label>
+              <input id="lock-spotify-input" type="url" maxlength="500">
             </div>
             <div class="nav" style="margin-top:0.2rem">
               <button type="submit">Bekräfta inlåsning</button>
@@ -658,6 +714,10 @@
         <section class="panel-block" id="past-events-block" hidden>
           <h3 id="past-events-heading">Tidigare fredagsfett</h3>
           <div class="locked-events-list" id="past-events-list"></div>
+        </section>
+        <section class="panel-block">
+          <h3>Aktivitet</h3>
+          <div class="activity-feed" id="activity-feed" aria-live="polite"></div>
         </section>
         <section class="panel-block">
           <p class="kicker">Svar på vald dag</p>
@@ -975,13 +1035,28 @@ function renderEventForSelectedDay() {
     eventCardLocation.hidden = !event.location;
     eventCardNotes.textContent = event.notes || '';
     eventCardNotes.hidden = !event.notes;
+    // B6 — Spotify link
+    const spotifyBlock = document.getElementById('event-spotify');
+    const spotifyLink = document.getElementById('event-spotify-link');
+    if (event.spotify_url && spotifyBlock && spotifyLink) {
+      spotifyLink.href = event.spotify_url;
+      spotifyBlock.hidden = false;
+    } else if (spotifyBlock) {
+      spotifyBlock.hidden = true;
+    }
     state.currentEventId = event.id;
     void loadEventComments(event.id);
+    void loadEventItems(event.id);
+    void loadEventPhotos(event.id);
   } else {
     eventCard.hidden = true;
     state.currentEventId = null;
-    const list = document.getElementById('event-comments-list');
-    if (list) list.innerHTML = '';
+    const commentsList = document.getElementById('event-comments-list');
+    if (commentsList) commentsList.innerHTML = '';
+    const itemsList = document.getElementById('event-items-list');
+    if (itemsList) itemsList.innerHTML = '';
+    const photoGrid = document.getElementById('event-photo-grid');
+    if (photoGrid) photoGrid.innerHTML = '';
   }
   // Lock button: visible to admins when there is no active LOCKED event for this date.
   const canLock = isAdmin && !hasActiveEvent;
@@ -1059,6 +1134,8 @@ function openLockForm(prefill = {}) {
   lockStartInput.value = prefill.start_time || heuristic.start;
   lockEndInput.value = prefill.end_time || heuristic.end;
   lockNotesInput.value = prefill.notes || '';
+  const lockSpotifyInput = document.getElementById('lock-spotify-input');
+  if (lockSpotifyInput) lockSpotifyInput.value = prefill.spotify_url || '';
   lockEventError.textContent = '';
   lockEventForm.hidden = false;
   lockEventBtn.hidden = true;
@@ -1176,6 +1253,77 @@ async function loadEvents() {
   }
 }
 
+// B2 — items checklist per locked event
+async function loadEventItems(eventId) {
+  const list = document.getElementById('event-items-list');
+  if (!list) return;
+  try {
+    const data = await api(`/api/fredagsfett/events/${encodeURIComponent(eventId)}/items`);
+    const items = data.items || [];
+    const selfId = currentSession?.user?.id;
+    if (!items.length) {
+      list.innerHTML = '<p class="tiny">Inga saker än — lägg till nedan.</p>';
+    } else {
+      list.innerHTML = items.map(item => {
+        const claimedByMe = item.claimed_by === selfId;
+        const claimLabel = item.claimed_by_name ? escapeHtml(item.claimed_by_name) : 'Claima';
+        return `<div class="event-item" data-item-id="${item.id}">
+          <span class="event-item-label">${escapeHtml(item.label)}</span>
+          <button type="button" class="event-item-claim${item.claimed_by ? ' claimed' : ''}" data-action="claim" data-claimed="${claimedByMe ? '1' : '0'}">${claimLabel}</button>
+          <button type="button" class="event-item-remove" data-action="remove" aria-label="Ta bort" title="Ta bort">✕</button>
+        </div>`;
+      }).join('');
+    }
+  } catch (err) {
+    list.innerHTML = `<p class="error">${escapeHtml(err.message || 'Kunde inte ladda listan.')}</p>`;
+  }
+}
+
+// B5 — photo gallery per locked event
+async function loadEventPhotos(eventId) {
+  const grid = document.getElementById('event-photo-grid');
+  if (!grid) return;
+  try {
+    const data = await api(`/api/fredagsfett/events/${encodeURIComponent(eventId)}/photos`);
+    const photos = data.photos || [];
+    const selfId = currentSession?.user?.id;
+    const isAdmin = !!(currentSession?.user?.is_admin);
+    if (!photos.length) {
+      grid.innerHTML = '<p class="tiny">Inga bilder än.</p>';
+    } else {
+      grid.innerHTML = photos.map(p => {
+        const canDelete = p.uploader_id === selfId || isAdmin;
+        const removeBtn = canDelete ? `<button type="button" class="remove" data-photo-id="${p.id}" aria-label="Ta bort" title="Ta bort">✕</button>` : '';
+        return `<div class="event-photo-thumb" data-photo-id="${p.id}">
+          <img src="/api/fredagsfett/photos/${encodeURIComponent(p.id)}" alt="${escapeHtml(p.uploader_name || 'Bild')}" loading="lazy">
+          ${removeBtn}
+        </div>`;
+      }).join('');
+    }
+  } catch (err) {
+    grid.innerHTML = `<p class="error">${escapeHtml(err.message || 'Kunde inte ladda bilder.')}</p>`;
+  }
+}
+
+// E3 — recent activity feed
+async function loadActivity() {
+  const feed = document.getElementById('activity-feed');
+  if (!feed) return;
+  try {
+    const data = await api('/api/fredagsfett/activity?limit=30');
+    const rows = data.activity || [];
+    if (!rows.length) {
+      feed.innerHTML = '<p class="tiny">Ingen aktivitet ännu.</p>';
+      return;
+    }
+    feed.innerHTML = rows.map(r =>
+      `<div class="activity-row">${escapeHtml(r.message)}<span class="av-when">${escapeHtml((r.created_at || '').replace('T', ' ').slice(0, 16))}</span></div>`
+    ).join('');
+  } catch (err) {
+    feed.innerHTML = `<p class="error">${escapeHtml(err.message || 'Kunde inte ladda aktivitet.')}</p>`;
+  }
+}
+
 // B1 — comments per locked event
 async function loadEventComments(eventId) {
   const list = document.getElementById('event-comments-list');
@@ -1243,7 +1391,7 @@ async function reloadCalendarData() {
   // C2 — soft fade while the grid is being rebuilt
   grid.classList.add('transitioning');
   try {
-    await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents()]);
+    await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents(), loadActivity()]);
     renderCalendar();
     renderLockedEvents();
   } finally {
@@ -1349,6 +1497,7 @@ lockEventBtn.addEventListener('click', () => {
 lockEventForm.addEventListener('submit', async event => {
   event.preventDefault();
   lockEventError.textContent = '';
+  const lockSpotifyInput = document.getElementById('lock-spotify-input');
   const payload = {
     date: state.selectedDate,
     title: lockTitleInput.value.trim() || null,
@@ -1357,6 +1506,7 @@ lockEventForm.addEventListener('submit', async event => {
     start_time: lockStartInput.value || null,
     end_time: lockEndInput.value || null,
     notes: lockNotesInput.value.trim() || null,
+    spotify_url: lockSpotifyInput ? (lockSpotifyInput.value.trim() || null) : null,
   };
   const submitBtn = lockEventForm.querySelector('button[type="submit"]');
   if (submitBtn) submitBtn.disabled = true;
@@ -1535,6 +1685,115 @@ document.getElementById('ical-copy-btn')?.addEventListener('click', async () => 
   }
 });
 
+// B2 — add a new item
+document.getElementById('event-item-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const input = document.getElementById('event-item-input');
+  const eventId = state.currentEventId;
+  if (!input || !eventId) return;
+  const label = input.value.trim();
+  if (!label) return;
+  const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    await api(`/api/fredagsfett/events/${encodeURIComponent(eventId)}/items`, {
+      method: 'POST', body: JSON.stringify({ label }),
+    });
+    input.value = '';
+    await loadEventItems(eventId);
+    void loadActivity();
+  } catch (err) {
+    errorBox.textContent = err.message || 'Kunde inte lägga till.';
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+});
+
+// B2 — claim/unclaim/remove an item via delegated click
+document.getElementById('event-items-list')?.addEventListener('click', async event => {
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+  const row = button.closest('[data-item-id]');
+  if (!row) return;
+  const itemId = row.dataset.itemId;
+  const eventId = state.currentEventId;
+  const action = button.dataset.action;
+  button.disabled = true;
+  try {
+    if (action === 'claim') {
+      const isClaimed = button.dataset.claimed === '1';
+      await api(`/api/fredagsfett/items/${encodeURIComponent(itemId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ claimed_by: isClaimed ? null : currentSession.user.id }),
+      });
+    } else if (action === 'remove') {
+      if (!window.confirm('Ta bort den här saken?')) { button.disabled = false; return; }
+      await api(`/api/fredagsfett/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+    }
+    if (eventId) await loadEventItems(eventId);
+    void loadActivity();
+  } catch (err) {
+    errorBox.textContent = err.message || 'Kunde inte uppdatera.';
+  } finally {
+    button.disabled = false;
+  }
+});
+
+// B5 — upload a photo (base64 over JSON)
+document.getElementById('event-photo-input')?.addEventListener('change', async event => {
+  const input = event.currentTarget;
+  const file = input.files && input.files[0];
+  const eventId = state.currentEventId;
+  const errEl = document.getElementById('event-photo-error');
+  if (errEl) errEl.textContent = '';
+  if (!file || !eventId) return;
+  if (file.size > 5 * 1024 * 1024) {
+    if (errEl) errEl.textContent = 'Max 5 MB per bild.';
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const dataUrl = String(reader.result || '');
+      const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+      await api(`/api/fredagsfett/events/${encodeURIComponent(eventId)}/photos`, {
+        method: 'POST',
+        body: JSON.stringify({ content_type: file.type, data: base64 }),
+      });
+      input.value = '';
+      await loadEventPhotos(eventId);
+      void loadActivity();
+    } catch (err) {
+      if (errEl) errEl.textContent = err.message || 'Uppladdning misslyckades.';
+    }
+  };
+  reader.onerror = () => {
+    if (errEl) errEl.textContent = 'Kunde inte läsa filen.';
+    input.value = '';
+  };
+  reader.readAsDataURL(file);
+});
+
+// B5 — delete a photo via the per-thumb ✕ button
+document.getElementById('event-photo-grid')?.addEventListener('click', async event => {
+  const button = event.target.closest('button.remove[data-photo-id]');
+  if (!button) return;
+  if (!window.confirm('Ta bort bilden?')) return;
+  const photoId = button.dataset.photoId;
+  const eventId = state.currentEventId;
+  button.disabled = true;
+  try {
+    await api(`/api/fredagsfett/photos/${encodeURIComponent(photoId)}`, { method: 'DELETE' });
+    if (eventId) await loadEventPhotos(eventId);
+    void loadActivity();
+  } catch (err) {
+    errorBox.textContent = err.message || 'Kunde inte ta bort bilden.';
+  } finally {
+    button.disabled = false;
+  }
+});
+
 // B1 — submit a new event comment
 document.getElementById('event-comment-form')?.addEventListener('submit', async event => {
   event.preventDefault();
@@ -1554,6 +1813,7 @@ document.getElementById('event-comment-form')?.addEventListener('submit', async 
     });
     input.value = '';
     await loadEventComments(eventId);
+    void loadActivity();
   } catch (err) {
     errEl.textContent = err.message || 'Kunde inte skicka kommentaren.';
   } finally {
@@ -1570,7 +1830,7 @@ async function boot() {
     }
     currentSession = session;
     document.body.classList.toggle('is-admin', !!(session.user && session.user.is_admin));
-    await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents()]);
+    await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents(), loadActivity()]);
     renderCalendar();
     // Note: a tap mid-poll may briefly flicker if loadAvailability returns before
     // the tap's POST resolves. Last-write-wins on the server, self-corrects on next poll.

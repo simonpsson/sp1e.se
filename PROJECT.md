@@ -88,6 +88,15 @@
 | POST   | `events/:id/comments` | user | Add a comment (body: `{ body }`) |
 | GET    | `ical-url` | user | Returns the caller's personalized iCal feed URL |
 | GET    | `ical/:token` | signed-token | Public iCal feed (text/calendar) of all LOCKED Fredagsfett events; token is HMAC over `ical:<userId>`. Bypasses cookie auth (calendar clients don't send cookies). |
+| GET    | `events/:id/items` | user | "Who-brings-what" checklist for an event |
+| POST   | `events/:id/items` | user | Add an item (body: `{ label }`) |
+| PATCH  | `items/:id` | user | Update item: `{ label?, claimed_by? }`. `claimed_by: null` releases the claim. |
+| DELETE | `items/:id` | user | Remove an item |
+| GET    | `events/:id/photos` | user | List photo metadata for an event |
+| POST   | `events/:id/photos` | user | Upload a photo (body: `{ content_type, data: base64 }`, max 5 MB, image/* only). Prefers R2; falls back to D1 base64. |
+| GET    | `photos/:id` | user | Stream a photo (R2 or D1 fallback) |
+| DELETE | `photos/:id` | user (uploader or admin) | Delete a photo |
+| GET    | `activity?limit=N` | user | Recent activity-log rows for the group (default 30, max 100) |
 | GET | `sp1wise` | user | Group balances + simplified debts + expense list + activity |
 | GET/POST | `sp1wise/groups` | user | List / create sub-groups |
 | POST | `sp1wise/expenses` | user | Add expense (split by EQUAL/AMOUNTS/PERCENT/SHARES) |
@@ -118,7 +127,7 @@ Two SQL bundles:
 - Run `npx wrangler d1 execute sp1e-db --remote --file=schema.sql` to apply
 - Game schema + seed: `game-schema.sql`, `game-seed.sql`, `game-talents-schema.sql`, `game-talents-seed.sql`
 - Round reset: `game-reset.sql` (truncates all game tables, seeds round 1 + 20 NPCs)
-- Fredagsfett schema lives in `fredagsfett-migration-001.sql` (auth/devices/calendar/sp1wise foundations) + `fredagsfett-migration-002-availability-times.sql` (time-window columns) + `fredagsfett-migration-003-events.sql` (`ff_events` lock-in table) + `fredagsfett-migration-004-event-comments-and-tagging.sql` (`ff_event_comments` + `ff_expenses.event_id`). All four are mirrored into `schema.sql`.
+- Fredagsfett schema lives in `fredagsfett-migration-001.sql` (auth/devices/calendar/sp1wise foundations) + `fredagsfett-migration-002-availability-times.sql` (time-window columns) + `fredagsfett-migration-003-events.sql` (`ff_events` lock-in table) + `fredagsfett-migration-004-event-comments-and-tagging.sql` (`ff_event_comments` + `ff_expenses.event_id`) + `fredagsfett-migration-005-event-extras.sql` (`ff_event_items`, `ff_event_photos`, `ff_events.spotify_url`). All five are mirrored into `schema.sql`.
 
 ## DAX Deploy Flow
 

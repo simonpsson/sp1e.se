@@ -344,6 +344,7 @@ CREATE TABLE IF NOT EXISTS ff_events (
   created_at          TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
   cancelled_at        TEXT,
+  spotify_url         TEXT,
   UNIQUE(group_id, date)
 );
 
@@ -360,3 +361,27 @@ CREATE TABLE IF NOT EXISTS ff_event_comments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ff_event_comments_event ON ff_event_comments (event_id, created_at);
+
+CREATE TABLE IF NOT EXISTS ff_event_items (
+  id          TEXT PRIMARY KEY,
+  event_id    TEXT NOT NULL REFERENCES ff_events(id) ON DELETE CASCADE,
+  label       TEXT NOT NULL,
+  claimed_by  TEXT REFERENCES ff_users(id) ON DELETE SET NULL,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ff_event_items_event ON ff_event_items (event_id);
+
+CREATE TABLE IF NOT EXISTS ff_event_photos (
+  id            TEXT PRIMARY KEY,
+  event_id      TEXT NOT NULL REFERENCES ff_events(id) ON DELETE CASCADE,
+  uploader_id   TEXT REFERENCES ff_users(id) ON DELETE SET NULL,
+  r2_key        TEXT,
+  data          TEXT,
+  content_type  TEXT NOT NULL,
+  size_bytes    INTEGER NOT NULL,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ff_event_photos_event ON ff_event_photos (event_id, created_at);

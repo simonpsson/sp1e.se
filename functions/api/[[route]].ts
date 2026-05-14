@@ -141,6 +141,15 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'events' && sub && !action && method === 'DELETE') return fredagsfettEventsCancel(request, env, sub);
       if (id === 'events' && sub && action === 'comments' && method === 'GET')  return fredagsfettEventCommentsList(request, env, sub);
       if (id === 'events' && sub && action === 'comments' && method === 'POST') return fredagsfettEventCommentsCreate(request, env, sub);
+      if (id === 'events' && sub && action === 'items' && method === 'GET')  return fredagsfettEventItemsList(request, env, sub);
+      if (id === 'events' && sub && action === 'items' && method === 'POST') return fredagsfettEventItemsCreate(request, env, sub);
+      if (id === 'items' && sub && !action && method === 'PATCH')  return fredagsfettEventItemsUpdate(request, env, sub);
+      if (id === 'items' && sub && !action && method === 'DELETE') return fredagsfettEventItemsDelete(request, env, sub);
+      if (id === 'events' && sub && action === 'photos' && method === 'GET')  return fredagsfettEventPhotosList(request, env, sub);
+      if (id === 'events' && sub && action === 'photos' && method === 'POST') return fredagsfettEventPhotosCreate(request, env, sub);
+      if (id === 'photos' && sub && !action && method === 'GET')    return fredagsfettEventPhotoDownload(request, env, sub);
+      if (id === 'photos' && sub && !action && method === 'DELETE') return fredagsfettEventPhotoDelete(request, env, sub);
+      if (id === 'activity' && !sub && method === 'GET') return fredagsfettActivityList(request, env);
       if (id === 'ical-url' && !sub && method === 'GET') return fredagsfettIcalUrl(request, env);
       if (id === 'ical' && sub && !action && method === 'GET') return fredagsfettIcalFeed(request, env, sub);
       if (id === 'sp1wise' && !sub && method === 'GET') return fredagsfettSp1wise(request, env);
@@ -10161,7 +10170,7 @@ async function fredagsfettEventsList(request: Request, env: Env): Promise<Respon
 
   const events = await env.DB.prepare(
     `SELECT e.id, e.date, e.status, e.host_user_id, e.title, e.location,
-            e.start_time, e.end_time, e.notes, e.created_by_user_id,
+            e.start_time, e.end_time, e.notes, e.spotify_url, e.created_by_user_id,
             e.created_at, e.updated_at, e.cancelled_at,
             host.name AS host_name
        FROM ff_events e
@@ -10173,7 +10182,8 @@ async function fredagsfettEventsList(request: Request, env: Env): Promise<Respon
     host_user_id: string | null; host_name: string | null;
     title: string | null; location: string | null;
     start_time: string | null; end_time: string | null;
-    notes: string | null; created_by_user_id: string | null;
+    notes: string | null; spotify_url: string | null;
+    created_by_user_id: string | null;
     created_at: string; updated_at: string; cancelled_at: string | null;
   }>();
 
@@ -10213,6 +10223,7 @@ async function fredagsfettEventsCreate(request: Request, env: Env): Promise<Resp
     start_time?: string | null;
     end_time?: string | null;
     notes?: string | null;
+    spotify_url?: string | null;
   };
   try { body = await request.json(); }
   catch { return json({ error: 'Ogiltig JSON.' }, 400); }
@@ -10232,6 +10243,8 @@ async function fredagsfettEventsCreate(request: Request, env: Env): Promise<Resp
   const startTime = normalizeFredagsfettTime(body.start_time);
   const endTime = normalizeFredagsfettTime(body.end_time);
   const notes = normalizeFredagsfettShortText(body.notes, 1000);
+  const spotifyUrl = normalizeFredagsfettSpotifyUrl(body.spotify_url);
+  if (body.spotify_url && spotifyUrl === undefined) return json({ error: 'Ogiltig Spotify-länk.' }, 400);
   if (startTime && endTime && startTime >= endTime) {
     return json({ error: 'Sluttiden måste vara efter starttiden.' }, 400);
   }
@@ -10248,8 +10261,8 @@ async function fredagsfettEventsCreate(request: Request, env: Env): Promise<Resp
 
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO ff_events (id, group_id, date, status, host_user_id, title, location, start_time, end_time, notes, created_by_user_id, created_at, updated_at)
-       VALUES (?, ?, ?, 'LOCKED', ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      `INSERT INTO ff_events (id, group_id, date, status, host_user_id, title, location, start_time, end_time, notes, spotify_url, created_by_user_id, created_at, updated_at)
+       VALUES (?, ?, ?, 'LOCKED', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
        ON CONFLICT(group_id, date) DO UPDATE SET
          status = 'LOCKED',
          host_user_id = excluded.host_user_id,
@@ -10258,12 +10271,23 @@ async function fredagsfettEventsCreate(request: Request, env: Env): Promise<Resp
          start_time = excluded.start_time,
          end_time = excluded.end_time,
          notes = excluded.notes,
+         spotify_url = excluded.spotify_url,
          cancelled_at = NULL,
          updated_at = datetime('now')`
-    ).bind(id, groupId, date, hostUserId, title, location, startTime, endTime, notes, session.user.id),
+    ).bind(id, groupId, date, hostUserId, title, location, startTime, endTime, notes, spotifyUrl ?? null, session.user.id),
     fredagsfettLogStatement(env, groupId, session.user.id, 'event_locked', 'event', id, `${session.user.name} låste in ${date}.`),
   ]);
   return json({ success: true, event_id: id });
+}
+
+function normalizeFredagsfettSpotifyUrl(value: unknown): string | null | undefined {
+  // Returns: null = explicit clear, string = valid URL, undefined = invalid input.
+  if (value === null || value === '' || value === undefined) return null;
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!/^https?:\/\/(open\.spotify\.com|spotify\.link)\//i.test(trimmed)) return undefined;
+  return trimmed.slice(0, 500);
 }
 
 async function fredagsfettEventsUpdate(request: Request, env: Env, eventId: string): Promise<Response> {
@@ -10277,7 +10301,7 @@ async function fredagsfettEventsUpdate(request: Request, env: Env, eventId: stri
   try { body = await request.json(); }
   catch { return json({ error: 'Ogiltig JSON.' }, 400); }
 
-  const ALLOWED = new Set(['title', 'host_user_id', 'location', 'start_time', 'end_time', 'notes', 'status']);
+  const ALLOWED = new Set(['title', 'host_user_id', 'location', 'start_time', 'end_time', 'notes', 'status', 'spotify_url']);
   const unknown = Object.keys(body).filter(k => !ALLOWED.has(k));
   if (unknown.length) return json({ error: 'unknown_field', fields: unknown }, 400);
 
@@ -10301,6 +10325,12 @@ async function fredagsfettEventsUpdate(request: Request, env: Env, eventId: stri
   if ('start_time' in body)   { updates.push('start_time = ?');   bindings.push(normalizeFredagsfettTime(body.start_time as string)); }
   if ('end_time' in body)     { updates.push('end_time = ?');     bindings.push(normalizeFredagsfettTime(body.end_time as string)); }
   if ('notes' in body)        { updates.push('notes = ?');        bindings.push(normalizeFredagsfettShortText(body.notes as string, 1000)); }
+  if ('spotify_url' in body) {
+    const sv = normalizeFredagsfettSpotifyUrl(body.spotify_url);
+    if (sv === undefined) return json({ error: 'Ogiltig Spotify-länk.' }, 400);
+    updates.push('spotify_url = ?');
+    bindings.push(sv);
+  }
   if ('status' in body) {
     const s = String(body.status).toUpperCase();
     if (s !== 'LOCKED' && s !== 'CANCELLED') return json({ error: 'Ogiltig status.' }, 400);
@@ -10470,6 +10500,241 @@ async function fredagsfettIcalFeed(request: Request, env: Env, token: string): P
 
 function fredagsfettIcalEscape(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+}
+
+// B2 — Who-brings-what checklist per event ───────────────────────────────────
+
+async function fredagsfettEventItemsList(request: Request, env: Env, eventId: string): Promise<Response> {
+  await requireFredagsfettUser(request, env);
+  const event = await env.DB.prepare(`SELECT id FROM ff_events WHERE id = ?`).bind(eventId).first();
+  if (!event) return json({ error: 'Eventet finns inte.' }, 404);
+  const rows = await env.DB.prepare(
+    `SELECT i.id, i.label, i.claimed_by, u.name AS claimed_by_name, i.created_at, i.updated_at
+       FROM ff_event_items i
+       LEFT JOIN ff_users u ON u.id = i.claimed_by
+      WHERE i.event_id = ?
+      ORDER BY i.created_at ASC`
+  ).bind(eventId).all<{ id: string; label: string; claimed_by: string | null; claimed_by_name: string | null; created_at: string; updated_at: string }>();
+  return json({ items: rows.results ?? [] });
+}
+
+async function fredagsfettEventItemsCreate(request: Request, env: Env, eventId: string): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const event = await env.DB.prepare(`SELECT id, group_id, date FROM ff_events WHERE id = ?`).bind(eventId).first<{ id: string; group_id: string; date: string }>();
+  if (!event) return json({ error: 'Eventet finns inte.' }, 404);
+  let body: { label?: string };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+  const label = normalizeFredagsfettShortText(body.label, 80);
+  if (!label) return json({ error: 'Ange något att ta med.' }, 400);
+  const id = `evi-${crypto.randomUUID()}`;
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO ff_event_items (id, event_id, label, created_at, updated_at) VALUES (?, ?, ?, datetime('now'), datetime('now'))`
+    ).bind(id, eventId, label),
+    fredagsfettLogStatement(env, event.group_id, session.user.id, 'event_item_add', 'event', eventId, `${session.user.name} lade till "${label}" på ${event.date}.`),
+  ]);
+  return json({ success: true, item_id: id });
+}
+
+async function fredagsfettEventItemsUpdate(request: Request, env: Env, itemId: string): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const item = await env.DB.prepare(
+    `SELECT i.id, i.event_id, i.label, i.claimed_by, e.group_id, e.date
+       FROM ff_event_items i JOIN ff_events e ON e.id = i.event_id
+      WHERE i.id = ?`
+  ).bind(itemId).first<{ id: string; event_id: string; label: string; claimed_by: string | null; group_id: string; date: string }>();
+  if (!item) return json({ error: 'Item finns inte.' }, 404);
+  let body: { label?: string; claimed_by?: string | null };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+
+  const updates: string[] = [];
+  const bindings: unknown[] = [];
+  if ('label' in body) {
+    const label = normalizeFredagsfettShortText(body.label, 80);
+    if (!label) return json({ error: 'Ange något att ta med.' }, 400);
+    updates.push('label = ?'); bindings.push(label);
+  }
+  let logType = 'event_item_update';
+  if ('claimed_by' in body) {
+    let claimer: string | null = null;
+    if (body.claimed_by != null && body.claimed_by !== '') {
+      claimer = normalizeFredagsfettId(body.claimed_by);
+      if (!claimer) return json({ error: 'Ogiltig användare.' }, 400);
+      const exists = await env.DB.prepare(`SELECT 1 FROM ff_users WHERE id = ? AND deleted_at IS NULL`).bind(claimer).first();
+      if (!exists) return json({ error: 'Användaren finns inte.' }, 400);
+    }
+    updates.push('claimed_by = ?'); bindings.push(claimer);
+    logType = claimer ? 'event_item_claim' : 'event_item_unclaim';
+  }
+  if (!updates.length) return json({ error: 'Inget att uppdatera.' }, 400);
+  updates.push("updated_at = datetime('now')");
+  bindings.push(itemId);
+
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE ff_event_items SET ${updates.join(', ')} WHERE id = ?`).bind(...bindings),
+    fredagsfettLogStatement(env, item.group_id, session.user.id, logType, 'event', item.event_id, `${session.user.name} uppdaterade "${item.label}" (${item.date}).`),
+  ]);
+  return json({ success: true });
+}
+
+async function fredagsfettEventItemsDelete(request: Request, env: Env, itemId: string): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const item = await env.DB.prepare(
+    `SELECT i.id, i.label, e.group_id, e.id AS event_id, e.date
+       FROM ff_event_items i JOIN ff_events e ON e.id = i.event_id
+      WHERE i.id = ?`
+  ).bind(itemId).first<{ id: string; label: string; group_id: string; event_id: string; date: string }>();
+  if (!item) return json({ error: 'Item finns inte.' }, 404);
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM ff_event_items WHERE id = ?`).bind(itemId),
+    fredagsfettLogStatement(env, item.group_id, session.user.id, 'event_item_delete', 'event', item.event_id, `${session.user.name} tog bort "${item.label}" (${item.date}).`),
+  ]);
+  return json({ success: true });
+}
+
+// B5 — Per-event photo gallery (R2 with D1 base64 fallback) ─────────────────
+
+const FREDAGSFETT_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+const FREDAGSFETT_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+async function fredagsfettEventPhotosList(request: Request, env: Env, eventId: string): Promise<Response> {
+  await requireFredagsfettUser(request, env);
+  const event = await env.DB.prepare(`SELECT id FROM ff_events WHERE id = ?`).bind(eventId).first();
+  if (!event) return json({ error: 'Eventet finns inte.' }, 404);
+  const rows = await env.DB.prepare(
+    `SELECT p.id, p.content_type, p.size_bytes, p.uploader_id, u.name AS uploader_name, p.created_at
+       FROM ff_event_photos p
+       LEFT JOIN ff_users u ON u.id = p.uploader_id
+      WHERE p.event_id = ?
+      ORDER BY p.created_at DESC`
+  ).bind(eventId).all<{ id: string; content_type: string; size_bytes: number; uploader_id: string | null; uploader_name: string | null; created_at: string }>();
+  return json({ photos: rows.results ?? [] });
+}
+
+async function fredagsfettEventPhotosCreate(request: Request, env: Env, eventId: string): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const event = await env.DB.prepare(`SELECT id, group_id, date FROM ff_events WHERE id = ?`).bind(eventId).first<{ id: string; group_id: string; date: string }>();
+  if (!event) return json({ error: 'Eventet finns inte.' }, 404);
+  let body: { content_type?: string; data?: string };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+  const contentType = (body.content_type || '').toLowerCase().trim();
+  if (!FREDAGSFETT_PHOTO_TYPES.has(contentType)) return json({ error: 'Endast JPEG / PNG / WebP / GIF tillåts.' }, 400);
+  if (!body.data || typeof body.data !== 'string') return json({ error: 'Ingen bilddata.' }, 400);
+  // Strip a data: prefix if present
+  const b64 = body.data.replace(/^data:[^;]+;base64,/, '');
+  let bytes: Uint8Array;
+  try {
+    const bin = atob(b64);
+    bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  } catch { return json({ error: 'Ogiltig base64-data.' }, 400); }
+  if (bytes.byteLength > FREDAGSFETT_PHOTO_MAX_BYTES) return json({ error: 'Max 5 MB per bild.' }, 400);
+
+  const id = `evp-${crypto.randomUUID()}`;
+  let r2Key: string | null = null;
+  let dataFallback: string | null = null;
+  // Prefer R2 if the binding is present; fall back to D1 base64 otherwise.
+  const filesBucket = (env as unknown as { FILES?: R2Bucket }).FILES;
+  if (filesBucket) {
+    try {
+      r2Key = `ff/event-photos/${id}`;
+      await filesBucket.put(r2Key, bytes, { httpMetadata: { contentType } });
+    } catch (err) {
+      console.error('R2 put failed, falling back to D1:', err);
+      r2Key = null;
+      dataFallback = b64;
+    }
+  } else {
+    dataFallback = b64;
+  }
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO ff_event_photos (id, event_id, uploader_id, r2_key, data, content_type, size_bytes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+    ).bind(id, eventId, session.user.id, r2Key, dataFallback, contentType, bytes.byteLength),
+    fredagsfettLogStatement(env, event.group_id, session.user.id, 'event_photo_add', 'event', eventId, `${session.user.name} laddade upp en bild för ${event.date}.`),
+  ]);
+  return json({ success: true, photo_id: id });
+}
+
+async function fredagsfettEventPhotoDownload(request: Request, env: Env, photoId: string): Promise<Response> {
+  await requireFredagsfettUser(request, env);
+  const row = await env.DB.prepare(
+    `SELECT id, r2_key, data, content_type FROM ff_event_photos WHERE id = ?`
+  ).bind(photoId).first<{ id: string; r2_key: string | null; data: string | null; content_type: string }>();
+  if (!row) return new Response('Photo not found', { status: 404 });
+  if (row.r2_key) {
+    const filesBucket = (env as unknown as { FILES?: R2Bucket }).FILES;
+    if (filesBucket) {
+      const obj = await filesBucket.get(row.r2_key);
+      if (obj) {
+        return new Response(obj.body, {
+          status: 200,
+          headers: {
+            'Content-Type': row.content_type,
+            'Cache-Control': 'private, max-age=31536000, immutable',
+          },
+        });
+      }
+    }
+  }
+  if (row.data) {
+    const bin = atob(row.data);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Response(bytes, {
+      status: 200,
+      headers: {
+        'Content-Type': row.content_type,
+        'Cache-Control': 'private, max-age=31536000, immutable',
+      },
+    });
+  }
+  return new Response('Photo storage unavailable', { status: 500 });
+}
+
+async function fredagsfettEventPhotoDelete(request: Request, env: Env, photoId: string): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const row = await env.DB.prepare(
+    `SELECT p.id, p.r2_key, p.uploader_id, e.group_id, e.id AS event_id, e.date
+       FROM ff_event_photos p JOIN ff_events e ON e.id = p.event_id
+      WHERE p.id = ?`
+  ).bind(photoId).first<{ id: string; r2_key: string | null; uploader_id: string | null; group_id: string; event_id: string; date: string }>();
+  if (!row) return json({ error: 'Bilden finns inte.' }, 404);
+  // Uploader or admin can delete.
+  if (row.uploader_id !== session.user.id && !session.user.is_admin) {
+    return json({ error: 'Bara uppladdaren eller en admin kan ta bort.' }, 403);
+  }
+  if (row.r2_key) {
+    const filesBucket = (env as unknown as { FILES?: R2Bucket }).FILES;
+    if (filesBucket) {
+      try { await filesBucket.delete(row.r2_key); } catch (err) { console.error('R2 delete failed:', err); }
+    }
+  }
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM ff_event_photos WHERE id = ?`).bind(photoId),
+    fredagsfettLogStatement(env, row.group_id, session.user.id, 'event_photo_delete', 'event', row.event_id, `${session.user.name} tog bort en bild för ${row.date}.`),
+  ]);
+  return json({ success: true });
+}
+
+// E3 — Activity-log viewer ──────────────────────────────────────────────────
+
+async function fredagsfettActivityList(request: Request, env: Env): Promise<Response> {
+  await requireFredagsfettUser(request, env);
+  const limit = Math.min(100, Math.max(1, Number(new URL(request.url).searchParams.get('limit')) || 30));
+  const rows = await env.DB.prepare(
+    `SELECT id, group_id, user_id AS actor_id, type, entity_type, entity_id, body AS message, created_at
+       FROM ff_activity_log
+      WHERE group_id = 'fredagsfett'
+      ORDER BY created_at DESC
+      LIMIT ?`
+  ).bind(limit).all<{ id: string; group_id: string; actor_id: string | null; type: string; entity_type: string | null; entity_id: string | null; message: string; created_at: string }>();
+  return json({ activity: rows.results ?? [] });
 }
 
 async function fredagsfettEventCommentsCreate(request: Request, env: Env, eventId: string): Promise<Response> {
