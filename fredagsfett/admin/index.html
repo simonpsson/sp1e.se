@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/fredagsfett/style.css">
 <style>
   :root {
     --bg: #050505;
@@ -190,6 +191,7 @@
     <div class="toolbar">
       <a class="button" href="/fredagsfett/kalender">Till kalendern</a>
       <button id="refresh-btn" type="button">Uppdatera</button>
+      <button id="cleanup-btn" type="button" title="Ta bort återkallade enheter äldre än 90 dagar">Rensa gamla enheter</button>
       <button id="admin-logout-btn" type="button" hidden>Lås admin</button>
     </div>
   </header>
@@ -438,6 +440,20 @@ adminLogoutBtn.addEventListener('click', async () => {
 });
 
 document.getElementById('refresh-btn').addEventListener('click', loadUsers);
+document.getElementById('cleanup-btn').addEventListener('click', async event => {
+  if (!window.confirm('Ta bort alla återkallade enheter äldre än 90 dagar?')) return;
+  const btn = event.currentTarget;
+  btn.disabled = true;
+  try {
+    const data = await adminApi('/api/fredagsfett/admin/cleanup', { method: 'POST' });
+    setStatus(`Rensade ${data.deleted_devices ?? 0} enheter.`, true);
+    await loadUsers();
+  } catch (err) {
+    setStatus(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
 void loadUsers();
 </script>
 </body>

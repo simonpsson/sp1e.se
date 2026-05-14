@@ -168,6 +168,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       if (id === 'admin' && sub === 'users' && action && method === 'PATCH') return fredagsfettAdminUpdateUser(request, env, action);
       if (id === 'admin' && sub === 'users' && action && method === 'DELETE') return fredagsfettAdminDeleteUser(request, env, action);
       if (id === 'admin' && sub === 'devices' && action && method === 'DELETE') return fredagsfettAdminRevokeDevice(request, env, action);
+      if (id === 'admin' && sub === 'cleanup' && !action && method === 'POST') return fredagsfettAdminCleanup(request, env);
       return json({ error: 'not found' }, 404);
     }
 
@@ -11156,6 +11157,20 @@ async function fredagsfettAdminRevokeDevice(request: Request, env: Env, deviceId
   ).bind(deviceId).run();
   if (!result.meta?.changes) return json({ error: 'Enheten hittades inte eller är redan återkallad.' }, 404);
   return json({ success: true });
+}
+
+// E4 — manually-triggered cleanup of revoked devices older than 90 days.
+// Cloudflare Pages Functions don't natively support cron triggers for catch-all
+// routes, so this is exposed as an admin-cookie endpoint that the dev console
+// (or an external scheduler hitting POST /api/fredagsfett/admin/cleanup) can call.
+async function fredagsfettAdminCleanup(request: Request, env: Env): Promise<Response> {
+  await requireFredagsfettAdmin(request, env);
+  const result = await env.DB.prepare(
+    `DELETE FROM ff_devices
+      WHERE revoked_at IS NOT NULL
+        AND revoked_at < datetime('now', '-90 days')`
+  ).run();
+  return json({ success: true, deleted_devices: result.meta?.changes ?? 0 });
 }
 
 async function fredagsfettBuildSp1wiseState(env: Env, user: FredagsfettUserRow, groupId: string) {

@@ -97,6 +97,7 @@
 | GET    | `photos/:id` | user | Stream a photo (R2 or D1 fallback) |
 | DELETE | `photos/:id` | user (uploader or admin) | Delete a photo |
 | GET    | `activity?limit=N` | user | Recent activity-log rows for the group (default 30, max 100) |
+| POST   | `admin/cleanup` | admin-cookie | Delete revoked devices older than 90 days. No native cron on Pages Functions; call from the dev console or an external scheduler. |
 | GET | `sp1wise` | user | Group balances + simplified debts + expense list + activity |
 | GET/POST | `sp1wise/groups` | user | List / create sub-groups |
 | POST | `sp1wise/expenses` | user | Add expense (split by EQUAL/AMOUNTS/PERCENT/SHARES) |

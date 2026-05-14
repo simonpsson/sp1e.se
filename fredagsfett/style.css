@@ -1,0 +1,109 @@
+/* Fredagsfett shared shell — base styles used by every fredagsfett/* page.
+ * Page-specific rules (calendar grid, SP1Wise expense form, admin user cards,
+ * gateway login-mode overrides) stay inline in their respective HTML files.
+ * This file is linked via <link rel="stylesheet" href="/fredagsfett/style.css">
+ * before each page's inline <style> block so inline rules can still override.
+ */
+
+:root {
+  --bg: #050505;
+  --panel: rgba(10, 10, 10, 0.74);
+  --card: rgba(255,255,255,0.04);
+  --line: rgba(255,255,255,0.12);
+  --line-hot: rgba(205,176,110,0.45);
+  --text: rgba(255,255,255,0.88);
+  --muted: rgba(255,255,255,0.50);
+  --faint: rgba(255,255,255,0.30);
+  --accent: rgba(205,176,110,0.92);
+  --danger: rgba(255,104,84,0.94);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  padding: clamp(1rem, 4vw, 2.5rem);
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.22), rgba(0,0,0,0.74)),
+    url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
+    var(--bg);
+  color: var(--text);
+  font-family: 'Cormorant Garamond', serif;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 52% 24%, rgba(255,255,255,0.08), transparent 24rem),
+    linear-gradient(90deg, rgba(0,0,0,0.70), transparent 34%, transparent 66%, rgba(0,0,0,0.70));
+}
+
+main {
+  position: relative;
+  z-index: 1;
+  margin: 0 auto;
+}
+
+.sp1e-wordmark {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  width: 156px;
+  margin: 0 auto 1.35rem;
+  color: rgba(255,255,255,0.9);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.85rem;
+  font-weight: 300;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 2px 24px rgba(0,0,0,0.70);
+  font-variant-numeric: lining-nums;
+  font-feature-settings: 'lnum' 1;
+  user-select: none;
+}
+
+.sp1e-wordmark span {
+  display: block;
+  text-align: center;
+}
+
+.room {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--panel);
+  box-shadow: 0 30px 110px rgba(0,0,0,0.52);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.kicker {
+  color: var(--accent);
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.66rem;
+}
+
+.tiny {
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+button,
+.button {
+  cursor: pointer;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.error {
+  min-height: 1.2rem;
+  color: var(--danger);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+}
