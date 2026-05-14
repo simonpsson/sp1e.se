@@ -236,6 +236,18 @@
     font-size: 0.72rem;
   }
   .tiny { color: var(--muted); font-size: 0.66rem; }
+  /* B7 — event-tag chip in the expense list */
+  .event-tag {
+    display: inline-block;
+    margin-left: 0.2rem;
+    padding: 0.05rem 0.42rem;
+    border: 1px solid rgba(205,176,110,0.4);
+    border-radius: 999px;
+    color: var(--accent);
+    font: 0.6rem 'DM Mono', monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
   @media (max-width: 920px) {
     header, .layout { grid-template-columns: 1fr; }
     header { display: block; }
@@ -313,6 +325,9 @@
                 <option value="shares">Shares</option>
               </select>
             </label>
+            <label>Koppla till event (frivilligt)
+              <select id="expense-event"><option value="">— Ingen koppling —</option></select>
+            </label>
             <div class="participants" id="expense-participants"></div>
             <button type="submit">Lägg till utgift</button>
           </form>
@@ -363,6 +378,7 @@ let state = {
   balances: [],
   simplified_debts: [],
   activity: [],
+  events: [], // upcoming + recent LOCKED events for the event-tag dropdown
 };
 const errorBox = document.getElementById('sp1wise-error');
 
@@ -399,6 +415,16 @@ function renderForms() {
   document.getElementById('expense-participants').innerHTML = state.members.map(member => `
     <label><input type="checkbox" value="${member.id}" checked> ${escapeHtml(member.name)}</label>
   `).join('');
+  // B7 — event-tag dropdown lists LOCKED events sorted by date desc
+  const eventSelect = document.getElementById('expense-event');
+  if (eventSelect) {
+    const opts = (state.events || [])
+      .filter(e => e.status === 'LOCKED')
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map(e => `<option value="${e.id}">${escapeHtml(e.date)}${e.title ? ' · ' + escapeHtml(e.title) : ''}</option>`)
+      .join('');
+    eventSelect.innerHTML = `<option value="">— Ingen koppling —</option>${opts}`;
+  }
 }
 
 function renderState() {
@@ -415,7 +441,7 @@ function renderState() {
           <strong>${escapeHtml(expense.description)}</strong>
           <span class="amount">${kr(expense.amount_cents)}</span>
         </div>
-        <p class="tiny">${escapeHtml(expense.date)} · betald av ${escapeHtml(expense.paid_by_name)} · ${escapeHtml(expense.split_method)}</p>
+        <p class="tiny">${escapeHtml(expense.date)} · betald av ${escapeHtml(expense.paid_by_name)} · ${escapeHtml(expense.split_method)}${expense.event_date ? ` · <span class="event-tag">𓀂 ${escapeHtml(expense.event_date)}${expense.event_title ? ' · ' + escapeHtml(expense.event_title) : ''}</span>` : ''}</p>
         <div class="tiny">${expense.shares.map(share => `${escapeHtml(share.user_name)} ${kr(share.amount_cents)}`).join(' · ')}</div>
         <div class="comments">${expense.comments.map(comment => `<div class="comment"><strong>${escapeHtml(comment.user_name)}:</strong> ${escapeHtml(comment.body)}</div>`).join('')}</div>
         <div class="nav" style="margin-top:0.75rem">
@@ -431,9 +457,28 @@ function renderState() {
   renderForms();
 }
 
+async function loadEventsForTagging() {
+  // 6 months back to 6 months ahead — same window as the kalender's locked-events panel
+  const now = new Date();
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 6, 1)).toISOString().slice(0, 10);
+  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 6, 0)).toISOString().slice(0, 10);
+  try {
+    const data = await api(`/api/fredagsfett/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    return data.events || [];
+  } catch (err) {
+    console.error('loadEventsForTagging failed', err);
+    return [];
+  }
+}
+
 async function loadSp1wise() {
   errorBox.textContent = '';
-  state = await api(`/api/fredagsfett/sp1wise?group_id=${encodeURIComponent(state.group?.id || 'fredagsfett')}`);
+  const groupId = state.group?.id || 'fredagsfett';
+  const [sp1wise, events] = await Promise.all([
+    api(`/api/fredagsfett/sp1wise?group_id=${encodeURIComponent(groupId)}`),
+    loadEventsForTagging(),
+  ]);
+  state = { ...sp1wise, events };
   renderState();
 }
 
@@ -443,7 +488,9 @@ async function submitExpense(event) {
   const form = event.currentTarget;
   const participants = Array.from(document.querySelectorAll('#expense-participants input:checked')).map(input => input.value);
   try {
-    state = await api('/api/fredagsfett/sp1wise/expenses', {
+    const events = state.events; // preserve across the POST response (server returns sp1wise shape only)
+    const eventSelectVal = document.getElementById('expense-event')?.value || '';
+    const sp1wise = await api('/api/fredagsfett/sp1wise/expenses', {
       method: 'POST',
       body: JSON.stringify({
         group_id: state.group.id,
@@ -452,9 +499,11 @@ async function submitExpense(event) {
         date: document.getElementById('expense-date').value,
         paid_by_id: document.getElementById('expense-paid-by').value,
         split_method: document.getElementById('expense-split-method').value,
+        event_id: eventSelectVal || null,
         participants,
       }),
     });
+    state = { ...sp1wise, events };
     form.reset();
     document.getElementById('expense-date').value = new Date().toISOString().slice(0, 10);
     renderState();
@@ -468,7 +517,7 @@ async function submitSettlement(event) {
   errorBox.textContent = '';
   const form = event.currentTarget;
   try {
-    state = await api('/api/fredagsfett/sp1wise/settlements', {
+    const sp1wise = await api('/api/fredagsfett/sp1wise/settlements', {
       method: 'POST',
       body: JSON.stringify({
         group_id: state.group.id,
@@ -479,6 +528,7 @@ async function submitSettlement(event) {
         date: new Date().toISOString().slice(0, 10),
       }),
     });
+    state = { ...sp1wise, events: state.events };
     form.reset();
     renderState();
   } catch (err) {
@@ -490,13 +540,14 @@ async function submitComment(event) {
   event.preventDefault();
   errorBox.textContent = '';
   try {
-    state = await api('/api/fredagsfett/sp1wise/comments', {
+    const sp1wise = await api('/api/fredagsfett/sp1wise/comments', {
       method: 'POST',
       body: JSON.stringify({
         expense_id: document.getElementById('comment-expense').value,
         body: document.getElementById('comment-body').value,
       }),
     });
+    state = { ...sp1wise, events: state.events };
     document.getElementById('comment-body').value = '';
     renderState();
   } catch (err) {
@@ -520,14 +571,16 @@ document.getElementById('expense-list').addEventListener('click', async event =>
       if (!description) return;
       const amount = prompt('Nytt belopp', expense ? String(expense.amount_cents / 100) : '');
       if (!amount) return;
-      state = await api(`/api/fredagsfett/sp1wise/expenses/${editId}`, {
+      const sp1wise = await api(`/api/fredagsfett/sp1wise/expenses/${editId}`, {
         method: 'PATCH',
         body: JSON.stringify({ description, amount }),
       });
+      state = { ...sp1wise, events: state.events };
       renderState();
     }
     if (deleteId && confirm('Ta bort utgiften?')) {
-      state = await api(`/api/fredagsfett/sp1wise/expenses/${deleteId}`, { method: 'DELETE' });
+      const sp1wise = await api(`/api/fredagsfett/sp1wise/expenses/${deleteId}`, { method: 'DELETE' });
+      state = { ...sp1wise, events: state.events };
       renderState();
     }
   } catch (err) {

@@ -84,6 +84,8 @@
 | POST | `events` | admin-user | Lock a date (upsert on `UNIQUE(group_id, date)`; revives a cancelled row) |
 | PATCH | `events/:id` | admin-user | Edit event fields; status toggle flips `cancelled_at` |
 | DELETE | `events/:id` | admin-user | Soft cancel (status=CANCELLED) |
+| GET    | `events/:id/comments` | user | List comments for a locked event |
+| POST   | `events/:id/comments` | user | Add a comment (body: `{ body }`) |
 | GET | `sp1wise` | user | Group balances + simplified debts + expense list + activity |
 | GET/POST | `sp1wise/groups` | user | List / create sub-groups |
 | POST | `sp1wise/expenses` | user | Add expense (split by EQUAL/AMOUNTS/PERCENT/SHARES) |
@@ -114,7 +116,7 @@ Two SQL bundles:
 - Run `npx wrangler d1 execute sp1e-db --remote --file=schema.sql` to apply
 - Game schema + seed: `game-schema.sql`, `game-seed.sql`, `game-talents-schema.sql`, `game-talents-seed.sql`
 - Round reset: `game-reset.sql` (truncates all game tables, seeds round 1 + 20 NPCs)
-- Fredagsfett schema lives in `fredagsfett-migration-001.sql` (auth/devices/calendar/sp1wise foundations) + `fredagsfett-migration-002-availability-times.sql` (time-window columns) + `fredagsfett-migration-003-events.sql` (`ff_events` lock-in table). All three are mirrored into `schema.sql`.
+- Fredagsfett schema lives in `fredagsfett-migration-001.sql` (auth/devices/calendar/sp1wise foundations) + `fredagsfett-migration-002-availability-times.sql` (time-window columns) + `fredagsfett-migration-003-events.sql` (`ff_events` lock-in table) + `fredagsfett-migration-004-event-comments-and-tagging.sql` (`ff_event_comments` + `ff_expenses.event_id`). All four are mirrored into `schema.sql`.
 
 ## DAX Deploy Flow
 

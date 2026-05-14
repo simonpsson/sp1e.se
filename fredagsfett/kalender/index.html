@@ -418,6 +418,20 @@
   .event-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-bottom: 0.35rem; }
   .event-card-head strong { color: var(--accent); font-size: 1.1rem; }
   .event-card .tiny { display: block; margin-bottom: 0.18rem; }
+  /* B1 — event comments */
+  .event-comments { margin-top: 0.85rem; padding-top: 0.7rem; border-top: 1px dashed rgba(205,176,110,0.25); }
+  .event-comments h4 { margin: 0 0 0.4rem; font: 0.66rem 'DM Mono', monospace; letter-spacing: 0.12em; color: var(--accent); text-transform: uppercase; }
+  .event-comment { margin: 0 0 0.45rem; font-size: 0.92rem; line-height: 1.35; color: var(--text); }
+  .event-comment strong { color: var(--accent); font-weight: 500; margin-right: 0.35rem; }
+  .event-comment .ec-when { display: block; color: var(--faint); font: 0.6rem 'DM Mono', monospace; letter-spacing: 0.08em; }
+  .event-comment-form { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
+  .event-comment-form input { flex: 1; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; background: rgba(0,0,0,0.35); color: var(--text); padding: 0.55rem 0.7rem; font: 0.86rem 'Cormorant Garamond', serif; outline: none; }
+  .event-comment-form input:focus { border-color: var(--line-hot); }
+  .event-comment-form button { white-space: nowrap; }
+  /* B3 — past events archive */
+  .past-row { border-color: rgba(255,255,255,0.10); background: rgba(255,255,255,0.02); }
+  .past-row:hover, .past-row:focus-visible { border-color: var(--line-hot); }
+  .past-row .locked-date { color: var(--muted); }
   .lock-event-btn { margin-top: 0.6rem; }
   .lock-event-form { display: grid; gap: 0.55rem; margin-top: 0.6rem; padding: 0.75rem; border: 1px solid var(--line-hot); border-radius: 12px; background: rgba(205,176,110,0.05); }
   .lock-event-form select { width: 100%; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; background: rgba(0,0,0,0.35); color: var(--text); padding: 0.72rem 0.78rem; font: 0.86rem 'DM Mono', monospace; outline: none; }
@@ -510,6 +524,15 @@
               <button type="button" data-action="edit-event">Redigera</button>
               <button type="button" data-action="cancel-event">Avbryt inlåsning</button>
             </div>
+            <div class="event-comments">
+              <h4>Kommentarer</h4>
+              <div id="event-comments-list" aria-live="polite"></div>
+              <form id="event-comment-form" class="event-comment-form">
+                <input id="event-comment-input" type="text" maxlength="500" aria-label="Skriv en kommentar">
+                <button type="submit">Skicka</button>
+              </form>
+              <div class="error" id="event-comment-error"></div>
+            </div>
           </div>
           <p class="kicker">Vald dag</p>
           <h3 id="selected-date-title">Välj ett datum</h3>
@@ -583,6 +606,10 @@
           <div class="locked-events-list" id="locked-events-list"></div>
           <div class="tiny" id="locked-events-empty" hidden>Inga inlåsta datum framåt. <span id="best-dates-hint"></span></div>
         </section>
+        <section class="panel-block" id="past-events-block" hidden>
+          <h3 id="past-events-heading">Tidigare fredagsfett</h3>
+          <div class="locked-events-list" id="past-events-list"></div>
+        </section>
         <section class="panel-block">
           <p class="kicker">Svar på vald dag</p>
           <div class="detail-list" id="day-details"></div>
@@ -603,6 +630,8 @@ const state = {
   entries: [],
   bestDates: [],
   upcomingEvents: [],
+  pastEvents: [],
+  currentEventId: null,
   selectedDate: new Date().toISOString().slice(0, 10),
   selectedStatus: 'AVAILABLE',
   selectedStartTime: '',
@@ -875,8 +904,13 @@ function renderEventForSelectedDay() {
     eventCardLocation.hidden = !event.location;
     eventCardNotes.textContent = event.notes || '';
     eventCardNotes.hidden = !event.notes;
+    state.currentEventId = event.id;
+    void loadEventComments(event.id);
   } else {
     eventCard.hidden = true;
+    state.currentEventId = null;
+    const list = document.getElementById('event-comments-list');
+    if (list) list.innerHTML = '';
   }
   // Lock button: visible to admins when there is no active LOCKED event for this date.
   const canLock = isAdmin && !hasActiveEvent;
@@ -998,6 +1032,7 @@ function renderLockedEvents() {
     empty.hidden = false;
   }
   renderNextEventBanner(upcoming);
+  renderPastEvents();
 }
 
 // A4 — countdown banner at the top of the kalender room
@@ -1059,17 +1094,67 @@ async function loadEvents() {
   }
 }
 
+// B1 — comments per locked event
+async function loadEventComments(eventId) {
+  const list = document.getElementById('event-comments-list');
+  if (!list) return;
+  try {
+    const data = await api(`/api/fredagsfett/events/${encodeURIComponent(eventId)}/comments`);
+    const items = data.comments || [];
+    if (!items.length) {
+      list.innerHTML = '<p class="tiny">Inga kommentarer ännu — säg något!</p>';
+    } else {
+      list.innerHTML = items.map(c =>
+        `<p class="event-comment"><strong>${escapeHtml(c.user_name)}</strong>${escapeHtml(c.body)}<span class="ec-when">${escapeHtml((c.created_at || '').replace('T', ' ').slice(0, 16))}</span></p>`
+      ).join('');
+    }
+  } catch (err) {
+    list.innerHTML = `<p class="error">${escapeHtml(err.message || 'Kunde inte ladda kommentarer.')}</p>`;
+  }
+}
+
 async function loadUpcomingEvents() {
+  // Widened window: 6 months back to 6 months ahead. Past LOCKED events are
+  // surfaced in the "Tidigare fredagsfett" panel; future ones in "Inlåsta fredagar".
   const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 6, 1)).toISOString().slice(0, 10);
   const to = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 6, 0)).toISOString().slice(0, 10);
-  const from = today.toISOString().slice(0, 10);
   try {
     const data = await api(`/api/fredagsfett/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
-    state.upcomingEvents = (data.events || []).filter(e => e.status === 'LOCKED' && e.date >= from);
+    const allLocked = (data.events || []).filter(e => e.status === 'LOCKED');
+    state.upcomingEvents = allLocked.filter(e => e.date >= todayStr);
+    state.pastEvents = allLocked.filter(e => e.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
   } catch (err) {
     console.error('loadUpcomingEvents failed', err);
     state.upcomingEvents = [];
+    state.pastEvents = [];
   }
+}
+
+// B3 — Tidigare fredagsfett panel
+function renderPastEvents() {
+  const block = document.getElementById('past-events-block');
+  const list = document.getElementById('past-events-list');
+  const heading = document.getElementById('past-events-heading');
+  if (!block || !list) return;
+  const past = (state.pastEvents || []).slice(0, 20);
+  if (!past.length) {
+    block.hidden = true;
+    return;
+  }
+  if (heading) heading.textContent = `Tidigare fredagsfett (${past.length})`;
+  list.innerHTML = past.map(event => {
+    const attendees = event.attendees || [];
+    const ja = attendees.filter(a => a.status === 'AVAILABLE').length;
+    return `<button type="button" class="locked-row past-row" data-date="${event.date}">
+      <span class="locked-date">${formatSwedishDate(event.date)}</span>
+      ${event.title ? `<span class="locked-title">${escapeHtml(event.title)}</span>` : ''}
+      ${event.host_name ? `<span class="locked-host">hos ${escapeHtml(event.host_name)}</span>` : ''}
+      <span class="locked-count">${ja} var med</span>
+    </button>`;
+  }).join('');
+  block.hidden = false;
 }
 
 async function reloadCalendarData() {
@@ -1286,6 +1371,48 @@ document.getElementById('locked-events-list').addEventListener('click', event =>
     void reloadCalendarData();
   } else {
     renderCalendar();
+  }
+});
+
+// B3 — clicking a past-event row navigates the calendar to that date (same as upcoming rows)
+document.getElementById('past-events-list')?.addEventListener('click', event => {
+  const row = event.target.closest('.locked-row');
+  if (!row) return;
+  const date = row.dataset.date;
+  if (!date) return;
+  state.selectedDate = date;
+  const targetMonth = date.slice(0, 7);
+  if (targetMonth !== state.month) {
+    state.month = targetMonth;
+    void reloadCalendarData();
+  } else {
+    renderCalendar();
+  }
+});
+
+// B1 — submit a new event comment
+document.getElementById('event-comment-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const input = document.getElementById('event-comment-input');
+  const errEl = document.getElementById('event-comment-error');
+  const eventId = state.currentEventId;
+  if (!input || !eventId) return;
+  const text = input.value.trim();
+  if (!text) return;
+  errEl.textContent = '';
+  const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    await api(`/api/fredagsfett/events/${encodeURIComponent(eventId)}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ body: text }),
+    });
+    input.value = '';
+    await loadEventComments(eventId);
+  } catch (err) {
+    errEl.textContent = err.message || 'Kunde inte skicka kommentaren.';
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
   }
 });
 

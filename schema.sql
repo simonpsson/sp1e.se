@@ -271,6 +271,7 @@ CREATE TABLE IF NOT EXISTS ff_expenses (
   description  TEXT NOT NULL,
   date         TEXT NOT NULL,
   split_method TEXT NOT NULL CHECK (split_method IN ('EQUAL', 'AMOUNTS', 'PERCENT', 'SHARES')),
+  event_id     TEXT REFERENCES ff_events(id) ON DELETE SET NULL,
   created_at   TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at   TEXT NOT NULL DEFAULT (datetime('now')),
   deleted_at   TEXT
@@ -278,6 +279,7 @@ CREATE TABLE IF NOT EXISTS ff_expenses (
 
 CREATE INDEX IF NOT EXISTS idx_ff_expenses_group_date ON ff_expenses (group_id, date DESC);
 CREATE INDEX IF NOT EXISTS idx_ff_expenses_paid_by ON ff_expenses (paid_by_id);
+CREATE INDEX IF NOT EXISTS idx_ff_expenses_event ON ff_expenses (event_id);
 
 CREATE TABLE IF NOT EXISTS ff_expense_shares (
   id           TEXT PRIMARY KEY,
@@ -347,3 +349,14 @@ CREATE TABLE IF NOT EXISTS ff_events (
 
 CREATE INDEX IF NOT EXISTS idx_ff_events_group_date ON ff_events (group_id, date);
 CREATE INDEX IF NOT EXISTS idx_ff_events_status ON ff_events (status);
+
+CREATE TABLE IF NOT EXISTS ff_event_comments (
+  id          TEXT PRIMARY KEY,
+  event_id    TEXT NOT NULL REFERENCES ff_events(id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL REFERENCES ff_users(id) ON DELETE CASCADE,
+  body        TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_ff_event_comments_event ON ff_event_comments (event_id, created_at);
