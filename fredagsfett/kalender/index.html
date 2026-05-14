@@ -86,6 +86,21 @@
     gap: 1rem;
     padding: clamp(1.2rem, 3vw, 1.8rem);
     border-bottom: 1px solid rgba(255,255,255,0.08);
+    /* Banner image — gradient overlay keeps the title legible on the left and
+     * the nav buttons legible on the right while the floral composition shows
+     * through the middle. */
+    background-image:
+      linear-gradient(to right, rgba(5,5,5,0.90) 0%, rgba(5,5,5,0.55) 22%, rgba(5,5,5,0.30) 50%, rgba(5,5,5,0.55) 82%, rgba(5,5,5,0.85) 100%),
+      url('/assets/fredagsfett/banner.png');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    min-height: 220px;
+    align-items: center;
+  }
+  /* Mobile: ease the height so the banner doesn't dominate small screens */
+  @media (max-width: 620px) {
+    header { min-height: 160px; padding: 1rem; }
   }
   h1, h2, h3, p { margin-top: 0; }
   h1 {
