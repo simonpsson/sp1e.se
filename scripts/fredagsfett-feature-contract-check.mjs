@@ -10,7 +10,9 @@ const files = {
 };
 
 const read = (file) => fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
-const api = read(files.api);
+// Post-split: Fredagsfett code lives in /api/fredagsfett/[[route]].ts as well as
+// the parent /api/[[route]].ts. Concat both so regex assertions still match.
+const api = read(files.api) + '\n' + read('functions/api/fredagsfett/[[route]].ts');
 const hub = read(files.hub);
 const calendar = read(files.calendar);
 const sp1wise = read(files.sp1wise);

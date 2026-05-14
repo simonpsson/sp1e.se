@@ -5,7 +5,8 @@
 | Layer | Technology |
 |---|---|
 | Hosting | Cloudflare Pages (static) + Pages Functions (Workers) |
-| API | `functions/api/[[route]].ts` — catch-all Pages Function |
+| API | `functions/api/[[route]].ts` — catch-all Pages Function for everything except Fredagsfett |
+| Fredagsfett API | `functions/api/fredagsfett/[[route]].ts` — nested catch-all that owns `/api/fredagsfett/*` (split from the parent in batch-4 of the Fredagsfett work; self-contained with its own Env / json / HttpError / AuthError / getCookie / cors copies) |
 | Database | Cloudflare D1 (SQLite) — binding `DB`, name `sp1e-db` |
 | File storage | Cloudflare R2 — binding `FILES`, bucket `sp1e-files` |
 | Auth | PBKDF2-SHA256 (100 000 iterations) via Web Crypto; session cookie |

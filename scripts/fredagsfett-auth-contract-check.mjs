@@ -11,7 +11,11 @@ const files = {
 };
 
 const read = path => fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : '';
-const api = read(files.api);
+// The Fredagsfett code lives in two files since the split in commit dc290e6+:
+// /api/[[route]].ts handles non-Fredagsfett routes, /api/fredagsfett/[[route]].ts
+// owns everything under /api/fredagsfett/*. Concatenate so existing regex
+// assertions keep matching wherever the symbol lives.
+const api = read(files.api) + '\n' + read('functions/api/fredagsfett/[[route]].ts');
 const middleware = read(files.middleware);
 const migration = read(files.migration);
 const schema = read(files.schema);
@@ -32,7 +36,7 @@ check('Fredagsfett accepts the current password even if Cloudflare FF_PASSWORD i
 check('Fredagsfett migration exists with users/devices/auth tables', /CREATE TABLE IF NOT EXISTS ff_users/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_devices/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_auth_attempts/.test(migration));
 check('Fredagsfett migration includes calendar and sp1wise tables', /CREATE TABLE IF NOT EXISTS ff_availability/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_expenses/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_expense_shares/.test(migration) && /CREATE TABLE IF NOT EXISTS ff_settlements/.test(migration));
 check('Cumulative schema includes Fredagsfett tables', /CREATE TABLE IF NOT EXISTS ff_users/.test(schema) && /CREATE TABLE IF NOT EXISTS ff_devices/.test(schema) && /CREATE TABLE IF NOT EXISTS ff_availability/.test(schema) && /CREATE TABLE IF NOT EXISTS ff_groups/.test(schema));
-check('Fredagsfett API dispatch exists', /resource === ['"]fredagsfett['"]/.test(api) && /fredagsfettAuth/.test(api) && /fredagsfettRegister/.test(api) && /fredagsfettSession/.test(api) && /fredagsfettLogout/.test(api));
+check('Fredagsfett API dispatch exists', /export const onRequest: PagesFunction<Env>/.test(api) && /fredagsfettAuth/.test(api) && /fredagsfettRegister/.test(api) && /fredagsfettSession/.test(api) && /fredagsfettLogout/.test(api));
 check('Fredagsfett admin API dispatch exists', /fredagsfettAdminAuth/.test(api) && /fredagsfettAdminStatus/.test(api) && /fredagsfettAdminLogout/.test(api) && /fredagsfettAdminUsers/.test(api) && /fredagsfettAdminUpdateUser/.test(api) && /fredagsfettAdminDeleteUser/.test(api) && /fredagsfettAdminRevokeDevice/.test(api));
 check('Fredagsfett auth uses signed HTTP-only Lax cookie', /ff_session/.test(api) && /HttpOnly;\s*Secure;\s*SameSite=Lax/.test(api) && /signFredagsfettSession/.test(api) && /verifyFredagsfettSessionToken/.test(api));
 check('Fredagsfett auth uses constant-time password comparison', /constantTimeStringEqual/.test(api) && /FF_PASSWORD/.test(api));
