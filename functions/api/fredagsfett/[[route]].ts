@@ -2167,6 +2167,46 @@ function fredagsfettJson(data: unknown, status = 200, cookie?: string): Response
   return new Response(JSON.stringify(data), { status, headers });
 }
 
+// Group chat — lightweight message board. ──────────────────────────────────
+
+async function fredagsfettChatList(request: Request, env: Env): Promise<Response> {
+  await requireFredagsfettUser(request, env);
+  const url = new URL(request.url);
+  const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit')) || 80));
+  const since = url.searchParams.get('since') || '';
+  const sinceClause = since ? 'AND c.created_at > ?' : '';
+  const bindings: unknown[] = ['fredagsfett'];
+  if (since) bindings.push(since);
+  bindings.push(limit);
+  const rows = await env.DB.prepare(
+    `SELECT c.id, c.user_id, u.name AS user_name, u.is_admin AS user_is_admin,
+            c.body, c.created_at
+       FROM ff_chat_messages c
+       JOIN ff_users u ON u.id = c.user_id
+      WHERE c.group_id = ? AND c.deleted_at IS NULL ${sinceClause}
+      ORDER BY c.created_at DESC
+      LIMIT ?`
+  ).bind(...bindings).all<{ id: string; user_id: string; user_name: string; user_is_admin: number; body: string; created_at: string }>();
+  // Return ascending so the client can append naturally.
+  const messages = (rows.results ?? []).map(r => ({ ...r, user_is_admin: !!r.user_is_admin })).reverse();
+  return json({ messages });
+}
+
+async function fredagsfettChatCreate(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  let body: { body?: string };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+  const text = normalizeFredagsfettShortText(body.body, 2000);
+  if (!text) return json({ error: 'Skriv något att skicka.' }, 400);
+  const id = `ffc-${crypto.randomUUID()}`;
+  await env.DB.prepare(
+    `INSERT INTO ff_chat_messages (id, group_id, user_id, body, created_at)
+     VALUES (?, 'fredagsfett', ?, ?, datetime('now'))`
+  ).bind(id, session.user.id, text).run();
+  return json({ success: true, message_id: id });
+}
+
 // ─── Dispatcher ──────────────────────────────────────────────────────────────
 
 export const onRequest: PagesFunction<Env> = async (ctx) => {
@@ -2201,6 +2241,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     if (id === 'photos' && sub && !action && method === 'GET')    return fredagsfettEventPhotoDownload(request, env, sub);
     if (id === 'photos' && sub && !action && method === 'DELETE') return fredagsfettEventPhotoDelete(request, env, sub);
     if (id === 'activity' && !sub && method === 'GET') return fredagsfettActivityList(request, env);
+    if (id === 'chat' && !sub && method === 'GET')  return fredagsfettChatList(request, env);
+    if (id === 'chat' && !sub && method === 'POST') return fredagsfettChatCreate(request, env);
     if (id === 'ical-url' && !sub && method === 'GET') return fredagsfettIcalUrl(request, env);
     if (id === 'ical' && sub && !action && method === 'GET') return fredagsfettIcalFeed(request, env, sub);
     if (id === 'sp1wise' && !sub && method === 'GET') return fredagsfettSp1wise(request, env);

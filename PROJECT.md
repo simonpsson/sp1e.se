@@ -99,6 +99,8 @@
 | DELETE | `photos/:id` | user (uploader or admin) | Delete a photo |
 | GET    | `activity?limit=N` | user | Recent activity-log rows for the group (default 30, max 100) |
 | POST   | `admin/cleanup` | admin-cookie | Delete revoked devices older than 90 days. No native cron on Pages Functions; call from the dev console or an external scheduler. |
+| GET    | `chat?limit=N&since=...` | user | Group chat — last N messages (default 80, max 200). `since` filters to messages newer than the given ISO timestamp. |
+| POST   | `chat` | user | Post a chat message (body: `{ body }`, max 2000 chars). |
 | GET | `sp1wise` | user | Group balances + simplified debts + expense list + activity |
 | GET/POST | `sp1wise/groups` | user | List / create sub-groups |
 | POST | `sp1wise/expenses` | user | Add expense (split by EQUAL/AMOUNTS/PERCENT/SHARES) |

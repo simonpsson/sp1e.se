@@ -157,7 +157,7 @@
   button.active { border-color: var(--accent); color: rgba(255,255,255,0.94); }
   .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-columns: 280px minmax(0, 1fr) 320px;
     gap: 1rem;
     padding: clamp(1rem, 3vw, 1.6rem);
   }
@@ -213,6 +213,49 @@
     color: var(--accent) !important;
   }
   .ical-btn:hover { background: rgba(205,176,110,0.20) !important; }
+  /* Left sidebar — news feed + chat */
+  .left-sidebar { display: grid; gap: 1rem; align-content: start; }
+  body.sidebar-collapsed .left-sidebar { display: none; }
+  body.sidebar-collapsed .layout { grid-template-columns: minmax(0, 1fr) 320px; }
+  .sidebar-toggle {
+    margin: 0.4rem 0 0.6rem 1.4rem;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font: 0.66rem 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+  }
+  .sidebar-toggle:hover { color: var(--text); border-color: var(--line-hot); }
+  .sidebar-card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: rgba(10,10,10,0.55);
+    padding: 0.85rem 0.95rem;
+  }
+  .sidebar-card h3 { margin: 0 0 0.6rem; font: 0.7rem 'DM Mono', monospace; letter-spacing: 0.12em; color: var(--accent); text-transform: uppercase; }
+  .news-list { display: grid; gap: 0.55rem; max-height: 420px; overflow-y: auto; }
+  .news-item { display: block; color: var(--text); text-decoration: none; padding: 0.45rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .news-item:last-child { border-bottom: 0; }
+  .news-item .ni-source { color: var(--accent); font: 0.6rem 'DM Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+  .news-item .ni-title { display: block; margin: 0.18rem 0; font-size: 0.92rem; line-height: 1.3; color: var(--text); }
+  .news-item:hover .ni-title { color: var(--accent); }
+  .news-item .ni-when { color: var(--faint); font: 0.6rem 'DM Mono', monospace; letter-spacing: 0.06em; }
+  /* Chat */
+  .chat-card { display: grid; grid-template-rows: auto minmax(180px, 320px) auto; }
+  .chat-list { overflow-y: auto; padding: 0.2rem 0.1rem; display: flex; flex-direction: column; gap: 0.55rem; }
+  .chat-msg { padding: 0.35rem 0.5rem; border-radius: 10px; background: rgba(255,255,255,0.025); }
+  .chat-msg.self { background: rgba(205,176,110,0.10); }
+  .chat-msg .cm-head { display: flex; gap: 0.3rem; align-items: baseline; }
+  .chat-msg .cm-head strong { color: var(--accent); font-size: 0.86rem; font-weight: 500; }
+  .chat-msg .cm-head .cm-when { color: var(--faint); font: 0.58rem 'DM Mono', monospace; letter-spacing: 0.06em; }
+  .chat-msg .cm-body { color: var(--text); font-size: 0.92rem; line-height: 1.35; word-wrap: break-word; }
+  .chat-form { display: flex; gap: 0.4rem; margin-top: 0.45rem; }
+  .chat-form input { flex: 1; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; background: rgba(0,0,0,0.35); color: var(--text); padding: 0.5rem 0.7rem; font: 0.9rem 'Cormorant Garamond', serif; outline: none; }
+  .chat-form input:focus { border-color: var(--line-hot); }
+  .chat-form button { white-space: nowrap; padding: 0.5rem 0.85rem; }
   .view-mode { display: inline-flex; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .view-mode button { border: 0; padding: 0.4rem 0.75rem; background: transparent; color: var(--muted); }
   .view-mode button[aria-pressed="true"] { background: rgba(205,176,110,0.12); color: var(--text); }
@@ -569,6 +612,7 @@
   }
   @media (max-width: 860px) {
     header, .layout { grid-template-columns: 1fr; }
+    .left-sidebar { order: 99; }
     header { display: block; }
     .nav { margin-top: 1rem; }
     .day { min-height: 94px; }
@@ -599,7 +643,24 @@
       </nav>
     </header>
     <div id="next-event-banner" class="next-event-banner" hidden></div>
+    <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle" title="Visa/dölj nyhetsflöde och chatt">Dölj sidopanel</button>
     <div class="layout">
+      <aside class="left-sidebar">
+        <section class="sidebar-card news-card">
+          <h3>Nyheter</h3>
+          <div class="news-list" id="news-list" aria-live="polite">
+            <p class="tiny">Laddar...</p>
+          </div>
+        </section>
+        <section class="sidebar-card chat-card">
+          <h3>Chatt</h3>
+          <div class="chat-list" id="chat-list" aria-live="polite"></div>
+          <form id="chat-form" class="chat-form">
+            <input id="chat-input" type="text" maxlength="500" aria-label="Skriv ett meddelande">
+            <button type="submit">Skicka</button>
+          </form>
+        </section>
+      </aside>
       <section class="calendar-card">
         <div class="calendar-head">
           <button id="prev-month" type="button">Föregående</button>
@@ -1297,6 +1358,62 @@ async function loadEvents() {
   }
 }
 
+// News feed in the left sidebar (reuses the public /api/news endpoint)
+async function loadNews() {
+  const list = document.getElementById('news-list');
+  if (!list) return;
+  try {
+    const res = await fetch('/api/news', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('news_fetch_failed');
+    const data = await res.json();
+    const items = (data.items || []).slice(0, 30);
+    if (!items.length) {
+      list.innerHTML = '<p class="tiny">Inga nyheter just nu.</p>';
+      return;
+    }
+    list.innerHTML = items.map(item => {
+      const when = (item.published_at || '').replace('T', ' ').slice(0, 16);
+      return `<a class="news-item" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">
+        <span class="ni-source">${escapeHtml(item.source || '')}</span>
+        <span class="ni-title">${escapeHtml(item.title)}</span>
+        <span class="ni-when">${escapeHtml(when)}</span>
+      </a>`;
+    }).join('');
+  } catch (err) {
+    list.innerHTML = `<p class="tiny">Kunde inte ladda nyheter.</p>`;
+  }
+}
+
+// Group chat in the left sidebar (polled, last 80 messages)
+let chatLastSeen = '';
+async function loadChat() {
+  const list = document.getElementById('chat-list');
+  if (!list) return;
+  try {
+    const data = await api('/api/fredagsfett/chat?limit=80');
+    const msgs = data.messages || [];
+    if (msgs.length) chatLastSeen = msgs[msgs.length - 1].created_at;
+    if (!msgs.length) {
+      list.innerHTML = '<p class="tiny">Inga meddelanden ännu — säg något!</p>';
+    } else {
+      const selfId = currentSession?.user?.id;
+      list.innerHTML = msgs.map(m => {
+        const self = m.user_id === selfId ? ' self' : '';
+        const adminMark = m.user_is_admin ? '<span class="admin-mark" title="Admin">✦</span>' : '';
+        const when = (m.created_at || '').replace('T', ' ').slice(11, 16);
+        return `<div class="chat-msg${self}">
+          <div class="cm-head"><strong>${escapeHtml(m.user_name)}${adminMark}</strong><span class="cm-when">${escapeHtml(when)}</span></div>
+          <div class="cm-body">${escapeHtml(m.body)}</div>
+        </div>`;
+      }).join('');
+      list.scrollTop = list.scrollHeight;
+    }
+  } catch (err) {
+    // Stay silent on chat poll errors to avoid spamming the UI
+    console.error('chat poll failed', err);
+  }
+}
+
 // B2 — items checklist per locked event
 async function loadEventItems(eventId) {
   const list = document.getElementById('event-items-list');
@@ -1779,6 +1896,33 @@ document.getElementById('ical-copy-btn')?.addEventListener('click', async () => 
   }
 });
 
+// Chat — submit a new message
+document.getElementById('chat-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const input = document.getElementById('chat-input');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    await api('/api/fredagsfett/chat', { method: 'POST', body: JSON.stringify({ body: text }) });
+    input.value = '';
+    await loadChat();
+  } catch (err) {
+    errorBox.textContent = err.message || 'Kunde inte skicka meddelandet.';
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+});
+
+// Left sidebar Dölj/Visa toggle (persists in sessionStorage)
+document.getElementById('sidebar-toggle-btn')?.addEventListener('click', event => {
+  const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
+  sessionStorage.setItem('ff-sidebar-collapsed', isCollapsed ? '1' : '0');
+  event.currentTarget.textContent = isCollapsed ? 'Visa sidopanel' : 'Dölj sidopanel';
+});
+
 // B2 — add a new item
 document.getElementById('event-item-form')?.addEventListener('submit', async event => {
   event.preventDefault();
@@ -1924,8 +2068,17 @@ async function boot() {
     }
     currentSession = session;
     document.body.classList.toggle('is-admin', !!(session.user && session.user.is_admin));
-    await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents(), loadActivity()]);
+    // Restore sidebar collapsed state
+    if (sessionStorage.getItem('ff-sidebar-collapsed') === '1') {
+      document.body.classList.add('sidebar-collapsed');
+      const t = document.getElementById('sidebar-toggle-btn');
+      if (t) t.textContent = 'Visa sidopanel';
+    }
+    await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents(), loadActivity(), loadNews(), loadChat()]);
     renderCalendar();
+    // Poll news every 5 min and chat every 7 s
+    setInterval(loadNews, 5 * 60 * 1000);
+    setInterval(loadChat, 7 * 1000);
     // Note: a tap mid-poll may briefly flicker if loadAvailability returns before
     // the tap's POST resolves. Last-write-wins on the server, self-corrects on next poll.
     setInterval(reloadCalendarData, 15000);
