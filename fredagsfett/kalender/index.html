@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>𓀂 · Kalender</title>
+<title>𓀂 · (S)planner</title>
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -185,6 +185,34 @@
     flex-wrap: wrap;
     padding: 0 1rem 1rem;
   }
+  .year-bar {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0 1rem 0.4rem;
+    align-items: center;
+  }
+  .year-bar button {
+    padding: 0.35rem 0.85rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font: 0.74rem 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+  }
+  .year-bar button[aria-pressed="true"] {
+    background: rgba(205,176,110,0.12);
+    border-color: var(--line-hot);
+    color: var(--text);
+  }
+  /* More-visible iCal button */
+  .ical-btn {
+    border-color: var(--line-hot) !important;
+    background: rgba(205,176,110,0.10) !important;
+    color: var(--accent) !important;
+  }
+  .ical-btn:hover { background: rgba(205,176,110,0.20) !important; }
   .view-mode { display: inline-flex; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .view-mode button { border: 0; padding: 0.4rem 0.75rem; background: transparent; color: var(--muted); }
   .view-mode button[aria-pressed="true"] { background: rgba(205,176,110,0.12); color: var(--text); }
@@ -562,11 +590,11 @@
     <header>
       <div>
         <p class="kicker">𓀂</p>
-        <h1>Kalender</h1>
+        <h1>(S)planner</h1>
       </div>
       <nav class="nav admin-nav" aria-label="𓀂 navigation">
         <a class="button" href="/fredagsfett/sp1wise">SP1Wise</a>
-        <button class="button" type="button" id="ical-copy-btn" title="Kopiera iCal-länk till urklipp">iCal</button>
+        <button class="button ical-btn" type="button" id="ical-copy-btn" title="Kopiera din personliga iCal-länk. Klistra in den i Google Kalender, Apple Kalender eller annan kalenderapp för att prenumerera på inlåsta Fredagsfett-event.">📅 iCal-feed</button>
         <a class="button icon-button" href="/fredagsfett/admin" aria-label="Dev console" title="Dev console">⚙</a>
       </nav>
     </header>
@@ -578,10 +606,23 @@
           <h2 id="month-title">Laddar...</h2>
           <button id="next-month" type="button">Nästa</button>
         </div>
-        <div class="summer" aria-label="Sommarvy">
+        <div class="year-bar" aria-label="År">
+          <button type="button" data-year="2026" aria-pressed="true">2026</button>
+          <button type="button" data-year="2027" aria-pressed="false">2027</button>
+        </div>
+        <div class="summer" aria-label="Månader">
+          <button type="button" data-summer="01">Januari</button>
+          <button type="button" data-summer="02">Februari</button>
+          <button type="button" data-summer="03">Mars</button>
+          <button type="button" data-summer="04">April</button>
+          <button type="button" data-summer="05">Maj</button>
           <button type="button" data-summer="06">Juni</button>
           <button type="button" data-summer="07">Juli</button>
           <button type="button" data-summer="08">Augusti</button>
+          <button type="button" data-summer="09">September</button>
+          <button type="button" data-summer="10">Oktober</button>
+          <button type="button" data-summer="11">November</button>
+          <button type="button" data-summer="12">December</button>
           <button type="button" id="mark-fridays-btn" title="Markera dig själv som tillgänglig på de kommande 4 fredagarna">Markera 4 fredagar</button>
           <div class="view-mode" role="tablist" aria-label="Vy">
             <button type="button" data-view-mode="initials" aria-pressed="true">Initialer</button>
@@ -789,7 +830,9 @@ async function api(path, options = {}) {
 
 function monthName(month) {
   const [year, m] = month.split('-').map(Number);
-  return new Date(year, m - 1, 1).toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
+  const s = new Date(year, m - 1, 1).toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
+  // sv-SE returns "maj 2026"; capitalize the first letter so it reads "Maj 2026".
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function formatSwedishDate(date) {
@@ -1565,18 +1608,68 @@ eventCard.addEventListener('click', async event => {
 });
 
 document.querySelectorAll('.status-pill').forEach(button => {
-  button.addEventListener('click', () => {
-    state.selectedStatus = button.dataset.status;
-    renderSelectedDay();
+  button.addEventListener('click', async () => {
+    const clickedStatus = button.dataset.status;
+    const own = selfEntry(state.selectedDate);
+    // Clicking the pill that's already saved for this day clears the availability
+    // (toggle-off). Clicking a different pill auto-saves the new status with the
+    // current form values — no separate "Spara" press needed for status changes.
+    errorBox.textContent = '';
+    if (state.selectedDate) {
+      try {
+        if (own && own.status === clickedStatus) {
+          await api(`/api/fredagsfett/availability?date=${encodeURIComponent(state.selectedDate)}`, { method: 'DELETE' });
+        } else {
+          await api('/api/fredagsfett/availability', {
+            method: 'POST',
+            body: JSON.stringify({
+              date: state.selectedDate,
+              status: clickedStatus,
+              note: noteInput.value || null,
+              start_time: timeStartInput.value || '',
+              end_time: timeEndInput.value || '',
+              time_note: timeNoteInput.value || null,
+            }),
+          });
+          state.selectedStatus = clickedStatus;
+        }
+        await loadAvailability();
+        void loadActivity();
+      } catch (err) {
+        errorBox.textContent = err.message;
+      }
+    } else {
+      state.selectedStatus = clickedStatus;
+      renderSelectedDay();
+    }
   });
 });
 document.getElementById('save-availability').addEventListener('click', saveAvailability);
 document.getElementById('delete-availability').addEventListener('click', deleteAvailability);
 document.getElementById('prev-month').addEventListener('click', () => { state.month = addMonths(state.month, -1); lockEventForm.hidden = true; void reloadCalendarData(); });
 document.getElementById('next-month').addEventListener('click', () => { state.month = addMonths(state.month, 1); lockEventForm.hidden = true; void reloadCalendarData(); });
+// Year + month shortcuts: data-year buttons select the active year, data-summer
+// buttons jump to year + month using the year-bar's pressed state.
+function activeYear() {
+  const pressed = document.querySelector('[data-year][aria-pressed="true"]');
+  return pressed?.dataset.year || String(new Date().getFullYear());
+}
+document.querySelectorAll('[data-year]').forEach(button => {
+  // Initialize pressed state to match the current state.month's year on load.
+  button.setAttribute('aria-pressed', button.dataset.year === state.month.slice(0, 4) ? 'true' : 'false');
+  button.addEventListener('click', () => {
+    document.querySelectorAll('[data-year]').forEach(b =>
+      b.setAttribute('aria-pressed', b === button ? 'true' : 'false'));
+    const [, m] = state.month.split('-');
+    state.month = `${button.dataset.year}-${m}`;
+    state.selectedDate = `${state.month}-01`;
+    lockEventForm.hidden = true;
+    void reloadCalendarData();
+  });
+});
 document.querySelectorAll('[data-summer]').forEach(button => {
   button.addEventListener('click', () => {
-    state.month = `${new Date().getFullYear()}-${button.dataset.summer}`;
+    state.month = `${activeYear()}-${button.dataset.summer}`;
     state.selectedDate = `${state.month}-01`;
     noteInput.value = '';
     timeStartInput.value = '';
