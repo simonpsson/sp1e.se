@@ -137,6 +137,7 @@ async function gateOrInit() {
       location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/karta')}`;
       return;
     }
+    currentSession = session;
     initMap();
   } catch {
     location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/karta')}`;
@@ -144,10 +145,8 @@ async function gateOrInit() {
 }
 
 // ─ Leaflet map + draw tools ──────────────────────────────────────────────────
-const STORAGE_KEY = 'ff-map-routes-v1';
 const STOCKHOLM = [59.3293, 18.0686];
-
-let map, drawn, drawControl;
+let map, drawn, drawControl, currentSession = null, cachedRoutes = [];
 
 function initMap() {
   map = L.map('map', { center: STOCKHOLM, zoom: 13 });
@@ -198,65 +197,77 @@ function initMap() {
     setStatus('Kartan rensad.');
   });
 
-  renderSavedList();
+  void loadRoutes();
 }
 
 function setStatus(text) {
   document.getElementById('save-status').textContent = text;
 }
 
-function loadSaved() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
-  catch { return []; }
+// Routes live on the server (D1) so every group member sees the same set
+// from any device. cachedRoutes mirrors the last server response for use by
+// the saved-card click handlers (load / export).
+async function loadRoutes() {
+  try {
+    const data = await api('/api/fredagsfett/routes');
+    cachedRoutes = data.routes || [];
+    renderSavedList();
+  } catch (err) {
+    setStatus('Kunde inte hämta sparade rutter: ' + (err.message || 'okänt fel'));
+  }
 }
-function persist(routes) { localStorage.setItem(STORAGE_KEY, JSON.stringify(routes)); }
 
-function saveCurrentRoute() {
+async function saveCurrentRoute() {
   if (!drawn.getLayers().length) { setStatus('Inget att spara — rita något först.'); return; }
   const name = window.prompt('Namn på rutten?', `Rutt ${new Date().toLocaleDateString('sv-SE')}`);
   if (!name) return;
   const geojson = drawn.toGeoJSON();
-  const routes = loadSaved();
-  routes.push({ id: `r-${Date.now()}`, name, created_at: new Date().toISOString(), geojson });
-  persist(routes);
-  renderSavedList();
-  setStatus(`Sparade "${name}".`);
+  setStatus('Sparar...');
+  try {
+    await api('/api/fredagsfett/routes', { method: 'POST', body: JSON.stringify({ name, geojson }) });
+    await loadRoutes();
+    setStatus(`Sparade "${name}".`);
+  } catch (err) {
+    setStatus('Kunde inte spara: ' + (err.message || 'okänt fel'));
+  }
 }
 
 function renderSavedList() {
   const wrap = document.getElementById('saved-list');
-  const routes = loadSaved();
-  if (!routes.length) { wrap.innerHTML = ''; return; }
-  wrap.innerHTML = routes.map(r => `
+  if (!cachedRoutes.length) { wrap.innerHTML = ''; return; }
+  const selfId = currentSession?.user?.id;
+  const isAdmin = !!currentSession?.user?.is_admin;
+  wrap.innerHTML = cachedRoutes.map(r => {
+    const canModify = (r.user_id && r.user_id === selfId) || isAdmin;
+    const author = r.user_name ? ` · ${escapeHtml(r.user_name)}` : '';
+    return `
     <div class="saved-card" data-route-id="${escapeAttr(r.id)}">
       <strong>${escapeHtml(r.name)}</strong>
-      <span class="tiny">${escapeHtml((r.created_at || '').slice(0, 10))}</span>
+      <span class="tiny">${escapeHtml((r.created_at || '').slice(0, 10))}${author}</span>
       <div class="row">
         <button type="button" data-action="load">Ladda</button>
         <button type="button" data-action="export">.geojson</button>
-        <button type="button" class="danger" data-action="delete">Ta bort</button>
+        ${canModify ? '<button type="button" class="danger" data-action="delete">Ta bort</button>' : ''}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
   wrap.querySelectorAll('.saved-card').forEach(card => {
     const id = card.dataset.routeId;
     card.addEventListener('click', e => {
       const action = e.target.closest('[data-action]')?.dataset.action;
       if (!action) return;
-      const route = loadSaved().find(r => r.id === id);
+      const route = cachedRoutes.find(r => r.id === id);
       if (!route) return;
       if (action === 'load') loadRouteOnto(route);
       if (action === 'export') downloadGeojson(route);
-      if (action === 'delete') deleteRoute(id);
+      if (action === 'delete') void deleteRoute(id);
     });
   });
 }
 
 function loadRouteOnto(route) {
   drawn.clearLayers();
-  const layer = L.geoJSON(route.geojson, {
-    style: { color: '#cdb06e', weight: 4 },
-  });
+  const layer = L.geoJSON(route.geojson, { style: { color: '#cdb06e', weight: 4 } });
   layer.eachLayer(l => drawn.addLayer(l));
   try { map.fitBounds(layer.getBounds(), { padding: [40, 40] }); } catch {}
   setStatus(`Laddade "${route.name}".`);
@@ -271,12 +282,15 @@ function downloadGeojson(route) {
   URL.revokeObjectURL(a.href);
 }
 
-function deleteRoute(id) {
-  if (!window.confirm('Ta bort rutten?')) return;
-  const routes = loadSaved().filter(r => r.id !== id);
-  persist(routes);
-  renderSavedList();
-  setStatus('Rutten borttagen.');
+async function deleteRoute(id) {
+  if (!window.confirm('Ta bort rutten? Detta påverkar alla i gruppen.')) return;
+  try {
+    await api(`/api/fredagsfett/routes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await loadRoutes();
+    setStatus('Rutten borttagen.');
+  } catch (err) {
+    setStatus('Kunde inte ta bort: ' + (err.message || 'okänt fel'));
+  }
 }
 
 function escapeHtml(value) {

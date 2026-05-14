@@ -2207,6 +2207,98 @@ async function fredagsfettChatCreate(request: Request, env: Env): Promise<Respon
   return json({ success: true, message_id: id });
 }
 
+// Map routes — shared GeoJSON drawings for the group. ───────────────────────
+
+const FREDAGSFETT_ROUTE_GEOJSON_MAX_BYTES = 256 * 1024;
+
+async function fredagsfettRoutesList(request: Request, env: Env): Promise<Response> {
+  await requireFredagsfettUser(request, env);
+  const rows = await env.DB.prepare(
+    `SELECT r.id, r.name, r.geojson, r.user_id, u.name AS user_name, r.created_at, r.updated_at
+       FROM ff_map_routes r
+       LEFT JOIN ff_users u ON u.id = r.user_id
+      WHERE r.group_id = 'fredagsfett' AND r.deleted_at IS NULL
+      ORDER BY r.created_at DESC`
+  ).all<{ id: string; name: string; geojson: string; user_id: string | null; user_name: string | null; created_at: string; updated_at: string }>();
+  // Parse geojson per-row so the client gets a real object, not a string.
+  const routes = (rows.results ?? []).map(r => {
+    let parsed: unknown = null;
+    try { parsed = JSON.parse(r.geojson); } catch {}
+    return { id: r.id, name: r.name, geojson: parsed, user_id: r.user_id, user_name: r.user_name, created_at: r.created_at, updated_at: r.updated_at };
+  });
+  return json({ routes });
+}
+
+async function fredagsfettRoutesCreate(request: Request, env: Env): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  let body: { name?: string; geojson?: unknown };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+  const name = normalizeFredagsfettShortText(body.name, 80);
+  if (!name) return json({ error: 'Ange ett namn på rutten.' }, 400);
+  if (!body.geojson || typeof body.geojson !== 'object') return json({ error: 'Ogiltig geojson.' }, 400);
+  const serialized = JSON.stringify(body.geojson);
+  if (serialized.length > FREDAGSFETT_ROUTE_GEOJSON_MAX_BYTES) {
+    return json({ error: `Rutten är för stor (max ${FREDAGSFETT_ROUTE_GEOJSON_MAX_BYTES} byte).` }, 400);
+  }
+  const id = `ffr-${crypto.randomUUID()}`;
+  await env.DB.prepare(
+    `INSERT INTO ff_map_routes (id, group_id, user_id, name, geojson, created_at, updated_at)
+     VALUES (?, 'fredagsfett', ?, ?, ?, datetime('now'), datetime('now'))`
+  ).bind(id, session.user.id, name, serialized).run();
+  return json({ success: true, route_id: id });
+}
+
+async function fredagsfettRoutesUpdate(request: Request, env: Env, routeId: string): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const row = await env.DB.prepare(
+    `SELECT id, user_id FROM ff_map_routes WHERE id = ? AND deleted_at IS NULL`
+  ).bind(routeId).first<{ id: string; user_id: string | null }>();
+  if (!row) return json({ error: 'Rutten finns inte.' }, 404);
+  // Only the creator or an admin may rename / replace.
+  if (row.user_id && row.user_id !== session.user.id && !session.user.is_admin) {
+    return json({ error: 'Bara skaparen eller en admin kan ändra rutten.' }, 403);
+  }
+  let body: { name?: string; geojson?: unknown };
+  try { body = await request.json(); }
+  catch { return json({ error: 'Ogiltig JSON.' }, 400); }
+  const updates: string[] = [];
+  const bindings: unknown[] = [];
+  if ('name' in body) {
+    const name = normalizeFredagsfettShortText(body.name, 80);
+    if (!name) return json({ error: 'Ange ett namn på rutten.' }, 400);
+    updates.push('name = ?'); bindings.push(name);
+  }
+  if ('geojson' in body) {
+    if (!body.geojson || typeof body.geojson !== 'object') return json({ error: 'Ogiltig geojson.' }, 400);
+    const serialized = JSON.stringify(body.geojson);
+    if (serialized.length > FREDAGSFETT_ROUTE_GEOJSON_MAX_BYTES) {
+      return json({ error: `Rutten är för stor (max ${FREDAGSFETT_ROUTE_GEOJSON_MAX_BYTES} byte).` }, 400);
+    }
+    updates.push('geojson = ?'); bindings.push(serialized);
+  }
+  if (!updates.length) return json({ error: 'Inget att uppdatera.' }, 400);
+  updates.push("updated_at = datetime('now')");
+  bindings.push(routeId);
+  await env.DB.prepare(`UPDATE ff_map_routes SET ${updates.join(', ')} WHERE id = ?`).bind(...bindings).run();
+  return json({ success: true });
+}
+
+async function fredagsfettRoutesDelete(request: Request, env: Env, routeId: string): Promise<Response> {
+  const session = await requireFredagsfettUser(request, env);
+  const row = await env.DB.prepare(
+    `SELECT id, user_id FROM ff_map_routes WHERE id = ? AND deleted_at IS NULL`
+  ).bind(routeId).first<{ id: string; user_id: string | null }>();
+  if (!row) return json({ error: 'Rutten finns inte.' }, 404);
+  if (row.user_id && row.user_id !== session.user.id && !session.user.is_admin) {
+    return json({ error: 'Bara skaparen eller en admin kan ta bort.' }, 403);
+  }
+  await env.DB.prepare(
+    `UPDATE ff_map_routes SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
+  ).bind(routeId).run();
+  return json({ success: true });
+}
+
 // ─── Dispatcher ──────────────────────────────────────────────────────────────
 
 export const onRequest: PagesFunction<Env> = async (ctx) => {
@@ -2243,6 +2335,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     if (id === 'activity' && !sub && method === 'GET') return fredagsfettActivityList(request, env);
     if (id === 'chat' && !sub && method === 'GET')  return fredagsfettChatList(request, env);
     if (id === 'chat' && !sub && method === 'POST') return fredagsfettChatCreate(request, env);
+    if (id === 'routes' && !sub && method === 'GET')  return fredagsfettRoutesList(request, env);
+    if (id === 'routes' && !sub && method === 'POST') return fredagsfettRoutesCreate(request, env);
+    if (id === 'routes' && sub && !action && method === 'PATCH')  return fredagsfettRoutesUpdate(request, env, sub);
+    if (id === 'routes' && sub && !action && method === 'DELETE') return fredagsfettRoutesDelete(request, env, sub);
     if (id === 'ical-url' && !sub && method === 'GET') return fredagsfettIcalUrl(request, env);
     if (id === 'ical' && sub && !action && method === 'GET') return fredagsfettIcalFeed(request, env, sub);
     if (id === 'sp1wise' && !sub && method === 'GET') return fredagsfettSp1wise(request, env);

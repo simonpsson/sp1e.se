@@ -23,6 +23,7 @@
 /fredagsfett-migration-004-event-comments-and-tagging.sql   /  301
 /fredagsfett-migration-005-event-extras.sql   /  301
 /fredagsfett-migration-006-chat.sql   /  301
+/fredagsfett-migration-007-map-routes.sql   /  301
 /game-talents-schema.sql         /  301
 /game-talents-seed.sql           /  301
 /seed-dax-categories.sql         /  301
