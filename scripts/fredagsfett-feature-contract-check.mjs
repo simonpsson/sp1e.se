@@ -6,6 +6,7 @@ const files = {
   calendar: 'fredagsfett/kalender/index.html',
   sp1wise: 'fredagsfett/sp1wise/index.html',
   karta: 'fredagsfett/karta/index.html',
+  lightUi: 'fredagsfett/light-ui.css',
   availabilityTimesMigration: 'fredagsfett-migration-002-availability-times.sql',
   redirects: '_redirects',
 };
@@ -18,6 +19,7 @@ const hub = read(files.hub);
 const calendar = read(files.calendar);
 const sp1wise = read(files.sp1wise);
 const karta = read(files.karta);
+const lightUi = read(files.lightUi);
 const availabilityTimesMigration = read(files.availabilityTimesMigration);
 const redirects = read(files.redirects);
 
@@ -35,6 +37,12 @@ check('Fredagsfett entry skips the old hub and sends registered users straight t
 check('Fredagsfett visible section labels use 𓀂 while routes stay stable', /<title>𓀂<\/title>/.test(hub) && /<h1>𓀂<\/h1>/.test(hub) && /<title>𓀂 · \(S\)planner<\/title>/.test(calendar) && /<p class=["']kicker["']>𓀂<\/p>/.test(calendar) && /<title>𓀂 · SP1Wise<\/title>/.test(sp1wise) && /<p class=["']kicker["']>𓀂<\/p>/.test(sp1wise));
 check('Fredagsfett static routes exist for Kalender, SP1Wise and Karta', fs.existsSync(files.calendar) && fs.existsSync(files.sp1wise) && fs.existsSync(files.karta));
 check('Redirects serve Kalender, SP1Wise and Karta as Pages routes', /\/fredagsfett\/kalender\s+\/fredagsfett\/kalender\/index\.html\s+200/.test(redirects) && /\/fredagsfett\/sp1wise\s+\/fredagsfett\/sp1wise\/index\.html\s+200/.test(redirects) && /\/fredagsfett\/karta\s+\/fredagsfett\/karta\/index\.html\s+200/.test(redirects));
+check('Fredagsfett shared light Gotland UI skin exists', fs.existsSync(files.lightUi) && /--ff-bg/.test(lightUi) && /ff-topbar/.test(lightUi) && /ff-card/.test(lightUi));
+check('Fredagsfett core pages use the shared light topbar shell', /ff-light-page/.test(calendar) && /ff-light-page/.test(sp1wise) && /ff-light-page/.test(karta) && /ff-topbar/.test(calendar) && /ff-topbar/.test(sp1wise) && /ff-topbar/.test(karta));
+check('Kalender uses the light month-board layout from the reference', /ff-calendar-page/.test(calendar) && /calendar-shell/.test(calendar) && /calendar-page-grid/.test(calendar) && /locked-events-panel/.test(calendar) && /view-switch-card/.test(calendar));
+check('SP1Wise uses the light debt-dashboard layout from the reference', /ff-sp1wise-page/.test(sp1wise) && /sp1wise-shell/.test(sp1wise) && /sp1wise-hero/.test(sp1wise) && /simplified-debts-panel/.test(sp1wise) && /member-balance-panel/.test(sp1wise) && /distribution-panel/.test(sp1wise));
+check('Karta uses the light Stockholm map layout from the reference', /ff-karta-page/.test(karta) && /karta-shell/.test(karta) && /map-searchbar/.test(karta) && /map-category-pills/.test(karta) && /map-sidebar/.test(karta) && /next-friday-card/.test(karta));
+check('Fredagsfett feature pages no longer use the dark gallery skin', !/gallery-wall-wide\.png/.test(calendar + sp1wise + karta) && !/--bg:\s*#050505/.test(sp1wise + karta));
 
 check('Availability API dispatch exists', /fredagsfettAvailability/.test(api) && /id === ['"]availability['"]/.test(api));
 check('Availability API supports GET POST DELETE', /fredagsfettAvailabilityList/.test(api) && /fredagsfettAvailabilityUpsert/.test(api) && /fredagsfettAvailabilityDelete/.test(api));
