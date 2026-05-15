@@ -1,35 +1,102 @@
-/* Fredagsfett shared shell — base styles used by every fredagsfett/* page.
- * Page-specific rules (calendar grid, SP1Wise expense form, admin user cards,
- * gateway login-mode overrides) stay inline in their respective HTML files.
- * This file is linked via <link rel="stylesheet" href="/fredagsfett/style.css">
- * before each page's inline <style> block so inline rules can still override.
+/* Fredagsfett shared shell — base typography + chrome.
+ * Aesthetic: minimalist Scandinavian cocktail bar × cozy British speakeasy.
+ * Warm amber on deep charcoal, hairline gold rules, restrained spacing,
+ * confident type set in TT Firs Neue (display) and Louis George Cafe (body).
+ *
+ * Linked first in each fredagsfett page so inline <style> can still override.
  */
 
-:root {
-  --bg: #050505;
-  --panel: rgba(10, 10, 10, 0.74);
-  --card: rgba(255,255,255,0.04);
-  --line: rgba(255,255,255,0.12);
-  --line-hot: rgba(205,176,110,0.45);
-  --text: rgba(255,255,255,0.88);
-  --muted: rgba(255,255,255,0.50);
-  --faint: rgba(255,255,255,0.30);
-  --accent: rgba(205,176,110,0.92);
-  --danger: rgba(255,104,84,0.94);
+/* ── Local fonts ───────────────────────────────────────────────────────── */
+
+@font-face {
+  font-family: 'TT Firs Neue';
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url('/assets/fonts/TTFirsNeue-Light.ttf') format('truetype');
 }
+@font-face {
+  font-family: 'TT Firs Neue';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/assets/fonts/TTFirsNeue-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'TT Firs Neue';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/assets/fonts/TTFirsNeue-Medium.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'TT Firs Neue';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('/assets/fonts/TTFirsNeue-DemiBold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Louis George Cafe';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/assets/fonts/LouisGeorgeCafe-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Louis George Cafe';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/assets/fonts/LouisGeorgeCafe-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Kiona';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/assets/fonts/Kiona-Regular.ttf') format('truetype');
+}
+
+/* ── Tokens ────────────────────────────────────────────────────────────── */
+
+:root {
+  --bg: #0a0807;
+  --panel: rgba(14, 11, 9, 0.78);
+  --card: rgba(255, 248, 235, 0.035);
+  --line: rgba(255, 230, 190, 0.10);
+  --line-hot: rgba(217, 173, 100, 0.45);
+  --text: rgba(248, 240, 224, 0.92);
+  --muted: rgba(238, 220, 195, 0.55);
+  --faint: rgba(238, 220, 195, 0.32);
+  --accent: rgba(217, 173, 100, 0.94);   /* whisky amber */
+  --accent-soft: rgba(217, 173, 100, 0.16);
+  --danger: rgba(232, 116, 96, 0.94);
+
+  /* Type stacks */
+  --font-display: 'TT Firs Neue', 'Cormorant Garamond', serif;
+  --font-body: 'Louis George Cafe', 'Inter', 'Helvetica Neue', sans-serif;
+  --font-mono: 'Kiona', 'DM Mono', ui-monospace, monospace;
+}
+
+/* ── Reset + base ──────────────────────────────────────────────────────── */
 
 * { box-sizing: border-box; }
 
 body {
   min-height: 100vh;
   margin: 0;
-  padding: clamp(1rem, 4vw, 2.5rem);
+  padding: clamp(0.5rem, 1.6vw, 1.2rem);
   background:
-    linear-gradient(to bottom, rgba(0,0,0,0.22), rgba(0,0,0,0.74)),
+    linear-gradient(to bottom, rgba(0,0,0,0.28), rgba(0,0,0,0.78)),
     url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
     var(--bg);
   color: var(--text);
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-body);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body::before {
@@ -37,9 +104,10 @@ body::before {
   position: fixed;
   inset: 0;
   pointer-events: none;
+  z-index: 0;
   background:
-    radial-gradient(circle at 52% 24%, rgba(255,255,255,0.08), transparent 24rem),
-    linear-gradient(90deg, rgba(0,0,0,0.70), transparent 34%, transparent 66%, rgba(0,0,0,0.70));
+    radial-gradient(ellipse at 50% 18%, rgba(217,173,100,0.08), transparent 28rem),
+    linear-gradient(90deg, rgba(0,0,0,0.68), transparent 32%, transparent 68%, rgba(0,0,0,0.68));
 }
 
 main {
@@ -48,62 +116,68 @@ main {
   margin: 0 auto;
 }
 
+/* ── Wordmark ──────────────────────────────────────────────────────────── */
+
 .sp1e-wordmark {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  width: 156px;
-  margin: 0 auto 1.35rem;
-  color: rgba(255,255,255,0.9);
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 2.85rem;
+  width: 108px;
+  margin: 0 auto 0.65rem;
+  color: rgba(248, 240, 224, 0.86);
+  font-family: var(--font-display);
+  font-size: 1.55rem;
   font-weight: 300;
+  letter-spacing: 0.32em;
   line-height: 1;
   text-align: center;
-  text-shadow: 0 2px 24px rgba(0,0,0,0.70);
-  font-variant-numeric: lining-nums;
-  font-feature-settings: 'lnum' 1;
+  text-shadow: 0 2px 18px rgba(0,0,0,0.62);
   user-select: none;
 }
 
-.sp1e-wordmark span {
-  display: block;
-  text-align: center;
-}
+.sp1e-wordmark span { display: block; text-align: center; }
+
+/* ── Room container ────────────────────────────────────────────────────── */
 
 .room {
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: 14px;
   overflow: hidden;
   background: var(--panel);
-  box-shadow: 0 30px 110px rgba(0,0,0,0.52);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 24px 88px rgba(0,0,0,0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
+
+/* ── Common type ───────────────────────────────────────────────────────── */
 
 .kicker {
   color: var(--accent);
-  font-family: 'DM Mono', monospace;
-  letter-spacing: 0.16em;
+  font-family: var(--font-mono);
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  font-size: 0.66rem;
+  font-size: 0.62rem;
 }
 
 .tiny {
   color: var(--muted);
   font-size: 0.66rem;
+  font-family: var(--font-body);
 }
+
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 400; }
 
 button,
 .button {
   cursor: pointer;
-  font-family: 'DM Mono', monospace;
-  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .error {
-  min-height: 1.2rem;
+  min-height: 1.1rem;
   color: var(--danger);
-  font-family: 'DM Mono', monospace;
-  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
 }
