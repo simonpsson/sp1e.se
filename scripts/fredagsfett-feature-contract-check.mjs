@@ -5,6 +5,7 @@ const files = {
   hub: 'fredagsfett/index.html',
   calendar: 'fredagsfett/kalender/index.html',
   sp1wise: 'fredagsfett/sp1wise/index.html',
+  karta: 'fredagsfett/karta/index.html',
   availabilityTimesMigration: 'fredagsfett-migration-002-availability-times.sql',
   redirects: '_redirects',
 };
@@ -16,6 +17,7 @@ const api = read(files.api) + '\n' + read('functions/api/fredagsfett/[[route]].t
 const hub = read(files.hub);
 const calendar = read(files.calendar);
 const sp1wise = read(files.sp1wise);
+const karta = read(files.karta);
 const availabilityTimesMigration = read(files.availabilityTimesMigration);
 const redirects = read(files.redirects);
 
@@ -31,8 +33,8 @@ function check(name, ok) {
 
 check('Fredagsfett entry skips the old hub and sends registered users straight to Kalender', !/id=["']hub-panel["']/.test(hub) && !/class=["']link-card/.test(hub) && /location\.(?:href|assign)\s*=\s*['"]\/fredagsfett\/kalender['"]/.test(hub));
 check('Fredagsfett visible section labels use 𓀂 while routes stay stable', /<title>𓀂<\/title>/.test(hub) && /<h1>𓀂<\/h1>/.test(hub) && /<title>𓀂 · \(S\)planner<\/title>/.test(calendar) && /<p class=["']kicker["']>𓀂<\/p>/.test(calendar) && /<title>𓀂 · SP1Wise<\/title>/.test(sp1wise) && /<p class=["']kicker["']>𓀂<\/p>/.test(sp1wise));
-check('Fredagsfett static routes exist for Kalender and SP1Wise', fs.existsSync(files.calendar) && fs.existsSync(files.sp1wise));
-check('Redirects serve Kalender and SP1Wise as Pages routes', /\/fredagsfett\/kalender\s+\/fredagsfett\/kalender\/index\.html\s+200/.test(redirects) && /\/fredagsfett\/sp1wise\s+\/fredagsfett\/sp1wise\/index\.html\s+200/.test(redirects));
+check('Fredagsfett static routes exist for Kalender, SP1Wise and Karta', fs.existsSync(files.calendar) && fs.existsSync(files.sp1wise) && fs.existsSync(files.karta));
+check('Redirects serve Kalender, SP1Wise and Karta as Pages routes', /\/fredagsfett\/kalender\s+\/fredagsfett\/kalender\/index\.html\s+200/.test(redirects) && /\/fredagsfett\/sp1wise\s+\/fredagsfett\/sp1wise\/index\.html\s+200/.test(redirects) && /\/fredagsfett\/karta\s+\/fredagsfett\/karta\/index\.html\s+200/.test(redirects));
 
 check('Availability API dispatch exists', /fredagsfettAvailability/.test(api) && /id === ['"]availability['"]/.test(api));
 check('Availability API supports GET POST DELETE', /fredagsfettAvailabilityList/.test(api) && /fredagsfettAvailabilityUpsert/.test(api) && /fredagsfettAvailabilityDelete/.test(api));
@@ -55,8 +57,14 @@ check('SP1Wise backend computes simplified debts', /simplified_debts/.test(api) 
 check('SP1Wise page can add expense, settle up, comment and export CSV', /expense-form/.test(sp1wise) && /settlement-form/.test(sp1wise) && /comment-form/.test(sp1wise) && /Exportera CSV/.test(sp1wise));
 check('SP1Wise page shows balances and debt simplification', /balance-list/.test(sp1wise) && /debt-list/.test(sp1wise));
 check('SP1Wise page has direct Kalender navigation without old hub link', /href=["']\/fredagsfett\/kalender["']/.test(sp1wise) && !/>\s*Hub\s*</i.test(sp1wise));
+check('SP1Wise page has direct Karta navigation', /href=["']\/fredagsfett\/karta["']/.test(sp1wise));
 check('SP1Wise removes intro copy and uses exact SP1E four-column wordmark', !/class=["']subtitle["']/.test(sp1wise) && /class=["']sp1e-wordmark["']/.test(sp1wise) && /<span>S<\/span><span>P<\/span><span>1<\/span><span>E<\/span>/.test(sp1wise) && !/class=["']mark["'][^>]*>SP1E/.test(sp1wise));
 check('SP1Wise heading uses lining numeric 1 styling', /h1\s*\{[\s\S]*font-variant-numeric:\s*lining-nums[\s\S]*font-feature-settings:\s*'lnum' 1/.test(sp1wise));
+
+check('Karta page keeps Leaflet draw route persistence', /L\.Control\.Draw/.test(karta) && /\/api\/fredagsfett\/routes/.test(karta) && /saveCurrentRoute/.test(karta) && /loadRoutes/.test(karta));
+check('Karta page adds group places layer from imported design concept', /GROUP_PLACES/.test(karta) && /PLACE_FILTERS/.test(karta) && /place-rail/.test(karta) && /renderPlaceFilters/.test(karta) && /renderPlaces/.test(karta));
+check('Karta group places avoid exact addresses but include useful Stockholm zones', /Hagaparken/.test(karta) && /Söderzon/.test(karta) && /Hemzon · inga exakta adresser/.test(karta));
+check('Karta page links back to Kalender and SP1Wise', /href=["']\/fredagsfett\/kalender["']/.test(karta) && /href=["']\/fredagsfett\/sp1wise["']/.test(karta));
 
 check('Events GET list endpoint exists and is user-gated',
   /fredagsfettEventsList/.test(api)
