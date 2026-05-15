@@ -221,13 +221,31 @@
     .place-list { max-height: none; }
   }
 </style>
+<link rel="stylesheet" href="/fredagsfett/light-ui.css">
 </head>
-<body>
+<body class="ff-light-page ff-karta-page">
 <main>
+  <nav class="ff-topbar" aria-label="Fredagsfett navigation">
+    <a class="ff-brand" href="/fredagsfett/hem" aria-label="SP1E">SP1E</a>
+    <div class="ff-nav-row">
+      <a href="/fredagsfett/hem">Hem</a>
+      <a href="/fredagsfett/kalender">Kalender</a>
+      <a href="/fredagsfett/sp1wise">SP1Wise</a>
+      <a href="/fredagsfett/karta" aria-current="page">Karta</a>
+      <a href="/fredagsfett/kalender#chat-list">Chat</a>
+    </div>
+    <div class="ff-top-tools" aria-label="Gruppstatus">
+      <div class="ff-clock"><span>22:14</span><small>fre · 15.v.mmxvi</small></div>
+      <div class="ff-avatar-row" aria-hidden="true">
+        <span class="ff-av ff-av-s">S</span><span class="ff-av ff-av-a">A</span><span class="ff-av ff-av-p">P</span><span class="ff-av ff-av-e">E</span><span class="ff-av ff-av-more">+2</span>
+      </div>
+      <span class="ff-user-chip"><span class="ff-av ff-av-s">S</span><span>Simon</span><span class="ff-admin-badge">ADMIN</span></span>
+    </div>
+  </nav>
   <div class="sp1e-wordmark" aria-label="SP1E" role="img">
     <span>S</span><span>P</span><span>1</span><span>E</span>
   </div>
-  <section class="room">
+  <section class="room karta-shell ff-card">
     <header>
       <div>
         <p class="kicker">𓀂</p>
@@ -241,6 +259,7 @@
     <div class="map-shell">
       <section class="map-main" aria-label="Ruttkarta">
         <div class="map-toolbar" role="toolbar" aria-label="Karta">
+          <input class="map-searchbar" id="map-searchbar" type="search" aria-label="Sök plats" placeholder="Sök plats, gata eller medlem...">
           <button type="button" id="locate-btn" title="Centrera kartan på din position">📍 Min position</button>
           <button type="button" id="stockholm-btn" title="Centrera på Stockholm">Stockholm</button>
           <button type="button" id="save-btn" title="Spara nuvarande ritning som en namngiven rutt">💾 Spara rutt</button>
@@ -250,15 +269,25 @@
         <div id="map"></div>
         <div class="saved-list" id="saved-list"></div>
       </section>
-      <aside class="place-rail" aria-label="Gruppens platser">
+      <aside class="place-rail map-sidebar" aria-label="Gruppens platser">
         <div>
           <p class="kicker">Karta · Stockholm</p>
           <h2>Gruppens platser</h2>
           <p class="place-copy">Mötespunkter, favoritställen och ungefärliga hemzoner. Rutter sparas separat i D1 och syns för hela gruppen.</p>
         </div>
-        <div class="place-filters" id="place-filters" aria-label="Filtrera platser"></div>
+        <div class="place-filters map-category-pills" id="place-filters" aria-label="Filtrera platser"></div>
         <div class="place-detail" id="place-detail"></div>
         <div class="place-list" id="place-list"></div>
+        <div class="next-friday-card">
+          <p class="kicker">Nästa 𓀂</p>
+          <h3>En kväll i Hagaparken</h3>
+          <div class="next-friday-meta">
+            <span>Plats · Hagaparken</span>
+            <span>Från · 5,4 km</span>
+            <span>Kl. · 19:30 fre</span>
+          </div>
+          <a class="button" href="/fredagsfett/kalender">Lägg till i kalender</a>
+        </div>
       </aside>
     </div>
   </section>

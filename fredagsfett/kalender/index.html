@@ -179,13 +179,10 @@
     color: var(--accent) !important;
   }
   .ical-btn:hover { background: rgba(205,176,110,0.20) !important; }
-  /* Background themes — each variant retones the gallery wall background
-   * with overlays and CSS filters. No new image assets needed; the same
-   * /assets/landing/gallery-wall-wide.png stays, just lit differently. */
+  /* Background themes tint the shared light shell without reusing the dark landing skin. */
   body.theme-sommarljus {
     background:
       linear-gradient(to bottom, rgba(255,235,180,0.10), rgba(40,28,8,0.55)),
-      url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
       #1a1208;
   }
   body.theme-sommarljus::before {
@@ -196,7 +193,6 @@
   body.theme-park {
     background:
       linear-gradient(to bottom, rgba(140,190,140,0.10), rgba(8,22,12,0.65)),
-      url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
       #061410;
   }
   body.theme-park::before {
@@ -207,7 +203,6 @@
   body.theme-cafe {
     background:
       linear-gradient(to bottom, rgba(255,200,150,0.10), rgba(40,18,8,0.62)),
-      url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
       #1a0c06;
   }
   body.theme-cafe::before {
@@ -698,17 +693,35 @@
     .panel-block + .panel-block { margin-top: 0.5rem; padding-top: 0.5rem; }
   }
 </style>
+<link rel="stylesheet" href="/fredagsfett/light-ui.css">
 </head>
-<body>
+<body class="ff-light-page ff-calendar-page">
 <main>
+  <nav class="ff-topbar" aria-label="Fredagsfett navigation">
+    <a class="ff-brand" href="/fredagsfett/hem" aria-label="SP1E">SP1E</a>
+    <div class="ff-nav-row">
+      <a href="/fredagsfett/hem">Hem</a>
+      <a href="/fredagsfett/kalender" aria-current="page">Kalender</a>
+      <a href="/fredagsfett/sp1wise">SP1Wise</a>
+      <a href="/fredagsfett/karta">Karta</a>
+      <a href="#chat-list">Chat</a>
+    </div>
+    <div class="ff-top-tools" aria-label="Gruppstatus">
+      <div class="ff-clock"><span>22:14</span><small>fre · 15.v.mmxvi</small></div>
+      <div class="ff-avatar-row" aria-hidden="true">
+        <span class="ff-av ff-av-s">S</span><span class="ff-av ff-av-a">A</span><span class="ff-av ff-av-p">P</span><span class="ff-av ff-av-e">E</span><span class="ff-av ff-av-more">+2</span>
+      </div>
+      <span class="ff-user-chip"><span class="ff-av ff-av-s">S</span><span>Simon</span><span class="ff-admin-badge">ADMIN</span></span>
+    </div>
+  </nav>
   <div class="sp1e-wordmark" aria-label="SP1E" role="img">
     <span>S</span><span>P</span><span>1</span><span>E</span>
   </div>
-  <section class="room">
+  <section class="room calendar-shell ff-card">
     <header>
       <div>
         <p class="kicker">𓀂</p>
-        <h1>(S)planner</h1>
+        <h1>Kalender</h1>
       </div>
       <nav class="nav admin-nav" aria-label="𓀂 navigation">
         <a class="button" href="/fredagsfett/hem" title="Hem-dashboard">🏠 Hem</a>
@@ -721,7 +734,7 @@
     </header>
     <div id="next-event-banner" class="next-event-banner" hidden></div>
     <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle" title="Visa/dölj nyhetsflöde och chatt">Dölj sidopanel</button>
-    <div class="layout">
+    <div class="layout calendar-page-grid">
       <aside class="left-sidebar">
         <section class="sidebar-card news-card">
           <h3>Nyheter</h3>
@@ -738,7 +751,7 @@
           </form>
         </section>
       </aside>
-      <section class="calendar-card">
+      <section class="calendar-card month-board">
         <div class="calendar-head">
           <button id="prev-month" type="button">Föregående</button>
           <h2 id="month-title">Laddar...</h2>
@@ -762,7 +775,7 @@
           <button type="button" data-summer="11">November</button>
           <button type="button" data-summer="12">December</button>
           <button type="button" id="mark-fridays-btn" title="Markera dig själv som tillgänglig på de kommande 4 fredagarna">Markera 4 fredagar</button>
-          <div class="view-mode" role="tablist" aria-label="Vy">
+          <div class="view-mode view-switch-card" role="tablist" aria-label="Vy">
             <button type="button" data-view-mode="initials" aria-pressed="true">Initialer</button>
             <button type="button" data-view-mode="heatmap"  aria-pressed="false">Värmekarta</button>
             <button type="button" data-view-mode="week"     aria-pressed="false">Vecka</button>
@@ -770,7 +783,7 @@
         </div>
         <div class="calendar-grid" id="calendar-grid" aria-live="polite"></div>
       </section>
-      <aside>
+      <aside class="calendar-side-panel">
         <section class="panel-block">
           <div id="event-card" class="event-card" hidden>
             <div class="event-card-head">
@@ -886,7 +899,7 @@
           </div>
           <div class="error" id="calendar-error"></div>
         </section>
-        <section class="panel-block">
+        <section class="panel-block locked-events-panel">
           <h3 id="locked-events-heading">Inlåsta fredagar</h3>
           <div class="locked-events-list" id="locked-events-list"></div>
           <div class="tiny" id="locked-events-empty" hidden>Inga inlåsta datum framåt. <span id="best-dates-hint"></span></div>

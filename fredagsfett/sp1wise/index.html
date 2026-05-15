@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/fredagsfett/style.css">
 <style>
   :root {
-    --bg: #050505;
+    --bg: #eeebe2;
     --panel: rgba(10, 10, 10, 0.74);
     --card: rgba(255,255,255,0.04);
     --line: rgba(255,255,255,0.12);
@@ -30,8 +30,7 @@
     margin: 0;
     padding: clamp(1rem, 4vw, 2.5rem);
     background:
-      linear-gradient(to bottom, rgba(0,0,0,0.22), rgba(0,0,0,0.76)),
-      url('/assets/landing/gallery-wall-wide.png') center / cover fixed,
+      linear-gradient(to bottom, rgba(238,235,226,0.96), rgba(223,219,207,0.98)),
       var(--bg);
     color: var(--text);
     font-family: 'Cormorant Garamond', serif;
@@ -259,13 +258,31 @@
     .form-grid, .summary { grid-template-columns: 1fr; }
   }
 </style>
+<link rel="stylesheet" href="/fredagsfett/light-ui.css">
 </head>
-<body>
+<body class="ff-light-page ff-sp1wise-page">
 <main>
+  <nav class="ff-topbar" aria-label="Fredagsfett navigation">
+    <a class="ff-brand" href="/fredagsfett/hem" aria-label="SP1E">SP1E</a>
+    <div class="ff-nav-row">
+      <a href="/fredagsfett/hem">Hem</a>
+      <a href="/fredagsfett/kalender">Kalender</a>
+      <a href="/fredagsfett/sp1wise" aria-current="page">SP1Wise</a>
+      <a href="/fredagsfett/karta">Karta</a>
+      <a href="#activity-list">Chat</a>
+    </div>
+    <div class="ff-top-tools" aria-label="Gruppstatus">
+      <div class="ff-clock"><span>22:14</span><small>fre · 15.v.mmxvi</small></div>
+      <div class="ff-avatar-row" aria-hidden="true">
+        <span class="ff-av ff-av-s">S</span><span class="ff-av ff-av-a">A</span><span class="ff-av ff-av-p">P</span><span class="ff-av ff-av-e">E</span><span class="ff-av ff-av-more">+2</span>
+      </div>
+      <span class="ff-user-chip"><span class="ff-av ff-av-s">S</span><span>Simon</span><span class="ff-admin-badge">ADMIN</span></span>
+    </div>
+  </nav>
   <div class="sp1e-wordmark" aria-label="SP1E" role="img">
     <span>S</span><span>P</span><span>1</span><span>E</span>
   </div>
-  <section class="room">
+  <section class="room sp1wise-shell ff-card">
     <header>
       <div>
         <p class="kicker">𓀂</p>
@@ -279,24 +296,24 @@
     </header>
     <div class="layout">
       <section class="stack">
-        <div class="card">
+        <div class="card sp1wise-hero">
           <p class="kicker">Saldo</p>
           <div class="summary">
-            <div>
+            <div class="member-balance-panel">
               <h3>Personer</h3>
               <div class="balance-list" id="balance-list"></div>
             </div>
-            <div>
+            <div class="simplified-debts-panel">
               <h3>Förenklad skuld</h3>
               <div class="debt-list" id="debt-list"></div>
             </div>
           </div>
         </div>
-        <div class="card">
+        <div class="card ledger-panel">
           <h3>Utgifter</h3>
           <div class="expense-list" id="expense-list"></div>
         </div>
-        <div class="card">
+        <div class="card distribution-panel">
           <h3>Aktivitet</h3>
           <div class="activity-list" id="activity-list"></div>
         </div>
