@@ -41,7 +41,7 @@ check('Fredagsfett shared light Gotland UI skin exists', fs.existsSync(files.lig
 check('Fredagsfett core pages use the shared light topbar shell', /ff-light-page/.test(calendar) && /ff-light-page/.test(sp1wise) && /ff-light-page/.test(karta) && /ff-topbar/.test(calendar) && /ff-topbar/.test(sp1wise) && /ff-topbar/.test(karta));
 check('Kalender uses the light month-board layout from the reference', /ff-calendar-page/.test(calendar) && /calendar-shell/.test(calendar) && /calendar-page-grid/.test(calendar) && /locked-events-panel/.test(calendar) && /view-switch-card/.test(calendar));
 check('SP1Wise uses the light debt-dashboard layout from the reference', /ff-sp1wise-page/.test(sp1wise) && /sp1wise-shell/.test(sp1wise) && /sp1wise-hero/.test(sp1wise) && /simplified-debts-panel/.test(sp1wise) && /member-balance-panel/.test(sp1wise) && /distribution-panel/.test(sp1wise));
-check('Karta uses the light Stockholm map layout from the reference', /ff-karta-page/.test(karta) && /karta-shell/.test(karta) && /map-searchbar/.test(karta) && /map-category-pills/.test(karta) && /map-sidebar/.test(karta) && /next-friday-card/.test(karta));
+check('Karta uses the light Stockholm map layout from the reference', /ff-karta-page/.test(karta) && /karta-shell/.test(karta) && /map-searchbar/.test(karta) && /map-category-pills/.test(karta) && /map-sidebar/.test(karta) && /next-event-card/.test(karta));
 check('Fredagsfett feature pages no longer use the dark gallery skin', !/gallery-wall-wide\.png/.test(calendar + sp1wise + karta) && !/--bg:\s*#050505/.test(sp1wise + karta));
 
 check('Availability API dispatch exists', /fredagsfettAvailability/.test(api) && /id === ['"]availability['"]/.test(api));
@@ -100,9 +100,12 @@ check('Events DELETE soft-cancels with status=CANCELLED and cancelled_at',
 check('Events activity log emits event_updated and event_cancelled',
   /event_updated/.test(api) && /event_cancelled/.test(api));
 
-check('Availability upsert applies weekday default times when keys are missing',
+// Weekday-default-time prefill was removed: the project is event-agnostic and
+// no longer treats Friday/Saturday/Sunday specially. The helper still exists as
+// a no-op for backwards compat with the call site.
+check('Availability upsert no longer encodes Friday-specific default times',
   /fredagsfettWeekdayDefaultTimes/.test(api)
-  && /18:00/.test(api) && /17:00/.test(api) && /12:00/.test(api));
+  && !/return\s*\{\s*start_time:\s*['"]18:00['"]/.test(api));
 check('Availability upsert distinguishes missing key from empty string',
   /'start_time' in body/.test(api) && /'end_time' in body/.test(api));
 check('Availability upsert allows standalone start_time when default applies',
@@ -135,8 +138,10 @@ check('Calendar has a view-mode toggle for initials / heatmap',
   && /Värmekarta/.test(calendar));
 check('Calendar persists view mode in sessionStorage',
   /ff-calendar-view-mode/.test(calendar));
-check('Calendar replaces "Bästa datum" panel with "Inlåsta fredagar"',
-  /Inlåsta fredagar/.test(calendar)
+check('Calendar replaces "Bästa datum" panel with the locked-events panel (no Friday wording)',
+  /Inlåsta event/.test(calendar)
+  && !/Inlåsta fredagar/.test(calendar)
+  && !/Markera 4 fredagar/.test(calendar)
   && /id=["']locked-events-list["']/.test(calendar)
   && !/Bästa datum/.test(calendar) // header text removed
 );

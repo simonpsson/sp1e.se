@@ -1136,7 +1136,7 @@ function renderHero() {
     $('date-day').textContent = '—';
     $('date-month').textContent = '—';
     $('date-num').textContent = 'N° 000';
-    $('hero-title-el').textContent = 'Inga inlåsta fredagar framåt';
+    $('hero-title-el').textContent = 'Inga inlåsta event framåt';
     $('hero-time').textContent = '—';
     $('hero-place').textContent = '—';
     $('hero-playlist').textContent = '—';
@@ -1188,7 +1188,7 @@ function renderChecklist() {
   const wrap = $('checklist');
   const count = $('check-count');
   if (!state.nextEvent) {
-    wrap.innerHTML = '<div class="empty">Lås in en fredag för att kunna planera vem som tar med vad.</div>';
+    wrap.innerHTML = '<div class="empty">Lås in ett event för att kunna planera vem som tar med vad.</div>';
     count.textContent = '—';
     return;
   }
@@ -1343,8 +1343,6 @@ const CMDK = [
   { id: 'goto-sp1wise',  icon: '∑', label: 'Öppna SP1Wise',   desc: 'navigera', hint: 'G S', run: () => location.href = '/fredagsfett/sp1wise' },
   { id: 'goto-admin',    icon: '⚙', label: 'Dev console',     desc: 'navigera · admin', hint: '', adminOnly: true, run: () => location.href = '/fredagsfett/admin' },
   { id: 'copy-ical',     icon: '✦', label: 'Kopiera iCal-länk', desc: 'prenumerera', hint: '', run: copyIcal },
-  { id: 'mark-fri-yes',  icon: '✓', label: 'Markera nästa fredag som tillgänglig', desc: 'kalender', hint: '', run: () => markFri('AVAILABLE') },
-  { id: 'mark-fri-maybe',icon: '?', label: 'Markera nästa fredag som kanske',     desc: 'kalender', hint: '', run: () => markFri('MAYBE') },
   { id: 'focus-chat',    icon: '✎', label: 'Skriv i gruppchatten',  desc: 'chat', hint: '', run: () => $('chat-input').focus() },
   { id: 'focus-add',     icon: '+', label: 'Lägg till sak att ta med', desc: 'checklista', hint: '', run: () => $('check-add-input').focus() },
 ];
@@ -1384,20 +1382,6 @@ function runCmdk(cmd) {
   if (!cmd) return;
   closeCmdk();
   try { cmd.run(); } catch (err) { showToast(err.message || 'Kommandot misslyckades.'); }
-}
-
-async function markFri(status) {
-  const t = new Date(); t.setUTCHours(0,0,0,0);
-  const dow = t.getUTCDay();
-  const days = dow === 5 ? 0 : (5 - dow + 7) % 7;
-  const d = new Date(t); d.setUTCDate(t.getUTCDate() + days);
-  const iso = isoDate(d);
-  try {
-    await api('/api/fredagsfett/availability', { method: 'POST', body: JSON.stringify({ date: iso, status }) });
-    await Promise.all([loadAvailability(), loadActivity()]);
-    renderActivity();
-    showToast(`Markerade ${iso} som ${status.toLowerCase()}.`);
-  } catch (err) { showToast(err.message || 'Kunde inte markera.'); }
 }
 
 /* ─── Wiring ─── */

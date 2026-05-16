@@ -492,7 +492,7 @@ body.ff-light-page main {
 
 .ff-karta-page .place-detail,
 .ff-karta-page .place-list,
-.ff-karta-page .next-friday-card {
+.ff-karta-page .next-event-card {
   border: 1px solid var(--ff-line) !important;
   border-radius: 16px !important;
   background: rgba(255, 255, 255, 0.34) !important;

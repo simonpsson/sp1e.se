@@ -32,7 +32,7 @@
 | `/hub/note/*` | `hub/note/index.html` | Note detail/edit view |
 | `/visitor` | (redirect) | Redirects to `/mosquito` |
 | `/fredagsfett` | `fredagsfett/index.html` | Private gateway — password + device fingerprint, registers a name on first use |
-| `/fredagsfett/kalender` | `fredagsfett/kalender/index.html` | Group calendar — tap-cycle availability, weekday default times, heatmap mode, admin event lock-in, Inlåsta fredagar panel |
+| `/fredagsfett/kalender` | `fredagsfett/kalender/index.html` | Group calendar — tap-cycle availability, heatmap mode, admin event lock-in, Inlåsta event panel (event-agnostic — no Friday-specific behaviour) |
 | `/fredagsfett/sp1wise` | `fredagsfett/sp1wise/index.html` | Group expense split + settlements + CSV export |
 | `/fredagsfett/admin` | `fredagsfett/admin/index.html` | Dev console — manage users, rename, toggle `is_admin` flag, revoke devices |
 | `/fredagsfett/karta` | `fredagsfett/karta/index.html` | Leaflet map (OpenStreetMap) with draw tools for routes/markers/polygons; routes saved in localStorage with .geojson export |

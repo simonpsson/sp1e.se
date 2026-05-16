@@ -1822,12 +1822,11 @@ function normalizeFredagsfettTime(value: string | null | undefined): string | nu
   return time;
 }
 
-function fredagsfettWeekdayDefaultTimes(date: string): { start_time: string | null; end_time: string | null } {
-  // date is YYYY-MM-DD; compute UTC weekday (matches D1 storage, which is date-only).
-  const weekday = new Date(date + 'T00:00:00Z').getUTCDay(); // 0=Sun..6=Sat
-  if (weekday === 5) return { start_time: '18:00', end_time: null };
-  if (weekday === 6) return { start_time: '17:00', end_time: null };
-  if (weekday === 0) return { start_time: '12:00', end_time: null };
+function fredagsfettWeekdayDefaultTimes(_date: string): { start_time: string | null; end_time: string | null } {
+  // Weekday-specific default times were removed: the project is event-agnostic and
+  // no longer treats Friday/Saturday/Sunday specially. The function is kept so the
+  // single call site in fredagsfettAvailabilityUpsert and the contract checker still
+  // resolve; it just returns nulls for every weekday now.
   return { start_time: null, end_time: null };
 }
 

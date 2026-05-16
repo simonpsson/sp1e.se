@@ -774,7 +774,6 @@
           <button type="button" data-summer="10">Oktober</button>
           <button type="button" data-summer="11">November</button>
           <button type="button" data-summer="12">December</button>
-          <button type="button" id="mark-fridays-btn" title="Markera dig själv som tillgänglig på de kommande 4 fredagarna">Markera 4 fredagar</button>
           <div class="view-mode view-switch-card" role="tablist" aria-label="Vy">
             <button type="button" data-view-mode="initials" aria-pressed="true">Initialer</button>
             <button type="button" data-view-mode="heatmap"  aria-pressed="false">Värmekarta</button>
@@ -900,7 +899,7 @@
           <div class="error" id="calendar-error"></div>
         </section>
         <section class="panel-block locked-events-panel">
-          <h3 id="locked-events-heading">Inlåsta fredagar</h3>
+          <h3 id="locked-events-heading">Inlåsta event</h3>
           <div class="locked-events-list" id="locked-events-list"></div>
           <div class="tiny" id="locked-events-empty" hidden>Inga inlåsta datum framåt. <span id="best-dates-hint"></span></div>
         </section>
@@ -1294,14 +1293,10 @@ function buildHostOptions(prefill) {
   if (previous && seen.has(previous)) lockHostSelect.value = previous;
 }
 
-// Client-side UI prefill only; intentionally includes end times. Server-side
-// fredagsfettWeekdayDefaultTimes uses only start times for tap-cycle defaults.
-function weekdayDefaultTimes(date) {
-  const [y, m, d] = date.split('-').map(Number);
-  const dow = new Date(y, m - 1, d).getDay(); // 0=Sun, 5=Fri, 6=Sat
-  if (dow === 5) return { start: '18:00', end: '23:00' };
-  if (dow === 6) return { start: '17:00', end: '23:00' };
-  if (dow === 0) return { start: '12:00', end: '17:00' };
+// Weekday-specific UI prefill removed: events are not coupled to any specific day.
+// The lock form starts empty unless the admin already entered times for this date
+// (handled by majorityTimePair below).
+function weekdayDefaultTimes(_date) {
   return { start: '', end: '' };
 }
 
@@ -1352,7 +1347,7 @@ function renderLockedEvents() {
     .filter(event => event.status === 'LOCKED' && event.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date));
   // C5 — show count in header when non-zero
-  if (heading) heading.textContent = upcoming.length ? `Inlåsta fredagar (${upcoming.length})` : 'Inlåsta fredagar';
+  if (heading) heading.textContent = upcoming.length ? `Inlåsta event (${upcoming.length})` : 'Inlåsta event';
   if (upcoming.length) {
     list.innerHTML = upcoming.map(event => {
       const attendees = event.attendees || [];
@@ -1596,7 +1591,7 @@ async function loadEventComments(eventId) {
 
 async function loadUpcomingEvents() {
   // Widened window: 6 months back to 6 months ahead. Past LOCKED events are
-  // surfaced in the "Tidigare fredagsfett" panel; future ones in "Inlåsta fredagar".
+  // surfaced in the "Tidigare fredagsfett" panel; future ones in "Inlåsta event".
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
   const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 6, 1)).toISOString().slice(0, 10);
@@ -1885,37 +1880,6 @@ document.querySelectorAll('[data-summer]').forEach(button => {
     lockEventForm.hidden = true;
     void reloadCalendarData();
   });
-});
-
-// A3 — bulk mark next 4 Fridays as AVAILABLE (server applies Friday default time)
-document.getElementById('mark-fridays-btn').addEventListener('click', async () => {
-  const btn = document.getElementById('mark-fridays-btn');
-  btn.disabled = true;
-  errorBox.textContent = '';
-  try {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const dow = today.getUTCDay();
-    const daysToFirstFriday = dow === 5 ? 0 : (5 - dow + 7) % 7;
-    const dates = [];
-    for (let i = 0; i < 4; i++) {
-      const d = new Date(today);
-      d.setUTCDate(today.getUTCDate() + daysToFirstFriday + i * 7);
-      dates.push(d.toISOString().slice(0, 10));
-    }
-    for (const date of dates) {
-      await api('/api/fredagsfett/availability', {
-        method: 'POST',
-        body: JSON.stringify({ date, status: 'AVAILABLE' }),
-      });
-    }
-    await reloadCalendarData();
-    showToast(`${dates.length} fredagar markerade som tillgänglig.`);
-  } catch (err) {
-    errorBox.textContent = err.message;
-  } finally {
-    btn.disabled = false;
-  }
 });
 
 document.querySelectorAll('[data-view-mode]').forEach(button => {
