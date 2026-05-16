@@ -50,9 +50,9 @@ body.ff-light-page::before {
 body.ff-light-page main {
   position: relative;
   z-index: 1;
-  width: min(1860px, 100%);
+  width: min(1440px, 100%);
   margin: 0 auto;
-  padding: 0 2rem 2rem;
+  padding: 0 1.2rem 1.4rem;
 }
 
 .ff-light-page .sp1e-wordmark {
@@ -70,23 +70,23 @@ body.ff-light-page main {
   top: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: 150px 1fr auto;
+  grid-template-columns: 110px 1fr auto;
   align-items: center;
-  gap: 2rem;
-  height: 92px;
-  margin: 0 -2rem 2.4rem;
-  padding: 0 2.6rem;
+  gap: 1.2rem;
+  height: 64px;
+  margin: 0 -1.2rem 1.2rem;
+  padding: 0 1.6rem;
   border-bottom: 1px solid var(--ff-line);
-  background: rgba(238, 235, 226, 0.86);
+  background: rgba(238, 235, 226, 0.88);
   backdrop-filter: blur(22px);
 }
 
 .ff-brand {
   color: var(--ff-ink);
   font-family: var(--ff-font-display);
-  font-size: 2rem;
+  font-size: 1.35rem;
   font-weight: 400;
-  letter-spacing: 0.45em;
+  letter-spacing: 0.38em;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -94,7 +94,7 @@ body.ff-light-page main {
 .ff-nav-row {
   display: flex;
   align-items: center;
-  gap: 2.4rem;
+  gap: 1.5rem;
   min-width: 0;
 }
 
@@ -102,8 +102,8 @@ body.ff-light-page main {
   position: relative;
   color: rgba(40, 34, 24, 0.48);
   font-family: var(--ff-font-mono);
-  font-size: 0.74rem;
-  letter-spacing: 0.28em;
+  font-size: 0.66rem;
+  letter-spacing: 0.24em;
   text-decoration: none;
   text-transform: uppercase;
 }
@@ -117,9 +117,9 @@ body.ff-light-page main {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: -1.15rem;
-  width: 0.42rem;
-  height: 0.42rem;
+  bottom: -0.7rem;
+  width: 0.34rem;
+  height: 0.34rem;
   border-radius: 50%;
   background: var(--ff-sage);
   transform: translateX(-50%);
@@ -239,13 +239,13 @@ body.ff-light-page main {
 }
 
 .ff-light-page h1 {
-  font-size: clamp(4.4rem, 8vw, 7rem) !important;
-  letter-spacing: 0.12em !important;
-  line-height: 0.9 !important;
+  font-size: clamp(2.2rem, 4vw, 3.4rem) !important;
+  letter-spacing: 0.04em !important;
+  line-height: 0.95 !important;
 }
 
 .ff-light-page h2 {
-  font-size: clamp(2.1rem, 4vw, 3.3rem) !important;
+  font-size: clamp(1.3rem, 2vw, 1.8rem) !important;
   letter-spacing: 0.02em !important;
 }
 
@@ -262,8 +262,10 @@ body.ff-light-page main {
 
 .ff-light-page button,
 .ff-light-page .button {
-  border-radius: 11px !important;
+  border-radius: 8px !important;
+  padding: 0.45rem 0.85rem !important;
   font-family: var(--ff-font-mono) !important;
+  font-size: 0.7rem !important;
   letter-spacing: 0.16em !important;
   text-transform: uppercase;
 }
@@ -280,7 +282,7 @@ body.ff-light-page main {
 .ff-light-page input,
 .ff-light-page select,
 .ff-light-page textarea {
-  border-radius: 13px !important;
+  border-radius: 8px !important;
   font-family: var(--ff-font-body) !important;
 }
 
@@ -294,15 +296,15 @@ body.ff-light-page main {
 .ff-sp1wise-page .sp1wise-shell > header,
 .ff-karta-page .karta-shell > header {
   min-height: auto !important;
-  padding: 3rem 3rem 2.2rem !important;
+  padding: 1.2rem 1.6rem 0.9rem !important;
   align-items: flex-start !important;
 }
 
 .ff-calendar-page .calendar-page-grid {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) 380px !important;
-  gap: 1.6rem !important;
-  padding: 1.6rem !important;
+  grid-template-columns: minmax(0, 1fr) 300px !important;
+  gap: 1rem !important;
+  padding: 1rem !important;
 }
 
 .ff-calendar-page .left-sidebar,
@@ -320,19 +322,28 @@ body.ff-light-page main {
 }
 
 .ff-calendar-page .calendar-head {
-  padding: 1.35rem 1.55rem !important;
+  padding: 0.7rem 1.1rem !important;
   border-bottom: 1px solid var(--ff-line) !important;
 }
 
 .ff-calendar-page .calendar-head h2 {
-  font-size: 2rem !important;
+  font-size: 1.35rem !important;
   font-style: italic;
   text-align: center;
 }
 
 .ff-calendar-page .summer {
-  padding: 1.1rem 1.35rem !important;
+  padding: 0.6rem 1rem !important;
+  gap: 0.32rem !important;
   border-bottom: 1px solid var(--ff-line);
+}
+
+.ff-calendar-page .summer button,
+.ff-calendar-page .year-bar button,
+.ff-calendar-page .view-switch-card button {
+  padding: 0.32rem 0.7rem !important;
+  font-size: 0.6rem !important;
+  border-radius: 999px !important;
 }
 
 .ff-calendar-page .view-switch-card {
@@ -352,11 +363,16 @@ body.ff-light-page main {
 }
 
 .ff-calendar-page .day {
-  min-height: 130px !important;
+  min-height: 88px !important;
   border: 0 !important;
-  border-radius: 10px !important;
+  border-radius: 8px !important;
   background: rgba(250, 247, 239, 0.80) !important;
   color: var(--ff-ink) !important;
+  padding: 0.4rem 0.5rem !important;
+}
+
+.ff-calendar-page .day-number {
+  font-size: 0.85rem !important;
 }
 
 .ff-calendar-page .day.selected {
@@ -369,7 +385,16 @@ body.ff-light-page main {
 
 .ff-calendar-page .calendar-side-panel {
   align-self: start;
-  padding: 1.35rem !important;
+  padding: 0.9rem 1rem !important;
+  font-size: 0.85rem;
+}
+
+.ff-calendar-page .calendar-side-panel input,
+.ff-calendar-page .calendar-side-panel select,
+.ff-calendar-page .calendar-side-panel textarea {
+  padding: 0.4rem 0.6rem !important;
+  font-size: 0.85rem !important;
+  border-radius: 8px !important;
 }
 
 .ff-calendar-page .status-row {
@@ -389,9 +414,9 @@ body.ff-light-page main {
 
 .ff-sp1wise-page .layout {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) 410px !important;
-  gap: 1.6rem !important;
-  padding: 1.6rem !important;
+  grid-template-columns: minmax(0, 1fr) 340px !important;
+  gap: 1rem !important;
+  padding: 1rem !important;
 }
 
 .ff-sp1wise-page .card {
@@ -433,7 +458,7 @@ body.ff-light-page main {
 }
 
 .ff-karta-page .karta-shell {
-  min-height: calc(100vh - 122px) !important;
+  min-height: calc(100vh - 96px) !important;
   border-radius: 0 !important;
 }
 
@@ -443,8 +468,8 @@ body.ff-light-page main {
 
 .ff-karta-page .map-shell {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) 380px !important;
-  min-height: calc(100vh - 122px) !important;
+  grid-template-columns: minmax(0, 1fr) 320px !important;
+  min-height: calc(100vh - 96px) !important;
 }
 
 .ff-karta-page .map-main {
@@ -454,7 +479,7 @@ body.ff-light-page main {
 }
 
 .ff-karta-page #map {
-  min-height: calc(100vh - 122px) !important;
+  min-height: calc(100vh - 96px) !important;
   filter: saturate(0.35) sepia(0.18) brightness(1.08) contrast(0.88);
 }
 

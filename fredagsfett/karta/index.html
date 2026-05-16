@@ -220,6 +220,99 @@
     .place-rail { border-left: 0; border-top: 1px solid rgba(255,255,255,0.08); }
     .place-list { max-height: none; }
   }
+
+  /* Map enhancements: swatches, coord readout, measure tool */
+  .color-swatches { display: inline-flex; gap: 0.32rem; align-items: center; }
+  .ff-light-page .color-swatches .swatch,
+  .color-swatches .swatch {
+    width: 22px !important; height: 22px !important;
+    min-width: 22px !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+    border: 2px solid rgba(255,255,255,0.4) !important;
+    background: var(--c, #6c7450) !important;
+    cursor: pointer;
+    transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+  }
+  .color-swatches .swatch:hover { transform: scale(1.12); }
+  .ff-light-page .color-swatches .swatch.active,
+  .color-swatches .swatch.active {
+    border-color: #fff !important;
+    box-shadow: 0 0 0 2px rgba(40, 34, 24, 0.35) !important;
+    background: var(--c) !important;
+    color: transparent !important;
+  }
+  .map-divider {
+    width: 1px; height: 22px;
+    background: rgba(80,72,55,0.18);
+    margin: 0 0.15rem;
+  }
+  #map { position: relative; }
+  .map-coords {
+    position: absolute;
+    bottom: 0.7rem;
+    left: 0.7rem;
+    z-index: 500;
+    padding: 0.25rem 0.55rem;
+    border-radius: 6px;
+    background: rgba(249, 246, 237, 0.86);
+    color: rgba(40, 34, 24, 0.75);
+    font: 0.62rem 'DM Mono', monospace;
+    letter-spacing: 0.05em;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+  }
+  .map-measure-readout {
+    position: absolute;
+    top: 5.2rem;
+    right: 0.9rem;
+    z-index: 500;
+    padding: 0.4rem 0.75rem;
+    border-radius: 8px;
+    background: rgba(108, 116, 80, 0.92);
+    color: #fffaf1;
+    font: 0.72rem 'DM Mono', monospace;
+    letter-spacing: 0.06em;
+    box-shadow: 0 8px 20px rgba(50, 44, 34, 0.18);
+  }
+  /* Friendly tooltip styling on drawn shapes */
+  .leaflet-tooltip.ff-shape-label {
+    background: rgba(249, 246, 237, 0.94);
+    border: 1px solid rgba(80, 72, 55, 0.25);
+    color: #282218;
+    font: italic 500 0.86rem 'EB Garamond', 'Cormorant Garamond', serif;
+    padding: 0.18rem 0.5rem;
+    border-radius: 5px;
+    box-shadow: 0 4px 14px rgba(50, 44, 34, 0.16);
+  }
+  .leaflet-tooltip.ff-shape-label::before { display: none; }
+  .leaflet-popup-content .ff-popup-label {
+    display: block;
+    font: italic 500 1.1rem 'EB Garamond', serif;
+    color: #282218;
+    margin-bottom: 0.18rem;
+  }
+  .leaflet-popup-content .ff-popup-meta {
+    font: 0.66rem 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    color: #6c7450;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .leaflet-popup-content .ff-popup-actions { display: flex; gap: 0.35rem; margin-top: 0.5rem; }
+  .leaflet-popup-content .ff-popup-actions button {
+    border: 1px solid rgba(80,72,55,0.25);
+    background: transparent;
+    border-radius: 6px;
+    padding: 0.25rem 0.55rem;
+    font: 0.6rem 'DM Mono', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .leaflet-popup-content .ff-popup-actions button:hover { background: rgba(108,116,80,0.12); }
+  .leaflet-popup-content .ff-popup-actions button.danger { color: #a45b3d; }
+  .leaflet-popup-content .ff-popup-actions button.danger:hover { background: rgba(164,91,61,0.10); }
 </style>
 <link rel="stylesheet" href="/fredagsfett/light-ui.css">
 </head>
@@ -232,7 +325,6 @@
       <a href="/fredagsfett/kalender">Kalender</a>
       <a href="/fredagsfett/sp1wise">SP1Wise</a>
       <a href="/fredagsfett/karta" aria-current="page">Karta</a>
-      <a href="/fredagsfett/kalender#chat-list">Chat</a>
     </div>
     <div class="ff-top-tools" aria-label="Gruppstatus">
       <div class="ff-clock"><span>22:14</span><small>fre · 15.v.mmxvi</small></div>
@@ -259,14 +351,28 @@
     <div class="map-shell">
       <section class="map-main" aria-label="Ruttkarta">
         <div class="map-toolbar" role="toolbar" aria-label="Karta">
-          <input class="map-searchbar" id="map-searchbar" type="search" aria-label="Sök plats" placeholder="Sök plats, gata eller medlem...">
+          <input class="map-searchbar" id="map-searchbar" type="search" aria-label="Sök plats" placeholder="Sök plats, gata eller adress…">
           <button type="button" id="locate-btn" title="Centrera kartan på din position">📍 Min position</button>
           <button type="button" id="stockholm-btn" title="Centrera på Stockholm">Stockholm</button>
+          <span class="map-divider" aria-hidden="true"></span>
+          <div class="color-swatches" role="radiogroup" aria-label="Färg på ritning">
+            <button type="button" class="swatch active" data-color="#6c7450" style="--c:#6c7450" title="Sage (standard)"></button>
+            <button type="button" class="swatch"        data-color="#a45b3d" style="--c:#a45b3d" title="Rost"></button>
+            <button type="button" class="swatch"        data-color="#3a6e8e" style="--c:#3a6e8e" title="Stenblå"></button>
+            <button type="button" class="swatch"        data-color="#a4925d" style="--c:#a4925d" title="Guld"></button>
+            <button type="button" class="swatch"        data-color="#282218" style="--c:#282218" title="Bläck"></button>
+          </div>
+          <span class="map-divider" aria-hidden="true"></span>
+          <button type="button" id="measure-btn" title="Mät avstånd — klicka på kartan, dubbelklicka för att avsluta">📏 Mät</button>
+          <button type="button" id="undo-btn" title="Ångra senaste ritning">↶ Ångra</button>
           <button type="button" id="save-btn" title="Spara nuvarande ritning som en namngiven rutt">💾 Spara rutt</button>
           <button type="button" id="clear-btn" title="Rensa allt på kartan">Rensa</button>
-          <span class="save-status" id="save-status">Rita med verktygen till vänster på kartan.</span>
+          <span class="save-status" id="save-status">Använd verktygen till vänster för att rita. Klicka på en form efter att du ritat den för att namnge den.</span>
         </div>
-        <div id="map"></div>
+        <div id="map">
+          <div class="map-coords" id="map-coords" aria-hidden="true">—</div>
+          <div class="map-measure-readout" id="map-measure-readout" hidden></div>
+        </div>
         <div class="saved-list" id="saved-list"></div>
       </section>
       <aside class="place-rail map-sidebar" aria-label="Gruppens platser">
@@ -350,6 +456,11 @@ let map, drawn, drawControl, currentSession = null, cachedRoutes = [];
 let placeLayer = null;
 let activePlaceFilter = 'all';
 let selectedPlaceId = 'hagaparken';
+let currentStrokeColor = '#6c7450';
+let drawOrder = []; // ordered ids of drawn layers, for undo
+let measureMode = false;
+let measureLayer = null;
+let measurePoints = [];
 
 function initMap() {
   map = L.map('map', { center: STOCKHOLM, zoom: 13 });
@@ -358,24 +469,40 @@ function initMap() {
     attribution: '&copy; OpenStreetMap contributors',
   }).addTo(map);
 
+  L.control.scale({ imperial: false, position: 'bottomright' }).addTo(map);
+
   drawn = new L.FeatureGroup();
   map.addLayer(drawn);
   placeLayer = L.layerGroup().addTo(map);
+  measureLayer = L.layerGroup().addTo(map);
 
-  drawControl = new L.Control.Draw({
-    edit: { featureGroup: drawn, remove: true },
-    draw: {
-      polyline: { shapeOptions: { color: '#cdb06e', weight: 4 } },
-      polygon:  { allowIntersection: false, showArea: true, shapeOptions: { color: '#cdb06e' } },
-      rectangle:{ shapeOptions: { color: '#cdb06e' } },
-      circle:   { shapeOptions: { color: '#cdb06e' } },
-      marker: true,
-      circlemarker: false,
-    },
+  installDrawControl();
+
+  map.on(L.Draw.Event.CREATED, onShapeCreated);
+  map.on(L.Draw.Event.DELETED, e => {
+    e.layers.eachLayer(layer => {
+      const idx = drawOrder.indexOf(L.Util.stamp(layer));
+      if (idx !== -1) drawOrder.splice(idx, 1);
+    });
+    setStatus('Form borttagen.');
   });
-  map.addControl(drawControl);
 
-  map.on(L.Draw.Event.CREATED, e => drawn.addLayer(e.layer));
+  // Mouse coordinate readout (bottom-left)
+  const coordEl = document.getElementById('map-coords');
+  map.on('mousemove', e => {
+    if (!coordEl) return;
+    coordEl.textContent = `${e.latlng.lat.toFixed(4)}°N · ${e.latlng.lng.toFixed(4)}°E`;
+  });
+  map.on('mouseout', () => { if (coordEl) coordEl.textContent = '—'; });
+
+  // Click-to-measure (separate from leaflet-draw)
+  map.on('click', e => {
+    if (!measureMode) return;
+    measurePoints.push([e.latlng.lat, e.latlng.lng]);
+    redrawMeasure();
+  });
+  map.on('dblclick', () => { if (measureMode) finishMeasure(); });
+
   renderPlaceFilters();
   renderPlaces();
   renderPlaceRail();
@@ -401,10 +528,243 @@ function initMap() {
     if (!drawn.getLayers().length) return;
     if (!window.confirm('Rensa alla ritningar på kartan?')) return;
     drawn.clearLayers();
+    drawOrder = [];
     setStatus('Kartan rensad.');
   });
+  document.getElementById('undo-btn').addEventListener('click', undoLastDrawn);
+  document.getElementById('measure-btn').addEventListener('click', toggleMeasureMode);
+
+  // Color swatches: pick a stroke color for the next drawing
+  document.querySelectorAll('.color-swatches .swatch').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.color-swatches .swatch').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentStrokeColor = btn.dataset.color || '#6c7450';
+      installDrawControl(); // rebuild control with new color
+      setStatus(`Färg vald · ${currentStrokeColor}. Rita din nästa form.`);
+    });
+  });
+
+  // Search bar — geocode via Nominatim and pan there. Best-effort; rate-limited.
+  const searchInput = document.getElementById('map-searchbar');
+  if (searchInput) {
+    let searchTimer = null;
+    searchInput.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const q = searchInput.value.trim();
+      if (!q) return;
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => geocodeAndPan(q), 50);
+    });
+  }
 
   void loadRoutes();
+}
+
+// Re-create the draw control. Needed when we change the active stroke color
+// because leaflet-draw locks options at instantiation.
+function installDrawControl() {
+  if (drawControl) {
+    try { map.removeControl(drawControl); } catch {}
+  }
+  drawControl = new L.Control.Draw({
+    position: 'topleft',
+    edit: { featureGroup: drawn, remove: true },
+    draw: {
+      polyline:  { shapeOptions: { color: currentStrokeColor, weight: 4 } },
+      polygon:   { allowIntersection: false, showArea: true, shapeOptions: { color: currentStrokeColor } },
+      rectangle: { shapeOptions: { color: currentStrokeColor } },
+      circle:    { shapeOptions: { color: currentStrokeColor } },
+      marker:    true,
+      circlemarker: false,
+    },
+  });
+  map.addControl(drawControl);
+}
+
+function onShapeCreated(e) {
+  const layer = e.layer;
+  const type = e.layerType;
+  // Suggest a sensible default name based on shape type so the prompt feels lighter
+  const suggested = ({
+    marker: 'Plats',
+    polyline: 'Rutt',
+    polygon: 'Område',
+    rectangle: 'Zon',
+    circle: 'Cirkel',
+  }[type]) || 'Form';
+  const label = window.prompt('Namn / kommentar för formen (lämna tomt om du inte vill ange):', suggested) || '';
+  // Persist label + type + color on the layer so save → load round-trips it
+  layer.feature = layer.feature || { type: 'Feature', properties: {} };
+  layer.feature.properties = {
+    ...(layer.feature.properties || {}),
+    label,
+    shape: type,
+    color: currentStrokeColor,
+  };
+  if (label) attachLabelToLayer(layer, label);
+  attachPopupToLayer(layer);
+  drawn.addLayer(layer);
+  drawOrder.push(L.Util.stamp(layer));
+  setStatus(label ? `"${label}" tillagt. Klicka för att redigera eller döpa om.` : 'Form tillagd. Klicka för att namnge.');
+}
+
+function attachLabelToLayer(layer, label) {
+  // Markers get a sticky tooltip on hover and a popup with the full label on click.
+  // Polylines/polygons/rectangles/circles get a permanent tooltip at their center.
+  if (layer instanceof L.Marker) {
+    layer.bindTooltip(label, { permanent: false, sticky: true, direction: 'top', className: 'ff-shape-label', offset: [0, -10] });
+  } else {
+    layer.bindTooltip(label, { permanent: false, sticky: true, direction: 'auto', className: 'ff-shape-label' });
+  }
+}
+
+function attachPopupToLayer(layer) {
+  const props = layer.feature?.properties || {};
+  const label = props.label || '(ej namnsatt)';
+  const meta = props.shape ? props.shape.toUpperCase() : 'FORM';
+  const id = L.Util.stamp(layer);
+  const html = `
+    <span class="ff-popup-label">${escapeHtml(label)}</span>
+    <span class="ff-popup-meta">${escapeHtml(meta)}</span>
+    <div class="ff-popup-actions">
+      <button type="button" data-pop-action="rename" data-layer-id="${id}">Döp om</button>
+      <button type="button" class="danger" data-pop-action="remove" data-layer-id="${id}">Ta bort</button>
+    </div>
+  `;
+  layer.bindPopup(html);
+  layer.on('popupopen', () => {
+    const popup = layer.getPopup();
+    const root = popup?.getElement();
+    if (!root) return;
+    root.querySelectorAll('[data-pop-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.popAction;
+        if (action === 'rename') {
+          const next = window.prompt('Nytt namn:', layer.feature?.properties?.label || '');
+          if (next === null) return;
+          layer.feature.properties.label = next;
+          layer.unbindTooltip();
+          if (next) attachLabelToLayer(layer, next);
+          attachPopupToLayer(layer); // rebuild popup html
+          layer.openPopup();
+          setStatus(`Bytte namn till "${next}".`);
+        } else if (action === 'remove') {
+          if (!window.confirm('Ta bort formen?')) return;
+          drawn.removeLayer(layer);
+          const idx = drawOrder.indexOf(id);
+          if (idx !== -1) drawOrder.splice(idx, 1);
+          setStatus('Form borttagen.');
+        }
+      });
+    });
+  });
+}
+
+function undoLastDrawn() {
+  if (!drawOrder.length) { setStatus('Inget att ångra.'); return; }
+  const lastId = drawOrder.pop();
+  drawn.eachLayer(layer => {
+    if (L.Util.stamp(layer) === lastId) drawn.removeLayer(layer);
+  });
+  setStatus('Ångrade senaste form.');
+}
+
+// ─ Distance measurement (click points, double-click to finish) ───────────────
+function toggleMeasureMode() {
+  measureMode = !measureMode;
+  const btn = document.getElementById('measure-btn');
+  if (measureMode) {
+    btn.classList.add('active');
+    measurePoints = [];
+    redrawMeasure();
+    setStatus('Mät-läge: klicka på kartan för att lägga punkter, dubbelklicka för att avsluta.');
+  } else {
+    btn.classList.remove('active');
+    measureLayer.clearLayers();
+    measurePoints = [];
+    const r = document.getElementById('map-measure-readout');
+    if (r) r.hidden = true;
+    setStatus('Mät-läget avslutat.');
+  }
+}
+
+function redrawMeasure() {
+  measureLayer.clearLayers();
+  if (measurePoints.length >= 1) {
+    measurePoints.forEach(p => {
+      L.circleMarker(p, { radius: 4, color: '#a45b3d', weight: 2, fillColor: '#fffaf1', fillOpacity: 1 }).addTo(measureLayer);
+    });
+  }
+  if (measurePoints.length >= 2) {
+    L.polyline(measurePoints, { color: '#a45b3d', weight: 3, dashArray: '6 6' }).addTo(measureLayer);
+  }
+  const totalKm = polylineLengthKm(measurePoints);
+  const r = document.getElementById('map-measure-readout');
+  if (r) {
+    if (measurePoints.length >= 2) {
+      r.textContent = `${totalKm.toFixed(2)} km · ${measurePoints.length} punkter`;
+      r.hidden = false;
+    } else if (measurePoints.length === 1) {
+      r.textContent = 'Klicka för nästa punkt';
+      r.hidden = false;
+    } else {
+      r.hidden = true;
+    }
+  }
+}
+
+function finishMeasure() {
+  const totalKm = polylineLengthKm(measurePoints);
+  if (measurePoints.length >= 2) {
+    setStatus(`Mätning klar: ${totalKm.toFixed(2)} km. Tryck "Mät" igen för att börja om.`);
+  } else {
+    setStatus('Mätning avbruten (för få punkter).');
+  }
+  toggleMeasureMode();
+}
+
+function polylineLengthKm(pts) {
+  if (!pts || pts.length < 2) return 0;
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) {
+    total += haversineKm(pts[i - 1], pts[i]);
+  }
+  return total;
+}
+function haversineKm(a, b) {
+  const R = 6371;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(b[0] - a[0]);
+  const dLng = toRad(b[1] - a[1]);
+  const lat1 = toRad(a[0]);
+  const lat2 = toRad(b[0]);
+  const h = Math.sin(dLat/2)**2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+// ─ Address search via Nominatim (best-effort; respects their usage policy) ───
+async function geocodeAndPan(q) {
+  setStatus('Söker plats…');
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=se&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error('search_failed');
+    const hits = await res.json();
+    if (!hits.length) { setStatus(`Inga träffar för "${q}".`); return; }
+    const hit = hits[0];
+    const lat = parseFloat(hit.lat);
+    const lng = parseFloat(hit.lon);
+    map.setView([lat, lng], 15);
+    L.popup({ closeOnClick: true })
+      .setLatLng([lat, lng])
+      .setContent(`<span class="ff-popup-label">${escapeHtml(hit.display_name.split(',')[0])}</span><span class="ff-popup-meta">${escapeHtml((hit.type || '').toUpperCase())}</span>`)
+      .openOn(map);
+    setStatus(`Hittade: ${hit.display_name.split(',').slice(0, 2).join(', ')}`);
+  } catch {
+    setStatus('Sökningen misslyckades. Försök igen.');
+  }
 }
 
 function filteredPlaces() {
@@ -548,10 +908,25 @@ function renderSavedList() {
 
 function loadRouteOnto(route) {
   drawn.clearLayers();
-  const layer = L.geoJSON(route.geojson, { style: { color: '#cdb06e', weight: 4 } });
-  layer.eachLayer(l => drawn.addLayer(l));
+  drawOrder = [];
+  // Re-style each feature with its persisted color (falls back to sage)
+  const layer = L.geoJSON(route.geojson, {
+    style: (feature) => ({
+      color: feature?.properties?.color || '#6c7450',
+      weight: 4,
+    }),
+    pointToLayer: (feature, latlng) => L.marker(latlng),
+  });
+  layer.eachLayer(l => {
+    // L.geoJSON already attaches feature properties; restore label tooltip + popup
+    const props = l.feature?.properties || {};
+    if (props.label) attachLabelToLayer(l, props.label);
+    attachPopupToLayer(l);
+    drawn.addLayer(l);
+    drawOrder.push(L.Util.stamp(l));
+  });
   try { map.fitBounds(layer.getBounds(), { padding: [40, 40] }); } catch {}
-  setStatus(`Laddade "${route.name}".`);
+  setStatus(`Laddade "${route.name}" · ${drawOrder.length} form(er).`);
 }
 
 function downloadGeojson(route) {

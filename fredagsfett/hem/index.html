@@ -803,7 +803,6 @@ body.cmdk-open .cmdk-backdrop { display: flex; }
       <a href="/fredagsfett/kalender" role="tab">Kalender</a>
       <a href="/fredagsfett/sp1wise" role="tab">Sp1wise</a>
       <a href="/fredagsfett/karta" role="tab">Karta</a>
-      <a href="#" id="nav-chat" role="tab">Chat</a>
     </div>
     <div class="top-tools">
       <div class="clock">
@@ -1399,7 +1398,6 @@ document.addEventListener('keydown', (e) => {
 $('cmdk-input').addEventListener('input', () => { cmdkFocus = 0; renderCmdk(); });
 $('cmdk-open').addEventListener('click', openCmdk);
 $('cmdk-backdrop').addEventListener('click', (e) => { if (e.target === $('cmdk-backdrop')) closeCmdk(); });
-$('nav-chat').addEventListener('click', (e) => { e.preventDefault(); $('chat-input').focus(); $('chat-input').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 
 $('checklist').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
