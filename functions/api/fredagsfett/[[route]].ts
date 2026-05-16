@@ -153,7 +153,7 @@ type FredagsfettAvailabilityRow = {
   user_id: string;
   user_name: string;
   date: string;
-  status: 'AVAILABLE' | 'MAYBE' | 'UNAVAILABLE';
+  status: 'AVAILABLE' | 'TENTATIVE' | 'MAYBE' | 'UNAVAILABLE';
   note: string | null;
   start_time: string | null;
   end_time: string | null;
@@ -406,15 +406,17 @@ async function fredagsfettAvailabilityList(request: Request, env: Env): Promise<
   const bestDates = await env.DB.prepare(
     `SELECT a.date,
             SUM(CASE WHEN a.status = 'AVAILABLE' THEN 1 ELSE 0 END) AS available_count,
+            SUM(CASE WHEN a.status = 'TENTATIVE' THEN 1 ELSE 0 END) AS tentative_count,
             SUM(CASE WHEN a.status = 'MAYBE' THEN 1 ELSE 0 END) AS maybe_count,
             SUM(CASE WHEN a.status = 'UNAVAILABLE' THEN 1 ELSE 0 END) AS unavailable_count
        FROM ff_availability a
        JOIN ff_users u ON u.id = a.user_id AND u.deleted_at IS NULL
       WHERE a.date >= date('now')
       GROUP BY a.date
-      ORDER BY available_count DESC, unavailable_count ASC, maybe_count DESC, a.date ASC
+      ORDER BY (available_count * 1.0 + tentative_count * 0.75 + maybe_count * 0.5) DESC,
+               unavailable_count ASC, a.date ASC
       LIMIT 8`
-  ).all<{ date: string; available_count: number; maybe_count: number; unavailable_count: number }>();
+  ).all<{ date: string; available_count: number; tentative_count: number; maybe_count: number; unavailable_count: number }>();
 
   return json({
     user: fredagsfettUserPayload(session.user),
@@ -427,6 +429,7 @@ async function fredagsfettAvailabilityList(request: Request, env: Env): Promise<
     best_dates: (bestDates.results ?? []).map(row => ({
       date: row.date,
       available_count: Number(row.available_count ?? 0),
+      tentative_count: Number(row.tentative_count ?? 0),
       maybe_count: Number(row.maybe_count ?? 0),
       unavailable_count: Number(row.unavailable_count ?? 0),
     })),
@@ -549,7 +552,7 @@ async function fredagsfettEventsList(request: Request, env: Env): Promise<Respon
          FROM ff_availability a
          JOIN ff_users u ON u.id = a.user_id
         WHERE a.date IN (${placeholders})
-          AND a.status IN ('AVAILABLE','MAYBE')
+          AND a.status IN ('AVAILABLE','TENTATIVE','MAYBE')
           AND u.deleted_at IS NULL`
     ).bind(...dates).all<{ date: string; user_id: string; status: string; name: string }>();
     for (const r of rows.results ?? []) {
@@ -1831,12 +1834,13 @@ function fredagsfettWeekdayDefaultTimes(_date: string): { start_time: string | n
 }
 
 function normalizeFredagsfettAvailabilityStatus(value: string | null | undefined): FredagsfettAvailabilityRow['status'] | null {
-  if (value === 'AVAILABLE' || value === 'MAYBE' || value === 'UNAVAILABLE') return value;
+  if (value === 'AVAILABLE' || value === 'TENTATIVE' || value === 'MAYBE' || value === 'UNAVAILABLE') return value;
   return null;
 }
 
 function fredagsfettAvailabilityLabel(status: FredagsfettAvailabilityRow['status']): string {
   if (status === 'AVAILABLE') return 'Tillgänglig';
+  if (status === 'TENTATIVE') return 'Troligen';
   if (status === 'MAYBE') return 'Kanske';
   return 'Inte tillgänglig';
 }

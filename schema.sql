@@ -252,7 +252,7 @@ CREATE TABLE IF NOT EXISTS ff_availability (
   id         TEXT PRIMARY KEY,
   user_id    TEXT NOT NULL REFERENCES ff_users(id) ON DELETE CASCADE,
   date       TEXT NOT NULL,
-  status     TEXT NOT NULL CHECK (status IN ('AVAILABLE', 'MAYBE', 'UNAVAILABLE')),
+  status     TEXT NOT NULL CHECK (status IN ('AVAILABLE', 'TENTATIVE', 'MAYBE', 'UNAVAILABLE')),
   note       TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),

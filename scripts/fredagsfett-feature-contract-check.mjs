@@ -78,8 +78,21 @@ check('Events GET list endpoint exists and is user-gated',
   /fredagsfettEventsList/.test(api)
   && /id === ['"]events['"]/.test(api)
   && /requireFredagsfettUser\(request, env\)/.test(api));
-check('Events GET joins availability for attendees',
-  /fredagsfettEventsList[\s\S]*?ff_availability[\s\S]*?status IN \('AVAILABLE','MAYBE'\)/.test(api));
+check('Events GET joins availability for attendees (incl. TENTATIVE)',
+  /fredagsfettEventsList[\s\S]*?ff_availability[\s\S]*?status IN \('AVAILABLE','TENTATIVE','MAYBE'\)/.test(api));
+
+// QoL #10 — TENTATIVE availability status across the stack
+check('TENTATIVE status wired in API normalize, label and TS type',
+  /value === 'TENTATIVE'/.test(api)
+  && /status === 'TENTATIVE'/.test(api)
+  && /'AVAILABLE' \| 'TENTATIVE' \| 'MAYBE' \| 'UNAVAILABLE'/.test(api));
+check('Calendar exposes a TENTATIVE pill and includes it in the tap-cycle',
+  /data-status="TENTATIVE"/.test(calendar)
+  && /TAP_CYCLE = \['AVAILABLE', 'TENTATIVE', 'MAYBE', 'UNAVAILABLE'/.test(calendar));
+check('Migration 008 widens the ff_availability CHECK to include TENTATIVE',
+  fs.existsSync('fredagsfett-migration-008-tentative-status.sql')
+  && /CHECK \(status IN \('AVAILABLE', 'TENTATIVE', 'MAYBE', 'UNAVAILABLE'\)\)/.test(
+       fs.readFileSync('fredagsfett-migration-008-tentative-status.sql', 'utf8')));
 
 check('Events POST gated on requireFredagsfettAdminUser',
   /fredagsfettEventsCreate/.test(api)

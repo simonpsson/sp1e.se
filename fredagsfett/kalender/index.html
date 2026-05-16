@@ -14,6 +14,7 @@
    * The 3 status swatches are local because they're calendar-specific. */
   :root {
     --available: #a3cdb0;
+    --tentative: #c5d49a; /* between sage and straw, 75% lean-yes */
     --maybe: #d4c285;
     --unavailable: #d09a90;
   }
@@ -392,6 +393,7 @@
     letter-spacing: 0;
   }
   .avatar[data-status="AVAILABLE"] { background: var(--available); }
+  .avatar[data-status="TENTATIVE"] { background: var(--tentative); }
   .avatar[data-status="MAYBE"] { background: var(--maybe); }
   .avatar[data-status="UNAVAILABLE"] { background: var(--unavailable); }
   /* C4 — admin badge: thin gold ring on attendee chips, accent star in detail list */
@@ -505,8 +507,53 @@
     white-space: nowrap;
   }
   .status-pill[data-status="AVAILABLE"].active { border-color: var(--available); background: rgba(163,205,176,0.10); }
+  .status-pill[data-status="TENTATIVE"].active { border-color: var(--tentative); background: rgba(197,212,154,0.12); }
   .status-pill[data-status="MAYBE"].active { border-color: var(--maybe); background: rgba(212,194,133,0.10); }
   .status-pill[data-status="UNAVAILABLE"].active { border-color: var(--unavailable); background: rgba(208,154,144,0.10); }
+
+  /* Self-status dot in the day cell — fourth color */
+  .day[data-self-status="TENTATIVE"]::after { background: var(--tentative) !important; opacity: 1; }
+
+  /* QoL #8 — hover preview popover for locked-event day cells */
+  .day.locked-event { position: relative; }
+  .day.locked-event .day-preview {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 6px);
+    transform: translateX(-50%) translateY(4px);
+    z-index: 30;
+    min-width: 200px;
+    max-width: 280px;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid rgba(80,72,55,0.25);
+    border-radius: 8px;
+    background: rgba(249, 246, 237, 0.97);
+    color: #282218;
+    font: 0.78rem 'Public Sans', system-ui, sans-serif;
+    line-height: 1.35;
+    box-shadow: 0 14px 34px rgba(40, 34, 24, 0.18);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.14s, transform 0.14s;
+    text-align: left;
+  }
+  .day.locked-event:hover .day-preview,
+  .day.locked-event:focus-visible .day-preview {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .day.locked-event .day-preview strong {
+    display: block;
+    font: italic 500 0.95rem 'EB Garamond', serif;
+    color: #282218;
+    margin-bottom: 0.18rem;
+  }
+  .day.locked-event .day-preview .dp-line {
+    display: block;
+    font-size: 0.72rem;
+    color: rgba(40,34,24,0.66);
+  }
+  @media (hover: none) { .day.locked-event .day-preview { display: none !important; } }
   .error {
     min-height: 1rem;
     color: var(--danger);
@@ -752,9 +799,10 @@
       </aside>
       <section class="calendar-card month-board">
         <div class="calendar-head">
-          <button id="prev-month" type="button">Föregående</button>
+          <button id="prev-month" type="button" title="Föregående månad (←)">‹ Föregående</button>
+          <button id="today-btn" type="button" title="Gå till idag (G)">Idag</button>
           <h2 id="month-title">Laddar...</h2>
-          <button id="next-month" type="button">Nästa</button>
+          <button id="next-month" type="button" title="Nästa månad (→)">Nästa ›</button>
         </div>
         <div class="year-bar" aria-label="År">
           <button type="button" data-year="2026" aria-pressed="true">2026</button>
@@ -870,9 +918,10 @@
           </form>
           <p class="tap-hint">Tryck på en dag i kalendern för att växla mellan tillgänglig · kanske · inte tillgänglig.</p>
           <div class="status-row">
-            <button class="status-pill" type="button" data-status="AVAILABLE">Tillgänglig</button>
-            <button class="status-pill" type="button" data-status="MAYBE">Kanske</button>
-            <button class="status-pill" type="button" data-status="UNAVAILABLE">Inte tillgänglig</button>
+            <button class="status-pill" type="button" data-status="AVAILABLE" title="Tillgänglig (kortkommando: A)">Tillgänglig</button>
+            <button class="status-pill" type="button" data-status="TENTATIVE" title="Troligen (kortkommando: T)">Troligen</button>
+            <button class="status-pill" type="button" data-status="MAYBE" title="Kanske (kortkommando: M)">Kanske</button>
+            <button class="status-pill" type="button" data-status="UNAVAILABLE" title="Inte tillgänglig (kortkommando: U)">Inte tillgänglig</button>
           </div>
           <label>Tidsintervall</label>
           <div class="time-fields">
@@ -1066,7 +1115,7 @@ function showTapCycleHintOnce() {
   showToast('Tryck igen för att växla mellan tillgänglig / kanske / inte tillgänglig.');
 }
 
-const TAP_CYCLE = ['AVAILABLE', 'MAYBE', 'UNAVAILABLE', null];
+const TAP_CYCLE = ['AVAILABLE', 'TENTATIVE', 'MAYBE', 'UNAVAILABLE', null];
 async function tapCycleStatus(date) {
   // Snapshot the full entry, not just status, so revert restores notes/times intact.
   const prevEntry = state.entries.find(e => e.date === date && e.is_self) || null;
@@ -1164,8 +1213,9 @@ function renderCalendar() {
       .map(entry => `<span class="time-chip" title="${escapeHtml(entry.user_name)} ${escapeHtml(entry.time_note || '')}">${escapeHtml(formatTimeWindow(entry))}</span>`)
       .join('');
     const yesCount = entries.filter(e => e.status === 'AVAILABLE').length;
+    const tentativeCount = entries.filter(e => e.status === 'TENTATIVE').length;
     const maybeCount = entries.filter(e => e.status === 'MAYBE').length;
-    const score = yesCount + maybeCount * 0.5;
+    const score = yesCount + tentativeCount * 0.75 + maybeCount * 0.5;
     const intensity = Math.min(1, score / Math.max(1, groupSize));
     const heatStyle = isHeatmap && intensity > 0
       ? ` style="background: rgba(143,207,154,${(0.08 + intensity * 0.42).toFixed(3)});"`
@@ -1184,12 +1234,26 @@ function renderCalendar() {
     const weekday = new Date(date + 'T00:00:00Z').getUTCDay();
     const weekdayName = weekdays[(weekday + 6) % 7];
     const weekLabel = isWeekMode ? `<span class="week-label">${weekdayName}</span>` : '';
+    // QoL #8 — hover preview popover for locked-event days
+    let dayPreview = '';
+    if (isLocked) {
+      const ev = event;
+      const tw = formatTimeWindow(ev);
+      const lines = [
+        ev.title ? `<strong>${escapeHtml(ev.title)}</strong>` : '<strong>Inlåst dag</strong>',
+        ev.host_name ? `<span class="dp-line">Värd · ${escapeHtml(ev.host_name)}</span>` : '',
+        ev.location ? `<span class="dp-line">Plats · ${escapeHtml(ev.location)}</span>` : '',
+        tw ? `<span class="dp-line">Tid · ${escapeHtml(tw)}</span>` : '',
+      ].filter(Boolean).join('');
+      dayPreview = `<span class="day-preview" role="tooltip">${lines}</span>`;
+    }
     grid.insertAdjacentHTML('beforeend', `
       ${dayMarkup}
         <span class="day-number">${weekLabel}<span>${day}</span><span class="tiny">${entries.length || ''}</span></span>
         <span class="answers">${chips}</span>
         ${countMarkup}
         <span class="day-times">${timeChips}</span>
+        ${dayPreview}
       </button>
     `);
   }
@@ -1300,7 +1364,9 @@ function weekdayDefaultTimes(_date) {
 }
 
 function majorityTimePair(date) {
-  const entries = entriesForDate(date).filter(e => e.status === 'AVAILABLE' && e.start_time && e.end_time);
+  // TENTATIVE counts toward the time heuristic too — those people are likely
+  // showing up at the same hour as the AVAILABLE crowd.
+  const entries = entriesForDate(date).filter(e => (e.status === 'AVAILABLE' || e.status === 'TENTATIVE') && e.start_time && e.end_time);
   if (entries.length) {
     const counts = new Map();
     for (const e of entries) {
@@ -1314,20 +1380,57 @@ function majorityTimePair(date) {
   return weekdayDefaultTimes(date);
 }
 
+// QoL #3 — auto-save lock-event form drafts per (date) so a refresh
+// mid-typing doesn't lose work. Keyed by date so each day has its own draft.
+function lockDraftKey(date) { return `ff-lock-draft-${date}`; }
+function saveLockDraft() {
+  if (lockEventForm.hidden) return;
+  const lockSpotifyInput = document.getElementById('lock-spotify-input');
+  const draft = {
+    title: lockTitleInput.value,
+    host_user_id: lockHostSelect.value,
+    location: lockLocationInput.value,
+    start_time: lockStartInput.value,
+    end_time: lockEndInput.value,
+    notes: lockNotesInput.value,
+    spotify_url: lockSpotifyInput ? lockSpotifyInput.value : '',
+  };
+  // Only persist when there's something worth saving
+  const hasContent = Object.values(draft).some(v => v && String(v).length);
+  try {
+    if (hasContent) sessionStorage.setItem(lockDraftKey(state.selectedDate), JSON.stringify(draft));
+    else sessionStorage.removeItem(lockDraftKey(state.selectedDate));
+  } catch {}
+}
+function loadLockDraft(date) {
+  try {
+    const raw = sessionStorage.getItem(lockDraftKey(date));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+function clearLockDraft(date) {
+  try { sessionStorage.removeItem(lockDraftKey(date)); } catch {}
+}
+
 function openLockForm(prefill = {}) {
   buildHostOptions(prefill);
   const heuristic = majorityTimePair(state.selectedDate);
-  lockTitleInput.value = prefill.title || '';
-  lockHostSelect.value = prefill.host_user_id || '';
-  lockLocationInput.value = prefill.location || '';
-  lockStartInput.value = prefill.start_time || heuristic.start;
-  lockEndInput.value = prefill.end_time || heuristic.end;
-  lockNotesInput.value = prefill.notes || '';
+  // If we have a saved draft for this date and no explicit prefill, restore it.
+  const draft = (!prefill || !Object.keys(prefill).length) ? loadLockDraft(state.selectedDate) : null;
+  const effective = draft || prefill;
+  lockTitleInput.value = effective.title || '';
+  lockHostSelect.value = effective.host_user_id || '';
+  lockLocationInput.value = effective.location || '';
+  lockStartInput.value = effective.start_time || heuristic.start;
+  lockEndInput.value = effective.end_time || heuristic.end;
+  lockNotesInput.value = effective.notes || '';
   const lockSpotifyInput = document.getElementById('lock-spotify-input');
-  if (lockSpotifyInput) lockSpotifyInput.value = prefill.spotify_url || '';
+  if (lockSpotifyInput) lockSpotifyInput.value = effective.spotify_url || '';
   lockEventError.textContent = '';
   lockEventForm.hidden = false;
   lockEventBtn.hidden = true;
+  if (draft) showToast('Återställde sparat utkast.');
 }
 
 function closeLockForm() {
@@ -1335,6 +1438,14 @@ function closeLockForm() {
   lockEventError.textContent = '';
   renderEventForSelectedDay();
 }
+
+// Wire auto-save: every change to a lock-form field stashes the draft.
+['lock-title-input','lock-host-select','lock-location-input','lock-start-input','lock-end-input','lock-notes-input','lock-spotify-input']
+  .forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', saveLockDraft);
+    if (el && el.tagName === 'SELECT') el.addEventListener('change', saveLockDraft);
+  });
 
 function renderLockedEvents() {
   const list = document.getElementById('locked-events-list');
@@ -1351,6 +1462,7 @@ function renderLockedEvents() {
     list.innerHTML = upcoming.map(event => {
       const attendees = event.attendees || [];
       const ja = attendees.filter(a => a.status === 'AVAILABLE').length;
+      const trolig = attendees.filter(a => a.status === 'TENTATIVE').length;
       const kanske = attendees.filter(a => a.status === 'MAYBE').length;
       const timeRange = formatTimeWindow(event);
       const yesNames = attendees.filter(a => a.status === 'AVAILABLE').map(a => a.name).join(', ');
@@ -1362,11 +1474,14 @@ function renderLockedEvents() {
         yesNames ? `<span class="ll-line">Ja: ${escapeHtml(yesNames)}</span>` : '',
       ].filter(Boolean).join('');
       const preview = previewLines ? `<div class="ll-preview" role="tooltip">${previewLines}</div>` : '';
+      const countParts = [`${ja} ja`];
+      if (trolig) countParts.push(`${trolig} trolig`);
+      if (kanske) countParts.push(`${kanske} kanske`);
       return `<button type="button" class="locked-row" data-date="${event.date}">
    <span class="locked-date">${formatSwedishDate(event.date)}</span>
    ${event.title ? `<span class="locked-title">${escapeHtml(event.title)}</span>` : ''}
    ${event.host_name ? `<span class="locked-host">hos ${escapeHtml(event.host_name)}</span>` : ''}
-   <span class="locked-count">${ja} ja${kanske ? ` · ${kanske} kanske` : ''}</span>
+   <span class="locked-count">${countParts.join(' · ')}</span>
    ${preview}
  </button>`;
     }).join('');
@@ -1405,6 +1520,7 @@ function renderNextEventBanner(upcoming) {
 
 function statusLabel(status) {
   if (status === 'AVAILABLE') return 'Tillgänglig';
+  if (status === 'TENTATIVE') return 'Troligen';
   if (status === 'MAYBE') return 'Kanske';
   return 'Inte tillgänglig';
 }
@@ -1758,6 +1874,7 @@ lockEventForm.addEventListener('submit', async event => {
   try {
     await api('/api/fredagsfett/events', { method: 'POST', body: JSON.stringify(payload) });
     lockEventForm.hidden = true;
+    clearLockDraft(state.selectedDate); // QoL #3 — drop the auto-saved draft on success
     await Promise.all([loadEvents(), loadUpcomingEvents()]);
     renderCalendar();
     renderLockedEvents();
@@ -1849,6 +1966,39 @@ document.getElementById('save-availability').addEventListener('click', saveAvail
 document.getElementById('delete-availability').addEventListener('click', deleteAvailability);
 document.getElementById('prev-month').addEventListener('click', () => { state.month = addMonths(state.month, -1); lockEventForm.hidden = true; void reloadCalendarData(); });
 document.getElementById('next-month').addEventListener('click', () => { state.month = addMonths(state.month, 1); lockEventForm.hidden = true; void reloadCalendarData(); });
+document.getElementById('today-btn').addEventListener('click', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const targetMonth = today.slice(0, 7);
+  const yearStr = today.slice(0, 4);
+  state.selectedDate = today;
+  state.month = targetMonth;
+  lockEventForm.hidden = true;
+  // Sync the year-bar pressed state
+  document.querySelectorAll('[data-year]').forEach(b => b.setAttribute('aria-pressed', b.dataset.year === yearStr ? 'true' : 'false'));
+  void reloadCalendarData();
+});
+
+// QoL #6 — keyboard accelerators when a date is selected:
+//   A → Tillgänglig    T → Troligen    M → Kanske    U → Inte tillgänglig
+//   G → Gå till idag
+// Ignored when focus is in a form field so typing in a text input works normally.
+document.addEventListener('keydown', event => {
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  const key = event.key.toUpperCase();
+  const accel = { A: 'AVAILABLE', T: 'TENTATIVE', M: 'MAYBE', U: 'UNAVAILABLE' }[key];
+  if (accel && state.selectedDate) {
+    event.preventDefault();
+    const pill = document.querySelector(`.status-pill[data-status="${accel}"]`);
+    if (pill) pill.click();
+    return;
+  }
+  if (key === 'G') {
+    event.preventDefault();
+    document.getElementById('today-btn').click();
+  }
+});
 // Year + month shortcuts: data-year buttons select the active year, data-summer
 // buttons jump to year + month using the year-bar's pressed state.
 function activeYear() {

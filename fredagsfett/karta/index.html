@@ -210,6 +210,29 @@
     gap: 0.35rem;
   }
   .saved-card strong { color: var(--accent); font-size: 0.9rem; font-weight: 500; }
+  .saved-empty {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 0.45rem;
+    padding: 1.2rem 1.3rem;
+    border: 1px dashed rgba(108, 116, 80, 0.32);
+    border-radius: 12px;
+    background: rgba(249, 246, 237, 0.4);
+    color: rgba(40, 34, 24, 0.78);
+    text-align: left;
+  }
+  .saved-empty strong {
+    font: italic 500 1.1rem 'EB Garamond', 'Cormorant Garamond', serif;
+    color: #282218;
+  }
+  .saved-empty .tiny {
+    font-family: 'Public Sans', system-ui, sans-serif;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    letter-spacing: normal;
+    text-transform: none;
+    color: rgba(40, 34, 24, 0.62);
+  }
   .saved-card .tiny { font-size: 0.62rem; }
   .saved-card .row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
   .saved-card button { padding: 0.3rem 0.55rem; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; font: 0.62rem 'DM Mono', monospace; letter-spacing: 0.08em; }
@@ -354,6 +377,7 @@
           <input class="map-searchbar" id="map-searchbar" type="search" aria-label="Sök plats" placeholder="Sök plats, gata eller adress…">
           <button type="button" id="locate-btn" title="Centrera kartan på din position">📍 Min position</button>
           <button type="button" id="stockholm-btn" title="Centrera på Stockholm">Stockholm</button>
+          <button type="button" id="last-event-btn" title="Centrera på senaste inlåsta event">🎯 Senaste event</button>
           <span class="map-divider" aria-hidden="true"></span>
           <div class="color-swatches" role="radiogroup" aria-label="Färg på ritning">
             <button type="button" class="swatch active" data-color="#6c7450" style="--c:#6c7450" title="Sage (standard)"></button>
@@ -533,6 +557,35 @@ function initMap() {
   });
   document.getElementById('undo-btn').addEventListener('click', undoLastDrawn);
   document.getElementById('measure-btn').addEventListener('click', toggleMeasureMode);
+  document.getElementById('last-event-btn').addEventListener('click', centerOnLastEvent);
+
+  // QoL #1 — keyboard shortcuts on the map
+  //   Esc        cancel measure mode + close any popup
+  //   Ctrl/⌘+Z   undo last drawn shape
+  //   Delete     remove the layer whose popup is currently open
+  document.addEventListener('keydown', event => {
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (event.key === 'Escape') {
+      if (measureMode) { toggleMeasureMode(); event.preventDefault(); return; }
+      if (map) map.closePopup();
+    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      event.preventDefault();
+      undoLastDrawn();
+    } else if (event.key === 'Delete' || event.key === 'Backspace') {
+      // Remove the layer whose popup is open right now (if any)
+      let target = null;
+      drawn.eachLayer(layer => { if (layer.isPopupOpen?.()) target = layer; });
+      if (target) {
+        event.preventDefault();
+        const id = L.Util.stamp(target);
+        drawn.removeLayer(target);
+        const idx = drawOrder.indexOf(id);
+        if (idx !== -1) drawOrder.splice(idx, 1);
+        setStatus('Form borttagen (Delete).');
+      }
+    }
+  });
 
   // Color swatches: pick a stroke color for the next drawing
   document.querySelectorAll('.color-swatches .swatch').forEach(btn => {
@@ -745,6 +798,49 @@ function haversineKm(a, b) {
 }
 
 // ─ Address search via Nominatim (best-effort; respects their usage policy) ───
+// QoL #2 — pan map to the most recent locked event. Uses the GROUP_PLACES
+// list for fast known-location lookup, falls back to Nominatim geocoding.
+async function centerOnLastEvent() {
+  setStatus('Hämtar senaste event…');
+  try {
+    const now = new Date();
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 6, 1)).toISOString().slice(0, 10);
+    const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 6, 0)).toISOString().slice(0, 10);
+    const data = await api(`/api/fredagsfett/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const locked = (data.events || []).filter(e => e.status === 'LOCKED');
+    // Prefer the next upcoming event; if none, fall back to the most recent past one.
+    const upcoming = locked.filter(e => e.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date));
+    const past = locked.filter(e => e.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
+    const target = upcoming[0] || past[0];
+    if (!target) { setStatus('Inga inlåsta event att centrera på.'); return; }
+
+    // First try a fuzzy match against GROUP_PLACES (cheap, no network)
+    const loc = (target.location || '').toLowerCase();
+    let match = null;
+    for (const p of GROUP_PLACES) {
+      if (loc && (loc.includes(p.label.toLowerCase()) || p.label.toLowerCase().includes(loc))) {
+        match = p; break;
+      }
+    }
+    if (match) {
+      map.setView([match.lat, match.lng], 15);
+      L.popup({ closeOnClick: true })
+        .setLatLng([match.lat, match.lng])
+        .setContent(`<span class="ff-popup-label">${escapeHtml(target.title || 'Inlåst event')}</span><span class="ff-popup-meta">${escapeHtml(target.date)} · ${escapeHtml(match.label)}</span>`)
+        .openOn(map);
+      setStatus(`Centrerad på ${match.label} (${target.date}).`);
+      return;
+    }
+    if (!target.location) { setStatus('Eventet har ingen platsangivelse — kan inte centrera.'); return; }
+    // Fall back to geocoding the free-text location
+    await geocodeAndPan(target.location);
+    setStatus(`Centrerad på "${target.location}" (${target.date}).`);
+  } catch (err) {
+    setStatus('Kunde inte hämta senaste event: ' + (err.message || 'okänt fel'));
+  }
+}
+
 async function geocodeAndPan(q) {
   setStatus('Söker plats…');
   try {
@@ -845,6 +941,22 @@ function setStatus(text) {
   document.getElementById('save-status').textContent = text;
 }
 
+// QoL #7 — transient toast that matches Hem/Kalender's unified pill styling.
+let _kartaToastT = null;
+function showToast(message) {
+  let el = document.getElementById('ff-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ff-toast';
+    el.className = 'toast';
+    el.setAttribute('role', 'status');
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  if (_kartaToastT) clearTimeout(_kartaToastT);
+  _kartaToastT = setTimeout(() => el.remove(), 3500);
+}
+
 // Routes live on the server (D1) so every group member sees the same set
 // from any device. cachedRoutes mirrors the last server response for use by
 // the saved-card click handlers (load / export).
@@ -875,7 +987,15 @@ async function saveCurrentRoute() {
 
 function renderSavedList() {
   const wrap = document.getElementById('saved-list');
-  if (!cachedRoutes.length) { wrap.innerHTML = ''; return; }
+  // QoL #5 — friendly empty-state CTA when there are no saved routes yet
+  if (!cachedRoutes.length) {
+    wrap.innerHTML = `
+      <div class="saved-empty">
+        <strong>Rita din första rutt</strong>
+        <span class="tiny">Använd ritverktyget till vänster på kartan — sätt en pin, dra en linje, eller markera ett område. Tryck sedan på "Spara rutt" för att dela den med gruppen.</span>
+      </div>`;
+    return;
+  }
   const selfId = currentSession?.user?.id;
   const isAdmin = !!currentSession?.user?.is_admin;
   wrap.innerHTML = cachedRoutes.map(r => {
@@ -887,6 +1007,7 @@ function renderSavedList() {
       <span class="tiny">${escapeHtml((r.created_at || '').slice(0, 10))}${author}</span>
       <div class="row">
         <button type="button" data-action="load">Ladda</button>
+        ${canModify ? '<button type="button" data-action="rename">Döp om</button>' : ''}
         <button type="button" data-action="export">.geojson</button>
         ${canModify ? '<button type="button" class="danger" data-action="delete">Ta bort</button>' : ''}
       </div>
@@ -902,8 +1023,30 @@ function renderSavedList() {
       if (action === 'load') loadRouteOnto(route);
       if (action === 'export') downloadGeojson(route);
       if (action === 'delete') void deleteRoute(id);
+      if (action === 'rename') void renameRoute(route);
     });
   });
+}
+
+// QoL #4 — inline rename via the existing PATCH /api/fredagsfett/routes/:id endpoint
+async function renameRoute(route) {
+  const next = window.prompt('Nytt namn på rutten:', route.name || '');
+  if (next === null) return;
+  const trimmed = next.trim();
+  if (!trimmed) { setStatus('Namnet får inte vara tomt.'); return; }
+  if (trimmed === route.name) return;
+  try {
+    await api(`/api/fredagsfett/routes/${encodeURIComponent(route.id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: trimmed }),
+    });
+    await loadRoutes();
+    setStatus(`Bytte namn till "${trimmed}".`);
+    showToast(`Bytte namn till "${trimmed}"`);
+  } catch (err) {
+    setStatus('Kunde inte byta namn: ' + (err.message || 'okänt fel'));
+    showToast('Kunde inte byta namn');
+  }
 }
 
 function loadRouteOnto(route) {
