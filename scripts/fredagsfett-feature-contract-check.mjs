@@ -5,6 +5,8 @@ const files = {
   hub: 'fredagsfett/index.html',
   calendar: 'fredagsfett/kalender/index.html',
   sp1wise: 'fredagsfett/sp1wise/index.html',
+  karta: 'fredagsfett/karta/index.html',
+  lightUi: 'fredagsfett/light-ui.css',
   availabilityTimesMigration: 'fredagsfett-migration-002-availability-times.sql',
   redirects: '_redirects',
 };
@@ -16,6 +18,8 @@ const api = read(files.api) + '\n' + read('functions/api/fredagsfett/[[route]].t
 const hub = read(files.hub);
 const calendar = read(files.calendar);
 const sp1wise = read(files.sp1wise);
+const karta = read(files.karta);
+const lightUi = read(files.lightUi);
 const availabilityTimesMigration = read(files.availabilityTimesMigration);
 const redirects = read(files.redirects);
 
@@ -30,11 +34,15 @@ function check(name, ok) {
 }
 
 check('Fredagsfett entry skips the old hub and sends registered users straight to Kalender', !/id=["']hub-panel["']/.test(hub) && !/class=["']link-card/.test(hub) && /location\.(?:href|assign)\s*=\s*['"]\/fredagsfett\/kalender['"]/.test(hub));
-// Brand sigil 𓀂 is visible on every page. The gateway keeps the legacy <title>𓀂</title>
-// and <h1>𓀂</h1>; the Gotland-themed internal pages render it in a .brand>.sigil span.
-check('Fredagsfett visible section labels use 𓀂 while routes stay stable', /<title>𓀂<\/title>/.test(hub) && /<h1>𓀂<\/h1>/.test(hub) && /<title>𓀂 · \(S\)planner<\/title>/.test(calendar) && /<span class=["']sigil["'][^>]*>𓀂<\/span>/.test(calendar) && /<title>𓀂 · SP1Wise<\/title>/.test(sp1wise) && /<span class=["']sigil["'][^>]*>𓀂<\/span>/.test(sp1wise));
-check('Fredagsfett static routes exist for Kalender and SP1Wise', fs.existsSync(files.calendar) && fs.existsSync(files.sp1wise));
-check('Redirects serve Kalender and SP1Wise as Pages routes', /\/fredagsfett\/kalender\s+\/fredagsfett\/kalender\/index\.html\s+200/.test(redirects) && /\/fredagsfett\/sp1wise\s+\/fredagsfett\/sp1wise\/index\.html\s+200/.test(redirects));
+check('Fredagsfett visible section labels use 𓀂 while routes stay stable', /<title>𓀂<\/title>/.test(hub) && /<h1>𓀂<\/h1>/.test(hub) && /<title>𓀂 · \(S\)planner<\/title>/.test(calendar) && /<p class=["']kicker["']>𓀂<\/p>/.test(calendar) && /<title>𓀂 · SP1Wise<\/title>/.test(sp1wise) && /<p class=["']kicker["']>𓀂<\/p>/.test(sp1wise));
+check('Fredagsfett static routes exist for Kalender, SP1Wise and Karta', fs.existsSync(files.calendar) && fs.existsSync(files.sp1wise) && fs.existsSync(files.karta));
+check('Redirects serve Kalender, SP1Wise and Karta as Pages routes', /\/fredagsfett\/kalender\s+\/fredagsfett\/kalender\/index\.html\s+200/.test(redirects) && /\/fredagsfett\/sp1wise\s+\/fredagsfett\/sp1wise\/index\.html\s+200/.test(redirects) && /\/fredagsfett\/karta\s+\/fredagsfett\/karta\/index\.html\s+200/.test(redirects));
+check('Fredagsfett shared light Gotland UI skin exists', fs.existsSync(files.lightUi) && /--ff-bg/.test(lightUi) && /ff-topbar/.test(lightUi) && /ff-card/.test(lightUi));
+check('Fredagsfett core pages use the shared light topbar shell', /ff-light-page/.test(calendar) && /ff-light-page/.test(sp1wise) && /ff-light-page/.test(karta) && /ff-topbar/.test(calendar) && /ff-topbar/.test(sp1wise) && /ff-topbar/.test(karta));
+check('Kalender uses the light month-board layout from the reference', /ff-calendar-page/.test(calendar) && /calendar-shell/.test(calendar) && /calendar-page-grid/.test(calendar) && /locked-events-panel/.test(calendar) && /view-switch-card/.test(calendar));
+check('SP1Wise uses the light debt-dashboard layout from the reference', /ff-sp1wise-page/.test(sp1wise) && /sp1wise-shell/.test(sp1wise) && /sp1wise-hero/.test(sp1wise) && /simplified-debts-panel/.test(sp1wise) && /member-balance-panel/.test(sp1wise) && /distribution-panel/.test(sp1wise));
+check('Karta uses the light Stockholm map layout from the reference', /ff-karta-page/.test(karta) && /karta-shell/.test(karta) && /map-searchbar/.test(karta) && /map-category-pills/.test(karta) && /map-sidebar/.test(karta) && /next-friday-card/.test(karta));
+check('Fredagsfett feature pages no longer use the dark gallery skin', !/gallery-wall-wide\.png/.test(calendar + sp1wise + karta) && !/--bg:\s*#050505/.test(sp1wise + karta));
 
 check('Availability API dispatch exists', /fredagsfettAvailability/.test(api) && /id === ['"]availability['"]/.test(api));
 check('Availability API supports GET POST DELETE', /fredagsfettAvailabilityList/.test(api) && /fredagsfettAvailabilityUpsert/.test(api) && /fredagsfettAvailabilityDelete/.test(api));
@@ -47,12 +55,9 @@ check('Calendar UI can enter a time range and time comment', /id=["']time-start-
 check('Calendar renders time windows visibly on days and detail cards', /class=["']time-chip["']/.test(calendar) && /formatTimeWindow/.test(calendar) && /time_note/.test(calendar));
 check('Calendar page polls for updates', /setInterval\(\s*(loadAvailability|reloadCalendarData)\s*,\s*15000\s*\)/.test(calendar));
 check('Calendar page has direct SP1Wise navigation without old hub link', /href=["']\/fredagsfett\/sp1wise["']/.test(calendar) && !/>\s*Hub\s*</i.test(calendar));
-check('Calendar exposes a gear link to the admin console', /href=["']\/fredagsfett\/admin["']/.test(calendar) && /⚙/.test(calendar));
-// Intro copy: the legacy "subtitle" prose block is gone. Modern form placeholders
-// (chat input, event-item input, event-comment input) are intentional UX.
-check('Calendar removes the legacy intro subtitle block', !/class=["']subtitle["']/.test(calendar));
-// Gotland chrome: brand sigil + wordmark in the .topbar with SP1E in the wordmark span.
-check('Calendar uses the Gotland brand chrome (sigil + SP1E wordmark)', /class=["']topbar["']/.test(calendar) && /<span class=["']wordmark["']>SP1E<\/span>/.test(calendar));
+check('Calendar exposes a small gear link to the admin console', /href=["']\/fredagsfett\/admin["']/.test(calendar) && /class=["'][^"']*icon-button/.test(calendar) && />⚙<\/a>/.test(calendar));
+check('Calendar removes intro copy and note placeholder text', !/class=["']subtitle["']/.test(calendar) && !/placeholder=/.test(calendar));
+check('Calendar uses exact SP1E four-column wordmark from landing page', /class=["']sp1e-wordmark["']/.test(calendar) && /<span>S<\/span><span>P<\/span><span>1<\/span><span>E<\/span>/.test(calendar) && !/class=["']mark["'][^>]*>SP1E/.test(calendar));
 
 check('SP1Wise API dispatch exists', /fredagsfettSp1wise/.test(api) && /id === ['"]sp1wise['"]/.test(api));
 check('SP1Wise API supports groups, expenses, settlements, comments and CSV export', /fredagsfettSp1wiseGroups/.test(api) && /fredagsfettSp1wiseCreateExpense/.test(api) && /fredagsfettSp1wiseCreateSettlement/.test(api) && /fredagsfettSp1wiseCreateComment/.test(api) && /text\/csv/.test(api));
@@ -60,9 +65,14 @@ check('SP1Wise backend computes simplified debts', /simplified_debts/.test(api) 
 check('SP1Wise page can add expense, settle up, comment and export CSV', /expense-form/.test(sp1wise) && /settlement-form/.test(sp1wise) && /comment-form/.test(sp1wise) && /Exportera CSV/.test(sp1wise));
 check('SP1Wise page shows balances and debt simplification', /balance-list/.test(sp1wise) && /debt-list/.test(sp1wise));
 check('SP1Wise page has direct Kalender navigation without old hub link', /href=["']\/fredagsfett\/kalender["']/.test(sp1wise) && !/>\s*Hub\s*</i.test(sp1wise));
-check('SP1Wise removes intro copy and uses the Gotland brand chrome (sigil + SP1E wordmark)', !/class=["']subtitle["']/.test(sp1wise) && /class=["']topbar["']/.test(sp1wise) && /<span class=["']wordmark["']>SP1E<\/span>/.test(sp1wise));
-// SP1Wise display heading is set in italic EB Garamond (the Gotland display font).
-check('SP1Wise display heading uses the Gotland italic display font', /\.page-head h1\s*\{[\s\S]*italic[\s\S]*var\(--font-display\)/.test(sp1wise));
+check('SP1Wise page has direct Karta navigation', /href=["']\/fredagsfett\/karta["']/.test(sp1wise));
+check('SP1Wise removes intro copy and uses exact SP1E four-column wordmark', !/class=["']subtitle["']/.test(sp1wise) && /class=["']sp1e-wordmark["']/.test(sp1wise) && /<span>S<\/span><span>P<\/span><span>1<\/span><span>E<\/span>/.test(sp1wise) && !/class=["']mark["'][^>]*>SP1E/.test(sp1wise));
+check('SP1Wise heading uses lining numeric 1 styling', /h1\s*\{[\s\S]*font-variant-numeric:\s*lining-nums[\s\S]*font-feature-settings:\s*'lnum' 1/.test(sp1wise));
+
+check('Karta page keeps Leaflet draw route persistence', /L\.Control\.Draw/.test(karta) && /\/api\/fredagsfett\/routes/.test(karta) && /saveCurrentRoute/.test(karta) && /loadRoutes/.test(karta));
+check('Karta page adds group places layer from imported design concept', /GROUP_PLACES/.test(karta) && /PLACE_FILTERS/.test(karta) && /place-rail/.test(karta) && /renderPlaceFilters/.test(karta) && /renderPlaces/.test(karta));
+check('Karta group places avoid exact addresses but include useful Stockholm zones', /Hagaparken/.test(karta) && /Söderzon/.test(karta) && /Hemzon · inga exakta adresser/.test(karta));
+check('Karta page links back to Kalender and SP1Wise', /href=["']\/fredagsfett\/kalender["']/.test(karta) && /href=["']\/fredagsfett\/sp1wise["']/.test(karta));
 
 check('Events GET list endpoint exists and is user-gated',
   /fredagsfettEventsList/.test(api)

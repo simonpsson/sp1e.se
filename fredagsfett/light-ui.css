@@ -1,0 +1,544 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=DM+Mono:wght@300;400;500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Public+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --ff-bg: #eeebe2;
+  --ff-paper: #f5f1e8;
+  --ff-paper-2: #ebe7dc;
+  --ff-panel: rgba(249, 246, 237, 0.90);
+  --ff-ink: #282218;
+  --ff-text: #4f493d;
+  --ff-muted: #948c79;
+  --ff-faint: #b8b09f;
+  --ff-line: rgba(80, 72, 55, 0.14);
+  --ff-line-strong: rgba(80, 72, 55, 0.25);
+  --ff-sage: #6c7450;
+  --ff-sage-2: #dfe5d2;
+  --ff-gold: #a4925d;
+  --ff-rust: #a45b3d;
+  --ff-blue: #dfe9ec;
+  --ff-lilac: #e8e0ec;
+  --ff-font-display: "EB Garamond", "Cormorant Garamond", serif;
+  --ff-font-body: "Public Sans", system-ui, sans-serif;
+  --ff-font-num: "Bricolage Grotesque", system-ui, sans-serif;
+  --ff-font-mono: "DM Mono", ui-monospace, monospace;
+}
+
+body.ff-light-page {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  background:
+    linear-gradient(rgba(108, 116, 80, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(108, 116, 80, 0.055) 1px, transparent 1px),
+    var(--ff-bg) !important;
+  background-size: 160px 160px, 160px 160px, auto !important;
+  color: var(--ff-ink) !important;
+  font-family: var(--ff-font-body) !important;
+}
+
+body.ff-light-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 52% 12%, rgba(255, 255, 255, 0.42), transparent 32rem),
+    radial-gradient(circle at 88% 84%, rgba(108, 116, 80, 0.09), transparent 28rem);
+  z-index: 0;
+}
+
+body.ff-light-page main {
+  position: relative;
+  z-index: 1;
+  width: min(1860px, 100%);
+  margin: 0 auto;
+  padding: 0 2rem 2rem;
+}
+
+.ff-light-page .sp1e-wordmark {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+}
+
+.ff-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 150px 1fr auto;
+  align-items: center;
+  gap: 2rem;
+  height: 92px;
+  margin: 0 -2rem 2.4rem;
+  padding: 0 2.6rem;
+  border-bottom: 1px solid var(--ff-line);
+  background: rgba(238, 235, 226, 0.86);
+  backdrop-filter: blur(22px);
+}
+
+.ff-brand {
+  color: var(--ff-ink);
+  font-family: var(--ff-font-display);
+  font-size: 2rem;
+  font-weight: 400;
+  letter-spacing: 0.45em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ff-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 2.4rem;
+  min-width: 0;
+}
+
+.ff-nav-row a {
+  position: relative;
+  color: rgba(40, 34, 24, 0.48);
+  font-family: var(--ff-font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.28em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.ff-nav-row a[aria-current="page"],
+.ff-nav-row a:hover {
+  color: var(--ff-ink);
+}
+
+.ff-nav-row a[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -1.15rem;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: var(--ff-sage);
+  transform: translateX(-50%);
+}
+
+.ff-top-tools {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ff-clock {
+  text-align: right;
+  color: var(--ff-ink);
+  font-family: var(--ff-font-num);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.ff-clock small {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--ff-faint);
+  font-family: var(--ff-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.ff-avatar-row {
+  display: flex;
+  align-items: center;
+}
+
+.ff-av {
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-left: -0.35rem;
+  border: 1px solid var(--ff-line-strong);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #eee0d4;
+  color: var(--ff-rust);
+  font: 600 0.72rem var(--ff-font-mono);
+}
+
+.ff-av:nth-child(2) { background: var(--ff-sage-2); color: var(--ff-sage); }
+.ff-av:nth-child(3) { background: #eee3ca; color: #a07a35; }
+.ff-av:nth-child(4) { background: var(--ff-blue); color: #32799a; }
+.ff-av:nth-child(5) { background: #eee4df; color: #b36a50; }
+
+.ff-user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 2.55rem;
+  padding: 0.35rem 0.9rem 0.35rem 0.35rem;
+  border: 1px solid var(--ff-line);
+  border-radius: 999px;
+  background: rgba(246, 242, 233, 0.72);
+  color: var(--ff-text);
+}
+
+.ff-user-chip .ff-av { margin-left: 0; }
+
+.ff-admin-badge {
+  padding: 0.22rem 0.46rem;
+  border: 1px solid rgba(108, 116, 80, 0.35);
+  border-radius: 6px;
+  color: var(--ff-sage);
+  font: 600 0.58rem var(--ff-font-mono);
+  letter-spacing: 0.18em;
+}
+
+.ff-light-page .room,
+.ff-card {
+  border: 1px solid var(--ff-line) !important;
+  border-radius: 20px !important;
+  background: rgba(249, 246, 237, 0.78) !important;
+  box-shadow: 0 20px 60px rgba(50, 44, 34, 0.08) !important;
+  backdrop-filter: blur(18px);
+  color: var(--ff-text) !important;
+}
+
+.ff-light-page .room > header {
+  border-bottom: 1px solid var(--ff-line) !important;
+  background: transparent !important;
+  color: var(--ff-ink) !important;
+}
+
+.ff-light-page .room > header .nav,
+.ff-light-page .room > header .admin-nav {
+  display: none !important;
+}
+
+.ff-light-page .kicker,
+.ff-light-page label,
+.ff-light-page .tiny,
+.ff-light-page .mono {
+  color: var(--ff-muted) !important;
+  font-family: var(--ff-font-mono) !important;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.ff-light-page .kicker {
+  color: var(--ff-gold) !important;
+}
+
+.ff-light-page h1,
+.ff-light-page h2,
+.ff-light-page h3 {
+  color: var(--ff-ink) !important;
+  font-family: var(--ff-font-display) !important;
+  font-weight: 400 !important;
+}
+
+.ff-light-page h1 {
+  font-size: clamp(4.4rem, 8vw, 7rem) !important;
+  letter-spacing: 0.12em !important;
+  line-height: 0.9 !important;
+}
+
+.ff-light-page h2 {
+  font-size: clamp(2.1rem, 4vw, 3.3rem) !important;
+  letter-spacing: 0.02em !important;
+}
+
+.ff-light-page button,
+.ff-light-page .button,
+.ff-light-page input,
+.ff-light-page select,
+.ff-light-page textarea {
+  border: 1px solid var(--ff-line-strong) !important;
+  background: rgba(246, 242, 233, 0.56) !important;
+  color: var(--ff-text) !important;
+  box-shadow: none !important;
+}
+
+.ff-light-page button,
+.ff-light-page .button {
+  border-radius: 11px !important;
+  font-family: var(--ff-font-mono) !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase;
+}
+
+.ff-light-page button:hover,
+.ff-light-page .button:hover,
+.ff-light-page button[aria-pressed="true"],
+.ff-light-page button.active {
+  background: var(--ff-sage) !important;
+  border-color: var(--ff-sage) !important;
+  color: #fffaf1 !important;
+}
+
+.ff-light-page input,
+.ff-light-page select,
+.ff-light-page textarea {
+  border-radius: 13px !important;
+  font-family: var(--ff-font-body) !important;
+}
+
+.ff-calendar-page .calendar-shell,
+.ff-sp1wise-page .sp1wise-shell,
+.ff-karta-page .karta-shell {
+  overflow: hidden;
+}
+
+.ff-calendar-page .calendar-shell > header,
+.ff-sp1wise-page .sp1wise-shell > header,
+.ff-karta-page .karta-shell > header {
+  min-height: auto !important;
+  padding: 3rem 3rem 2.2rem !important;
+  align-items: flex-start !important;
+}
+
+.ff-calendar-page .calendar-page-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 380px !important;
+  gap: 1.6rem !important;
+  padding: 1.6rem !important;
+}
+
+.ff-calendar-page .left-sidebar,
+.ff-calendar-page .sidebar-toggle,
+.ff-calendar-page .next-event-banner {
+  display: none !important;
+}
+
+.ff-calendar-page .month-board,
+.ff-calendar-page .calendar-side-panel,
+.ff-calendar-page .panel-block {
+  border: 1px solid var(--ff-line) !important;
+  background: rgba(246, 242, 233, 0.72) !important;
+  border-radius: 18px !important;
+}
+
+.ff-calendar-page .calendar-head {
+  padding: 1.35rem 1.55rem !important;
+  border-bottom: 1px solid var(--ff-line) !important;
+}
+
+.ff-calendar-page .calendar-head h2 {
+  font-size: 2rem !important;
+  font-style: italic;
+  text-align: center;
+}
+
+.ff-calendar-page .summer {
+  padding: 1.1rem 1.35rem !important;
+  border-bottom: 1px solid var(--ff-line);
+}
+
+.ff-calendar-page .view-switch-card {
+  margin-left: auto;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.ff-calendar-page .calendar-grid {
+  background: rgba(80, 72, 55, 0.08) !important;
+  gap: 1px !important;
+}
+
+.ff-calendar-page .weekday {
+  background: rgba(246, 242, 233, 0.70) !important;
+  color: var(--ff-muted) !important;
+}
+
+.ff-calendar-page .day {
+  min-height: 130px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: rgba(250, 247, 239, 0.80) !important;
+  color: var(--ff-ink) !important;
+}
+
+.ff-calendar-page .day.selected {
+  outline: 2px solid rgba(108, 116, 80, 0.55);
+}
+
+.ff-calendar-page .day.locked-event {
+  background: #e7ead8 !important;
+}
+
+.ff-calendar-page .calendar-side-panel {
+  align-self: start;
+  padding: 1.35rem !important;
+}
+
+.ff-calendar-page .status-row {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ff-calendar-page .locked-events-panel {
+  margin-top: 1.35rem;
+}
+
+.ff-sp1wise-page .sp1wise-shell > header h1 {
+  letter-spacing: 0.03em !important;
+  font-variant-numeric: lining-nums;
+  font-feature-settings: 'lnum' 1;
+}
+
+.ff-sp1wise-page .layout {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 410px !important;
+  gap: 1.6rem !important;
+  padding: 1.6rem !important;
+}
+
+.ff-sp1wise-page .card {
+  border: 1px solid var(--ff-line) !important;
+  border-radius: 18px !important;
+  background: rgba(246, 242, 233, 0.74) !important;
+  color: var(--ff-text) !important;
+}
+
+.ff-sp1wise-page .sp1wise-hero .summary {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+}
+
+.ff-sp1wise-page .balance-row,
+.ff-sp1wise-page .debt-row,
+.ff-sp1wise-page .activity-row,
+.ff-sp1wise-page .expense-row {
+  border-color: var(--ff-line) !important;
+  background: rgba(255, 255, 255, 0.36) !important;
+  color: var(--ff-text) !important;
+}
+
+.ff-sp1wise-page .amount,
+.ff-sp1wise-page .positive {
+  color: var(--ff-sage) !important;
+}
+
+.ff-sp1wise-page .negative {
+  color: var(--ff-rust) !important;
+}
+
+.ff-sp1wise-page .distribution-panel {
+  min-height: 150px;
+}
+
+.ff-karta-page main {
+  width: 100% !important;
+  padding-bottom: 0 !important;
+}
+
+.ff-karta-page .karta-shell {
+  min-height: calc(100vh - 122px) !important;
+  border-radius: 0 !important;
+}
+
+.ff-karta-page .karta-shell > header {
+  display: none !important;
+}
+
+.ff-karta-page .map-shell {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 380px !important;
+  min-height: calc(100vh - 122px) !important;
+}
+
+.ff-karta-page .map-main {
+  position: relative;
+  display: block !important;
+  min-width: 0;
+}
+
+.ff-karta-page #map {
+  min-height: calc(100vh - 122px) !important;
+  filter: saturate(0.35) sepia(0.18) brightness(1.08) contrast(0.88);
+}
+
+.ff-karta-page .map-toolbar {
+  position: absolute;
+  top: 1.6rem;
+  left: 1.6rem;
+  right: 1.6rem;
+  z-index: 500;
+  border: 1px solid var(--ff-line);
+  border-radius: 999px;
+  background: rgba(249, 246, 237, 0.86) !important;
+  backdrop-filter: blur(12px);
+}
+
+.ff-karta-page .map-searchbar {
+  min-width: 260px;
+  flex: 1 1 320px;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--ff-text) !important;
+}
+
+.ff-karta-page .map-category-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ff-karta-page .map-sidebar {
+  border-left: 1px solid var(--ff-line) !important;
+  background: rgba(249, 246, 237, 0.86) !important;
+  color: var(--ff-text) !important;
+}
+
+.ff-karta-page .place-detail,
+.ff-karta-page .place-list,
+.ff-karta-page .next-friday-card {
+  border: 1px solid var(--ff-line) !important;
+  border-radius: 16px !important;
+  background: rgba(255, 255, 255, 0.34) !important;
+}
+
+.ff-karta-page .place-row {
+  border-bottom-color: var(--ff-line) !important;
+  color: var(--ff-text) !important;
+}
+
+.ff-karta-page .place-row[aria-current="true"] {
+  background: var(--ff-sage-2) !important;
+}
+
+@media (max-width: 1100px) {
+  .ff-topbar {
+    grid-template-columns: 1fr;
+    height: auto;
+    gap: 0.9rem;
+    padding: 1rem 1.2rem;
+    margin: 0 -1rem 1rem;
+  }
+  body.ff-light-page main { padding: 0 1rem 1rem; }
+  .ff-top-tools { display: none; }
+  .ff-calendar-page .calendar-page-grid,
+  .ff-sp1wise-page .layout,
+  .ff-karta-page .map-shell {
+    grid-template-columns: 1fr !important;
+  }
+  .ff-calendar-page .day { min-height: 96px !important; }
+  .ff-karta-page .map-sidebar { border-left: 0 !important; border-top: 1px solid var(--ff-line) !important; }
+}
+
+@media (max-width: 680px) {
+  .ff-nav-row { gap: 1rem; overflow-x: auto; }
+  .ff-brand { font-size: 1.45rem; }
+  .ff-light-page h1 { font-size: clamp(3.2rem, 18vw, 4.6rem) !important; }
+  .ff-calendar-page .calendar-shell > header,
+  .ff-sp1wise-page .sp1wise-shell > header {
+    padding: 2rem 1.2rem 1.4rem !important;
+  }
+  .ff-calendar-page .calendar-page-grid,
+  .ff-sp1wise-page .layout {
+    padding: 0.9rem !important;
+  }
+  .ff-calendar-page .calendar-grid {
+    font-size: 0.8rem;
+  }
+}

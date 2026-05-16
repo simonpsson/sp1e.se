@@ -2,242 +2,301 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>𓀂 · Karta</title>
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500;1,600&family=Public+Sans:wght@300;400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/fredagsfett/style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin>
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" crossorigin>
 <style>
-  .page-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.2rem 0.4rem 1.2rem;
-    flex-wrap: wrap;
+  main { width: min(1400px, 100%); margin: 0 auto; padding: 0; }
+  .room { display: grid; grid-template-rows: auto 1fr; min-height: 78vh; }
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; padding: 1.4rem 1.6rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  h1 { margin: 0; font-size: clamp(2.4rem, 7vw, 4.2rem); font-weight: 300; line-height: 0.95; letter-spacing: 0.08em; color: rgba(255,255,255,0.94); }
+  .kicker { margin: 0 0 0.5rem; color: var(--accent); font-family: 'DM Mono', monospace; font-size: 0.66rem; letter-spacing: 0.16em; text-transform: uppercase; }
+  nav.nav { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  nav.nav .button {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.045);
+    color: rgba(255,255,255,0.78);
+    font: 0.72rem 'DM Mono', monospace; letter-spacing: 0.1em;
+    text-decoration: none; text-transform: uppercase;
   }
-  .page-head .kicker { color: var(--sage); }
-  .page-head h1 {
-    margin: 0;
-    color: var(--ink);
-    font: italic 500 clamp(2rem, 3.8vw, 2.8rem) var(--font-display);
-    letter-spacing: -0.01em;
-    line-height: 1.05;
-  }
-  .page-head .quote {
-    color: var(--muted);
-    font: italic 400 0.95rem var(--font-display);
-    max-width: 36ch;
-    text-align: right;
-  }
-
-  .map-card { padding: 0; overflow: hidden; }
-
+  nav.nav .button:hover { color: var(--text); border-color: rgba(255,255,255,0.32); }
   .map-toolbar {
+    display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center;
+    padding: 0.7rem 1.2rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    color: var(--muted);
+    font: 0.7rem 'DM Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .map-toolbar button {
+    padding: 0.4rem 0.85rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+  }
+  .map-toolbar button:hover { color: var(--text); border-color: var(--line-hot); }
+  .map-toolbar .save-status { margin-left: auto; color: var(--faint); }
+  .map-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    min-height: 70vh;
+  }
+  .map-main {
+    display: grid;
+    grid-template-rows: auto minmax(480px, 1fr) auto;
+    min-width: 0;
+  }
+  #map { width: 100%; min-height: 480px; background: rgba(0,0,0,0.4); }
+  .place-rail {
+    border-left: 1px solid rgba(255,255,255,0.08);
+    padding: 1rem;
+    background: rgba(0,0,0,0.18);
+    display: grid;
+    align-content: start;
+    gap: 0.9rem;
+  }
+  .place-rail h2 {
+    margin: 0.2rem 0 0;
+    color: var(--text);
+    font-family: var(--font-display);
+    font-size: 1.55rem;
+    font-weight: 300;
+    letter-spacing: 0.03em;
+  }
+  .place-copy {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+  .place-filters {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.42rem;
+  }
+  .place-filters button {
+    min-height: 28px;
+    padding: 0.32rem 0.58rem;
+    font-size: 0.56rem;
+  }
+  .place-filters button[aria-pressed="true"] {
+    border-color: var(--line-hot);
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+  .place-detail,
+  .place-list {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.025);
+  }
+  .place-detail { padding: 0.85rem; }
+  .place-detail strong {
+    display: block;
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 400;
+    line-height: 1.1;
+  }
+  .place-detail .tiny,
+  .place-row .tiny {
+    display: block;
+    margin-top: 0.35rem;
+    line-height: 1.35;
+  }
+  .place-list {
+    display: grid;
+    max-height: 42vh;
+    overflow: auto;
+  }
+  .place-row {
+    border: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    border-radius: 0;
+    background: transparent;
+    color: var(--text);
+    padding: 0.72rem 0.78rem;
+    text-align: left;
+  }
+  .place-row:last-child { border-bottom: 0; }
+  .place-row[aria-current="true"] {
+    background: rgba(217,173,100,0.11);
+    color: var(--text);
+  }
+  .place-row strong {
+    display: flex;
     align-items: center;
-    padding: 0.85rem 1rem;
-    border-bottom: 1px solid var(--line-soft);
-    background: var(--paper);
+    justify-content: space-between;
+    gap: 0.6rem;
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-transform: none;
   }
-  .map-toolbar .save-status {
-    margin-left: auto;
-    color: var(--muted);
-    font: italic 400 0.92rem var(--font-display);
-  }
-
-  #map {
-    width: 100%;
-    height: clamp(420px, 64vh, 720px);
-    background: var(--paper-2);
-  }
-
-  /* Tame Leaflet's default light controls to match cream paper */
-  .leaflet-control-attribution {
-    background: rgba(243, 239, 231, 0.85) !important;
-    color: var(--muted) !important;
+  .place-row .tag {
+    color: var(--accent);
     font-family: var(--font-mono);
-    font-size: 0.62rem;
+    font-size: 0.56rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
-  .leaflet-control-attribution a { color: var(--sage) !important; }
+  .place-marker {
+    width: 30px;
+    height: 30px;
+    border: 1px solid rgba(217,173,100,0.72);
+    border-radius: 999px 999px 999px 3px;
+    background: rgba(12,10,8,0.92);
+    color: var(--accent);
+    display: grid;
+    place-items: center;
+    transform: rotate(-45deg);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.42);
+  }
+  .place-marker span {
+    transform: rotate(45deg);
+    font: 0.58rem var(--font-mono);
+    letter-spacing: 0.06em;
+  }
+  .place-marker.primary {
+    background: rgba(217,173,100,0.92);
+    color: #17120c;
+    border-color: rgba(255,238,196,0.92);
+  }
+  .leaflet-div-icon.ff-place-icon {
+    background: transparent;
+    border: 0;
+  }
+  /* Tame Leaflet's default light controls to match our dark room */
+  .leaflet-control-attribution { background: rgba(0,0,0,0.5) !important; color: rgba(255,255,255,0.55) !important; }
+  .leaflet-control-attribution a { color: rgba(205,176,110,0.9) !important; }
   .leaflet-bar a, .leaflet-draw-toolbar a {
-    background-color: var(--paper) !important;
-    color: var(--ink) !important;
-    border-bottom-color: var(--line-soft) !important;
+    background-color: rgba(15,15,15,0.92) !important;
+    color: var(--text) !important;
+    border-bottom-color: rgba(255,255,255,0.08) !important;
   }
   .leaflet-bar a:hover, .leaflet-draw-toolbar a:hover {
-    background-color: var(--sage-tint) !important;
+    background-color: rgba(205,176,110,0.18) !important;
   }
   .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-    background: var(--paper) !important;
-    color: var(--ink-2) !important;
-    border: 1px solid var(--line) !important;
-    box-shadow: 0 18px 60px rgba(32, 30, 27, 0.18) !important;
-  }
-  .leaflet-popup-content {
-    font: italic 400 0.95rem var(--font-display);
-  }
-
-  .saved-block {
-    padding: 1rem 1.1rem 1.2rem;
-    background: var(--paper);
-    border-top: 1px solid var(--line-soft);
-  }
-  .saved-block h2 {
-    margin: 0 0 0.7rem;
-    color: var(--ink);
-    font: italic 500 1.3rem var(--font-display);
-    letter-spacing: -0.005em;
+    background: rgba(12,12,12,0.96) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--line-hot) !important;
   }
   .saved-list {
+    padding: 0.7rem 1.2rem 1.2rem;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 0.7rem;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.6rem;
   }
   .saved-card {
-    display: grid;
-    gap: 0.32rem;
-    padding: 0.7rem 0.85rem;
-    border: 1px solid var(--line-soft);
-    border-radius: 10px;
-    background: var(--bg);
-    transition: border-color 0.15s, background 0.15s;
-  }
-  .saved-card:hover { border-color: var(--sage); background: var(--sage-tint); }
-  .saved-card strong {
-    color: var(--ink);
-    font: italic 500 1.05rem var(--font-display);
-    letter-spacing: -0.005em;
-    font-weight: 500;
-  }
-  .saved-card .tiny { color: var(--muted); }
-  .saved-card .row { display: flex; gap: 0.32rem; flex-wrap: wrap; margin-top: 0.18rem; }
-  .saved-card button {
-    padding: 0.32rem 0.6rem;
     border: 1px solid var(--line);
-    border-radius: 5px;
-    background: transparent;
-    color: var(--ink-2);
-    font: 500 0.58rem var(--font-mono);
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    border-radius: 10px;
+    padding: 0.6rem 0.7rem;
+    background: rgba(255,255,255,0.025);
+    display: grid;
+    gap: 0.35rem;
   }
-  .saved-card button:hover { color: var(--ink); border-color: var(--sage); background: var(--sage-tint); }
-  .saved-card button.danger { color: var(--rust); border-color: rgba(138,62,58,0.4); }
-  .saved-card button.danger:hover { background: rgba(138,62,58,0.10); border-color: var(--rust); }
-  .saved-empty {
-    color: var(--muted);
-    font: italic 400 0.92rem var(--font-display);
-    grid-column: 1 / -1;
-  }
-
-  @media (max-width: 620px) {
-    .page-head .quote { display: none; }
-    #map { height: 56vh; }
+  .saved-card strong { color: var(--accent); font-size: 0.9rem; font-weight: 500; }
+  .saved-card .tiny { font-size: 0.62rem; }
+  .saved-card .row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .saved-card button { padding: 0.3rem 0.55rem; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; font: 0.62rem 'DM Mono', monospace; letter-spacing: 0.08em; }
+  .saved-card button:hover { color: var(--text); border-color: var(--line-hot); }
+  .saved-card button.danger:hover { border-color: var(--danger); color: var(--danger); }
+  @media (max-width: 980px) {
+    .map-shell { grid-template-columns: 1fr; }
+    .place-rail { border-left: 0; border-top: 1px solid rgba(255,255,255,0.08); }
+    .place-list { max-height: none; }
   }
 </style>
+<link rel="stylesheet" href="/fredagsfett/light-ui.css">
 </head>
-<body>
+<body class="ff-light-page ff-karta-page">
 <main>
-  <nav class="topbar" aria-label="𓀂 navigation">
-    <div class="brand" aria-label="SP1E">
-      <span class="sigil" aria-hidden="true">𓀂</span>
-      <span class="wordmark">SP1E</span>
+  <nav class="ff-topbar" aria-label="Fredagsfett navigation">
+    <a class="ff-brand" href="/fredagsfett/hem" aria-label="SP1E">SP1E</a>
+    <div class="ff-nav-row">
+      <a href="/fredagsfett/hem">Hem</a>
+      <a href="/fredagsfett/kalender">Kalender</a>
+      <a href="/fredagsfett/sp1wise">SP1Wise</a>
+      <a href="/fredagsfett/karta" aria-current="page">Karta</a>
+      <a href="/fredagsfett/kalender#chat-list">Chat</a>
     </div>
-    <div class="nav-row" role="tablist">
-      <a href="/fredagsfett/hem" role="tab">Hem</a>
-      <a href="/fredagsfett/kalender" role="tab">Kalender</a>
-      <a href="/fredagsfett/sp1wise" role="tab">Sp1wise</a>
-      <a href="/fredagsfett/karta" class="active" role="tab" aria-selected="true">Karta</a>
-      <a href="/fredagsfett/hem#chat" role="tab">Chat</a>
-    </div>
-    <div class="top-tools">
-      <div class="clock">
-        <span id="clock-time">—:—</span>
-        <span class="date" id="clock-date">—</span>
+    <div class="ff-top-tools" aria-label="Gruppstatus">
+      <div class="ff-clock"><span>22:14</span><small>fre · 15.v.mmxvi</small></div>
+      <div class="ff-avatar-row" aria-hidden="true">
+        <span class="ff-av ff-av-s">S</span><span class="ff-av ff-av-a">A</span><span class="ff-av ff-av-p">P</span><span class="ff-av ff-av-e">E</span><span class="ff-av ff-av-more">+2</span>
       </div>
-      <span class="user-chip" id="user-chip">
-        <span class="av lg" id="user-av" data-color="sage">·</span>
-        <span class="av-name" id="user-name">—</span>
-        <span class="badge-admin" id="user-admin" hidden>ADMIN</span>
-      </span>
+      <span class="ff-user-chip"><span class="ff-av ff-av-s">S</span><span>Simon</span><span class="ff-admin-badge">ADMIN</span></span>
     </div>
   </nav>
-
-  <div class="page-head">
-    <div>
-      <p class="kicker">Karta · ritbara rutter</p>
-      <h1>Vart är vi på väg?</h1>
-    </div>
-    <p class="quote">Rita en linje, släpp en pin, döp den och dela med resten av gruppen. Allt sparas på servern.</p>
+  <div class="sp1e-wordmark" aria-label="SP1E" role="img">
+    <span>S</span><span>P</span><span>1</span><span>E</span>
   </div>
-
-  <article class="card map-card">
-    <div class="map-toolbar" role="toolbar" aria-label="Karta">
-      <button type="button" class="btn" id="locate-btn" title="Centrera kartan på din position">📍 Min position</button>
-      <button type="button" class="btn" id="stockholm-btn" title="Centrera på Stockholm">Stockholm</button>
-      <button type="button" class="btn sage" id="save-btn" title="Spara nuvarande ritning som en namngiven rutt">Spara rutt</button>
-      <button type="button" class="btn danger" id="clear-btn" title="Rensa allt på kartan">Rensa</button>
-      <span class="save-status" id="save-status">Rita med verktygen till vänster på kartan.</span>
+  <section class="room karta-shell ff-card">
+    <header>
+      <div>
+        <p class="kicker">𓀂</p>
+        <h1>Karta</h1>
+      </div>
+      <nav class="nav" aria-label="𓀂 navigation">
+        <a class="button" href="/fredagsfett/kalender">(S)planner</a>
+        <a class="button" href="/fredagsfett/sp1wise">SP1Wise</a>
+      </nav>
+    </header>
+    <div class="map-shell">
+      <section class="map-main" aria-label="Ruttkarta">
+        <div class="map-toolbar" role="toolbar" aria-label="Karta">
+          <input class="map-searchbar" id="map-searchbar" type="search" aria-label="Sök plats" placeholder="Sök plats, gata eller medlem...">
+          <button type="button" id="locate-btn" title="Centrera kartan på din position">📍 Min position</button>
+          <button type="button" id="stockholm-btn" title="Centrera på Stockholm">Stockholm</button>
+          <button type="button" id="save-btn" title="Spara nuvarande ritning som en namngiven rutt">💾 Spara rutt</button>
+          <button type="button" id="clear-btn" title="Rensa allt på kartan">Rensa</button>
+          <span class="save-status" id="save-status">Rita med verktygen till vänster på kartan.</span>
+        </div>
+        <div id="map"></div>
+        <div class="saved-list" id="saved-list"></div>
+      </section>
+      <aside class="place-rail map-sidebar" aria-label="Gruppens platser">
+        <div>
+          <p class="kicker">Karta · Stockholm</p>
+          <h2>Gruppens platser</h2>
+          <p class="place-copy">Mötespunkter, favoritställen och ungefärliga hemzoner. Rutter sparas separat i D1 och syns för hela gruppen.</p>
+        </div>
+        <div class="place-filters map-category-pills" id="place-filters" aria-label="Filtrera platser"></div>
+        <div class="place-detail" id="place-detail"></div>
+        <div class="place-list" id="place-list"></div>
+        <div class="next-friday-card">
+          <p class="kicker">Nästa 𓀂</p>
+          <h3>En kväll i Hagaparken</h3>
+          <div class="next-friday-meta">
+            <span>Plats · Hagaparken</span>
+            <span>Från · 5,4 km</span>
+            <span>Kl. · 19:30 fre</span>
+          </div>
+          <a class="button" href="/fredagsfett/kalender">Lägg till i kalender</a>
+        </div>
+      </aside>
     </div>
-    <div id="map"></div>
-    <div class="saved-block">
-      <h2>Sparade rutter</h2>
-      <div class="saved-list" id="saved-list"></div>
-    </div>
-  </article>
+  </section>
 </main>
-
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js" crossorigin></script>
 <script>
-/* ─ Shared header helpers (clock + user chip) ──────────────────────────── */
-
-function initialsOf(name) {
-  return (name || '·').trim().split(/\s+/).map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-}
-const AVATAR_COLORS = ['sage','sage','sage','terra','sand','heather','blue','rust'];
-function avatarColorFor(name) {
-  if (!name) return 'sage';
-  let h = 0;
-  for (const ch of name) h = ((h << 5) - h + ch.charCodeAt(0)) | 0;
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
-}
-const SVENSKA_WD = ['SÖN','MÅN','TIS','ONS','TOR','FRE','LÖR'];
-const ROMAN_M = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
-function romanYear(n) {
-  const map = [['M',1000],['CM',900],['D',500],['CD',400],['C',100],['XC',90],['L',50],['XL',40],['X',10],['IX',9],['V',5],['IV',4],['I',1]];
-  let s = '', y = n;
-  for (const [r, v] of map) while (y >= v) { s += r; y -= v; }
-  return s;
-}
-function tickClock() {
-  const d = new Date();
-  document.getElementById('clock-time').textContent = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  document.getElementById('clock-date').textContent = `${SVENSKA_WD[d.getUTCDay()]} · ${d.getUTCDate()}.${ROMAN_M[d.getUTCMonth()]}.${romanYear(d.getUTCFullYear())}`;
-}
-tickClock();
-setInterval(tickClock, 30_000);
-
-function showToast(message) {
-  const t = document.getElementById('toast');
-  t.textContent = message;
-  t.classList.add('show');
-  clearTimeout(showToast._tid);
-  showToast._tid = setTimeout(() => t.classList.remove('show'), 2400);
-}
-
-/* ─ Auth gate (matches the other fredagsfett pages) ───────────────────── */
+// ─ Auth gate (matches the other fredagsfett pages) ───────────────────────────
 async function api(path, options = {}) {
   const res = await fetch(path, {
     credentials: 'same-origin',
@@ -258,22 +317,39 @@ async function gateOrInit() {
       return;
     }
     currentSession = session;
-    // Hydrate user chip
-    document.getElementById('user-name').textContent = session.user?.name || '';
-    const av = document.getElementById('user-av');
-    av.textContent = initialsOf(session.user?.name);
-    av.dataset.color = avatarColorFor(session.user?.name);
-    if (session.user?.is_admin) document.getElementById('user-admin').hidden = false;
     initMap();
   } catch {
     location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/karta')}`;
   }
 }
 
-/* ─ Leaflet map + draw tools (Gotland sage stroke) ────────────────────── */
+// ─ Leaflet map + draw tools ──────────────────────────────────────────────────
 const STOCKHOLM = [59.3293, 18.0686];
-const SAGE_STROKE = '#6c7450';
+const GROUP_PLACES = [
+  { id: 'hagaparken', category: 'park', label: 'Hagaparken', meta: 'Koppartälten · bra fredagspunkt', lat: 59.3624, lng: 18.0415, tag: 'park', primary: true },
+  { id: 'ralambshov', category: 'park', label: 'Rålambshovsparken', meta: 'Sommarkväll vid vattnet', lat: 59.3283, lng: 18.0207, tag: 'park' },
+  { id: 'tjoget', category: 'bar', label: 'Tjoget', meta: 'Hornstull · drinkar före eller efter', lat: 59.3165, lng: 18.0335, tag: 'bar' },
+  { id: 'fasching', category: 'bar', label: 'Fasching', meta: 'Jazz · Kungsgatan', lat: 59.3342, lng: 18.0591, tag: 'jazz' },
+  { id: 'soderhallarna', category: 'food', label: 'Söderhallarna', meta: 'Mat · enkel samling', lat: 59.3148, lng: 18.0736, tag: 'mat' },
+  { id: 'sven-harrys', category: 'culture', label: 'Sven-Harrys', meta: 'Konsthall · Vasaparken', lat: 59.3400, lng: 18.0414, tag: 'konst' },
+  { id: 'soder', category: 'home', label: 'Söderzon', meta: 'Hemzon · inga exakta adresser', lat: 59.3138, lng: 18.0685, tag: 'hem', initials: 'S' },
+  { id: 'vasastan', category: 'home', label: 'Vasastan', meta: 'Hemzon · ungefärlig', lat: 59.3437, lng: 18.0477, tag: 'hem', initials: 'V' },
+  { id: 'gardet', category: 'home', label: 'Gärdet', meta: 'Hemzon · ungefärlig', lat: 59.3476, lng: 18.1010, tag: 'hem', initials: 'G' },
+  { id: 'sandhamn', category: 'water', label: 'Sandhamn', meta: 'Skärgård · längre plan', lat: 59.2892, lng: 18.9149, tag: 'skär' },
+];
+const PLACE_FILTERS = [
+  { id: 'all', label: 'Alla' },
+  { id: 'home', label: 'Hem' },
+  { id: 'bar', label: 'Bar' },
+  { id: 'food', label: 'Mat' },
+  { id: 'park', label: 'Park' },
+  { id: 'culture', label: 'Konst' },
+  { id: 'water', label: 'Skärgård' },
+];
 let map, drawn, drawControl, currentSession = null, cachedRoutes = [];
+let placeLayer = null;
+let activePlaceFilter = 'all';
+let selectedPlaceId = 'hagaparken';
 
 function initMap() {
   map = L.map('map', { center: STOCKHOLM, zoom: 13 });
@@ -284,14 +360,15 @@ function initMap() {
 
   drawn = new L.FeatureGroup();
   map.addLayer(drawn);
+  placeLayer = L.layerGroup().addTo(map);
 
   drawControl = new L.Control.Draw({
     edit: { featureGroup: drawn, remove: true },
     draw: {
-      polyline: { shapeOptions: { color: SAGE_STROKE, weight: 4 } },
-      polygon:  { allowIntersection: false, showArea: true, shapeOptions: { color: SAGE_STROKE } },
-      rectangle:{ shapeOptions: { color: SAGE_STROKE } },
-      circle:   { shapeOptions: { color: SAGE_STROKE } },
+      polyline: { shapeOptions: { color: '#cdb06e', weight: 4 } },
+      polygon:  { allowIntersection: false, showArea: true, shapeOptions: { color: '#cdb06e' } },
+      rectangle:{ shapeOptions: { color: '#cdb06e' } },
+      circle:   { shapeOptions: { color: '#cdb06e' } },
       marker: true,
       circlemarker: false,
     },
@@ -299,6 +376,9 @@ function initMap() {
   map.addControl(drawControl);
 
   map.on(L.Draw.Event.CREATED, e => drawn.addLayer(e.layer));
+  renderPlaceFilters();
+  renderPlaces();
+  renderPlaceRail();
 
   document.getElementById('locate-btn').addEventListener('click', () => {
     if (!navigator.geolocation) {
@@ -327,10 +407,87 @@ function initMap() {
   void loadRoutes();
 }
 
+function filteredPlaces() {
+  if (activePlaceFilter === 'all') return GROUP_PLACES;
+  return GROUP_PLACES.filter(place => place.category === activePlaceFilter);
+}
+
+function renderPlaceFilters() {
+  const wrap = document.getElementById('place-filters');
+  wrap.innerHTML = PLACE_FILTERS.map(filter => `
+    <button type="button" data-place-filter="${escapeAttr(filter.id)}" aria-pressed="${filter.id === activePlaceFilter ? 'true' : 'false'}">${escapeHtml(filter.label)}</button>
+  `).join('');
+  wrap.querySelectorAll('[data-place-filter]').forEach(button => {
+    button.addEventListener('click', () => {
+      activePlaceFilter = button.dataset.placeFilter || 'all';
+      const visible = filteredPlaces();
+      if (!visible.some(place => place.id === selectedPlaceId)) {
+        selectedPlaceId = visible[0]?.id || GROUP_PLACES[0].id;
+      }
+      renderPlaceFilters();
+      renderPlaces();
+      renderPlaceRail();
+    });
+  });
+}
+
+function renderPlaces() {
+  if (!placeLayer) return;
+  placeLayer.clearLayers();
+  filteredPlaces().forEach(place => {
+    const icon = L.divIcon({
+      className: 'ff-place-icon',
+      html: `<div class="place-marker${place.primary ? ' primary' : ''}"><span>${escapeHtml(place.initials || place.tag || '·')}</span></div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 30],
+      popupAnchor: [0, -30],
+    });
+    L.marker([place.lat, place.lng], { icon, title: place.label })
+      .bindPopup(`<strong>${escapeHtml(place.label)}</strong><br>${escapeHtml(place.meta)}`)
+      .on('click', () => selectPlace(place.id, false))
+      .addTo(placeLayer);
+  });
+}
+
+function selectPlace(id, focusMap = true) {
+  const place = GROUP_PLACES.find(entry => entry.id === id);
+  if (!place) return;
+  selectedPlaceId = place.id;
+  renderPlaceRail();
+  if (focusMap && map) map.setView([place.lat, place.lng], place.category === 'water' ? 10 : 14);
+}
+
+function renderPlaceRail() {
+  const selected = GROUP_PLACES.find(place => place.id === selectedPlaceId) || GROUP_PLACES[0];
+  document.getElementById('place-detail').innerHTML = `
+    <span class="tiny">${escapeHtml(placeCategoryLabel(selected.category))}</span>
+    <strong>${escapeHtml(selected.label)}</strong>
+    <span class="tiny">${escapeHtml(selected.meta)}</span>
+  `;
+  const list = document.getElementById('place-list');
+  const places = filteredPlaces();
+  list.innerHTML = places.map(place => `
+    <button type="button" class="place-row" data-place-id="${escapeAttr(place.id)}" aria-current="${place.id === selectedPlaceId ? 'true' : 'false'}">
+      <strong>${escapeHtml(place.label)} <span class="tag">${escapeHtml(place.tag || place.category)}</span></strong>
+      <span class="tiny">${escapeHtml(place.meta)}</span>
+    </button>
+  `).join('');
+  list.querySelectorAll('[data-place-id]').forEach(button => {
+    button.addEventListener('click', () => selectPlace(button.dataset.placeId || '', true));
+  });
+}
+
+function placeCategoryLabel(category) {
+  return (PLACE_FILTERS.find(filter => filter.id === category)?.label || category).toUpperCase();
+}
+
 function setStatus(text) {
   document.getElementById('save-status').textContent = text;
 }
 
+// Routes live on the server (D1) so every group member sees the same set
+// from any device. cachedRoutes mirrors the last server response for use by
+// the saved-card click handlers (load / export).
 async function loadRoutes() {
   try {
     const data = await api('/api/fredagsfett/routes');
@@ -351,7 +508,6 @@ async function saveCurrentRoute() {
     await api('/api/fredagsfett/routes', { method: 'POST', body: JSON.stringify({ name, geojson }) });
     await loadRoutes();
     setStatus(`Sparade "${name}".`);
-    showToast(`Sparade "${name}".`);
   } catch (err) {
     setStatus('Kunde inte spara: ' + (err.message || 'okänt fel'));
   }
@@ -359,10 +515,7 @@ async function saveCurrentRoute() {
 
 function renderSavedList() {
   const wrap = document.getElementById('saved-list');
-  if (!cachedRoutes.length) {
-    wrap.innerHTML = '<div class="saved-empty">Inga sparade rutter än. Rita något och tryck <em>Spara rutt</em>.</div>';
-    return;
-  }
+  if (!cachedRoutes.length) { wrap.innerHTML = ''; return; }
   const selfId = currentSession?.user?.id;
   const isAdmin = !!currentSession?.user?.is_admin;
   wrap.innerHTML = cachedRoutes.map(r => {
@@ -395,7 +548,7 @@ function renderSavedList() {
 
 function loadRouteOnto(route) {
   drawn.clearLayers();
-  const layer = L.geoJSON(route.geojson, { style: { color: SAGE_STROKE, weight: 4 } });
+  const layer = L.geoJSON(route.geojson, { style: { color: '#cdb06e', weight: 4 } });
   layer.eachLayer(l => drawn.addLayer(l));
   try { map.fitBounds(layer.getBounds(), { padding: [40, 40] }); } catch {}
   setStatus(`Laddade "${route.name}".`);
