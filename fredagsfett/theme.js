@@ -83,6 +83,7 @@
       { href: '/fredagsfett/kalender', ic: '◷',  label: 'Kalender' },
       { href: '/fredagsfett/sp1wise',  ic: '∑',  label: 'SP1Wise' },
       { href: '/fredagsfett/karta',    ic: '◐',  label: 'Karta' },
+      { href: '/fredagsfett/casino',   ic: '♠',  label: 'Casino' },
     ];
     const wrap = document.createElement('div');
     wrap.id = 'ff-mobile-tabbar';

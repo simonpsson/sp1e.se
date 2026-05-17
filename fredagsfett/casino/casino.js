@@ -1,38 +1,61 @@
-const CURRENT_GAME_ENDPOINTS = {
+// Live endpoints — Fredagsfett aliases under /api/fredagsfett/casino/*.
+// These resolve auth via the ff_session cookie (see getCasinoPlayer() in
+// functions/api/[[route]].ts) before forwarding to the shared Mosquito
+// casino handlers. NO admin endpoints are exposed here.
+export const CASINO_ENDPOINTS = {
   casino: {
-    blackjack: '/api/game/casino/blackjack/state',
-    roulette: '/api/game/casino/roulette/state',
-    holdem: '/api/game/casino/holdem/state',
+    blackjack: '/api/fredagsfett/casino/blackjack/state',
+    roulette:  '/api/fredagsfett/casino/roulette/state',
+    holdem:    '/api/fredagsfett/casino/holdem/state',
   },
   blackjack: {
-    deal: '/api/game/action/blackjack/start',
-    hit: '/api/game/action/blackjack/hit',
-    stand: '/api/game/action/blackjack/stand',
-    double: '/api/game/action/blackjack/double',
-    split: '/api/game/action/blackjack/split',
-    insurance: '/api/game/action/blackjack/insurance',
+    deal:      '/api/fredagsfett/casino/blackjack/deal',
+    hit:       '/api/fredagsfett/casino/blackjack/hit',
+    stand:     '/api/fredagsfett/casino/blackjack/stand',
+    double:    '/api/fredagsfett/casino/blackjack/double',
+    split:     '/api/fredagsfett/casino/blackjack/split',
+    insurance: '/api/fredagsfett/casino/blackjack/insurance',
   },
   roulette: {
-    spin: '/api/game/action/roulette/spin',
+    spin: '/api/fredagsfett/casino/roulette/spin',
   },
   holdem: {
-    buyIn: '/api/game/action/holdem/start',
-    action: '/api/game/action/holdem/act',
-    nextHand: '/api/game/action/holdem/next',
-    leave: '/api/game/action/holdem/leave',
+    buyIn:    '/api/fredagsfett/casino/holdem/buy-in',
+    action:   '/api/fredagsfett/casino/holdem/action',
+    nextHand: '/api/fredagsfett/casino/holdem/next-hand',
+    leave:    '/api/fredagsfett/casino/holdem/leave',
   },
 };
 
-export const PROPOSED_FREDAGSFETT_CASINO_ENDPOINTS = {
+// Legacy Mosquito routes — kept exported for the migration audit/tests only.
+// The adapter no longer calls these; references remain so the contract
+// checker can prove we are not pointing at /api/game/* anymore.
+export const LEGACY_MOSQUITO_ENDPOINTS = {
   casino: {
-    blackjack: '/api/fredagsfett/casino/blackjack/state',
-    roulette: '/api/fredagsfett/casino/roulette/state',
-    holdem: '/api/fredagsfett/casino/holdem/state',
+    blackjack: '/api/game/casino/blackjack/state',
+    roulette:  '/api/game/casino/roulette/state',
+    holdem:    '/api/game/casino/holdem/state',
   },
-  blackjack: '/api/fredagsfett/casino/blackjack/:action',
-  roulette: '/api/fredagsfett/casino/roulette/:action',
-  holdem: '/api/fredagsfett/casino/holdem/:action',
+  blackjack: {
+    deal:      '/api/game/action/blackjack/start',
+    hit:       '/api/game/action/blackjack/hit',
+    stand:     '/api/game/action/blackjack/stand',
+    double:    '/api/game/action/blackjack/double',
+    split:     '/api/game/action/blackjack/split',
+    insurance: '/api/game/action/blackjack/insurance',
+  },
+  roulette: { spin: '/api/game/action/roulette/spin' },
+  holdem: {
+    buyIn:    '/api/game/action/holdem/start',
+    action:   '/api/game/action/holdem/act',
+    nextHand: '/api/game/action/holdem/next',
+    leave:    '/api/game/action/holdem/leave',
+  },
 };
+
+// Back-compat aliases (scaffold variable names).
+const CURRENT_GAME_ENDPOINTS = CASINO_ENDPOINTS;
+export const PROPOSED_FREDAGSFETT_CASINO_ENDPOINTS = CASINO_ENDPOINTS;
 
 const state = {
   rouletteBets: [],
@@ -243,6 +266,163 @@ function initCasinoTabs(root = document) {
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+ * Live blackjack table renderer + click handlers.
+ * Roulette + Hold'em still use the scaffold placeholder UI; this pass
+ * focuses on getting blackjack fully playable through the new aliases.
+ * ────────────────────────────────────────────────────────────────────── */
+
+const blackjackUiState = { selectedBet: 250, dealing: false };
+
+function $bj(id) { return document.getElementById(id); }
+
+function setBjStatus(text, klass = '') {
+  const el = $bj('bj-status');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = `bj-status${klass ? ' ' + klass : ' idle'}`;
+}
+
+function setBjError(msg) {
+  const el = $bj('bj-error');
+  if (!el) return;
+  if (msg) {
+    el.textContent = msg;
+    el.hidden = false;
+  } else {
+    el.textContent = '';
+    el.hidden = true;
+  }
+}
+
+function renderBjCards(containerId, cards) {
+  const wrap = $bj(containerId);
+  if (!wrap) return;
+  if (!cards || !cards.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = cards.map(card => {
+    if (card.hidden) {
+      return '<div class="bj-card" data-color="hidden"><span class="suit">𓀂</span></div>';
+    }
+    return `<div class="bj-card" data-color="${escapeAttr(card.color || 'black')}">
+      <span class="rank">${escapeText(card.rank ?? '')}</span>
+      <span class="suit">${escapeText(card.suit ?? '')}</span>
+      <span class="rank-end">${escapeText(card.rank ?? '')}</span>
+    </div>`;
+  }).join('');
+}
+
+function escapeText(v) {
+  return String(v ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+function escapeAttr(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c]));
+}
+
+function fmtSek(n) {
+  return Number(n || 0).toLocaleString('sv-SE');
+}
+
+function renderBlackjack(state) {
+  const cashEl = $bj('casino-cash');
+  const subEl = $bj('casino-cash-sub');
+  if (cashEl) cashEl.textContent = fmtSek(state.player_cash);
+  if (state.idle) {
+    if (subEl) subEl.textContent = `Insats ${state.min_bet}–${state.max_bet} kr`;
+    renderBjCards('bj-dealer-cards', []);
+    renderBjCards('bj-player-cards', []);
+    $bj('bj-dealer-total').textContent = '—';
+    $bj('bj-player-total').textContent = '—';
+    $bj('bj-split-row').hidden = true;
+    setBjStatus('Välj insats och tryck Dela för att börja.', 'idle');
+    setBjActions({ deal: true });
+    return;
+  }
+  const hand = state.hand || {};
+  if (subEl) subEl.textContent = `Pågående hand · ${fmtSek(hand.bet)} kr`;
+  renderBjCards('bj-dealer-cards', hand.dealer_cards || []);
+  renderBjCards('bj-player-cards', hand.player_cards || []);
+  $bj('bj-dealer-total').textContent = hand.dealer_total ?? (hand.dealer_visible_total != null ? `${hand.dealer_visible_total}?` : '—');
+  $bj('bj-player-total').textContent = hand.player_total ?? '—';
+
+  // Split row
+  if (hand.split_cards && hand.split_cards.length) {
+    $bj('bj-split-row').hidden = false;
+    renderBjCards('bj-split-cards', hand.split_cards);
+    $bj('bj-split-total').textContent = hand.split_total ?? '—';
+  } else {
+    $bj('bj-split-row').hidden = true;
+  }
+
+  let klass = 'idle';
+  if (hand.result === 'win' || hand.result === 'blackjack') klass = 'win';
+  else if (hand.result === 'lose' || hand.result === 'bust' || hand.result === 'dealer_blackjack') klass = 'lose';
+  else if (hand.result === 'push') klass = 'push';
+  setBjStatus(hand.message || '', klass);
+
+  if (hand.finished) {
+    setBjActions({ deal: true });
+  } else {
+    setBjActions({
+      hit: !!hand.can_hit,
+      stand: !!hand.can_stand,
+      double: !!hand.can_double,
+      split: !!hand.can_split,
+      insurance: !!hand.can_insurance,
+    });
+  }
+}
+
+function setBjActions(enabled) {
+  ['deal','hit','stand','double','split','insurance'].forEach(name => {
+    const btn = document.querySelector(`[data-bj-action="${name}"]`);
+    if (btn) btn.disabled = !enabled[name];
+  });
+}
+
+function initBjBetPills() {
+  const pills = document.querySelectorAll('#bj-bet-pills .bet-pill');
+  pills.forEach(p => {
+    p.addEventListener('click', () => {
+      blackjackUiState.selectedBet = Number(p.dataset.bet) || 250;
+      pills.forEach(o => o.setAttribute('aria-pressed', o === p ? 'true' : 'false'));
+    });
+  });
+}
+
+function initBjActions() {
+  document.querySelectorAll('[data-bj-action]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const action = btn.dataset.bjAction;
+      setBjError('');
+      setBjActions({}); // disable all while in-flight
+      try {
+        let state;
+        if (action === 'deal')           state = await blackjackDeal(blackjackUiState.selectedBet);
+        else if (action === 'hit')       state = await blackjackHit();
+        else if (action === 'stand')     state = await blackjackStand();
+        else if (action === 'double')    state = await blackjackDouble();
+        else if (action === 'split')     state = await blackjackSplit();
+        else if (action === 'insurance') state = await blackjackInsurance();
+        if (state) renderBlackjack(state);
+      } catch (err) {
+        setBjError(err.message || 'Något gick fel.');
+        // Re-fetch the state so the UI doesn't get stuck disabled
+        try { renderBlackjack(await loadBlackjackState()); } catch {}
+      }
+    });
+  });
+}
+
+async function bootBlackjack() {
+  try {
+    renderBlackjack(await loadBlackjackState());
+  } catch (err) {
+    setBjError(err.message || 'Kunde inte ladda casinot.');
+    const sub = document.getElementById('casino-cash-sub');
+    if (sub) sub.textContent = 'Offline';
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.FredagsfettCasino = {
     loadCasinoState,
@@ -264,9 +444,14 @@ if (typeof window !== 'undefined') {
     holdemLeave,
     endpoints: {
       current: CURRENT_GAME_ENDPOINTS,
-      proposed: PROPOSED_FREDAGSFETT_CASINO_ENDPOINTS,
+      legacy: LEGACY_MOSQUITO_ENDPOINTS,
     },
   };
 
-  document.addEventListener('DOMContentLoaded', () => initCasinoTabs());
+  document.addEventListener('DOMContentLoaded', () => {
+    initCasinoTabs();
+    initBjBetPills();
+    initBjActions();
+    void bootBlackjack();
+  });
 }

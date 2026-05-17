@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>𓀂 · Casino</title>
 <meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.svg">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#6c7450">
+<meta property="og:title" content="𓀂 Casino · Fredagsfett">
+<meta property="og:description" content="Blackjack, roulette och Texas Hold&rsquo;Em — för gänget.">
+<meta property="og:image" content="/og-fredagsfett.svg">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/fredagsfett/light-ui.css">
 <style>
   .ff-casino-page main {
@@ -193,6 +201,125 @@
     letter-spacing: 0.13em;
     text-transform: uppercase;
   }
+  .casino-pill.bet-pill {
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+  .casino-pill.bet-pill:hover {
+    border-color: var(--ff-sage);
+    background: var(--ff-sage-2);
+    color: var(--ff-ink);
+  }
+  .casino-pill.bet-pill[aria-pressed="true"] {
+    border-color: var(--ff-sage);
+    background: var(--ff-sage);
+    color: var(--ff-paper);
+  }
+
+  /* ── Working blackjack table ───────────────────────────────────────── */
+  .bj-felt {
+    display: grid;
+    gap: 1.1rem;
+    width: 100%;
+    padding: 1.1rem 1.3rem;
+    text-align: center;
+  }
+  .bj-row {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .bj-row-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    color: var(--ff-muted);
+    font: 500 0.58rem var(--ff-font-mono);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  .bj-row-total {
+    color: var(--ff-ink);
+    font: 500 0.8rem var(--ff-font-num);
+    background: rgba(255,255,255,0.5);
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--ff-line);
+    letter-spacing: 0.02em;
+  }
+  .bj-cards {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 5.6rem;
+  }
+  .bj-card {
+    width: 3.4rem;
+    height: 4.8rem;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 0.32rem 0.4rem;
+    border-radius: 6px;
+    background: #fcfaf3;
+    border: 1px solid rgba(80,72,55,0.32);
+    box-shadow: 0 4px 12px rgba(50,44,34,0.16);
+    font-family: var(--ff-font-num);
+    font-weight: 500;
+    color: #20201b;
+    text-align: left;
+  }
+  .bj-card[data-color="red"]    { color: #a0593a; }
+  .bj-card[data-color="black"]  { color: #20201b; }
+  .bj-card[data-color="hidden"] {
+    background: linear-gradient(135deg, #2e271f 12%, #44403f);
+    color: rgba(248,240,224,0.55);
+    border-color: #20201b;
+    place-items: center;
+    text-align: center;
+    font-size: 1.6rem;
+  }
+  .bj-card .rank { font-size: 1.05rem; line-height: 1; }
+  .bj-card .suit { font-size: 1.45rem; line-height: 1; align-self: center; text-align: center; }
+  .bj-card .rank-end { font-size: 1.05rem; line-height: 1; text-align: right; transform: rotate(180deg); }
+  .bj-status {
+    min-height: 1.6rem;
+    padding: 0.32rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(108,116,80,0.10);
+    border: 1px solid rgba(108,116,80,0.20);
+    color: var(--ff-ink);
+    font: italic 500 0.95rem var(--ff-font-display);
+    letter-spacing: -0.005em;
+    display: inline-block;
+  }
+  .bj-status.win   { background: rgba(108,116,80,0.20); border-color: rgba(108,116,80,0.40); }
+  .bj-status.lose  { background: rgba(164,91,61,0.16); border-color: rgba(164,91,61,0.32); color: #6b2e1f; }
+  .bj-status.push  { background: rgba(164,146,93,0.18); border-color: rgba(164,146,93,0.34); }
+  .bj-status.idle  { background: transparent; border-color: var(--ff-line); color: var(--ff-muted); }
+
+  .casino-cash {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font: 500 1.55rem var(--ff-font-num);
+    color: var(--ff-ink);
+    letter-spacing: -0.01em;
+  }
+  .casino-cash .unit { font: 500 0.62rem var(--ff-font-mono); letter-spacing: 0.18em; color: var(--ff-muted); text-transform: uppercase; }
+
+  .casino-error {
+    margin-top: 0.5rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 6px;
+    background: rgba(164,91,61,0.10);
+    border: 1px solid rgba(164,91,61,0.32);
+    color: #6b2e1f;
+    font: 500 0.66rem var(--ff-font-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .casino-error[hidden] { display: none; }
 
   @media (max-width: 900px) {
     .casino-hero,
@@ -243,10 +370,10 @@
         <h1 id="casino-title">Casino</h1>
         <p>Blackjack, roulette och Texas Hold&rsquo;Em flyttas hit stegvis med Fredagsfetts ljusa skal, samma inloggning och Mosquitos beprövade spelmotor under ytan.</p>
       </div>
-      <aside class="casino-status" aria-label="Migreringsstatus">
-        <span class="mono">Status</span>
-        <strong>Scaffold</strong>
-        <span class="mono">API-brygga väntar</span>
+      <aside class="casino-status" aria-label="Min kassa">
+        <span class="mono">Min kassa</span>
+        <div class="casino-cash"><span id="casino-cash">—</span><span class="unit">kr</span></div>
+        <span class="mono" id="casino-cash-sub">Laddar…</span>
       </aside>
     </header>
 
@@ -267,32 +394,46 @@
 
     <section class="casino-panel" id="casino-panel-blackjack" role="tabpanel" aria-labelledby="casino-tab-blackjack" data-casino-panel="blackjack" tabindex="0">
       <div class="casino-table" aria-label="Blackjackbord">
-        <div class="casino-table-inner">
-          <p class="mono">Blackjack</p>
-          <h2>Kortbordet landar här</h2>
-          <p>Dealerhand, spelarhand, splitläge och resultat kopplas mot adapterytan i nästa steg.</p>
+        <div class="bj-felt" id="bj-felt">
+          <div class="bj-row" id="bj-dealer">
+            <div class="bj-row-label">Dealer <span class="bj-row-total" id="bj-dealer-total">—</span></div>
+            <div class="bj-cards" id="bj-dealer-cards"></div>
+          </div>
+          <div class="bj-row" id="bj-player">
+            <div class="bj-row-label">Din hand <span class="bj-row-total" id="bj-player-total">—</span></div>
+            <div class="bj-cards" id="bj-player-cards"></div>
+          </div>
+          <div class="bj-row" id="bj-split-row" hidden>
+            <div class="bj-row-label">Split <span class="bj-row-total" id="bj-split-total">—</span></div>
+            <div class="bj-cards" id="bj-split-cards"></div>
+          </div>
+          <div>
+            <span class="bj-status idle" id="bj-status">Välj insats och tryck Dela för att börja.</span>
+          </div>
         </div>
       </div>
       <aside class="casino-tools" aria-label="Blackjack kontroller">
         <div class="casino-tool-block">
           <h3>Insats</h3>
-          <div class="casino-pill-row" aria-label="Förvalda insatser">
-            <span class="casino-pill">100 kr</span>
-            <span class="casino-pill">250 kr</span>
-            <span class="casino-pill">500 kr</span>
-            <span class="casino-pill">1 000 kr</span>
+          <div class="casino-pill-row" aria-label="Förvalda insatser" id="bj-bet-pills">
+            <button type="button" class="casino-pill bet-pill" data-bet="100" aria-pressed="false">100 kr</button>
+            <button type="button" class="casino-pill bet-pill" data-bet="250" aria-pressed="true">250 kr</button>
+            <button type="button" class="casino-pill bet-pill" data-bet="500" aria-pressed="false">500 kr</button>
+            <button type="button" class="casino-pill bet-pill" data-bet="1000" aria-pressed="false">1 000 kr</button>
+            <button type="button" class="casino-pill bet-pill" data-bet="2500" aria-pressed="false">2 500 kr</button>
           </div>
         </div>
         <div class="casino-tool-block">
           <h3>Handlingar</h3>
-          <div class="casino-action-row">
-            <button type="button" disabled>Dela</button>
-            <button type="button" disabled>Kort</button>
-            <button type="button" disabled>Stanna</button>
-            <button type="button" disabled>Dubbla</button>
-            <button type="button" disabled>Split</button>
-            <button type="button" disabled>Insurance</button>
+          <div class="casino-action-row" id="bj-actions">
+            <button type="button" data-bj-action="deal">Dela</button>
+            <button type="button" data-bj-action="hit" disabled>Kort</button>
+            <button type="button" data-bj-action="stand" disabled>Stanna</button>
+            <button type="button" data-bj-action="double" disabled>Dubbla</button>
+            <button type="button" data-bj-action="split" disabled>Split</button>
+            <button type="button" data-bj-action="insurance" disabled>Insurance</button>
           </div>
+          <div class="casino-error" id="bj-error" hidden></div>
         </div>
       </aside>
     </section>
@@ -363,5 +504,6 @@
 </main>
 
 <script type="module" src="/fredagsfett/casino/casino.js"></script>
+<script src="/fredagsfett/theme.js" defer></script>
 </body>
 </html>
