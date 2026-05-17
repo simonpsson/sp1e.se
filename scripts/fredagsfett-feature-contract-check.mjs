@@ -162,8 +162,14 @@ check('Casino page in nav across hem/kalender/sp1wise/karta',
   && /\/fredagsfett\/casino/.test(calendar)
   && /\/fredagsfett\/casino/.test(sp1wise)
   && /\/fredagsfett\/casino/.test(karta));
-check('Service Worker caches the casino shell + adapter',
-  /\/fredagsfett\/casino[^\n]*\n[\s\S]*\/fredagsfett\/casino\/casino\.js/.test(fs.readFileSync('sw.js', 'utf8')));
+// The SW shell-caching assertion was retired alongside the v1/v2 SW
+// outage — sw.js is now a tombstone (see Service Worker tombstone commit).
+// We just verify the tombstone is in place so future regressions don't
+// silently re-introduce caching of redirect-prone routes.
+check('Service Worker remains a tombstone (no shell caching) after casino re-merge',
+  /TOMBSTONE/i.test(fs.readFileSync('sw.js', 'utf8'))
+  && /self\.registration\.unregister/.test(fs.readFileSync('sw.js', 'utf8'))
+  && !/\/fredagsfett\/casino\/casino\.js/.test(fs.readFileSync('sw.js', 'utf8')));
 check('Casino noir aesthetic in place (dark felt tokens + ivory cards)',
   /--noir-felt-1/.test(casinoPage)
   && /--noir-amber/.test(casinoPage)
