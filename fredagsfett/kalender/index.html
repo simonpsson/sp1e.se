@@ -491,11 +491,19 @@
   }
   .status-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.35rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.32rem;
     margin-bottom: 0.55rem;
   }
-  .status-row .status-pill { font-size: 0.6rem; padding: 0.4rem 0.4rem; min-height: 28px; }
+  .status-row .status-pill {
+    font-size: 0.58rem;
+    padding: 0.42rem 0.35rem;
+    min-height: 30px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .day-times {
     display: grid;
     gap: 0.22rem;

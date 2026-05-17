@@ -385,8 +385,15 @@ body.ff-light-page main {
 
 .ff-calendar-page .calendar-side-panel {
   align-self: start;
-  padding: 0.9rem 1rem !important;
+  padding: 0.9rem 1rem 4.5rem !important; /* extra bottom for the floating theme cycler */
   font-size: 0.85rem;
+  min-width: 0;
+}
+/* Pull the floating theme cycler to the LEFT on the kalender so it doesn't
+ * sit on top of the right-aligned side panel content. */
+.ff-calendar-page .ff-theme-cycler {
+  right: auto !important;
+  left: 1rem !important;
 }
 
 .ff-calendar-page .calendar-side-panel input,
@@ -486,13 +493,31 @@ body.ff-light-page main {
 .ff-karta-page .map-toolbar {
   position: absolute;
   top: 1.6rem;
-  left: 1.6rem;
+  /* Leave a 3.5rem channel on the left so the Leaflet zoom (+/-) and any
+   * other Leaflet control with default `topleft` placement (e.g. the
+   * draw toolbar when topright is unavailable) has clear vertical space
+   * without colliding with the floating toolbar. */
+  left: 4.5rem;
   right: 1.6rem;
   z-index: 500;
   border: 1px solid var(--ff-line);
   border-radius: 999px;
   background: rgba(249, 246, 237, 0.86) !important;
   backdrop-filter: blur(12px);
+}
+
+/* Anchor the Leaflet zoom and draw controls at the top of the map without
+ * letting them hug the toolbar pill. */
+.ff-karta-page .leaflet-top.leaflet-left  { top: 1.4rem !important; left: 1rem !important; }
+.ff-karta-page .leaflet-top.leaflet-right { top: 5.4rem !important; right: 1rem !important; }
+
+/* Pull the floating theme cycler off the right rail on Karta so it doesn't
+ * sit over the sidebar content. Park it on the bottom-LEFT corner of the
+ * map area instead. */
+.ff-karta-page .ff-theme-cycler {
+  right: auto !important;
+  left: 1rem !important;
+  bottom: 3rem !important;
 }
 
 .ff-karta-page .map-searchbar {
