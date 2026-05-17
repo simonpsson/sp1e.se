@@ -18,7 +18,7 @@ function jsonResponse(data, ok = true, status = 200) {
   };
 }
 
-test('loadCasinoState reads the confirmed Mosquito casino state endpoints with credentials', async () => {
+test('loadCasinoState reads the Fredagsfett casino state aliases with credentials', async () => {
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url, options });
@@ -31,9 +31,9 @@ test('loadCasinoState reads the confirmed Mosquito casino state endpoints with c
   const state = await loadCasinoState({ fetchImpl });
 
   assert.deepEqual(calls.map(call => call.url), [
-    '/api/game/casino/blackjack/state',
-    '/api/game/casino/roulette/state',
-    '/api/game/casino/holdem/state',
+    '/api/fredagsfett/casino/blackjack/state',
+    '/api/fredagsfett/casino/roulette/state',
+    '/api/fredagsfett/casino/holdem/state',
   ]);
   assert.ok(calls.every(call => call.options.credentials === 'same-origin'));
   assert.equal(state.modes.blackjack.hand.id, 'bj-1');
@@ -41,7 +41,7 @@ test('loadCasinoState reads the confirmed Mosquito casino state endpoints with c
   assert.equal(state.modes.holdem.table, null);
 });
 
-test('blackjackDeal posts the normalized bet to the confirmed Mosquito action endpoint', async () => {
+test('blackjackDeal posts the normalized bet to the Fredagsfett alias', async () => {
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url, options });
@@ -50,7 +50,7 @@ test('blackjackDeal posts the normalized bet to the confirmed Mosquito action en
 
   const state = await blackjackDeal(250, { fetchImpl });
 
-  assert.equal(calls[0].url, '/api/game/action/blackjack/start');
+  assert.equal(calls[0].url, '/api/fredagsfett/casino/blackjack/deal');
   assert.equal(calls[0].options.method, 'POST');
   assert.equal(calls[0].options.credentials, 'same-origin');
   assert.equal(calls[0].options.headers['Content-Type'], 'application/json');
@@ -59,7 +59,7 @@ test('blackjackDeal posts the normalized bet to the confirmed Mosquito action en
   assert.equal(state.hand.bet, 250);
 });
 
-test('rouletteRepeat replays the most recent queued roulette bets', async () => {
+test('rouletteRepeat replays the most recent queued roulette bets via the Fredagsfett alias', async () => {
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url, options });
@@ -69,7 +69,7 @@ test('rouletteRepeat replays the most recent queued roulette bets', async () => 
   roulettePlaceBet({ kind: 'straight', target: 17, stake: 100 });
   const state = await rouletteRepeat({ fetchImpl });
 
-  assert.equal(calls[0].url, '/api/game/action/roulette/spin');
+  assert.equal(calls[0].url, '/api/fredagsfett/casino/roulette/spin');
   assert.equal(calls[0].options.body, JSON.stringify({
     bets: [{ kind: 'straight', target: 17, stake: 100 }],
   }));

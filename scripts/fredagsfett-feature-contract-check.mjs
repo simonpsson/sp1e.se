@@ -6,6 +6,10 @@ const files = {
   calendar: 'fredagsfett/kalender/index.html',
   sp1wise: 'fredagsfett/sp1wise/index.html',
   karta: 'fredagsfett/karta/index.html',
+  casinoPage: 'fredagsfett/casino/index.html',
+  casinoAdapter: 'fredagsfett/casino/casino.js',
+  casinoMigration: 'fredagsfett-casino-migration-001.sql',
+  casinoAudit: 'docs/fredagsfett-casino-migration-audit.md',
   lightUi: 'fredagsfett/light-ui.css',
   availabilityTimesMigration: 'fredagsfett-migration-002-availability-times.sql',
   redirects: '_redirects',
@@ -116,6 +120,50 @@ check('theme.js exposes ffPrompt and ffConfirm modal helpers',
 check('Loading skeletons replace bare "Laddar..." copy on Kalender + Hem',
   /class="ff-skeleton/.test(calendar)
   && !/<h2 id="month-title">Laddar/.test(calendar));
+
+// Casino migration (audit, migration 001, auth bridge, aliases, adapter swap, page)
+const casinoPage = read(files.casinoPage);
+const casinoAdapter = read(files.casinoAdapter);
+const casinoMigration = read(files.casinoMigration);
+check('Casino migration scaffold files exist (audit + migration + page + adapter)',
+  fs.existsSync(files.casinoAudit)
+  && fs.existsSync(files.casinoMigration)
+  && fs.existsSync(files.casinoPage)
+  && fs.existsSync(files.casinoAdapter));
+check('Casino migration 001 creates ff_casino_player_links with the user/device/player bridge',
+  /CREATE TABLE IF NOT EXISTS ff_casino_player_links/.test(casinoMigration)
+  && /game_player_id\s+TEXT NOT NULL REFERENCES game_players/.test(casinoMigration));
+check('Mosquito API exposes getCasinoPlayer() and the 14 casino handlers are exported',
+  /export\s+async\s+function\s+getCasinoPlayer|^async function getCasinoPlayer/m.test(api)
+  && /export async function gameGetBlackjackState/.test(api)
+  && /export async function gameActionBlackjackStart/.test(api)
+  && /export async function gameActionRouletteSpin/.test(api)
+  && /export async function gameActionHoldemAct/.test(api));
+check('14 casino handlers resolve auth via getCasinoPlayer (not requireGamePlayer directly)',
+  (api.match(/getCasinoPlayer\(request, env\)/g) || []).length >= 14);
+check('Fredagsfett module wires /api/fredagsfett/casino/* aliases for all 3 games',
+  /id === 'casino' && sub === 'blackjack'/.test(api)
+  && /id === 'casino' && sub === 'roulette'/.test(api)
+  && /id === 'casino' && sub === 'holdem'/.test(api)
+  && /gameGetBlackjackState\(request, env/.test(api));
+check('Casino aliases do NOT expose Mosquito admin routes',
+  !/\/api\/fredagsfett\/casino\/admin/.test(api)
+  && !/gameAdminAuth|gameAdminStatus|gameAdminLogout|game-admin-auth/.test(read(files.casinoAdapter)));
+check('Casino adapter (casino.js) calls /api/fredagsfett/casino/* aliases, not /api/game/* directly',
+  /\/api\/fredagsfett\/casino\/blackjack\/state/.test(casinoAdapter)
+  && /\/api\/fredagsfett\/casino\/roulette\/spin/.test(casinoAdapter)
+  // The legacy block can mention /api/game/* but the *active* CASINO_ENDPOINTS must point to ff aliases
+  && !/CURRENT_GAME_ENDPOINTS\s*=\s*\{\s*casino:\s*\{\s*blackjack:\s*'\/api\/game/.test(casinoAdapter));
+check('Casino page is light-themed and links the casino adapter',
+  /class="ff-light-page ff-casino-page"/.test(casinoPage)
+  && /\/fredagsfett\/casino\/casino\.js/.test(casinoPage));
+check('Casino page in nav across hem/kalender/sp1wise/karta',
+  /\/fredagsfett\/casino/.test(read('fredagsfett/hem/index.html'))
+  && /\/fredagsfett\/casino/.test(calendar)
+  && /\/fredagsfett\/casino/.test(sp1wise)
+  && /\/fredagsfett\/casino/.test(karta));
+check('Service Worker caches the casino shell + adapter',
+  /\/fredagsfett\/casino[^\n]*\n[\s\S]*\/fredagsfett\/casino\/casino\.js/.test(fs.readFileSync('sw.js', 'utf8')));
 
 check('Migration 008 widens the ff_availability CHECK to include TENTATIVE',
   fs.existsSync('fredagsfett-migration-008-tentative-status.sql')

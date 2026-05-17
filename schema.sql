@@ -400,6 +400,22 @@ CREATE TABLE IF NOT EXISTS ff_event_rsvp (
 CREATE INDEX IF NOT EXISTS idx_ff_event_rsvp_event ON ff_event_rsvp (event_id);
 CREATE INDEX IF NOT EXISTS idx_ff_event_rsvp_user  ON ff_event_rsvp (user_id);
 
+-- Casino migration: bridge from Fredagsfett identity to Mosquito game_players.
+-- See fredagsfett-casino-migration-001.sql + docs/fredagsfett-casino-migration-audit.md.
+CREATE TABLE IF NOT EXISTS ff_casino_player_links (
+  id             TEXT PRIMARY KEY,
+  ff_user_id     TEXT REFERENCES ff_users(id) ON DELETE SET NULL,
+  ff_device_id   TEXT REFERENCES ff_devices(id) ON DELETE SET NULL,
+  game_player_id TEXT NOT NULL REFERENCES game_players(id) ON DELETE CASCADE,
+  created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  CHECK (ff_user_id IS NOT NULL OR ff_device_id IS NOT NULL)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ff_casino_links_user         ON ff_casino_player_links (ff_user_id)     WHERE ff_user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ff_casino_links_device       ON ff_casino_player_links (ff_device_id)   WHERE ff_device_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ff_casino_links_game_player  ON ff_casino_player_links (game_player_id);
+CREATE INDEX        IF NOT EXISTS idx_ff_casino_links_updated      ON ff_casino_player_links (updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS ff_chat_messages (
   id         TEXT PRIMARY KEY,
   group_id   TEXT NOT NULL REFERENCES ff_groups(id) ON DELETE CASCADE,
