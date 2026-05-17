@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>𓀂 · Casino</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/fredagsfett/light-ui.css">
+<style>
+  .ff-casino-page main {
+    min-height: 100vh;
+  }
+
+  .casino-shell {
+    display: grid;
+    gap: 1rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .casino-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: end;
+    padding: clamp(1.2rem, 4vw, 2.4rem) 0 0.6rem;
+    border-bottom: 1px solid var(--ff-line);
+  }
+
+  .casino-hero p {
+    max-width: 56rem;
+    margin: 0.75rem 0 0;
+    color: var(--ff-muted);
+    font-size: 0.98rem;
+    line-height: 1.7;
+  }
+
+  .casino-status {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 11rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--ff-line);
+    border-radius: 8px;
+    background: rgba(249, 246, 237, 0.62);
+  }
+
+  .casino-status strong {
+    color: var(--ff-ink);
+    font-family: var(--ff-font-num);
+    font-size: 1.35rem;
+    line-height: 1;
+  }
+
+  .casino-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .casino-tab {
+    min-height: 8.25rem;
+    display: grid;
+    align-content: space-between;
+    text-align: left;
+    padding: 1rem !important;
+    border-radius: 8px !important;
+    background: rgba(249, 246, 237, 0.70) !important;
+  }
+
+  .casino-tab[aria-selected="true"] {
+    border-color: var(--ff-sage) !important;
+    background: var(--ff-sage-2) !important;
+    color: var(--ff-ink) !important;
+  }
+
+  .casino-tab span {
+    display: block;
+  }
+
+  .casino-tab-title {
+    color: var(--ff-ink);
+    font-family: var(--ff-font-display);
+    font-size: clamp(1.45rem, 3vw, 2.15rem);
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    text-transform: none;
+  }
+
+  .casino-tab-meta {
+    color: var(--ff-muted);
+    font-family: var(--ff-font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+  }
+
+  .casino-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
+    gap: 1rem;
+    min-height: 25rem;
+    padding: clamp(1rem, 2vw, 1.4rem);
+    border: 1px solid var(--ff-line);
+    border-radius: 8px;
+    background: rgba(249, 246, 237, 0.76);
+    box-shadow: 0 20px 60px rgba(50, 44, 34, 0.08);
+  }
+
+  .casino-panel[hidden] {
+    display: none;
+  }
+
+  .casino-table {
+    display: grid;
+    place-items: center;
+    min-height: 22rem;
+    border: 1px dashed var(--ff-line-strong);
+    border-radius: 8px;
+    background:
+      linear-gradient(135deg, rgba(108, 116, 80, 0.08), transparent 42%),
+      rgba(255, 255, 255, 0.24);
+  }
+
+  .casino-table-inner {
+    display: grid;
+    gap: 0.7rem;
+    width: min(28rem, calc(100% - 2rem));
+    text-align: center;
+  }
+
+  .casino-table-inner h2 {
+    margin: 0;
+  }
+
+  .casino-table-inner p {
+    margin: 0;
+    color: var(--ff-muted);
+    line-height: 1.65;
+  }
+
+  .casino-tools {
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+  }
+
+  .casino-tool-block {
+    display: grid;
+    gap: 0.75rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--ff-line);
+  }
+
+  .casino-tool-block:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .casino-tool-block h3 {
+    margin: 0;
+    font-size: 1.25rem !important;
+  }
+
+  .casino-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .casino-action-row button:disabled {
+    opacity: 0.54;
+    cursor: not-allowed;
+  }
+
+  .casino-pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .casino-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid var(--ff-line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.32);
+    color: var(--ff-muted);
+    font-family: var(--ff-font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 900px) {
+    .casino-hero,
+    .casino-panel {
+      grid-template-columns: 1fr;
+    }
+
+    .casino-status {
+      min-width: 0;
+    }
+  }
+
+  @media (max-width: 680px) {
+    .casino-tabs {
+      grid-template-columns: 1fr;
+    }
+
+    .casino-tab {
+      min-height: 6.5rem;
+    }
+  }
+</style>
+</head>
+<body class="ff-light-page ff-casino-page">
+<main>
+  <nav class="ff-topbar" aria-label="Fredagsfett navigation">
+    <a class="ff-brand" href="/fredagsfett/hem" aria-label="SP1E">SP1E</a>
+    <div class="ff-nav-row">
+      <a href="/fredagsfett/hem">Hem</a>
+      <a href="/fredagsfett/kalender">Kalender</a>
+      <a href="/fredagsfett/sp1wise">SP1Wise</a>
+      <a href="/fredagsfett/karta">Karta</a>
+      <a href="/fredagsfett/casino" aria-current="page">Casino</a>
+    </div>
+    <div class="ff-top-tools" aria-label="Gruppstatus">
+      <div class="ff-clock"><span>22:14</span><small>fre · 15.v.mmxvi</small></div>
+      <div class="ff-avatar-row" aria-hidden="true">
+        <span class="ff-av ff-av-s">S</span><span class="ff-av ff-av-a">A</span><span class="ff-av ff-av-p">P</span><span class="ff-av ff-av-e">E</span><span class="ff-av ff-av-more">+2</span>
+      </div>
+      <span class="ff-user-chip"><span class="ff-av ff-av-s">S</span><span>Simon</span><span class="ff-admin-badge">ADMIN</span></span>
+    </div>
+  </nav>
+
+  <section class="casino-shell" aria-labelledby="casino-title">
+    <header class="casino-hero">
+      <div>
+        <p class="mono">Fredagsfett</p>
+        <h1 id="casino-title">Casino</h1>
+        <p>Blackjack, roulette och Texas Hold&rsquo;Em flyttas hit stegvis med Fredagsfetts ljusa skal, samma inloggning och Mosquitos beprövade spelmotor under ytan.</p>
+      </div>
+      <aside class="casino-status" aria-label="Migreringsstatus">
+        <span class="mono">Status</span>
+        <strong>Scaffold</strong>
+        <span class="mono">API-brygga väntar</span>
+      </aside>
+    </header>
+
+    <div class="casino-tabs" role="tablist" aria-label="Casinospel">
+      <button class="casino-tab" id="casino-tab-blackjack" type="button" role="tab" aria-selected="true" aria-controls="casino-panel-blackjack" data-casino-tab="blackjack">
+        <span class="casino-tab-title">Blackjack</span>
+        <span class="casino-tab-meta">3:2 · split · insurance</span>
+      </button>
+      <button class="casino-tab" id="casino-tab-roulette" type="button" role="tab" aria-selected="false" aria-controls="casino-panel-roulette" data-casino-tab="roulette" tabindex="-1">
+        <span class="casino-tab-title">Roulette</span>
+        <span class="casino-tab-meta">Europeisk · inside · outside</span>
+      </button>
+      <button class="casino-tab" id="casino-tab-holdem" type="button" role="tab" aria-selected="false" aria-controls="casino-panel-holdem" data-casino-tab="holdem" tabindex="-1">
+        <span class="casino-tab-title">Texas Hold&rsquo;Em</span>
+        <span class="casino-tab-meta">Fixed limit · bordsläge</span>
+      </button>
+    </div>
+
+    <section class="casino-panel" id="casino-panel-blackjack" role="tabpanel" aria-labelledby="casino-tab-blackjack" data-casino-panel="blackjack" tabindex="0">
+      <div class="casino-table" aria-label="Blackjackbord">
+        <div class="casino-table-inner">
+          <p class="mono">Blackjack</p>
+          <h2>Kortbordet landar här</h2>
+          <p>Dealerhand, spelarhand, splitläge och resultat kopplas mot adapterytan i nästa steg.</p>
+        </div>
+      </div>
+      <aside class="casino-tools" aria-label="Blackjack kontroller">
+        <div class="casino-tool-block">
+          <h3>Insats</h3>
+          <div class="casino-pill-row" aria-label="Förvalda insatser">
+            <span class="casino-pill">100 kr</span>
+            <span class="casino-pill">250 kr</span>
+            <span class="casino-pill">500 kr</span>
+            <span class="casino-pill">1 000 kr</span>
+          </div>
+        </div>
+        <div class="casino-tool-block">
+          <h3>Handlingar</h3>
+          <div class="casino-action-row">
+            <button type="button" disabled>Dela</button>
+            <button type="button" disabled>Kort</button>
+            <button type="button" disabled>Stanna</button>
+            <button type="button" disabled>Dubbla</button>
+            <button type="button" disabled>Split</button>
+            <button type="button" disabled>Insurance</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="casino-panel" id="casino-panel-roulette" role="tabpanel" aria-labelledby="casino-tab-roulette" data-casino-panel="roulette" tabindex="0" hidden>
+      <div class="casino-table" aria-label="Roulettebord">
+        <div class="casino-table-inner">
+          <p class="mono">Roulette</p>
+          <h2>Hjulet får ett ljusare bord</h2>
+          <p>Rutnät, marker, outside bets och historik översätts från Mosquito utan att ta med den mörka stilen.</p>
+        </div>
+      </div>
+      <aside class="casino-tools" aria-label="Roulette kontroller">
+        <div class="casino-tool-block">
+          <h3>Insatser</h3>
+          <div class="casino-pill-row" aria-label="Roulettetyper">
+            <span class="casino-pill">Straight</span>
+            <span class="casino-pill">Split</span>
+            <span class="casino-pill">Street</span>
+            <span class="casino-pill">Dozen</span>
+            <span class="casino-pill">Column</span>
+            <span class="casino-pill">Red/Black</span>
+          </div>
+        </div>
+        <div class="casino-tool-block">
+          <h3>Handlingar</h3>
+          <div class="casino-action-row">
+            <button type="button" disabled>Lägg insats</button>
+            <button type="button" disabled>Snurra</button>
+            <button type="button" disabled>Upprepa</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="casino-panel" id="casino-panel-holdem" role="tabpanel" aria-labelledby="casino-tab-holdem" data-casino-panel="holdem" tabindex="0" hidden>
+      <div class="casino-table" aria-label="Texas Hold'Em bord">
+        <div class="casino-table-inner">
+          <p class="mono">Texas Hold&rsquo;Em</p>
+          <h2>Fyra platser, ett nytt skal</h2>
+          <p>Buy-in, mörkar, community cards, spelarbeslut och showdown hålls bakom adapteranropen.</p>
+        </div>
+      </div>
+      <aside class="casino-tools" aria-label="Texas Hold'Em kontroller">
+        <div class="casino-tool-block">
+          <h3>Bord</h3>
+          <div class="casino-pill-row" aria-label="Bordsdata">
+            <span class="casino-pill">50 / 100</span>
+            <span class="casino-pill">4 seats</span>
+            <span class="casino-pill">Fixed limit</span>
+          </div>
+        </div>
+        <div class="casino-tool-block">
+          <h3>Handlingar</h3>
+          <div class="casino-action-row">
+            <button type="button" disabled>Buy-in</button>
+            <button type="button" disabled>Fold</button>
+            <button type="button" disabled>Check</button>
+            <button type="button" disabled>Call</button>
+            <button type="button" disabled>Raise</button>
+            <button type="button" disabled>Nästa hand</button>
+            <button type="button" disabled>Lämna</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </section>
+</main>
+
+<script type="module" src="/fredagsfett/casino/casino.js"></script>
+</body>
+</html>
