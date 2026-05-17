@@ -9,34 +9,7 @@
  * Self-contained: includes its own Env interface, shared utility helpers
  * (json, HttpError, AuthError, getCookie, cors), and constants. The parent
  * /api/[[route]].ts no longer dispatches Fredagsfett routes.
- *
- * Casino aliases: /api/fredagsfett/casino/* re-uses the existing Mosquito
- * game handlers (blackjack, roulette, hold'em) via cross-file imports. The
- * Mosquito module's getCasinoPlayer() resolves Fredagsfett auth before the
- * handler runs, so we never expose Mosquito admin endpoints here.
  */
-
-// Cross-file imports from the Mosquito catch-all. These handlers internally
-// call getCasinoPlayer() which resolves Fredagsfett session cookies first,
-// so the same function body services both audiences. We deliberately do NOT
-// import any admin endpoints (game-admin-auth, game-admin, game-admin-logout,
-// game-admin-status etc.).
-import {
-  gameGetBlackjackState,
-  gameActionBlackjackStart,
-  gameActionBlackjackHit,
-  gameActionBlackjackStand,
-  gameActionBlackjackDouble,
-  gameActionBlackjackSplit,
-  gameActionBlackjackInsurance,
-  gameGetRouletteState,
-  gameActionRouletteSpin,
-  gameGetHoldemState,
-  gameActionHoldemStart,
-  gameActionHoldemAct,
-  gameActionHoldemNextHand,
-  gameActionHoldemLeave,
-} from '../[[route]]';
 
 export interface Env {
   DB: D1Database;
@@ -2532,32 +2505,6 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     if (id === 'availability' && !sub && method === 'POST') return fredagsfettAvailabilityUpsert(request, env);
     if (id === 'availability' && !sub && method === 'DELETE') return fredagsfettAvailabilityDelete(request, env);
     if (id === 'availability' && sub === 'export' && method === 'GET') return fredagsfettAvailabilityCsvExport(request, env);
-
-    // ─ Casino aliases (QoL casino migration) ───────────────────────────
-    // These forward to the Mosquito casino handlers which resolve auth via
-    // getCasinoPlayer() (Fredagsfett-first, Mosquito fallback). NO admin
-    // routes are aliased — game-admin-* stays gated behind /api/game/*.
-    if (id === 'casino' && sub === 'blackjack') {
-      if (action === 'state'     && method === 'GET')  return gameGetBlackjackState(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-      if (action === 'deal'      && method === 'POST') return gameActionBlackjackStart(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-      if (action === 'hit'       && method === 'POST') return gameActionBlackjackHit(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-      if (action === 'stand'     && method === 'POST') return gameActionBlackjackStand(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-      if (action === 'double'    && method === 'POST') return gameActionBlackjackDouble(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-      if (action === 'split'     && method === 'POST') return gameActionBlackjackSplit(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-      if (action === 'insurance' && method === 'POST') return gameActionBlackjackInsurance(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-    }
-    if (id === 'casino' && sub === 'roulette') {
-      if (action === 'state' && method === 'GET')  return gameGetRouletteState(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-      if (action === 'spin'  && method === 'POST') return gameActionRouletteSpin(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-    }
-    if (id === 'casino' && sub === 'holdem') {
-      if (action === 'state'     && method === 'GET')  return gameGetHoldemState(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-      if (action === 'buy-in'    && method === 'POST') return gameActionHoldemStart(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-      if (action === 'action'    && method === 'POST') return gameActionHoldemAct(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-      if (action === 'next-hand' && method === 'POST') return gameActionHoldemNextHand(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-      if (action === 'leave'     && method === 'POST') return gameActionHoldemLeave(request, env as unknown as Parameters<typeof gameGetBlackjackState>[1]);
-    }
-
     if (id === 'rsvp-public' && sub && action && (method === 'GET' || method === 'POST'))
       return fredagsfettEventPublicRsvp(request, env, sub, action);
     if (id === 'events' && !sub && method === 'GET')  return fredagsfettEventsList(request, env);

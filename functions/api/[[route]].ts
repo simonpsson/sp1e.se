@@ -1494,148 +1494,6 @@ async function requireGamePlayer(request: Request, env: Env): Promise<Row> {
   return syncGamePlayerState(env, player);
 }
 
-/* ──────────────────────────────────────────────────────────────────────
- * Fredagsfett Casino auth bridge (QoL casino migration).
- *
- * Resolves the casino player from EITHER:
- *   (A) ff_session cookie  → ff_users → ff_casino_player_links → game_players
- *       (Fredagsfett path — used by /api/fredagsfett/casino/* aliases)
- *   (B) game_session cookie → requireGamePlayer
- *       (legacy Mosquito path — unchanged behaviour)
- *
- * The casino handlers (blackjack / roulette / hold'em) call this instead of
- * requireGamePlayer so both audiences can hit the same game logic. The
- * Fredagsfett path lives in a dedicated 'ff-casino-round' game_round (not the
- * active Mosquito round) so casino players never appear in any Mosquito
- * leaderboard or get caught up in round resets.
- * ────────────────────────────────────────────────────────────────────── */
-
-const FREDAGSFETT_CASINO_ROUND_ID = 'ff-casino-round';
-const FREDAGSFETT_CASINO_STARTING_CASH = 10000; // chips on first link
-
-function ffSessionCookieFromRequest(request: Request): string | null {
-  const cookie = request.headers.get('Cookie') ?? '';
-  const match = cookie.match(/(?:^|;\s*)ff_session=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-// Verify a Fredagsfett session token. Mirrors the format used by
-// signFredagsfettSession() in functions/api/fredagsfett/[[route]].ts:
-//   token = base64url(JSON payload) + "." + base64url(HMAC-SHA-256(secret, encodedPayloadString))
-//   payload = { v: 1, deviceId: string, userId: string | null, exp: number /* unix seconds */ }
-// Re-implemented here (not imported) so the mosquito module stays self-
-// contained and Pages Functions doesn't need cross-file imports for this
-// hot path.
-async function ffVerifySessionToken(token: string, secret: string): Promise<{ user_id: string; device_id: string } | null> {
-  const dot = token.indexOf('.');
-  if (dot <= 0 || dot >= token.length - 1) return null;
-  const payloadB64 = token.slice(0, dot);
-  const sigB64 = token.slice(dot + 1);
-  const enc = new TextEncoder();
-  let key: CryptoKey;
-  try {
-    key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-  } catch { return null; }
-  const sigBytes = ffBase64UrlDecode(sigB64);
-  if (!sigBytes) return null;
-  let ok = false;
-  try { ok = await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(payloadB64)); }
-  catch { return null; }
-  if (!ok) return null;
-  const payloadBytes = ffBase64UrlDecode(payloadB64);
-  if (!payloadBytes) return null;
-  let payload: { v?: number; deviceId?: string; userId?: string | null; exp?: number };
-  try { payload = JSON.parse(new TextDecoder().decode(payloadBytes)); }
-  catch { return null; }
-  if (payload.v !== 1) return null;
-  if (!payload.userId || !payload.deviceId) return null; // unregistered sessions skip the casino
-  if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) return null;
-  return { user_id: payload.userId, device_id: payload.deviceId };
-}
-function ffBase64UrlDecode(s: string): Uint8Array | null {
-  try {
-    const padded = s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4);
-    const bin = atob(padded);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return bytes;
-  } catch { return null; }
-}
-
-async function ffEnsureCasinoRound(env: Env): Promise<void> {
-  await env.DB.prepare(
-    `INSERT INTO game_rounds (id, round_number, start_date, end_date, is_active)
-     VALUES (?, 9999, datetime('now'), datetime('now', '+10 years'), 0)
-     ON CONFLICT(id) DO NOTHING`
-  ).bind(FREDAGSFETT_CASINO_ROUND_ID).run();
-}
-
-async function ffLinkOrCreateCasinoPlayer(env: Env, ffUserId: string, ffDeviceId: string, displayName: string): Promise<Row> {
-  // 1. Look up an existing link for this ff_user
-  const existing = await env.DB.prepare(
-    `SELECT game_player_id FROM ff_casino_player_links WHERE ff_user_id = ?`
-  ).bind(ffUserId).first<{ game_player_id: string }>();
-  if (existing) {
-    const player = await env.DB.prepare(`SELECT * FROM game_players WHERE id = ?`).bind(existing.game_player_id).first<Row>();
-    if (player) return player;
-    // Stale link — fall through and recreate
-    await env.DB.prepare(`DELETE FROM ff_casino_player_links WHERE ff_user_id = ?`).bind(ffUserId).run();
-  }
-  // 2. Mint a new game_players row in the dedicated casino round
-  await ffEnsureCasinoRound(env);
-  const playerId = `ff-cas-${crypto.randomUUID()}`;
-  // The (name, round_id) unique index means we have to dedupe — suffix the
-  // name with a 4-char tag derived from the user id so it never collides.
-  const safeName = `${displayName.slice(0, 60)} · ${ffUserId.slice(-4)}`;
-  await env.DB.prepare(
-    `INSERT INTO game_players (id, round_id, name, cash, side)
-     VALUES (?, ?, ?, ?, ?)`
-  ).bind(playerId, FREDAGSFETT_CASINO_ROUND_ID, safeName, FREDAGSFETT_CASINO_STARTING_CASH, 'fredagsfett').run();
-  // 3. Persist the link
-  const linkId = `ffcl-${crypto.randomUUID()}`;
-  await env.DB.prepare(
-    `INSERT INTO ff_casino_player_links (id, ff_user_id, ff_device_id, game_player_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`
-  ).bind(linkId, ffUserId, ffDeviceId, playerId).run();
-  const player = await env.DB.prepare(`SELECT * FROM game_players WHERE id = ?`).bind(playerId).first<Row>();
-  if (!player) throw new GameError('Kunde inte skapa casino-spelare.', 500);
-  return player;
-}
-
-export async function getCasinoPlayer(request: Request, env: Env): Promise<Row> {
-  // QoL casino migration: try the Fredagsfett session path first. If it
-  // resolves cleanly, we bypass requireGamePlayer (which would otherwise
-  // throw on the round_id mismatch — Fredagsfett casino players live in a
-  // separate, never-active round on purpose).
-  const ffToken = ffSessionCookieFromRequest(request);
-  const ffSecret = (env as Env & { FF_SESSION_SECRET?: string }).FF_SESSION_SECRET;
-  if (ffToken && ffSecret) {
-    const verified = await ffVerifySessionToken(ffToken, ffSecret);
-    if (verified) {
-      // Look up the registered user (a verified ff_session may still be in
-      // the "needs_registration" state — those users have no ff_users row
-      // yet and should not get a casino player auto-created).
-      const user = await env.DB.prepare(
-        `SELECT id, name, deleted_at FROM ff_users WHERE id = ?`
-      ).bind(verified.user_id).first<{ id: string; name: string; deleted_at: string | null }>();
-      if (user && !user.deleted_at) {
-        try {
-          return await ffLinkOrCreateCasinoPlayer(env, user.id, verified.device_id, user.name);
-        } catch (e) {
-          // If the bridge tables aren't migrated yet, surface a clear error.
-          const msg = e instanceof Error ? e.message : String(e);
-          if (msg.includes('no such table: ff_casino_player_links')) {
-            throw new GameError('Casino-bryggan är inte migrerad. Kör fredagsfett-casino-migration-001.sql mot D1.', 500);
-          }
-          throw e;
-        }
-      }
-    }
-  }
-  // Fallback: existing Mosquito session
-  return requireGamePlayer(request, env);
-}
-
 function gameJson(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -3728,9 +3586,9 @@ function gameGetDrugPrices(): Response {
   return gameJson({ prices });
 }
 
-export async function gameGetBlackjackState(request: Request, env: Env): Promise<Response> {
+async function gameGetBlackjackState(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
@@ -3759,9 +3617,9 @@ async function requireActiveBlackjackHand(env: Env, player: Row): Promise<Blackj
   return hand;
 }
 
-export async function gameActionBlackjackStart(request: Request, env: Env): Promise<Response> {
+async function gameActionBlackjackStart(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
@@ -3841,9 +3699,9 @@ export async function gameActionBlackjackStart(request: Request, env: Env): Prom
   }
 }
 
-export async function gameActionBlackjackHit(request: Request, env: Env): Promise<Response> {
+async function gameActionBlackjackHit(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
@@ -3879,9 +3737,9 @@ export async function gameActionBlackjackHit(request: Request, env: Env): Promis
   }
 }
 
-export async function gameActionBlackjackStand(request: Request, env: Env): Promise<Response> {
+async function gameActionBlackjackStand(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
@@ -3910,9 +3768,9 @@ export async function gameActionBlackjackStand(request: Request, env: Env): Prom
   }
 }
 
-export async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Response> {
+async function gameActionBlackjackDouble(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   let extraStake = 0;
@@ -3976,9 +3834,9 @@ export async function gameActionBlackjackDouble(request: Request, env: Env): Pro
   }
 }
 
-export async function gameGetRouletteState(request: Request, env: Env): Promise<Response> {
+async function gameGetRouletteState(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
@@ -3989,9 +3847,9 @@ export async function gameGetRouletteState(request: Request, env: Env): Promise<
   }
 }
 
-export async function gameActionRouletteSpin(request: Request, env: Env): Promise<Response> {
+async function gameActionRouletteSpin(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
@@ -4123,9 +3981,9 @@ async function finalizeBlackjackSplitHand(
   return gameJson(buildBlackjackState(hand, freshPlayer));
 }
 
-export async function gameActionBlackjackSplit(request: Request, env: Env): Promise<Response> {
+async function gameActionBlackjackSplit(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   let extraStake = 0;
@@ -4166,9 +4024,9 @@ export async function gameActionBlackjackSplit(request: Request, env: Env): Prom
   }
 }
 
-export async function gameActionBlackjackInsurance(request: Request, env: Env): Promise<Response> {
+async function gameActionBlackjackInsurance(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   let insuranceStake = 0;
@@ -6960,9 +6818,9 @@ async function createHoldemTable(env: Env, player: Row, buyIn: number): Promise<
   return table;
 }
 
-export async function gameGetHoldemState(request: Request, env: Env): Promise<Response> {
+async function gameGetHoldemState(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
@@ -6973,9 +6831,9 @@ export async function gameGetHoldemState(request: Request, env: Env): Promise<Re
   }
 }
 
-export async function gameActionHoldemStart(request: Request, env: Env): Promise<Response> {
+async function gameActionHoldemStart(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
@@ -7020,9 +6878,9 @@ export async function gameActionHoldemStart(request: Request, env: Env): Promise
   }
 }
 
-export async function gameActionHoldemAct(request: Request, env: Env): Promise<Response> {
+async function gameActionHoldemAct(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   let table: HoldemRuntimeTable | null = null;
@@ -7070,9 +6928,9 @@ export async function gameActionHoldemAct(request: Request, env: Env): Promise<R
   }
 }
 
-export async function gameActionHoldemNextHand(request: Request, env: Env): Promise<Response> {
+async function gameActionHoldemNextHand(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {
@@ -7101,9 +6959,9 @@ export async function gameActionHoldemNextHand(request: Request, env: Env): Prom
   }
 }
 
-export async function gameActionHoldemLeave(request: Request, env: Env): Promise<Response> {
+async function gameActionHoldemLeave(request: Request, env: Env): Promise<Response> {
   let player: Row;
-  try { player = await getCasinoPlayer(request, env); }
+  try { player = await requireGamePlayer(request, env); }
   catch (e) { return gameJson({ error: (e as GameError).message }, (e as GameError).status ?? 401); }
 
   try {

@@ -8,7 +8,6 @@
 /fredagsfett/karta    /fredagsfett/karta/index.html    200
 /fredagsfett/hem      /fredagsfett/hem/index.html      200
 /fredagsfett/rsvp/*   /fredagsfett/rsvp/index.html     200
-/fredagsfett/casino   /fredagsfett/casino/index.html   200
 
 # Block access to sensitive files (SQL schemas, config, internal docs)
 /schema.sql                      /  301
@@ -29,7 +28,6 @@
 /fredagsfett-migration-007-map-routes.sql   /  301
 /fredagsfett-migration-008-tentative-status.sql   /  301
 /fredagsfett-migration-009-event-rsvp.sql   /  301
-/fredagsfett-casino-migration-001.sql       /  301
 /game-talents-schema.sql         /  301
 /game-talents-seed.sql           /  301
 /seed-dax-categories.sql         /  301

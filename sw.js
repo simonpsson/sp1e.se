@@ -12,7 +12,7 @@
  * delete when the user reconnects after closing their laptop for a week.
  */
 
-const VERSION = 'ff-sw-v2';
+const VERSION = 'ff-sw-v1';
 const SHELL_CACHE = `${VERSION}-shell`;
 const API_CACHE   = `${VERSION}-api`;
 
@@ -21,8 +21,6 @@ const SHELL_PATHS = [
   '/fredagsfett/kalender',
   '/fredagsfett/sp1wise',
   '/fredagsfett/karta',
-  '/fredagsfett/casino',
-  '/fredagsfett/casino/casino.js',
   '/fredagsfett/style.css',
   '/fredagsfett/light-ui.css',
   '/fredagsfett/theme.js',
