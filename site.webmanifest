@@ -1,0 +1,15 @@
+{
+  "name": "Fredagsfett · SP1E",
+  "short_name": "Fredagsfett",
+  "description": "En kalender, en kassabok, en karta — för ett gäng.",
+  "start_url": "/fredagsfett/hem",
+  "scope": "/fredagsfett/",
+  "display": "standalone",
+  "background_color": "#eeebE2",
+  "theme_color": "#6c7450",
+  "lang": "sv",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/apple-touch-icon.svg", "sizes": "180x180", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>𓀂 · Karta</title>
 <meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.svg">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#6c7450">
+<meta property="og:title" content="𓀂 Karta · Fredagsfett">
+<meta property="og:description" content="Gruppens platser, ritbara rutter och möteszoner.">
+<meta property="og:image" content="/og-fredagsfett.svg">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -552,9 +560,11 @@ function initMap() {
     setStatus('Centrerad på Stockholm.');
   });
   document.getElementById('save-btn').addEventListener('click', saveCurrentRoute);
-  document.getElementById('clear-btn').addEventListener('click', () => {
+  document.getElementById('clear-btn').addEventListener('click', async () => {
     if (!drawn.getLayers().length) return;
-    if (!window.confirm('Rensa alla ritningar på kartan?')) return;
+    if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+      'Rensa alla ritningar på kartan?', { okLabel: 'Rensa allt', danger: true }
+    )) return;
     drawn.clearLayers();
     drawOrder = [];
     setStatus('Kartan rensad.');
@@ -643,7 +653,7 @@ function installDrawControl() {
   map.addControl(drawControl);
 }
 
-function onShapeCreated(e) {
+async function onShapeCreated(e) {
   const layer = e.layer;
   const type = e.layerType;
   // Suggest a sensible default name based on shape type so the prompt feels lighter
@@ -654,7 +664,11 @@ function onShapeCreated(e) {
     rectangle: 'Zon',
     circle: 'Cirkel',
   }[type]) || 'Form';
-  const label = window.prompt('Namn / kommentar för formen (lämna tomt om du inte vill ange):', suggested) || '';
+  const label = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+    'Namn / kommentar för formen (lämna tomt om du inte vill ange):',
+    suggested,
+    { title: 'Namnge formen', okLabel: 'Spara' }
+  ) || '';
   // Persist label + type + color on the layer so save → load round-trips it
   layer.feature = layer.feature || { type: 'Feature', properties: {} };
   layer.feature.properties = {
@@ -699,10 +713,12 @@ function attachPopupToLayer(layer) {
     const root = popup?.getElement();
     if (!root) return;
     root.querySelectorAll('[data-pop-action]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const action = btn.dataset.popAction;
         if (action === 'rename') {
-          const next = window.prompt('Nytt namn:', layer.feature?.properties?.label || '');
+          const next = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+            'Nytt namn:', layer.feature?.properties?.label || '', { title: 'Döp om formen' }
+          );
           if (next === null) return;
           layer.feature.properties.label = next;
           layer.unbindTooltip();
@@ -711,7 +727,9 @@ function attachPopupToLayer(layer) {
           layer.openPopup();
           setStatus(`Bytte namn till "${next}".`);
         } else if (action === 'remove') {
-          if (!window.confirm('Ta bort formen?')) return;
+          if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+            'Ta bort formen?', { okLabel: 'Ta bort', danger: true }
+          )) return;
           drawn.removeLayer(layer);
           const idx = drawOrder.indexOf(id);
           if (idx !== -1) drawOrder.splice(idx, 1);
@@ -982,7 +1000,9 @@ async function loadRoutes() {
 
 async function saveCurrentRoute() {
   if (!drawn.getLayers().length) { setStatus('Inget att spara — rita något först.'); return; }
-  const name = window.prompt('Namn på rutten?', `Rutt ${new Date().toLocaleDateString('sv-SE')}`);
+  const name = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+    'Namn på rutten?', `Rutt ${new Date().toLocaleDateString('sv-SE')}`, { title: 'Spara rutt', okLabel: 'Spara' }
+  );
   if (!name) return;
   const geojson = drawn.toGeoJSON();
   setStatus('Sparar...');
@@ -1040,7 +1060,9 @@ function renderSavedList() {
 
 // QoL #4 — inline rename via the existing PATCH /api/fredagsfett/routes/:id endpoint
 async function renameRoute(route) {
-  const next = window.prompt('Nytt namn på rutten:', route.name || '');
+  const next = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+    'Nytt namn på rutten:', route.name || '', { title: 'Döp om rutten' }
+  );
   if (next === null) return;
   const trimmed = next.trim();
   if (!trimmed) { setStatus('Namnet får inte vara tomt.'); return; }
@@ -1092,7 +1114,9 @@ function downloadGeojson(route) {
 }
 
 async function deleteRoute(id) {
-  if (!window.confirm('Ta bort rutten? Detta påverkar alla i gruppen.')) return;
+  if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+    'Ta bort rutten? Detta påverkar alla i gruppen.', { okLabel: 'Ta bort', danger: true }
+  )) return;
   try {
     await api(`/api/fredagsfett/routes/${encodeURIComponent(id)}`, { method: 'DELETE' });
     await loadRoutes();

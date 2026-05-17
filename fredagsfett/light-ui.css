@@ -712,6 +712,124 @@ body.ff-light-page.ff-theme-whisky .ff-theme-cycler {
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+/* QoL #32 — ffPrompt / ffConfirm modal.
+ * Drop-in replacement for window.prompt / window.confirm; styled to match
+ * the Gotland palette. Works on every page that loads /fredagsfett/theme.js. */
+.ff-modal-backdrop {
+  position: fixed; inset: 0; z-index: 9100;
+  display: grid; place-items: center;
+  padding: 1rem;
+  background: rgba(20, 18, 16, 0.46);
+  backdrop-filter: blur(6px);
+  animation: ff-modal-fade 0.16s ease-out;
+}
+@keyframes ff-modal-fade { from { opacity: 0; } to { opacity: 1; } }
+.ff-modal-card {
+  width: min(420px, 100%);
+  padding: 1.4rem 1.4rem 1.1rem;
+  border: 1px solid rgba(80, 72, 55, 0.18);
+  border-radius: 14px;
+  background: #f3efE7;
+  color: #20201b;
+  box-shadow: 0 32px 80px rgba(20, 18, 16, 0.45);
+  animation: ff-modal-rise 0.2s ease-out;
+}
+@keyframes ff-modal-rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.ff-modal-title {
+  margin-bottom: 0.55rem;
+  font: 500 0.62rem 'DM Mono', monospace;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #6c7450;
+}
+.ff-modal-msg {
+  font: italic 400 1.04rem 'EB Garamond', 'Cormorant Garamond', serif;
+  color: #20201b;
+  line-height: 1.4;
+  margin-bottom: 0.9rem;
+}
+.ff-modal-input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(80, 72, 55, 0.22);
+  border-radius: 8px;
+  background: #fcfaf3;
+  color: #20201b;
+  font: 400 1rem 'Public Sans', system-ui, sans-serif;
+  outline: none;
+  margin-bottom: 0.9rem;
+}
+.ff-modal-input:focus { border-color: #6c7450; box-shadow: 0 0 0 3px rgba(108,116,80,0.16); }
+.ff-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+.ff-modal-btn {
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  font: 500 0.66rem 'DM Mono', monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid rgba(80, 72, 55, 0.22);
+}
+.ff-modal-btn.cancel { background: transparent; color: #58503f; }
+.ff-modal-btn.cancel:hover { background: rgba(108,116,80,0.10); color: #20201b; }
+.ff-modal-btn.ok { background: #2e271f; color: #f3efE7; border-color: #2e271f; }
+.ff-modal-btn.ok:hover { background: #44403f; border-color: #44403f; }
+.ff-modal-btn.ok.danger { background: #8a3e3a; border-color: #8a3e3a; }
+.ff-modal-btn.ok.danger:hover { background: #a0494a; border-color: #a0494a; }
+
+/* Whisky variant inverts everything */
+body.ff-light-page.ff-theme-whisky .ff-modal-card {
+  background: #1c1815;
+  color: rgba(248,240,224,0.94);
+  border-color: rgba(248,240,224,0.18);
+}
+body.ff-light-page.ff-theme-whisky .ff-modal-msg { color: rgba(248,240,224,0.92); }
+body.ff-light-page.ff-theme-whisky .ff-modal-input {
+  background: rgba(10,8,7,0.8); color: rgba(248,240,224,0.92); border-color: rgba(248,240,224,0.18);
+}
+body.ff-light-page.ff-theme-whisky .ff-modal-btn.cancel { color: rgba(248,240,224,0.72); border-color: rgba(248,240,224,0.18); }
+body.ff-light-page.ff-theme-whisky .ff-modal-btn.cancel:hover { background: rgba(248,240,224,0.10); color: rgba(248,240,224,0.95); }
+body.ff-light-page.ff-theme-whisky .ff-modal-btn.ok { background: #cdb06e; color: #1c1815; border-color: #cdb06e; }
+body.ff-light-page.ff-theme-whisky .ff-modal-btn.ok:hover { background: #dac38b; border-color: #dac38b; }
+
+/* QoL #33 — Loading skeleton shimmer (replaces "Laddar..." copy) */
+.ff-skeleton {
+  display: block;
+  background: linear-gradient(90deg,
+    rgba(80,72,55,0.08) 0%,
+    rgba(80,72,55,0.18) 50%,
+    rgba(80,72,55,0.08) 100%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  height: 0.85rem;
+  animation: ff-skel 1.4s ease-in-out infinite;
+}
+.ff-skeleton.lg { height: 1.4rem; }
+.ff-skeleton.sm { height: 0.62rem; }
+.ff-skeleton + .ff-skeleton { margin-top: 0.4rem; }
+.ff-skeleton-stack { display: grid; gap: 0.55rem; padding: 0.4rem 0; }
+.ff-skeleton-stack .ff-skeleton:nth-child(1) { width: 70%; }
+.ff-skeleton-stack .ff-skeleton:nth-child(2) { width: 90%; }
+.ff-skeleton-stack .ff-skeleton:nth-child(3) { width: 55%; }
+@keyframes ff-skel {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+body.ff-light-page.ff-theme-whisky .ff-skeleton {
+  background: linear-gradient(90deg,
+    rgba(248,240,224,0.06) 0%,
+    rgba(248,240,224,0.14) 50%,
+    rgba(248,240,224,0.06) 100%);
+  background-size: 200% 100%;
+}
+
 /* QoL #28 — Undo toast (deletion confirmations with a 5-second re-create) */
 .ff-undo-toast {
   position: fixed;

@@ -53,7 +53,9 @@ check('Availability time migration adds start, end and time note fields', /ALTER
 check('Availability API persists and returns time windows', /start_time/.test(api) && /end_time/.test(api) && /time_note/.test(api) && /normalizeFredagsfettTime/.test(api) && /normalizeFredagsfettTimeNote/.test(api));
 check('Calendar UI can enter a time range and time comment', /id=["']time-start-input["']/.test(calendar) && /id=["']time-end-input["']/.test(calendar) && /id=["']time-note-input["']/.test(calendar) && /Tidsintervall/.test(calendar));
 check('Calendar renders time windows visibly on days and detail cards', /class=["']time-chip["']/.test(calendar) && /formatTimeWindow/.test(calendar) && /time_note/.test(calendar));
-check('Calendar page polls for updates', /setInterval\(\s*(loadAvailability|reloadCalendarData)\s*,\s*15000\s*\)/.test(calendar));
+check('Calendar page polls for updates (visibility-aware)',
+  /(setInterval|pollWhenVisible)\(\s*(loadAvailability|reloadCalendarData)\s*,\s*15000\s*\)/.test(calendar)
+  && /document\.hidden/.test(calendar));
 check('Calendar page has direct SP1Wise navigation without old hub link', /href=["']\/fredagsfett\/sp1wise["']/.test(calendar) && !/>\s*Hub\s*</i.test(calendar));
 check('Calendar exposes a small gear link to the admin console', /href=["']\/fredagsfett\/admin["']/.test(calendar) && /class=["'][^"']*icon-button/.test(calendar) && />⚙<\/a>/.test(calendar));
 check('Calendar removes intro copy and note placeholder text', !/class=["']subtitle["']/.test(calendar) && !/placeholder=/.test(calendar));
@@ -89,6 +91,28 @@ check('TENTATIVE status wired in API normalize, label and TS type',
 check('Calendar exposes a TENTATIVE pill and includes it in the tap-cycle',
   /data-status="TENTATIVE"/.test(calendar)
   && /TAP_CYCLE = \['AVAILABLE', 'TENTATIVE', 'MAYBE', 'UNAVAILABLE'/.test(calendar));
+// QoL polish pass (#31-35)
+check('Brand assets exist at site root (favicon, apple-touch-icon, og, manifest)',
+  fs.existsSync('favicon.svg')
+  && fs.existsSync('apple-touch-icon.svg')
+  && fs.existsSync('og-fredagsfett.svg')
+  && fs.existsSync('site.webmanifest'));
+check('All fredagsfett pages link the SVG favicon',
+  /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg">/.test(hub)
+  && /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg">/.test(calendar)
+  && /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg">/.test(sp1wise)
+  && /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg">/.test(karta));
+check('Service Worker file exists and registers only in secure contexts',
+  fs.existsSync('sw.js')
+  && /addEventListener\('install'/.test(fs.readFileSync('sw.js', 'utf8'))
+  && /window\.isSecureContext/.test(fs.readFileSync('fredagsfett/theme.js', 'utf8')));
+check('theme.js exposes ffPrompt and ffConfirm modal helpers',
+  /window\.ffPrompt\s*=/.test(fs.readFileSync('fredagsfett/theme.js', 'utf8'))
+  && /window\.ffConfirm\s*=/.test(fs.readFileSync('fredagsfett/theme.js', 'utf8')));
+check('Loading skeletons replace bare "Laddar..." copy on Kalender + Hem',
+  /class="ff-skeleton/.test(calendar)
+  && !/<h2 id="month-title">Laddar/.test(calendar));
+
 check('Migration 008 widens the ff_availability CHECK to include TENTATIVE',
   fs.existsSync('fredagsfett-migration-008-tentative-status.sql')
   && /CHECK \(status IN \('AVAILABLE', 'TENTATIVE', 'MAYBE', 'UNAVAILABLE'\)\)/.test(

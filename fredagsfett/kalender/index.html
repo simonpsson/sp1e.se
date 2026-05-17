@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>𓀂 · (S)planner</title>
 <meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.svg">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#6c7450">
+<meta property="og:title" content="𓀂 Kalender · Fredagsfett">
+<meta property="og:description" content="Gemensam kalender — tap-cycle tillgänglighet, inlåsta event, RSVP.">
+<meta property="og:image" content="/og-fredagsfett.svg">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -813,7 +821,11 @@
         <section class="sidebar-card news-card">
           <h3>Nyheter</h3>
           <div class="news-list" id="news-list" aria-live="polite">
-            <p class="tiny">Laddar...</p>
+            <div class="ff-skeleton-stack" aria-label="Laddar nyheter">
+              <span class="ff-skeleton"></span>
+              <span class="ff-skeleton"></span>
+              <span class="ff-skeleton"></span>
+            </div>
           </div>
         </section>
         <section class="sidebar-card chat-card">
@@ -829,7 +841,7 @@
         <div class="calendar-head">
           <button id="prev-month" type="button" title="Föregående månad (←)">‹ Föregående</button>
           <button id="today-btn" type="button" title="Gå till idag (G)">Idag</button>
-          <h2 id="month-title">Laddar...</h2>
+          <h2 id="month-title"><span class="ff-skeleton lg" style="width:8rem" aria-label="Laddar månad"></span></h2>
           <button id="next-month" type="button" title="Nästa månad (→)">Nästa ›</button>
         </div>
         <div class="year-bar" aria-label="År">
@@ -1055,6 +1067,16 @@ const lockStartInput = document.getElementById('lock-start-input');
 const lockEndInput = document.getElementById('lock-end-input');
 const lockNotesInput = document.getElementById('lock-notes-input');
 const lockEventError = document.getElementById('lock-event-error');
+
+// QoL #34 — Visibility-aware polling. Replacement for setInterval that
+// suspends ticks while the tab is hidden (no network, no battery). The
+// timer keeps running, it just no-ops the callback when document.hidden.
+function pollWhenVisible(fn, intervalMs) {
+  return setInterval(() => {
+    if (document.hidden) return;
+    try { fn(); } catch (err) { console.error('poll error', err); }
+  }, intervalMs);
+}
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -2022,7 +2044,7 @@ eventCard.addEventListener('click', async event => {
         await navigator.clipboard.writeText(url);
         showToast('RSVP-länken kopierad.');
       } catch {
-        window.prompt('Kopiera RSVP-länken:', url);
+        await (window.ffPrompt || window.prompt)('Kopiera RSVP-länken:', url, { title: 'RSVP-länk', okLabel: 'Stäng', cancelLabel: 'Stäng' });
       }
     } catch (err) {
       errorBox.textContent = err.message || 'Kunde inte hämta länken.';
@@ -2046,7 +2068,10 @@ eventCard.addEventListener('click', async event => {
   if (cancelBtn) {
     const ev = eventsByDate.get(state.selectedDate);
     if (!ev) return;
-    if (!window.confirm(`Avbryt eventet för ${state.selectedDate}?`)) return;
+    if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+      `Avbryt eventet för ${state.selectedDate}?`,
+      { title: 'Avbryt inlåsning', okLabel: 'Avbryt eventet', cancelLabel: 'Behåll', danger: true }
+    )) return;
     try {
       await api(`/api/fredagsfett/events/${encodeURIComponent(ev.id)}`, { method: 'DELETE' });
       await Promise.all([loadEvents(), loadUpcomingEvents()]);
@@ -2223,7 +2248,7 @@ document.getElementById('ical-copy-btn')?.addEventListener('click', async () => 
       showToast('iCal-länken kopierad. Prenumerera i din kalenderapp.');
     } catch {
       // Fallback when clipboard isn't available (e.g. insecure context) — show a prompt
-      window.prompt('Kopiera den här länken till din kalenderapp:', url);
+      await (window.ffPrompt || window.prompt)('Kopiera den här länken till din kalenderapp:', url, { title: 'iCal-länk' });
     }
   } catch (err) {
     errorBox.textContent = err.message || 'Kunde inte hämta iCal-länken.';
@@ -2323,7 +2348,9 @@ document.getElementById('event-items-list')?.addEventListener('click', async eve
         body: JSON.stringify({ claimed_by: isClaimed ? null : currentSession.user.id }),
       });
     } else if (action === 'remove') {
-      if (!window.confirm('Ta bort den här saken?')) { button.disabled = false; return; }
+      if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+        'Ta bort den här saken?', { okLabel: 'Ta bort', danger: true }
+      )) { button.disabled = false; return; }
       await api(`/api/fredagsfett/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
     }
     if (eventId) await loadEventItems(eventId);
@@ -2375,7 +2402,9 @@ document.getElementById('event-photo-input')?.addEventListener('change', async e
 document.getElementById('event-photo-grid')?.addEventListener('click', async event => {
   const button = event.target.closest('button.remove[data-photo-id]');
   if (!button) return;
-  if (!window.confirm('Ta bort bilden?')) return;
+  if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+    'Ta bort bilden?', { okLabel: 'Ta bort', danger: true }
+  )) return;
   const photoId = button.dataset.photoId;
   const eventId = state.currentEventId;
   button.disabled = true;
@@ -2438,12 +2467,22 @@ async function boot() {
     }
     await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents(), loadActivity(), loadNews(), loadChat()]);
     renderCalendar();
-    // Poll news every 5 min and chat every 7 s
-    setInterval(loadNews, 5 * 60 * 1000);
-    setInterval(loadChat, 7 * 1000);
+    // QoL #34 — pollWhenVisible() skips ticks while document.hidden is true,
+    // saving network + battery when the user has the tab in the background.
+    // A visibilitychange handler does a single refresh when the tab comes back
+    // so the user never sees stale data on focus.
+    pollWhenVisible(loadNews, 5 * 60 * 1000);
+    pollWhenVisible(loadChat, 7 * 1000);
     // Note: a tap mid-poll may briefly flicker if loadAvailability returns before
     // the tap's POST resolves. Last-write-wins on the server, self-corrects on next poll.
-    setInterval(reloadCalendarData, 15000);
+    pollWhenVisible(reloadCalendarData, 15000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      // One-shot refresh on focus — pollWhenVisible's timers will resume from
+      // the next tick onwards.
+      void loadChat();
+      void reloadCalendarData();
+    });
   } catch {
     location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/kalender')}`;
   }

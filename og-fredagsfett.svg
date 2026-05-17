@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- Open Graph image (1.91:1 ratio for Twitter/Facebook/Slack cards). -->
+  <defs>
+    <radialGradient id="g1" cx="22%" cy="18%" r="55%">
+      <stop offset="0%" stop-color="rgba(108,116,80,0.18)"/>
+      <stop offset="100%" stop-color="rgba(108,116,80,0)"/>
+    </radialGradient>
+    <radialGradient id="g2" cx="78%" cy="86%" r="55%">
+      <stop offset="0%" stop-color="rgba(160,89,58,0.14)"/>
+      <stop offset="100%" stop-color="rgba(160,89,58,0)"/>
+    </radialGradient>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+      <path d="M80 0H0V80" fill="none" stroke="#6c7450" stroke-opacity="0.06" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="#eeebE2"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#g1)"/>
+  <rect width="1200" height="630" fill="url(#g2)"/>
+
+  <!-- Top kicker -->
+  <text x="80" y="120" font-family="DM Mono, monospace" font-size="20" letter-spacing="6"
+        fill="#6c7450">FREDAGSFETT · GOTLAND · STEN</text>
+
+  <!-- Wordmark / brand -->
+  <text x="80" y="280" font-family="EB Garamond, Cormorant Garamond, serif"
+        font-size="180" font-style="italic" font-weight="500"
+        fill="#20201b">Fredagsfett</text>
+
+  <!-- Sub heading -->
+  <text x="80" y="370" font-family="Public Sans, system-ui, sans-serif" font-size="40"
+        fill="#58503f">En kalender, en kassabok, en karta — för ett gäng.</text>
+
+  <!-- Sigil on the right -->
+  <g transform="translate(900,290)">
+    <circle r="180" fill="#f3efE7" stroke="#6c7450" stroke-width="2" stroke-opacity="0.6"/>
+    <text text-anchor="middle" font-family="EB Garamond, serif"
+          font-size="220" font-style="italic" font-weight="500"
+          dy="80" fill="#20201b">𓀂</text>
+  </g>
+
+  <!-- Bottom row -->
+  <text x="80" y="560" font-family="DM Mono, monospace" font-size="22" letter-spacing="6"
+        fill="#87806a">SP1E · sp1e.se/fredagsfett</text>
+</svg>

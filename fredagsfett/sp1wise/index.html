@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>𓀂 · SP1Wise</title>
 <meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.svg">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#6c7450">
+<meta property="og:title" content="𓀂 SP1Wise · Fredagsfett">
+<meta property="og:description" content="Gemensam kassabok — utgifter, kvittering och CSV-export.">
+<meta property="og:image" content="/og-fredagsfett.svg">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -683,9 +691,13 @@ document.getElementById('expense-list').addEventListener('click', async event =>
   try {
     if (editId) {
       const expense = state.expenses.find(row => row.id === editId);
-      const description = prompt('Ny beskrivning', expense?.description || '');
+      const description = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+        'Ny beskrivning', expense?.description || '', { title: 'Redigera utgift' }
+      );
       if (!description) return;
-      const amount = prompt('Nytt belopp', expense ? String(expense.amount_cents / 100) : '');
+      const amount = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+        'Nytt belopp', expense ? String(expense.amount_cents / 100) : '', { title: 'Belopp i SEK' }
+      );
       if (!amount) return;
       const sp1wise = await api(`/api/fredagsfett/sp1wise/expenses/${editId}`, {
         method: 'PATCH',
@@ -694,7 +706,9 @@ document.getElementById('expense-list').addEventListener('click', async event =>
       state = { ...sp1wise, events: state.events };
       renderState();
     }
-    if (deleteId && confirm('Ta bort utgiften?')) {
+    if (deleteId && await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+      'Ta bort utgiften?', { okLabel: 'Ta bort', danger: true }
+    )) {
       // QoL #28 — snapshot the original before we delete, so the undo toast
       // can re-create it via the regular POST endpoint if the user changes
       // their mind within 5 seconds.

@@ -37,6 +37,8 @@
 | `/fredagsfett/admin` | `fredagsfett/admin/index.html` | Dev console — manage users, rename, toggle `is_admin` flag, revoke devices |
 | `/fredagsfett/karta` | `fredagsfett/karta/index.html` | Leaflet map (OpenStreetMap) with draw tools for routes/markers/polygons; routes saved in D1 with .geojson export |
 | `/fredagsfett/rsvp/:eventId/:token` | `fredagsfett/rsvp/index.html` | Public RSVP page for guests (token-signed, no login) — QoL #29 |
+| `/sw.js` | `sw.js` | Service Worker — offline read-only cache for shell + read APIs (QoL #35). Registered from `/fredagsfett/theme.js` |
+| `/favicon.svg`, `/apple-touch-icon.svg`, `/og-fredagsfett.svg`, `/site.webmanifest` | (root) | Brand assets + Web App Manifest (QoL #31) |
 
 ### Deferred items
 

@@ -131,9 +131,98 @@
   window.ffNotifOptIn = notifOptIn;
   window.ffNotifSet = notifSet;
 
+  // ────────────────────────────────────────────────────────────────────
+  // QoL #32 — Replace native prompt() / confirm() with themed modals.
+  // window.ffPrompt(message, defaultValue, opts?)  → Promise<string|null>
+  // window.ffConfirm(message, opts?)               → Promise<boolean>
+  //   opts: { title?, okLabel?, cancelLabel?, danger? }
+  //
+  // If for some reason this script hasn't loaded (network failure, manifest
+  // page, etc), call sites should fall back to the native variants.
+  // ────────────────────────────────────────────────────────────────────
+  function ensureModalRoot() {
+    let root = document.getElementById('ff-modal-root');
+    if (root) return root;
+    root = document.createElement('div');
+    root.id = 'ff-modal-root';
+    document.body.appendChild(root);
+    return root;
+  }
+  function openModal({ kind, title, message, defaultValue, okLabel, cancelLabel, danger }) {
+    return new Promise(resolve => {
+      const root = ensureModalRoot();
+      const backdrop = document.createElement('div');
+      backdrop.className = 'ff-modal-backdrop';
+      backdrop.setAttribute('role', 'dialog');
+      backdrop.setAttribute('aria-modal', 'true');
+      const inputHtml = kind === 'prompt'
+        ? `<input class="ff-modal-input" type="text" value="${escapeAttr(defaultValue ?? '')}" autocomplete="off" autofocus>`
+        : '';
+      backdrop.innerHTML = `
+        <div class="ff-modal-card">
+          ${title ? `<div class="ff-modal-title">${escapeHtml(title)}</div>` : ''}
+          <div class="ff-modal-msg">${escapeHtml(message)}</div>
+          ${inputHtml}
+          <div class="ff-modal-actions">
+            <button type="button" class="ff-modal-btn cancel" data-act="cancel">${escapeHtml(cancelLabel || 'Avbryt')}</button>
+            <button type="button" class="ff-modal-btn ok${danger ? ' danger' : ''}" data-act="ok">${escapeHtml(okLabel || 'OK')}</button>
+          </div>
+        </div>`;
+      root.appendChild(backdrop);
+      const input = backdrop.querySelector('.ff-modal-input');
+      const ok = backdrop.querySelector('[data-act="ok"]');
+      const cancel = backdrop.querySelector('[data-act="cancel"]');
+      const cleanup = () => {
+        document.removeEventListener('keydown', onKey, true);
+        backdrop.remove();
+      };
+      const resolveWith = v => { cleanup(); resolve(v); };
+      const submit = () => kind === 'prompt' ? resolveWith(input ? input.value : '') : resolveWith(true);
+      const dismiss = () => kind === 'prompt' ? resolveWith(null) : resolveWith(false);
+      ok.addEventListener('click', submit);
+      cancel.addEventListener('click', dismiss);
+      backdrop.addEventListener('click', e => { if (e.target === backdrop) dismiss(); });
+      function onKey(e) {
+        if (e.key === 'Escape') { e.preventDefault(); dismiss(); }
+        else if (e.key === 'Enter' && (kind === 'confirm' || (kind === 'prompt' && document.activeElement === input))) {
+          e.preventDefault(); submit();
+        }
+      }
+      document.addEventListener('keydown', onKey, true);
+      setTimeout(() => {
+        if (input) { input.focus(); input.select(); }
+        else ok.focus();
+      }, 30);
+    });
+  }
+  function escapeHtml(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c]));
+  }
+  function escapeAttr(v) { return escapeHtml(v); }
+
+  window.ffPrompt = (message, defaultValue = '', opts = {}) =>
+    openModal({ kind: 'prompt', message, defaultValue, ...opts });
+  window.ffConfirm = (message, opts = {}) =>
+    openModal({ kind: 'confirm', message, ...opts });
+
+  // QoL #35 — Register the Service Worker for offline read-only access to
+  // the calendar + locked events. The SW lives at the site root so it can
+  // intercept fetches for both /fredagsfett/* HTML and /api/fredagsfett/*
+  // JSON. Only runs in secure contexts (https / localhost).
+  function registerSW() {
+    if (!('serviceWorker' in navigator)) return;
+    if (!window.isSecureContext) return;
+    // Defer until after the page is interactive so we don't fight first paint.
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .catch(err => console.warn('SW registration failed', err));
+    });
+  }
+
   function bootstrap() {
     injectButton();
     injectMobileTabbar();
+    registerSW();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
