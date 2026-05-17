@@ -205,18 +205,20 @@
   window.ffConfirm = (message, opts = {}) =>
     openModal({ kind: 'confirm', message, ...opts });
 
-  // QoL #35 — Register the Service Worker for offline read-only access to
-  // the calendar + locked events. The SW lives at the site root so it can
-  // intercept fetches for both /fredagsfett/* HTML and /api/fredagsfett/*
-  // JSON. Only runs in secure contexts (https / localhost).
+  // QoL #35 — Service Worker was disabled. The previous SW had a subtle
+  // install-time bug (cache.put refuses redirected responses) that left some
+  // visitors stuck with ERR_FAILED on /fredagsfett/* pages. /sw.js now ships
+  // a tombstone that self-unregisters + clears caches on activate.
+  //
+  // We intentionally do NOT re-register here so new visitors stay SW-free
+  // until we reintroduce a properly-tested replacement. We also actively
+  // unregister any existing SW that might still be installed in the
+  // visitor's browser as a belt-and-braces cleanup.
   function registerSW() {
     if (!('serviceWorker' in navigator)) return;
-    if (!window.isSecureContext) return;
-    // Defer until after the page is interactive so we don't fight first paint.
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' })
-        .catch(err => console.warn('SW registration failed', err));
-    });
+    navigator.serviceWorker.getRegistrations()
+      .then(regs => regs.forEach(r => r.unregister().catch(() => {})))
+      .catch(() => {});
   }
 
   function bootstrap() {

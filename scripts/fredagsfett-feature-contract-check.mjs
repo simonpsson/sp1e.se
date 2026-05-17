@@ -102,10 +102,14 @@ check('All fredagsfett pages link the SVG favicon',
   && /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg">/.test(calendar)
   && /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg">/.test(sp1wise)
   && /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg">/.test(karta));
-check('Service Worker file exists and registers only in secure contexts',
+// SW reduced to a tombstone after the v1/v2 install-time bug left some
+// visitors with ERR_FAILED on /fredagsfett/* pages. theme.js no longer
+// re-registers it; instead it actively unregisters any leftover SW.
+check('Service Worker is a tombstone + theme.js cleans up existing registrations',
   fs.existsSync('sw.js')
-  && /addEventListener\('install'/.test(fs.readFileSync('sw.js', 'utf8'))
-  && /window\.isSecureContext/.test(fs.readFileSync('fredagsfett/theme.js', 'utf8')));
+  && /TOMBSTONE/i.test(fs.readFileSync('sw.js', 'utf8'))
+  && /self\.registration\.unregister/.test(fs.readFileSync('sw.js', 'utf8'))
+  && /getRegistrations/.test(fs.readFileSync('fredagsfett/theme.js', 'utf8')));
 check('theme.js exposes ffPrompt and ffConfirm modal helpers',
   /window\.ffPrompt\s*=/.test(fs.readFileSync('fredagsfett/theme.js', 'utf8'))
   && /window\.ffConfirm\s*=/.test(fs.readFileSync('fredagsfett/theme.js', 'utf8')));
