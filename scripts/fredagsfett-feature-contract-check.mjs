@@ -160,6 +160,22 @@ check('Casino page in nav across hem/kalender/sp1wise/karta',
   && /\/fredagsfett\/casino/.test(karta));
 check('Service Worker caches the casino shell + adapter',
   /\/fredagsfett\/casino[^\n]*\n[\s\S]*\/fredagsfett\/casino\/casino\.js/.test(fs.readFileSync('sw.js', 'utf8')));
+check('Casino noir aesthetic in place (dark felt tokens + ivory cards)',
+  /--noir-felt-1/.test(casinoPage)
+  && /--noir-amber/.test(casinoPage)
+  && /\.bj-card\[data-color="red"\]/.test(casinoPage));
+check('Roulette panel renders the European grid + chip stake selector + history',
+  /id="rou-grid"/.test(casinoPage)
+  && /id="rou-history"/.test(casinoPage)
+  && /data-rou-action="spin"/.test(casinoPage)
+  && /rouletteColorFor/.test(casinoAdapter)
+  && /renderRouletteGrid/.test(casinoAdapter));
+check('Hold’em panel renders the oval felt + 4 seat layout + community board',
+  /id="hold-table"/.test(casinoPage)
+  && /id="hold-community"/.test(casinoPage)
+  && /data-hold-action="buy-in"/.test(casinoPage)
+  && /data-hold-action="fold"/.test(casinoPage)
+  && /renderHoldem/.test(casinoAdapter));
 
 check('Migration 008 widens the ff_availability CHECK to include TENTATIVE',
   fs.existsSync('fredagsfett-migration-008-tentative-status.sql')

@@ -15,9 +15,30 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/fredagsfett/light-ui.css">
 <style>
-  .ff-casino-page main {
-    min-height: 100vh;
+  /* ─────────────────────────────────────────────────────────────────────
+   * CASINO NOIR — page chrome stays Gotland (cream limestone + sage), but
+   * the felt area (`.casino-table` and friends) inherits the Mosquito
+   * casino's dark vocabulary: brushed felt, amber chip glow, ivory cards.
+   * The result reads as a real card room dropped inside the Fredagsfett
+   * lobby.
+   * ───────────────────────────────────────────────────────────────────── */
+  .ff-casino-page {
+    --noir-felt-1: #122016;  /* deep gambler green */
+    --noir-felt-2: #0c1610;
+    --noir-rail:  #1e2a22;   /* table rail / brushed metal */
+    --noir-ink:   #06090a;
+    --noir-amber: #c4a44a;
+    --noir-amber-2: #e1c373;
+    --noir-red:   #c23a22;
+    --noir-emerald: #4caf6a;
+    --noir-ivory: #f3eed8;
+    --noir-text:  rgba(245, 235, 210, 0.88);
+    --noir-dim:   rgba(245, 235, 210, 0.55);
+    --noir-faint: rgba(245, 235, 210, 0.32);
+    --noir-line:  rgba(245, 235, 210, 0.10);
+    --noir-line-strong: rgba(245, 235, 210, 0.22);
   }
+  .ff-casino-page main { min-height: 100vh; }
 
   .casino-shell {
     display: grid;
@@ -25,6 +46,7 @@
     padding-bottom: 1.5rem;
   }
 
+  /* ── Hero (Gotland chrome — keep the cream) ─────────────────────────── */
   .casino-hero {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -33,7 +55,6 @@
     padding: clamp(1.2rem, 4vw, 2.4rem) 0 0.6rem;
     border-bottom: 1px solid var(--ff-line);
   }
-
   .casino-hero p {
     max-width: 56rem;
     margin: 0.75rem 0 0;
@@ -41,7 +62,6 @@
     font-size: 0.98rem;
     line-height: 1.7;
   }
-
   .casino-status {
     display: grid;
     gap: 0.3rem;
@@ -51,20 +71,33 @@
     border-radius: 8px;
     background: rgba(249, 246, 237, 0.62);
   }
-
   .casino-status strong {
     color: var(--ff-ink);
     font-family: var(--ff-font-num);
     font-size: 1.35rem;
     line-height: 1;
   }
+  .casino-cash {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font: 500 1.55rem var(--ff-font-num);
+    color: var(--ff-ink);
+    letter-spacing: -0.01em;
+  }
+  .casino-cash .unit {
+    font: 500 0.62rem var(--ff-font-mono);
+    letter-spacing: 0.18em;
+    color: var(--ff-muted);
+    text-transform: uppercase;
+  }
 
+  /* ── Game tabs (still Gotland — picking the room) ───────────────────── */
   .casino-tabs {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.75rem;
   }
-
   .casino-tab {
     min-height: 8.25rem;
     display: grid;
@@ -74,17 +107,15 @@
     border-radius: 8px !important;
     background: rgba(249, 246, 237, 0.70) !important;
   }
-
   .casino-tab[aria-selected="true"] {
-    border-color: var(--ff-sage) !important;
-    background: var(--ff-sage-2) !important;
-    color: var(--ff-ink) !important;
+    border-color: var(--noir-amber) !important;
+    background: linear-gradient(180deg, #14201a 0%, #0c1610 100%) !important;
+    color: var(--noir-ivory) !important;
+    box-shadow: 0 14px 36px rgba(15, 22, 19, 0.28);
   }
-
-  .casino-tab span {
-    display: block;
-  }
-
+  .casino-tab[aria-selected="true"] .casino-tab-title { color: var(--noir-ivory) !important; }
+  .casino-tab[aria-selected="true"] .casino-tab-meta  { color: var(--noir-amber) !important; }
+  .casino-tab span { display: block; }
   .casino-tab-title {
     color: var(--ff-ink);
     font-family: var(--ff-font-display);
@@ -94,7 +125,6 @@
     line-height: 1;
     text-transform: none;
   }
-
   .casino-tab-meta {
     color: var(--ff-muted);
     font-family: var(--ff-font-mono);
@@ -103,243 +133,443 @@
     text-transform: uppercase;
   }
 
+  /* ── The room: card-room felt set into the Gotland card frame ───────── */
   .casino-panel {
     display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
-    gap: 1rem;
+    grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.92fr);
+    gap: 0;
     min-height: 25rem;
-    padding: clamp(1rem, 2vw, 1.4rem);
-    border: 1px solid var(--ff-line);
-    border-radius: 8px;
-    background: rgba(249, 246, 237, 0.76);
-    box-shadow: 0 20px 60px rgba(50, 44, 34, 0.08);
+    border: 1px solid var(--noir-rail);
+    border-radius: 10px;
+    background:
+      linear-gradient(180deg, var(--noir-felt-1) 0%, var(--noir-felt-2) 100%);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+      inset 0 36px 80px rgba(0, 0, 0, 0.34),
+      0 24px 60px rgba(15, 22, 19, 0.22);
+    overflow: hidden;
+    position: relative;
   }
-
-  .casino-panel[hidden] {
-    display: none;
+  .casino-panel[hidden] { display: none; }
+  /* faint gambling-felt grain */
+  .casino-panel::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 28%, rgba(196, 164, 74, 0.06), transparent 55%),
+      radial-gradient(ellipse at 12% 88%, rgba(194, 58, 34, 0.04), transparent 50%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><circle cx='30' cy='30' r='0.4' fill='%23ffffff' opacity='0.04'/></svg>");
+    pointer-events: none;
   }
 
   .casino-table {
+    position: relative;
     display: grid;
     place-items: center;
     min-height: 22rem;
-    border: 1px dashed var(--ff-line-strong);
-    border-radius: 8px;
-    background:
-      linear-gradient(135deg, rgba(108, 116, 80, 0.08), transparent 42%),
-      rgba(255, 255, 255, 0.24);
+    padding: 1.4rem 1.2rem;
   }
 
-  .casino-table-inner {
-    display: grid;
-    gap: 0.7rem;
-    width: min(28rem, calc(100% - 2rem));
-    text-align: center;
-  }
-
-  .casino-table-inner h2 {
-    margin: 0;
-  }
-
-  .casino-table-inner p {
-    margin: 0;
-    color: var(--ff-muted);
-    line-height: 1.65;
-  }
-
+  /* sidebar (right column) — slightly raised rail */
   .casino-tools {
+    position: relative;
     display: grid;
     align-content: start;
     gap: 1rem;
+    padding: 1.2rem 1.2rem 1.4rem;
+    border-left: 1px solid var(--noir-line);
+    background:
+      linear-gradient(180deg, rgba(30, 42, 34, 0.6), rgba(12, 22, 16, 0.6));
   }
-
   .casino-tool-block {
     display: grid;
-    gap: 0.75rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--ff-line);
+    gap: 0.7rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--noir-line);
   }
-
-  .casino-tool-block:last-child {
-    border-bottom: 0;
-    padding-bottom: 0;
-  }
-
+  .casino-tool-block:last-child { border-bottom: 0; padding-bottom: 0; }
   .casino-tool-block h3 {
-    margin: 0;
-    font-size: 1.25rem !important;
+    margin: 0 !important;
+    font: 500 0.66rem var(--ff-font-mono) !important;
+    color: var(--noir-amber) !important;
+    letter-spacing: 0.22em !important;
+    text-transform: uppercase;
   }
 
-  .casino-action-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
+  /* Buttons inside the felt — Mosquito treatment */
+  .casino-action-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .casino-action-row button,
+  .casino-tools button {
+    padding: 0.5rem 0.85rem !important;
+    border: 1px solid var(--noir-line-strong) !important;
+    border-radius: 4px !important;
+    background: rgba(10, 14, 11, 0.62) !important;
+    color: var(--noir-text) !important;
+    font: 500 0.62rem var(--ff-font-mono) !important;
+    letter-spacing: 0.16em !important;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.06s;
+  }
+  .casino-action-row button:hover:not(:disabled),
+  .casino-tools button:hover:not(:disabled) {
+    border-color: var(--noir-amber) !important;
+    color: var(--noir-amber-2) !important;
+    background: rgba(196, 164, 74, 0.10) !important;
+  }
+  .casino-action-row button:active:not(:disabled) { transform: translateY(1px); }
+  .casino-action-row button:disabled,
+  .casino-tools button:disabled { opacity: 0.32; cursor: not-allowed; }
+  .casino-action-row button.primary {
+    border-color: var(--noir-amber) !important;
+    color: var(--noir-amber-2) !important;
+    background: rgba(196, 164, 74, 0.14) !important;
+  }
+  .casino-action-row button.danger {
+    border-color: var(--noir-red) !important;
+    color: #f0a896 !important;
+    background: rgba(194, 58, 34, 0.10) !important;
   }
 
-  .casino-action-row button:disabled {
-    opacity: 0.54;
-    cursor: not-allowed;
-  }
-
-  .casino-pill-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-  }
-
+  /* Chip pills — dark with amber active state */
+  .casino-pill-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .casino-pill {
     display: inline-flex;
     align-items: center;
-    min-height: 2rem;
-    padding: 0.25rem 0.6rem;
-    border: 1px solid var(--ff-line);
+    min-height: 1.9rem;
+    padding: 0.25rem 0.65rem;
+    border: 1px solid var(--noir-line-strong);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.32);
-    color: var(--ff-muted);
-    font-family: var(--ff-font-mono);
-    font-size: 0.62rem;
+    background: rgba(10, 14, 11, 0.55);
+    color: var(--noir-dim);
+    font: 500 0.62rem var(--ff-font-mono);
     letter-spacing: 0.13em;
     text-transform: uppercase;
   }
   .casino-pill.bet-pill {
     cursor: pointer;
-    transition: border-color 0.15s, background 0.15s, color 0.15s;
+    transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.06s;
   }
   .casino-pill.bet-pill:hover {
-    border-color: var(--ff-sage);
-    background: var(--ff-sage-2);
-    color: var(--ff-ink);
+    border-color: var(--noir-amber);
+    color: var(--noir-amber-2);
   }
   .casino-pill.bet-pill[aria-pressed="true"] {
-    border-color: var(--ff-sage);
-    background: var(--ff-sage);
-    color: var(--ff-paper);
+    border-color: var(--noir-amber);
+    background: linear-gradient(180deg, rgba(196, 164, 74, 0.36), rgba(196, 164, 74, 0.14));
+    color: var(--noir-ivory);
+    box-shadow: 0 0 0 1px rgba(196, 164, 74, 0.2), 0 6px 18px rgba(0,0,0,0.32);
   }
 
-  /* ── Working blackjack table ───────────────────────────────────────── */
+  .casino-error {
+    margin-top: 0.5rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 4px;
+    background: rgba(194, 58, 34, 0.14);
+    border: 1px solid rgba(194, 58, 34, 0.42);
+    color: #f5b8a8;
+    font: 500 0.62rem var(--ff-font-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .casino-error[hidden] { display: none; }
+
+  /* ── Blackjack table (dark felt + ivory cards) ──────────────────────── */
   .bj-felt {
     display: grid;
     gap: 1.1rem;
     width: 100%;
-    padding: 1.1rem 1.3rem;
     text-align: center;
+    z-index: 1;
   }
-  .bj-row {
-    display: grid;
-    gap: 0.55rem;
-  }
+  .bj-row { display: grid; gap: 0.55rem; }
   .bj-row-label {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.55rem;
-    color: var(--ff-muted);
+    gap: 0.6rem;
+    color: var(--noir-amber);
     font: 500 0.58rem var(--ff-font-mono);
-    letter-spacing: 0.22em;
+    letter-spacing: 0.26em;
     text-transform: uppercase;
   }
   .bj-row-total {
-    color: var(--ff-ink);
-    font: 500 0.8rem var(--ff-font-num);
-    background: rgba(255,255,255,0.5);
-    padding: 0.1rem 0.5rem;
+    color: var(--noir-ivory);
+    font: 500 0.84rem var(--ff-font-num);
+    background: rgba(10, 14, 11, 0.6);
+    padding: 0.12rem 0.6rem;
     border-radius: 999px;
-    border: 1px solid var(--ff-line);
+    border: 1px solid var(--noir-line-strong);
     letter-spacing: 0.02em;
   }
   .bj-cards {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    min-height: 5.6rem;
+    gap: 0.55rem;
+    min-height: 5.8rem;
   }
   .bj-card {
-    width: 3.4rem;
-    height: 4.8rem;
+    width: 3.6rem;
+    height: 5rem;
     display: grid;
     grid-template-rows: auto 1fr auto;
-    padding: 0.32rem 0.4rem;
+    padding: 0.32rem 0.42rem;
     border-radius: 6px;
-    background: #fcfaf3;
-    border: 1px solid rgba(80,72,55,0.32);
-    box-shadow: 0 4px 12px rgba(50,44,34,0.16);
+    background: linear-gradient(180deg, #fcf7e3, #f0e7c8);
+    border: 1px solid rgba(36, 27, 12, 0.42);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.5) inset,
+      0 8px 18px rgba(0, 0, 0, 0.44);
     font-family: var(--ff-font-num);
-    font-weight: 500;
+    font-weight: 600;
     color: #20201b;
     text-align: left;
   }
-  .bj-card[data-color="red"]    { color: #a0593a; }
-  .bj-card[data-color="black"]  { color: #20201b; }
+  .bj-card[data-color="red"]    { color: #b53324; }
+  .bj-card[data-color="black"]  { color: #181410; }
   .bj-card[data-color="hidden"] {
-    background: linear-gradient(135deg, #2e271f 12%, #44403f);
-    color: rgba(248,240,224,0.55);
-    border-color: #20201b;
+    background:
+      repeating-linear-gradient(45deg, #1a0e0a 0 6px, #261610 6px 12px),
+      linear-gradient(135deg, #2a1410, #110705);
+    border-color: #3a1f15;
+    color: rgba(245, 235, 210, 0.32);
     place-items: center;
     text-align: center;
-    font-size: 1.6rem;
+    font-size: 1.4rem;
+    font-family: var(--ff-font-display);
+    font-style: italic;
   }
-  .bj-card .rank { font-size: 1.05rem; line-height: 1; }
-  .bj-card .suit { font-size: 1.45rem; line-height: 1; align-self: center; text-align: center; }
-  .bj-card .rank-end { font-size: 1.05rem; line-height: 1; text-align: right; transform: rotate(180deg); }
+  .bj-card .rank { font-size: 1.1rem; line-height: 1; }
+  .bj-card .suit { font-size: 1.55rem; line-height: 1; align-self: center; text-align: center; }
+  .bj-card .rank-end { font-size: 1.1rem; line-height: 1; text-align: right; transform: rotate(180deg); }
   .bj-status {
     min-height: 1.6rem;
-    padding: 0.32rem 0.7rem;
+    padding: 0.36rem 0.85rem;
     border-radius: 999px;
-    background: rgba(108,116,80,0.10);
-    border: 1px solid rgba(108,116,80,0.20);
-    color: var(--ff-ink);
-    font: italic 500 0.95rem var(--ff-font-display);
+    background: rgba(10, 14, 11, 0.6);
+    border: 1px solid var(--noir-line-strong);
+    color: var(--noir-text);
+    font: italic 500 0.98rem var(--ff-font-display);
     letter-spacing: -0.005em;
     display: inline-block;
   }
-  .bj-status.win   { background: rgba(108,116,80,0.20); border-color: rgba(108,116,80,0.40); }
-  .bj-status.lose  { background: rgba(164,91,61,0.16); border-color: rgba(164,91,61,0.32); color: #6b2e1f; }
-  .bj-status.push  { background: rgba(164,146,93,0.18); border-color: rgba(164,146,93,0.34); }
-  .bj-status.idle  { background: transparent; border-color: var(--ff-line); color: var(--ff-muted); }
+  .bj-status.win   { background: rgba(76, 175, 106, 0.16); border-color: rgba(76, 175, 106, 0.40); color: #d3e8c0; }
+  .bj-status.lose  { background: rgba(194, 58, 34, 0.16);  border-color: rgba(194, 58, 34, 0.42);  color: #f5b8a8; }
+  .bj-status.push  { background: rgba(196, 164, 74, 0.18); border-color: rgba(196, 164, 74, 0.42); color: var(--noir-amber-2); }
+  .bj-status.idle  { background: transparent; border-color: var(--noir-line); color: var(--noir-dim); }
 
-  .casino-cash {
-    display: flex;
-    align-items: baseline;
-    gap: 0.4rem;
-    font: 500 1.55rem var(--ff-font-num);
-    color: var(--ff-ink);
-    letter-spacing: -0.01em;
+  /* ── Roulette: European number layout + chip selector + history ─── */
+  .rou-felt {
+    display: grid;
+    gap: 1.1rem;
+    width: 100%;
+    z-index: 1;
   }
-  .casino-cash .unit { font: 500 0.62rem var(--ff-font-mono); letter-spacing: 0.18em; color: var(--ff-muted); text-transform: uppercase; }
+  .rou-grid {
+    display: grid;
+    grid-template-columns: 2.1rem repeat(12, minmax(1.6rem, 1fr)) 2.4rem;
+    grid-template-rows: repeat(3, 2.1rem) 1.6rem;
+    gap: 2px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 2px;
+    border-radius: 3px;
+    border: 1px solid var(--noir-line-strong);
+  }
+  .rou-cell {
+    display: grid;
+    place-items: center;
+    background: var(--noir-rail);
+    color: var(--noir-ivory);
+    font: 500 0.72rem var(--ff-font-num);
+    cursor: pointer;
+    user-select: none;
+    transition: filter 0.12s;
+    position: relative;
+  }
+  .rou-cell:hover { filter: brightness(1.4); }
+  .rou-cell[data-color="red"]   { background: #8c1c14; }
+  .rou-cell[data-color="black"] { background: #16110d; }
+  .rou-cell[data-color="green"] { background: #1b6a3e; }
+  .rou-cell.outside {
+    background: var(--noir-rail);
+    font: 500 0.55rem var(--ff-font-mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--noir-dim);
+  }
+  .rou-cell.outside:hover { color: var(--noir-amber-2); }
+  .rou-cell .chip-stack {
+    position: absolute;
+    bottom: 0.16rem;
+    right: 0.18rem;
+    width: 0.95rem;
+    height: 0.95rem;
+    border-radius: 999px;
+    background: radial-gradient(circle at 30% 30%, #f0d97a, #8c6e20);
+    border: 1px solid #f9e9aa;
+    color: #2a1d04;
+    font: 700 0.5rem var(--ff-font-mono);
+    display: grid; place-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  .rou-zero { grid-row: 1 / span 3; }
+  .rou-bottom { grid-column: 2 / span 12; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+  .rou-bottom .rou-cell { background: var(--noir-rail); font-size: 0.6rem; }
+  .rou-pendings {
+    display: flex; flex-wrap: wrap; gap: 0.35rem;
+    min-height: 1.4rem;
+    color: var(--noir-dim);
+    font: italic 400 0.86rem var(--ff-font-display);
+  }
+  .rou-pending-chip {
+    display: inline-flex; align-items: center; gap: 0.32rem;
+    padding: 0.2rem 0.55rem 0.2rem 0.32rem;
+    border: 1px solid var(--noir-amber);
+    border-radius: 999px;
+    background: rgba(196, 164, 74, 0.10);
+    color: var(--noir-ivory);
+    font: 500 0.62rem var(--ff-font-mono);
+    letter-spacing: 0.10em;
+  }
+  .rou-pending-chip .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--noir-amber); }
+  .rou-history {
+    display: flex; flex-wrap: wrap; gap: 0.3rem;
+  }
+  .rou-history .dot {
+    width: 1.55rem; height: 1.55rem; border-radius: 50%;
+    display: grid; place-items: center;
+    font: 600 0.7rem var(--ff-font-num);
+    color: var(--noir-ivory);
+    border: 1px solid rgba(0,0,0,0.4);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.42);
+  }
+  .rou-history .dot[data-color="red"]   { background: #8c1c14; }
+  .rou-history .dot[data-color="black"] { background: #16110d; }
+  .rou-history .dot[data-color="green"] { background: #1b6a3e; }
+  .rou-history .dot.latest { transform: scale(1.18); box-shadow: 0 0 0 2px var(--noir-amber); }
 
-  .casino-error {
-    margin-top: 0.5rem;
-    padding: 0.55rem 0.7rem;
-    border-radius: 6px;
-    background: rgba(164,91,61,0.10);
-    border: 1px solid rgba(164,91,61,0.32);
-    color: #6b2e1f;
+  /* ── Hold'em: oval felt with up to 4 seats + community board ───── */
+  .hold-felt {
+    display: grid;
+    gap: 1rem;
+    width: 100%;
+    z-index: 1;
+  }
+  .hold-table {
+    position: relative;
+    height: 18rem;
+    border-radius: 50%;
+    background:
+      radial-gradient(ellipse at 50% 38%, rgba(196,164,74,0.10), transparent 60%),
+      linear-gradient(180deg, #143625, #0a1e15);
+    border: 6px solid #261b0e;
+    box-shadow:
+      inset 0 0 0 2px rgba(255,255,255,0.06),
+      inset 0 0 24px rgba(0,0,0,0.5),
+      0 12px 34px rgba(0,0,0,0.4);
+  }
+  .hold-community {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex; gap: 0.45rem;
+    min-height: 4.5rem;
+  }
+  .hold-pot {
+    position: absolute;
+    top: calc(50% + 3.6rem); left: 50%;
+    transform: translateX(-50%);
+    padding: 0.18rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid var(--noir-amber);
+    background: rgba(196, 164, 74, 0.10);
+    color: var(--noir-amber-2);
     font: 500 0.66rem var(--ff-font-mono);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .hold-seat {
+    position: absolute;
+    width: 9.5rem;
+    padding: 0.5rem 0.55rem;
+    border-radius: 6px;
+    background: rgba(10, 14, 11, 0.78);
+    border: 1px solid var(--noir-line-strong);
+    color: var(--noir-text);
+  }
+  .hold-seat.self { border-color: var(--noir-amber); }
+  .hold-seat.turn { box-shadow: 0 0 0 2px var(--noir-amber), 0 0 0 6px rgba(196,164,74,0.18); }
+  .hold-seat.folded { opacity: 0.45; }
+  .hold-seat[data-pos="0"] { left: 50%; top: -1rem; transform: translateX(-50%); }
+  .hold-seat[data-pos="1"] { right: -1rem; top: 50%; transform: translateY(-50%); }
+  .hold-seat[data-pos="2"] { left: 50%; bottom: -1rem; transform: translateX(-50%); }
+  .hold-seat[data-pos="3"] { left: -1rem; top: 50%; transform: translateY(-50%); }
+  .hold-seat .name {
+    color: var(--noir-ivory);
+    font: italic 500 0.92rem var(--ff-font-display);
+  }
+  .hold-seat .stack {
+    color: var(--noir-amber);
+    font: 500 0.66rem var(--ff-font-mono);
+    letter-spacing: 0.12em;
+  }
+  .hold-seat .action {
+    color: var(--noir-dim);
+    font: 500 0.58rem var(--ff-font-mono);
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
-  .casino-error[hidden] { display: none; }
-
-  @media (max-width: 900px) {
-    .casino-hero,
-    .casino-panel {
-      grid-template-columns: 1fr;
-    }
-
-    .casino-status {
-      min-width: 0;
-    }
+  .hold-seat .cards {
+    display: flex; gap: 0.18rem;
+    margin-top: 0.32rem;
+  }
+  .hold-card {
+    width: 1.7rem; height: 2.4rem;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #fcf7e3, #f0e7c8);
+    border: 1px solid rgba(36, 27, 12, 0.42);
+    color: #20201b;
+    font: 600 0.66rem var(--ff-font-num);
+    display: grid; place-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  }
+  .hold-card[data-color="red"]   { color: #b53324; }
+  .hold-card[data-color="hidden"] {
+    background: repeating-linear-gradient(45deg, #1a0e0a 0 4px, #261610 4px 8px);
+    border-color: #3a1f15;
+    color: transparent;
+  }
+  .hold-big-card { /* community board uses a slightly larger card */
+    width: 2.2rem; height: 3rem;
+    font-size: 0.85rem;
+  }
+  .hold-empty {
+    padding: 1.2rem;
+    color: var(--noir-dim);
+    font: italic 400 0.95rem var(--ff-font-display);
+    text-align: center;
+  }
+  .hold-buyin-row {
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
   }
 
+  @media (max-width: 900px) {
+    .casino-hero, .casino-panel { grid-template-columns: 1fr; }
+    .casino-tools { border-left: 0; border-top: 1px solid var(--noir-line); }
+    .casino-status { min-width: 0; }
+    .rou-grid {
+      grid-template-columns: 1.8rem repeat(12, minmax(1.2rem, 1fr)) 2rem;
+      grid-template-rows: repeat(3, 1.7rem) 1.3rem;
+    }
+    .hold-table { height: 15rem; }
+  }
   @media (max-width: 680px) {
-    .casino-tabs {
-      grid-template-columns: 1fr;
-    }
-
-    .casino-tab {
-      min-height: 6.5rem;
-    }
+    .casino-tabs { grid-template-columns: 1fr; }
+    .casino-tab { min-height: 6.5rem; }
+    .bj-card { width: 3rem; height: 4.4rem; }
+    .rou-grid { font-size: 0.62rem; }
   }
 </style>
 </head>
@@ -440,63 +670,75 @@
 
     <section class="casino-panel" id="casino-panel-roulette" role="tabpanel" aria-labelledby="casino-tab-roulette" data-casino-panel="roulette" tabindex="0" hidden>
       <div class="casino-table" aria-label="Roulettebord">
-        <div class="casino-table-inner">
-          <p class="mono">Roulette</p>
-          <h2>Hjulet får ett ljusare bord</h2>
-          <p>Rutnät, marker, outside bets och historik översätts från Mosquito utan att ta med den mörka stilen.</p>
+        <div class="rou-felt">
+          <div class="bj-row-label">Europeisk roulette <span class="bj-row-total" id="rou-last">—</span></div>
+          <div class="rou-grid" id="rou-grid" aria-label="Roulettebord — klicka på en ruta för att lägga insats"></div>
+          <div class="bj-row-label">Senaste snurrar</div>
+          <div class="rou-history" id="rou-history"></div>
+          <div class="bj-row-label">Pågående insatser <span class="bj-row-total" id="rou-staked">0 kr</span></div>
+          <div class="rou-pendings" id="rou-pendings">Klicka i rutnätet för att lägga marker.</div>
+          <div><span class="bj-status idle" id="rou-status">Välj insats, lägg marker och snurra.</span></div>
         </div>
       </div>
       <aside class="casino-tools" aria-label="Roulette kontroller">
         <div class="casino-tool-block">
-          <h3>Insatser</h3>
-          <div class="casino-pill-row" aria-label="Roulettetyper">
-            <span class="casino-pill">Straight</span>
-            <span class="casino-pill">Split</span>
-            <span class="casino-pill">Street</span>
-            <span class="casino-pill">Dozen</span>
-            <span class="casino-pill">Column</span>
-            <span class="casino-pill">Red/Black</span>
+          <h3>Marker (insats per klick)</h3>
+          <div class="casino-pill-row" id="rou-stake-pills" aria-label="Markerstorlek">
+            <button type="button" class="casino-pill bet-pill" data-stake="50"   aria-pressed="false">50</button>
+            <button type="button" class="casino-pill bet-pill" data-stake="100"  aria-pressed="true">100</button>
+            <button type="button" class="casino-pill bet-pill" data-stake="250"  aria-pressed="false">250</button>
+            <button type="button" class="casino-pill bet-pill" data-stake="500"  aria-pressed="false">500</button>
+            <button type="button" class="casino-pill bet-pill" data-stake="1000" aria-pressed="false">1 000</button>
           </div>
         </div>
         <div class="casino-tool-block">
           <h3>Handlingar</h3>
-          <div class="casino-action-row">
-            <button type="button" disabled>Lägg insats</button>
-            <button type="button" disabled>Snurra</button>
-            <button type="button" disabled>Upprepa</button>
+          <div class="casino-action-row" id="rou-actions">
+            <button type="button" class="primary" data-rou-action="spin" disabled>Snurra</button>
+            <button type="button" data-rou-action="repeat">Upprepa</button>
+            <button type="button" class="danger" data-rou-action="clear" disabled>Rensa</button>
           </div>
+          <div class="casino-error" id="rou-error" hidden></div>
         </div>
       </aside>
     </section>
 
     <section class="casino-panel" id="casino-panel-holdem" role="tabpanel" aria-labelledby="casino-tab-holdem" data-casino-panel="holdem" tabindex="0" hidden>
       <div class="casino-table" aria-label="Texas Hold'Em bord">
-        <div class="casino-table-inner">
-          <p class="mono">Texas Hold&rsquo;Em</p>
-          <h2>Fyra platser, ett nytt skal</h2>
-          <p>Buy-in, mörkar, community cards, spelarbeslut och showdown hålls bakom adapteranropen.</p>
+        <div class="hold-felt">
+          <div class="hold-table" id="hold-table">
+            <div class="hold-community" id="hold-community"></div>
+            <div class="hold-pot" id="hold-pot">Pot —</div>
+            <div class="hold-empty" id="hold-empty">Hämtar bordet…</div>
+          </div>
+          <div><span class="bj-status idle" id="hold-status">Köp in dig för att sätta dig vid bordet.</span></div>
         </div>
       </div>
-      <aside class="casino-tools" aria-label="Texas Hold'Em kontroller">
+      <aside class="casino-tools" aria-label="Hold'em kontroller">
         <div class="casino-tool-block">
-          <h3>Bord</h3>
-          <div class="casino-pill-row" aria-label="Bordsdata">
-            <span class="casino-pill">50 / 100</span>
-            <span class="casino-pill">4 seats</span>
-            <span class="casino-pill">Fixed limit</span>
+          <h3>Buy-in</h3>
+          <div class="casino-pill-row" id="hold-buyin-pills">
+            <button type="button" class="casino-pill bet-pill" data-buyin="1000"  aria-pressed="false">1 000</button>
+            <button type="button" class="casino-pill bet-pill" data-buyin="2500"  aria-pressed="true">2 500</button>
+            <button type="button" class="casino-pill bet-pill" data-buyin="5000"  aria-pressed="false">5 000</button>
+            <button type="button" class="casino-pill bet-pill" data-buyin="10000" aria-pressed="false">10 000</button>
+          </div>
+          <div class="casino-action-row">
+            <button type="button" class="primary" data-hold-action="buy-in">Köp in</button>
           </div>
         </div>
         <div class="casino-tool-block">
           <h3>Handlingar</h3>
-          <div class="casino-action-row">
-            <button type="button" disabled>Buy-in</button>
-            <button type="button" disabled>Fold</button>
-            <button type="button" disabled>Check</button>
-            <button type="button" disabled>Call</button>
-            <button type="button" disabled>Raise</button>
-            <button type="button" disabled>Nästa hand</button>
-            <button type="button" disabled>Lämna</button>
+          <div class="casino-action-row" id="hold-actions">
+            <button type="button" data-hold-action="fold"  disabled>Fold</button>
+            <button type="button" data-hold-action="check" disabled>Check</button>
+            <button type="button" data-hold-action="call"  disabled>Call</button>
+            <button type="button" data-hold-action="bet"   disabled>Bet</button>
+            <button type="button" data-hold-action="raise" disabled>Raise</button>
+            <button type="button" data-hold-action="next-hand" disabled>Nästa</button>
+            <button type="button" class="danger" data-hold-action="leave" disabled>Lämna</button>
           </div>
+          <div class="casino-error" id="hold-error" hidden></div>
         </div>
       </aside>
     </section>
