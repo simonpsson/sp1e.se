@@ -24,6 +24,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
   // iCal feed is authenticated by the signed token in the URL, not a cookie —
   // calendar clients (Google / Apple) don't send cookies.
   if (path.startsWith('/api/fredagsfett/ical/')) return next();
+  // QoL #29 — public RSVP share links use an HMAC token in the URL, not a cookie.
+  if (path.startsWith('/api/fredagsfett/rsvp-public/')) return next();
+  if (path.startsWith('/fredagsfett/rsvp/')) return next();
 
   const session = await verifyFredagsfettMiddlewareSession(request, env);
   if (session) return next();

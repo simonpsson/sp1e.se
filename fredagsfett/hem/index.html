@@ -1355,11 +1355,49 @@ function openCmdk() {
   setTimeout(() => $('cmdk-input').focus(), 30);
 }
 function closeCmdk() { document.body.classList.remove('cmdk-open'); }
+// QoL #25 — site-wide fuzzy search. The static CMDK array still drives nav
+// actions; once the user types we also surface matching locked events and
+// activity rows. Recent expenses + map places could be added once those data
+// sources are loaded into state on this page.
+function dynamicMatches(q) {
+  const hits = [];
+  // Locked events — date, title, host, location
+  for (const ev of (state.events || [])) {
+    const hay = `${ev.date} ${ev.title || ''} ${ev.host_name || ''} ${ev.location || ''}`.toLowerCase();
+    if (hay.includes(q)) {
+      hits.push({
+        id: `ev-${ev.id}`,
+        icon: '𓀂',
+        label: `${ev.date} · ${ev.title || 'Inlåst'}${ev.host_name ? ' (hos ' + ev.host_name + ')' : ''}`,
+        desc: 'kalender · event',
+        hint: '',
+        run: () => location.href = '/fredagsfett/kalender',
+      });
+    }
+  }
+  // Activity rows — match body text
+  for (const row of (state.activity || []).slice(0, 50)) {
+    const hay = (row.message || '').toLowerCase();
+    if (hay.includes(q)) {
+      hits.push({
+        id: `act-${row.id || row.created_at}`,
+        icon: '·',
+        label: row.message.slice(0, 80),
+        desc: `aktivitet · ${(row.created_at || '').slice(0, 10)}`,
+        hint: '',
+        run: () => location.href = '/fredagsfett/kalender',
+      });
+    }
+  }
+  return hits.slice(0, 12);
+}
+
 function cmdkFiltered() {
   const q = $('cmdk-input').value.trim().toLowerCase();
   const visible = CMDK.filter(c => !c.adminOnly || state.isAdmin);
   if (!q) return visible;
-  return visible.filter(c => c.label.toLowerCase().includes(q) || (c.desc || '').toLowerCase().includes(q));
+  const staticHits = visible.filter(c => c.label.toLowerCase().includes(q) || (c.desc || '').toLowerCase().includes(q));
+  return [...staticHits, ...dynamicMatches(q)];
 }
 function renderCmdk() {
   const items = cmdkFiltered();

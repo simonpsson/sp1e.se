@@ -182,6 +182,10 @@
   /* Tame Leaflet's default light controls to match our dark room */
   .leaflet-control-attribution { background: rgba(0,0,0,0.5) !important; color: rgba(255,255,255,0.55) !important; }
   .leaflet-control-attribution a { color: rgba(205,176,110,0.9) !important; }
+  /* Push the leaflet-draw vertical toolbar below the floating .map-toolbar so
+   * the two don't overlap. The floating toolbar sits at top: 1.6rem and is
+   * ~52px tall on one row, so 5rem clears it. */
+  .leaflet-top.leaflet-right { top: 5rem !important; }
   .leaflet-bar a, .leaflet-draw-toolbar a {
     background-color: rgba(15,15,15,0.92) !important;
     color: var(--text) !important;
@@ -391,7 +395,7 @@
           <button type="button" id="undo-btn" title="Ångra senaste ritning">↶ Ångra</button>
           <button type="button" id="save-btn" title="Spara nuvarande ritning som en namngiven rutt">💾 Spara rutt</button>
           <button type="button" id="clear-btn" title="Rensa allt på kartan">Rensa</button>
-          <span class="save-status" id="save-status">Använd verktygen till vänster för att rita. Klicka på en form efter att du ritat den för att namnge den.</span>
+          <span class="save-status" id="save-status" hidden></span>
         </div>
         <div id="map">
           <div class="map-coords" id="map-coords" aria-hidden="true">—</div>
@@ -622,7 +626,10 @@ function installDrawControl() {
     try { map.removeControl(drawControl); } catch {}
   }
   drawControl = new L.Control.Draw({
-    position: 'topleft',
+    // topleft would collide with the floating .map-toolbar (which spans
+    // top: 1.6rem; left: 1.6rem; right: 1.6rem). Park it on the right
+    // edge instead, below the scale bar's left/right siblings.
+    position: 'topright',
     edit: { featureGroup: drawn, remove: true },
     draw: {
       polyline:  { shapeOptions: { color: currentStrokeColor, weight: 4 } },
@@ -938,7 +945,10 @@ function placeCategoryLabel(category) {
 }
 
 function setStatus(text) {
-  document.getElementById('save-status').textContent = text;
+  const el = document.getElementById('save-status');
+  if (!el) return;
+  if (text) { el.textContent = text; el.hidden = false; }
+  else { el.textContent = ''; el.hidden = true; }
 }
 
 // QoL #7 — transient toast that matches Hem/Kalender's unified pill styling.
@@ -1099,5 +1109,6 @@ function escapeAttr(value) { return escapeHtml(value); }
 
 void gateOrInit();
 </script>
+<script src="/fredagsfett/theme.js" defer></script>
 </body>
 </html>
