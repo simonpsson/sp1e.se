@@ -386,6 +386,20 @@ CREATE TABLE IF NOT EXISTS ff_event_photos (
 
 CREATE INDEX IF NOT EXISTS idx_ff_event_photos_event ON ff_event_photos (event_id, created_at);
 
+-- v9: per-event RSVP overrides the date-level availability for locked events.
+CREATE TABLE IF NOT EXISTS ff_event_rsvp (
+  id          TEXT PRIMARY KEY,
+  event_id    TEXT NOT NULL REFERENCES ff_events(id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL REFERENCES ff_users(id) ON DELETE CASCADE,
+  status      TEXT NOT NULL CHECK (status IN ('ATTENDING', 'NOT_ATTENDING')),
+  note        TEXT,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (event_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ff_event_rsvp_event ON ff_event_rsvp (event_id);
+CREATE INDEX IF NOT EXISTS idx_ff_event_rsvp_user  ON ff_event_rsvp (user_id);
+
 CREATE TABLE IF NOT EXISTS ff_chat_messages (
   id         TEXT PRIMARY KEY,
   group_id   TEXT NOT NULL REFERENCES ff_groups(id) ON DELETE CASCADE,

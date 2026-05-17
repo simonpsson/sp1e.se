@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>𓀂 · RSVP</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.svg">
+<meta name="theme-color" content="#6c7450">
+<meta property="og:title" content="𓀂 RSVP · Fredagsfett">
+<meta property="og:description" content="Svara på inbjudan.">
+<meta property="og:image" content="/og-fredagsfett.svg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Public+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eeebE2;
+    --paper: #f3efE7;
+    --ink: #20201b;
+    --text: #58503f;
+    --muted: #87806a;
+    --sage: #6c7450;
+    --line: rgba(88, 80, 63, 0.18);
+    --cta-bg: #2e271f;
+    --cta-text: #f3efE7;
+    --rust: #8a3e3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 1.4rem;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 16px/1.5 'Public Sans', system-ui, sans-serif;
+  }
+  .card {
+    width: 100%;
+    max-width: 480px;
+    padding: 2.2rem 2rem 2rem;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--paper);
+    box-shadow: 0 24px 60px rgba(32,30,27,0.10);
+  }
+  .sigil { font-size: 2rem; color: var(--sage); text-align: center; }
+  .kicker {
+    margin: 0.4rem 0 0.2rem;
+    color: var(--sage);
+    font: 500 0.62rem 'DM Mono', monospace;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  h1 {
+    margin: 0 0 0.4rem;
+    text-align: center;
+    color: var(--ink);
+    font: italic 500 2rem 'EB Garamond', serif;
+    letter-spacing: -0.005em;
+  }
+  .meta {
+    text-align: center;
+    color: var(--muted);
+    font: italic 400 0.92rem 'EB Garamond', serif;
+    margin: 0.2rem 0 1.1rem;
+  }
+  .meta strong { color: var(--ink); font-weight: 500; }
+  .meta .line { display: block; margin-top: 0.1rem; }
+  label {
+    display: block;
+    margin: 0.7rem 0 0.3rem;
+    color: var(--muted);
+    font: 500 0.6rem 'DM Mono', monospace;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  input[type="text"], textarea {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 0.95rem 'Public Sans', system-ui, sans-serif;
+    outline: none;
+  }
+  textarea { min-height: 60px; resize: vertical; }
+  input:focus, textarea:focus { border-color: var(--sage); }
+  .choice-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+  }
+  .choice {
+    padding: 0.7rem 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
+    font: 500 0.7rem 'DM Mono', monospace;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .choice:hover { border-color: var(--sage); background: rgba(108,116,80,0.08); }
+  .choice.yes.active { background: var(--sage); border-color: var(--sage); color: var(--paper); }
+  .choice.no.active  { background: var(--rust); border-color: var(--rust);  color: var(--paper); }
+  .submit {
+    width: 100%;
+    margin-top: 0.9rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--cta-bg);
+    border-radius: 8px;
+    background: var(--cta-bg);
+    color: var(--cta-text);
+    font: 500 0.7rem 'DM Mono', monospace;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .submit:disabled { opacity: 0.55; cursor: not-allowed; }
+  .submit:hover:not(:disabled) { background: #44403f; }
+  .msg {
+    margin-top: 0.8rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 7px;
+    text-align: center;
+    font: 500 0.62rem 'DM Mono', monospace;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .msg.ok { background: rgba(108,116,80,0.14); color: var(--sage); }
+  .msg.err { background: rgba(138,62,58,0.12); color: var(--rust); }
+  .empty { padding: 1rem 0; text-align: center; color: var(--muted); font-style: italic; }
+  footer {
+    margin-top: 1.2rem;
+    text-align: center;
+    color: var(--muted);
+    font: 400 0.56rem 'DM Mono', monospace;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  footer a { color: var(--sage); text-decoration: none; }
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="sigil" aria-hidden="true">𓀂</div>
+  <p class="kicker" id="kicker">Gäst · svara på inbjudan</p>
+  <div id="loading" class="empty">Laddar…</div>
+  <div id="content" hidden>
+    <h1 id="event-title">—</h1>
+    <p class="meta">
+      <span class="line" id="event-date">—</span>
+      <span class="line" id="event-host"></span>
+      <span class="line" id="event-location"></span>
+      <span class="line" id="event-time"></span>
+    </p>
+    <form id="rsvp-form">
+      <label for="guest-name">Ditt namn</label>
+      <input id="guest-name" type="text" required maxlength="60" placeholder="Förnamn">
+      <div class="choice-row" role="radiogroup" aria-label="Kommer du?">
+        <button type="button" class="choice yes" data-status="ATTENDING">✓ Jag kommer</button>
+        <button type="button" class="choice no"  data-status="NOT_ATTENDING">✕ Kommer inte</button>
+      </div>
+      <label for="guest-note">Meddelande (frivilligt)</label>
+      <textarea id="guest-note" maxlength="240" placeholder="Allergier, plus-en, hälsning…"></textarea>
+      <button type="submit" class="submit" id="submit-btn" disabled>Skicka svar</button>
+      <div class="msg" id="msg" hidden></div>
+    </form>
+  </div>
+  <footer>SP1E · <a href="/fredagsfett">fredagsfett</a></footer>
+</main>
+<script>
+function parsePath() {
+  // /fredagsfett/rsvp/<eventId>/<token>
+  const parts = location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+  // parts: ['fredagsfett','rsvp', eventId, token]
+  return { eventId: parts[2] || '', token: parts[3] || '' };
+}
+
+let selectedStatus = null;
+const { eventId, token } = parsePath();
+const $ = id => document.getElementById(id);
+
+async function load() {
+  if (!eventId || !token) {
+    $('loading').textContent = 'Ogiltig länk.';
+    return;
+  }
+  try {
+    const res = await fetch(`/api/fredagsfett/rsvp-public/${encodeURIComponent(eventId)}/${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      $('loading').textContent = data.error || 'Kunde inte ladda eventet.';
+      return;
+    }
+    const data = await res.json();
+    const ev = data.event;
+    $('event-title').textContent = ev.title || 'Inlåst event';
+    $('event-date').innerHTML = `<strong>${escapeHtml(formatSwedishDate(ev.date))}</strong>`;
+    if (ev.host_name) $('event-host').textContent = `hos ${ev.host_name}`;
+    if (ev.location) $('event-location').textContent = ev.location;
+    if (ev.start_time && ev.end_time) $('event-time').textContent = `${ev.start_time} – ${ev.end_time}`;
+    $('loading').hidden = true;
+    $('content').hidden = false;
+  } catch {
+    $('loading').textContent = 'Kunde inte ladda eventet.';
+  }
+}
+
+function formatSwedishDate(date) {
+  try {
+    const [y, m, d] = date.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('sv-SE', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    });
+  } catch { return date; }
+}
+function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+
+document.querySelectorAll('.choice').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.choice').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedStatus = btn.dataset.status;
+    $('submit-btn').disabled = !selectedStatus || !$('guest-name').value.trim();
+  });
+});
+$('guest-name').addEventListener('input', () => {
+  $('submit-btn').disabled = !selectedStatus || !$('guest-name').value.trim();
+});
+
+$('rsvp-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!selectedStatus) return;
+  const msg = $('msg');
+  msg.hidden = true; msg.className = 'msg';
+  $('submit-btn').disabled = true;
+  try {
+    const res = await fetch(`/api/fredagsfett/rsvp-public/${encodeURIComponent(eventId)}/${encodeURIComponent(token)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: $('guest-name').value.trim(),
+        status: selectedStatus,
+        note: $('guest-note').value.trim() || null,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Något gick fel.');
+    msg.textContent = 'Tack! Ditt svar är registrerat.';
+    msg.classList.add('ok');
+    msg.hidden = false;
+    $('rsvp-form').querySelector('button[type="submit"]').textContent = 'Skickat';
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.classList.add('err');
+    msg.hidden = false;
+    $('submit-btn').disabled = false;
+  }
+});
+
+void load();
+</script>
+</body>
+</html>

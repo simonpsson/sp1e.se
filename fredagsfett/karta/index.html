@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>𓀂 · Karta</title>
 <meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.svg">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#6c7450">
+<meta property="og:title" content="𓀂 Karta · Fredagsfett">
+<meta property="og:description" content="Gruppens platser, ritbara rutter och möteszoner.">
+<meta property="og:image" content="/og-fredagsfett.svg">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -182,6 +190,10 @@
   /* Tame Leaflet's default light controls to match our dark room */
   .leaflet-control-attribution { background: rgba(0,0,0,0.5) !important; color: rgba(255,255,255,0.55) !important; }
   .leaflet-control-attribution a { color: rgba(205,176,110,0.9) !important; }
+  /* Push the leaflet-draw vertical toolbar below the floating .map-toolbar so
+   * the two don't overlap. The floating toolbar sits at top: 1.6rem and is
+   * ~52px tall on one row, so 5rem clears it. */
+  .leaflet-top.leaflet-right { top: 5rem !important; }
   .leaflet-bar a, .leaflet-draw-toolbar a {
     background-color: rgba(15,15,15,0.92) !important;
     color: var(--text) !important;
@@ -392,7 +404,7 @@
           <button type="button" id="undo-btn" title="Ångra senaste ritning">↶ Ångra</button>
           <button type="button" id="save-btn" title="Spara nuvarande ritning som en namngiven rutt">💾 Spara rutt</button>
           <button type="button" id="clear-btn" title="Rensa allt på kartan">Rensa</button>
-          <span class="save-status" id="save-status">Använd verktygen till vänster för att rita. Klicka på en form efter att du ritat den för att namnge den.</span>
+          <span class="save-status" id="save-status" hidden></span>
         </div>
         <div id="map">
           <div class="map-coords" id="map-coords" aria-hidden="true">—</div>
@@ -549,9 +561,11 @@ function initMap() {
     setStatus('Centrerad på Stockholm.');
   });
   document.getElementById('save-btn').addEventListener('click', saveCurrentRoute);
-  document.getElementById('clear-btn').addEventListener('click', () => {
+  document.getElementById('clear-btn').addEventListener('click', async () => {
     if (!drawn.getLayers().length) return;
-    if (!window.confirm('Rensa alla ritningar på kartan?')) return;
+    if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+      'Rensa alla ritningar på kartan?', { okLabel: 'Rensa allt', danger: true }
+    )) return;
     drawn.clearLayers();
     drawOrder = [];
     setStatus('Kartan rensad.');
@@ -623,7 +637,10 @@ function installDrawControl() {
     try { map.removeControl(drawControl); } catch {}
   }
   drawControl = new L.Control.Draw({
-    position: 'topleft',
+    // topleft would collide with the floating .map-toolbar (which spans
+    // top: 1.6rem; left: 1.6rem; right: 1.6rem). Park it on the right
+    // edge instead, below the scale bar's left/right siblings.
+    position: 'topright',
     edit: { featureGroup: drawn, remove: true },
     draw: {
       polyline:  { shapeOptions: { color: currentStrokeColor, weight: 4 } },
@@ -637,7 +654,7 @@ function installDrawControl() {
   map.addControl(drawControl);
 }
 
-function onShapeCreated(e) {
+async function onShapeCreated(e) {
   const layer = e.layer;
   const type = e.layerType;
   // Suggest a sensible default name based on shape type so the prompt feels lighter
@@ -648,7 +665,11 @@ function onShapeCreated(e) {
     rectangle: 'Zon',
     circle: 'Cirkel',
   }[type]) || 'Form';
-  const label = window.prompt('Namn / kommentar för formen (lämna tomt om du inte vill ange):', suggested) || '';
+  const label = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+    'Namn / kommentar för formen (lämna tomt om du inte vill ange):',
+    suggested,
+    { title: 'Namnge formen', okLabel: 'Spara' }
+  ) || '';
   // Persist label + type + color on the layer so save → load round-trips it
   layer.feature = layer.feature || { type: 'Feature', properties: {} };
   layer.feature.properties = {
@@ -693,10 +714,12 @@ function attachPopupToLayer(layer) {
     const root = popup?.getElement();
     if (!root) return;
     root.querySelectorAll('[data-pop-action]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const action = btn.dataset.popAction;
         if (action === 'rename') {
-          const next = window.prompt('Nytt namn:', layer.feature?.properties?.label || '');
+          const next = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+            'Nytt namn:', layer.feature?.properties?.label || '', { title: 'Döp om formen' }
+          );
           if (next === null) return;
           layer.feature.properties.label = next;
           layer.unbindTooltip();
@@ -705,7 +728,9 @@ function attachPopupToLayer(layer) {
           layer.openPopup();
           setStatus(`Bytte namn till "${next}".`);
         } else if (action === 'remove') {
-          if (!window.confirm('Ta bort formen?')) return;
+          if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+            'Ta bort formen?', { okLabel: 'Ta bort', danger: true }
+          )) return;
           drawn.removeLayer(layer);
           const idx = drawOrder.indexOf(id);
           if (idx !== -1) drawOrder.splice(idx, 1);
@@ -939,7 +964,10 @@ function placeCategoryLabel(category) {
 }
 
 function setStatus(text) {
-  document.getElementById('save-status').textContent = text;
+  const el = document.getElementById('save-status');
+  if (!el) return;
+  if (text) { el.textContent = text; el.hidden = false; }
+  else { el.textContent = ''; el.hidden = true; }
 }
 
 // QoL #7 — transient toast that matches Hem/Kalender's unified pill styling.
@@ -973,7 +1001,9 @@ async function loadRoutes() {
 
 async function saveCurrentRoute() {
   if (!drawn.getLayers().length) { setStatus('Inget att spara — rita något först.'); return; }
-  const name = window.prompt('Namn på rutten?', `Rutt ${new Date().toLocaleDateString('sv-SE')}`);
+  const name = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+    'Namn på rutten?', `Rutt ${new Date().toLocaleDateString('sv-SE')}`, { title: 'Spara rutt', okLabel: 'Spara' }
+  );
   if (!name) return;
   const geojson = drawn.toGeoJSON();
   setStatus('Sparar...');
@@ -1031,7 +1061,9 @@ function renderSavedList() {
 
 // QoL #4 — inline rename via the existing PATCH /api/fredagsfett/routes/:id endpoint
 async function renameRoute(route) {
-  const next = window.prompt('Nytt namn på rutten:', route.name || '');
+  const next = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+    'Nytt namn på rutten:', route.name || '', { title: 'Döp om rutten' }
+  );
   if (next === null) return;
   const trimmed = next.trim();
   if (!trimmed) { setStatus('Namnet får inte vara tomt.'); return; }
@@ -1083,7 +1115,9 @@ function downloadGeojson(route) {
 }
 
 async function deleteRoute(id) {
-  if (!window.confirm('Ta bort rutten? Detta påverkar alla i gruppen.')) return;
+  if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+    'Ta bort rutten? Detta påverkar alla i gruppen.', { okLabel: 'Ta bort', danger: true }
+  )) return;
   try {
     await api(`/api/fredagsfett/routes/${encodeURIComponent(id)}`, { method: 'DELETE' });
     await loadRoutes();
@@ -1100,5 +1134,6 @@ function escapeAttr(value) { return escapeHtml(value); }
 
 void gateOrInit();
 </script>
+<script src="/fredagsfett/theme.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Fredagsfett brand sigil 𓀂 on cream limestone, sage outline. -->
+  <rect width="64" height="64" rx="12" fill="#eeebE2"/>
+  <rect x="2" y="2" width="60" height="60" rx="10" fill="none" stroke="#6c7450" stroke-width="2" stroke-opacity="0.5"/>
+  <text x="32" y="46" text-anchor="middle"
+        font-family="EB Garamond, Cormorant Garamond, serif"
+        font-size="42" font-style="italic" font-weight="500"
+        fill="#20201b">𓀂</text>
+</svg>

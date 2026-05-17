@@ -532,6 +532,158 @@ body.ff-light-page main {
   background: var(--ff-sage-2) !important;
 }
 
+/* QoL #26 — Theme variants. Default is "gotland" (no body class).
+ * The cycler in /fredagsfett/theme.js flips body.ff-theme-{whisky,midsommar}. */
+
+/* Whisky · old gallery dark theme */
+body.ff-light-page.ff-theme-whisky {
+  --ff-bg: #0a0807;
+  --ff-paper: #131110;
+  --ff-paper-2: #1c1815;
+  --ff-panel: rgba(20, 18, 16, 0.85);
+  --ff-ink: rgba(248, 240, 224, 0.96);
+  --ff-text: rgba(248, 240, 224, 0.82);
+  --ff-muted: rgba(248, 240, 224, 0.5);
+  --ff-faint: rgba(248, 240, 224, 0.3);
+  --ff-line: rgba(248, 240, 224, 0.12);
+  --ff-line-strong: rgba(248, 240, 224, 0.22);
+  --ff-sage: #cdb06e;
+  --ff-sage-2: rgba(205, 176, 110, 0.18);
+  --ff-gold: #d9c789;
+  --ff-rust: #d6786a;
+  --ff-blue: rgba(176, 196, 222, 0.18);
+  --ff-lilac: rgba(196, 178, 224, 0.18);
+  background:
+    radial-gradient(ellipse at top, rgba(205,176,110,0.06), transparent 50%),
+    var(--ff-bg) !important;
+}
+body.ff-light-page.ff-theme-whisky::before {
+  background:
+    radial-gradient(circle at 22% 18%, rgba(205,176,110,0.10), transparent 55%),
+    radial-gradient(circle at 78% 86%, rgba(214,120,106,0.05), transparent 55%);
+}
+body.ff-light-page.ff-theme-whisky .ff-topbar {
+  background: rgba(8, 6, 5, 0.85) !important;
+}
+body.ff-light-page.ff-theme-whisky .ff-card,
+body.ff-light-page.ff-theme-whisky .room {
+  background: rgba(20, 18, 16, 0.74) !important;
+}
+
+/* Midsommar · pale yellow + cornflower blue */
+body.ff-light-page.ff-theme-midsommar {
+  --ff-bg: #f6efd8;
+  --ff-paper: #fcf7e0;
+  --ff-paper-2: #ebe3c2;
+  --ff-panel: rgba(252, 247, 224, 0.92);
+  --ff-ink: #2a2818;
+  --ff-text: #4b4530;
+  --ff-muted: #908862;
+  --ff-faint: #c4bd92;
+  --ff-line: rgba(74, 70, 38, 0.18);
+  --ff-line-strong: rgba(74, 70, 38, 0.28);
+  --ff-sage: #5b8aa6;
+  --ff-sage-2: #d6e4ec;
+  --ff-gold: #d8c46a;
+  --ff-rust: #b56a36;
+  --ff-blue: #c2d5e2;
+  --ff-lilac: #ead2dc;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(216,196,106,0.20), transparent 36%),
+    radial-gradient(circle at 82% 78%, rgba(91,138,166,0.16), transparent 36%),
+    var(--ff-bg) !important;
+}
+body.ff-light-page.ff-theme-midsommar .ff-card,
+body.ff-light-page.ff-theme-midsommar .room {
+  background: rgba(252, 247, 224, 0.78) !important;
+}
+
+/* QoL #27 — Mobile bottom tab bar.
+ * On viewports ≤ 720px the topbar collapses to just the brand wordmark and the
+ * tab buttons live in a fixed bar across the bottom of the screen with 44pt tap
+ * targets. Injected via /fredagsfett/theme.js bootstrap so we don't have to
+ * edit each page's HTML. */
+.ff-mobile-tabbar {
+  display: none;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 49;
+  padding: 0.45rem 0.5rem calc(0.45rem + env(safe-area-inset-bottom));
+  background: rgba(249, 246, 237, 0.96);
+  border-top: 1px solid var(--ff-line);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 -6px 24px rgba(50, 44, 34, 0.10);
+}
+.ff-mobile-tabbar nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.2rem;
+}
+.ff-mobile-tabbar a {
+  display: grid;
+  place-items: center;
+  gap: 0.18rem;
+  padding: 0.42rem 0.2rem;
+  border-radius: 10px;
+  text-decoration: none;
+  color: rgba(40, 34, 24, 0.62);
+  font: 500 0.58rem var(--ff-font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.ff-mobile-tabbar a .ic { font-size: 1.1rem; line-height: 1; }
+.ff-mobile-tabbar a[aria-current="page"] {
+  color: var(--ff-ink);
+  background: var(--ff-sage-2);
+}
+body.ff-light-page.ff-theme-whisky .ff-mobile-tabbar {
+  background: rgba(8, 6, 5, 0.94);
+  border-top-color: rgba(248, 240, 224, 0.14);
+}
+body.ff-light-page.ff-theme-whisky .ff-mobile-tabbar a { color: rgba(248, 240, 224, 0.58); }
+body.ff-light-page.ff-theme-whisky .ff-mobile-tabbar a[aria-current="page"] { color: rgba(248, 240, 224, 0.95); background: rgba(205, 176, 110, 0.18); }
+@media (max-width: 720px) {
+  .ff-mobile-tabbar { display: block; }
+  body.ff-light-page main { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+  body.ff-light-page .ff-topbar .ff-nav-row,
+  body.ff-light-page .ff-topbar .ff-top-tools .ff-avatar-row,
+  body.ff-light-page .ff-topbar .ff-top-tools .ff-clock { display: none !important; }
+  body.ff-light-page .ff-topbar { grid-template-columns: 1fr auto; height: auto; padding: 0.5rem 1rem; }
+  /* Re-position theme cycler so it doesn't sit on top of the tab bar */
+  .ff-theme-cycler { bottom: calc(4.6rem + env(safe-area-inset-bottom)) !important; }
+}
+
+/* Floating theme cycler — bottom-right pill */
+.ff-theme-cycler {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.85rem 0.45rem 0.7rem !important;
+  border: 1px solid var(--ff-line-strong) !important;
+  border-radius: 999px !important;
+  background: rgba(249, 246, 237, 0.92) !important;
+  color: var(--ff-ink) !important;
+  font: 500 0.6rem var(--ff-font-mono) !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(50, 44, 34, 0.16);
+  backdrop-filter: blur(8px);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.ff-theme-cycler:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(50, 44, 34, 0.22); }
+.ff-theme-cycler .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; display: inline-block; }
+.ff-theme-cycler .lbl { white-space: nowrap; }
+body.ff-light-page.ff-theme-whisky .ff-theme-cycler {
+  background: rgba(20, 18, 16, 0.92) !important;
+  color: rgba(248, 240, 224, 0.92) !important;
+  border-color: rgba(248, 240, 224, 0.22) !important;
+}
+
 /* QoL #7 — unified toast pill across all light pages.
  * Matches the Hem page treatment (cream paper, mono caps, sage shadow).
  * Overrides the legacy dark-themed .toast that the older pages shipped with. */
@@ -559,6 +711,161 @@ body.ff-light-page main {
   from { opacity: 0; transform: translateX(-50%) translateY(12px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* QoL #32 — ffPrompt / ffConfirm modal.
+ * Drop-in replacement for window.prompt / window.confirm; styled to match
+ * the Gotland palette. Works on every page that loads /fredagsfett/theme.js. */
+.ff-modal-backdrop {
+  position: fixed; inset: 0; z-index: 9100;
+  display: grid; place-items: center;
+  padding: 1rem;
+  background: rgba(20, 18, 16, 0.46);
+  backdrop-filter: blur(6px);
+  animation: ff-modal-fade 0.16s ease-out;
+}
+@keyframes ff-modal-fade { from { opacity: 0; } to { opacity: 1; } }
+.ff-modal-card {
+  width: min(420px, 100%);
+  padding: 1.4rem 1.4rem 1.1rem;
+  border: 1px solid rgba(80, 72, 55, 0.18);
+  border-radius: 14px;
+  background: #f3efE7;
+  color: #20201b;
+  box-shadow: 0 32px 80px rgba(20, 18, 16, 0.45);
+  animation: ff-modal-rise 0.2s ease-out;
+}
+@keyframes ff-modal-rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.ff-modal-title {
+  margin-bottom: 0.55rem;
+  font: 500 0.62rem 'DM Mono', monospace;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #6c7450;
+}
+.ff-modal-msg {
+  font: italic 400 1.04rem 'EB Garamond', 'Cormorant Garamond', serif;
+  color: #20201b;
+  line-height: 1.4;
+  margin-bottom: 0.9rem;
+}
+.ff-modal-input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(80, 72, 55, 0.22);
+  border-radius: 8px;
+  background: #fcfaf3;
+  color: #20201b;
+  font: 400 1rem 'Public Sans', system-ui, sans-serif;
+  outline: none;
+  margin-bottom: 0.9rem;
+}
+.ff-modal-input:focus { border-color: #6c7450; box-shadow: 0 0 0 3px rgba(108,116,80,0.16); }
+.ff-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+.ff-modal-btn {
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  font: 500 0.66rem 'DM Mono', monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid rgba(80, 72, 55, 0.22);
+}
+.ff-modal-btn.cancel { background: transparent; color: #58503f; }
+.ff-modal-btn.cancel:hover { background: rgba(108,116,80,0.10); color: #20201b; }
+.ff-modal-btn.ok { background: #2e271f; color: #f3efE7; border-color: #2e271f; }
+.ff-modal-btn.ok:hover { background: #44403f; border-color: #44403f; }
+.ff-modal-btn.ok.danger { background: #8a3e3a; border-color: #8a3e3a; }
+.ff-modal-btn.ok.danger:hover { background: #a0494a; border-color: #a0494a; }
+
+/* Whisky variant inverts everything */
+body.ff-light-page.ff-theme-whisky .ff-modal-card {
+  background: #1c1815;
+  color: rgba(248,240,224,0.94);
+  border-color: rgba(248,240,224,0.18);
+}
+body.ff-light-page.ff-theme-whisky .ff-modal-msg { color: rgba(248,240,224,0.92); }
+body.ff-light-page.ff-theme-whisky .ff-modal-input {
+  background: rgba(10,8,7,0.8); color: rgba(248,240,224,0.92); border-color: rgba(248,240,224,0.18);
+}
+body.ff-light-page.ff-theme-whisky .ff-modal-btn.cancel { color: rgba(248,240,224,0.72); border-color: rgba(248,240,224,0.18); }
+body.ff-light-page.ff-theme-whisky .ff-modal-btn.cancel:hover { background: rgba(248,240,224,0.10); color: rgba(248,240,224,0.95); }
+body.ff-light-page.ff-theme-whisky .ff-modal-btn.ok { background: #cdb06e; color: #1c1815; border-color: #cdb06e; }
+body.ff-light-page.ff-theme-whisky .ff-modal-btn.ok:hover { background: #dac38b; border-color: #dac38b; }
+
+/* QoL #33 — Loading skeleton shimmer (replaces "Laddar..." copy) */
+.ff-skeleton {
+  display: block;
+  background: linear-gradient(90deg,
+    rgba(80,72,55,0.08) 0%,
+    rgba(80,72,55,0.18) 50%,
+    rgba(80,72,55,0.08) 100%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  height: 0.85rem;
+  animation: ff-skel 1.4s ease-in-out infinite;
+}
+.ff-skeleton.lg { height: 1.4rem; }
+.ff-skeleton.sm { height: 0.62rem; }
+.ff-skeleton + .ff-skeleton { margin-top: 0.4rem; }
+.ff-skeleton-stack { display: grid; gap: 0.55rem; padding: 0.4rem 0; }
+.ff-skeleton-stack .ff-skeleton:nth-child(1) { width: 70%; }
+.ff-skeleton-stack .ff-skeleton:nth-child(2) { width: 90%; }
+.ff-skeleton-stack .ff-skeleton:nth-child(3) { width: 55%; }
+@keyframes ff-skel {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+body.ff-light-page.ff-theme-whisky .ff-skeleton {
+  background: linear-gradient(90deg,
+    rgba(248,240,224,0.06) 0%,
+    rgba(248,240,224,0.14) 50%,
+    rgba(248,240,224,0.06) 100%);
+  background-size: 200% 100%;
+}
+
+/* QoL #28 — Undo toast (deletion confirmations with a 5-second re-create) */
+.ff-undo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.4rem;
+  transform: translateX(-50%) translateY(12px);
+  z-index: 9000;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem 0.55rem 0.45rem 0.95rem;
+  border: 1px solid var(--ff-line-strong);
+  border-radius: 999px;
+  background: rgba(40, 34, 24, 0.96);
+  color: rgba(248, 240, 224, 0.92);
+  font: 500 0.66rem var(--ff-font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow: 0 18px 44px rgba(40, 34, 24, 0.32);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.ff-undo-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+.ff-undo-toast .undo {
+  padding: 0.32rem 0.7rem !important;
+  border: 1px solid rgba(248,240,224,0.32) !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: rgba(248, 240, 224, 0.95) !important;
+  font: 500 0.6rem var(--ff-font-mono) !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  cursor: pointer;
+}
+.ff-undo-toast .undo:hover { background: rgba(248, 240, 224, 0.12) !important; }
 
 @media (max-width: 1100px) {
   .ff-topbar {

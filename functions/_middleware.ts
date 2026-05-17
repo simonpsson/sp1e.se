@@ -21,9 +21,16 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
   if (!isFredagsfettPage && !isFredagsfettApi) return next();
   if (path === '/fredagsfett' || path === '/fredagsfett/' || path === '/fredagsfett/index.html') return next();
   if (path === '/api/fredagsfett/auth' || path === '/api/fredagsfett/session') return next();
+  // Static assets (CSS / JS / SVG / fonts) in /fredagsfett/ are not protected —
+  // they have no user data in them and the Service Worker needs them cacheable
+  // even on first install before the user logs in.
+  if (/\.(css|js|svg|png|jpg|jpeg|gif|webp|woff2?|ttf)$/i.test(path)) return next();
   // iCal feed is authenticated by the signed token in the URL, not a cookie —
   // calendar clients (Google / Apple) don't send cookies.
   if (path.startsWith('/api/fredagsfett/ical/')) return next();
+  // QoL #29 — public RSVP share links use an HMAC token in the URL, not a cookie.
+  if (path.startsWith('/api/fredagsfett/rsvp-public/')) return next();
+  if (path.startsWith('/fredagsfett/rsvp/')) return next();
 
   const session = await verifyFredagsfettMiddlewareSession(request, env);
   if (session) return next();

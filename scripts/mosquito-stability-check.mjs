@@ -4,6 +4,8 @@ const api = fs.readFileSync('functions/api/[[route]].ts', 'utf8');
 const html = fs.readFileSync('mosquito.html', 'utf8');
 const index = fs.readFileSync('index.html', 'utf8');
 const project = fs.readFileSync('PROJECT.md', 'utf8');
+const gameSchema = fs.readFileSync('game-schema.sql', 'utf8');
+const gameMigrations = fs.readFileSync('game-migrations.sql', 'utf8');
 
 const checks = [];
 function check(name, ok) {
@@ -215,6 +217,11 @@ check(
 check(
   'PROJECT documents current Mosquito auth requirement',
   /Mosquito[^.\n]*(requires|kr[aä]ver)[^.\n]*site auth|\/mosquito[^.\n]*site auth|game routes[^.\n]*site auth/i.test(project)
+);
+
+check(
+  'production Mosquito files have no mojibake markers',
+  !/[ÃÂðâ]/.test([api, html, gameSchema, gameMigrations].join('\n'))
 );
 
 const failed = checks.filter(c => !c.ok);

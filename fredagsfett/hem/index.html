@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>𓀂 · Hem</title>
 <meta name="robots" content="noindex">
+<!-- Brand assets: SVG favicon scales perfectly; apple-touch-icon for iOS home-screen. -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.svg">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#6c7450">
+<meta property="og:title" content="𓀂 Fredagsfett · SP1E">
+<meta property="og:description" content="En kalender, en kassabok, en karta — för ett gäng.">
+<meta property="og:image" content="/og-fredagsfett.svg">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500;1,600&family=Public+Sans:wght@300;400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -604,6 +613,32 @@ button { font-family: inherit; cursor: pointer; }
   font: italic 400 0.92rem var(--font-display);
 }
 
+/* QoL #33 — Loading skeletons (inline copy of the rule in light-ui.css) */
+.ff-skeleton {
+  display: inline-block;
+  background: linear-gradient(90deg,
+    rgba(80,72,55,0.08) 0%,
+    rgba(80,72,55,0.18) 50%,
+    rgba(80,72,55,0.08) 100%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  height: 0.85rem;
+  min-width: 4rem;
+  animation: ff-skel 1.4s ease-in-out infinite;
+  vertical-align: middle;
+}
+.ff-skeleton.lg { height: 1.6rem; }
+.ff-skeleton.sm { height: 0.62rem; }
+.ff-skeleton + .ff-skeleton { margin-top: 0.4rem; }
+.ff-skeleton-stack { display: grid; gap: 0.55rem; padding: 0.4rem 0; }
+.ff-skeleton-stack .ff-skeleton:nth-child(1) { width: 70%; }
+.ff-skeleton-stack .ff-skeleton:nth-child(2) { width: 90%; }
+.ff-skeleton-stack .ff-skeleton:nth-child(3) { width: 55%; }
+@keyframes ff-skel {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
 .forenkat-link {
   color: var(--ink-2);
   text-decoration: none;
@@ -834,7 +869,7 @@ body.cmdk-open .cmdk-backdrop { display: flex; }
         <span class="sep" aria-hidden="true">·</span>
         <span class="inlast">Inlåst</span>
       </div>
-      <h1 class="hero-title" id="hero-title-el">Laddar…</h1>
+      <h1 class="hero-title" id="hero-title-el"><span class="ff-skeleton lg" style="width:62%"></span></h1>
       <div class="hero-meta">
         <div>
           <div class="label">Kl.</div>
@@ -1356,11 +1391,49 @@ function openCmdk() {
   setTimeout(() => $('cmdk-input').focus(), 30);
 }
 function closeCmdk() { document.body.classList.remove('cmdk-open'); }
+// QoL #25 — site-wide fuzzy search. The static CMDK array still drives nav
+// actions; once the user types we also surface matching locked events and
+// activity rows. Recent expenses + map places could be added once those data
+// sources are loaded into state on this page.
+function dynamicMatches(q) {
+  const hits = [];
+  // Locked events — date, title, host, location
+  for (const ev of (state.events || [])) {
+    const hay = `${ev.date} ${ev.title || ''} ${ev.host_name || ''} ${ev.location || ''}`.toLowerCase();
+    if (hay.includes(q)) {
+      hits.push({
+        id: `ev-${ev.id}`,
+        icon: '𓀂',
+        label: `${ev.date} · ${ev.title || 'Inlåst'}${ev.host_name ? ' (hos ' + ev.host_name + ')' : ''}`,
+        desc: 'kalender · event',
+        hint: '',
+        run: () => location.href = '/fredagsfett/kalender',
+      });
+    }
+  }
+  // Activity rows — match body text
+  for (const row of (state.activity || []).slice(0, 50)) {
+    const hay = (row.message || '').toLowerCase();
+    if (hay.includes(q)) {
+      hits.push({
+        id: `act-${row.id || row.created_at}`,
+        icon: '·',
+        label: row.message.slice(0, 80),
+        desc: `aktivitet · ${(row.created_at || '').slice(0, 10)}`,
+        hint: '',
+        run: () => location.href = '/fredagsfett/kalender',
+      });
+    }
+  }
+  return hits.slice(0, 12);
+}
+
 function cmdkFiltered() {
   const q = $('cmdk-input').value.trim().toLowerCase();
   const visible = CMDK.filter(c => !c.adminOnly || state.isAdmin);
   if (!q) return visible;
-  return visible.filter(c => c.label.toLowerCase().includes(q) || (c.desc || '').toLowerCase().includes(q));
+  const staticHits = visible.filter(c => c.label.toLowerCase().includes(q) || (c.desc || '').toLowerCase().includes(q));
+  return [...staticHits, ...dynamicMatches(q)];
 }
 function renderCmdk() {
   const items = cmdkFiltered();
@@ -1443,11 +1516,17 @@ async function boot() {
   renderChat();
   renderActivity();
   renderDebts();
-  setInterval(async () => { await loadChat(); renderChat(); }, 8000);
-  setInterval(async () => {
+  // QoL #34 — Pause polls when the tab is hidden. Resumes on visibilitychange.
+  const _pollChat = () => { if (document.hidden) return; void (async () => { await loadChat(); renderChat(); })(); };
+  const _pollAll  = () => { if (document.hidden) return; void (async () => {
     await Promise.all([loadActivity(), loadEvents(), loadItems(), loadSp1wise()]);
     renderHero(); renderChecklist(); renderActivity(); renderDebts();
-  }, 30000);
+  })(); };
+  setInterval(_pollChat, 8000);
+  setInterval(_pollAll, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { _pollChat(); _pollAll(); }
+  });
 }
 
 void boot();

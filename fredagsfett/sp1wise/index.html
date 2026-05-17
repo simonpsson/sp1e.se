@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>𓀂 · SP1Wise</title>
 <meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.svg">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#6c7450">
+<meta property="og:title" content="𓀂 SP1Wise · Fredagsfett">
+<meta property="og:description" content="Gemensam kassabok — utgifter, kvittering och CSV-export.">
+<meta property="og:image" content="/og-fredagsfett.svg">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -501,6 +509,53 @@ async function loadSp1wise() {
   renderState();
 }
 
+// QoL #28 — Show a 5-second toast with "Ångra" after deleting an expense.
+// If clicked, the expense is re-created from the snapshot via the regular
+// POST endpoint. The original event_id and split details are preserved.
+function offerUndoForDeletedExpense(snapshot) {
+  let toast = document.getElementById('ff-undo-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'ff-undo-toast';
+    toast.className = 'ff-undo-toast';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = `
+    <span class="msg">Utgift borttagen.</span>
+    <button type="button" class="undo">↺ Ångra</button>
+  `;
+  toast.classList.add('show');
+  const cleanup = () => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  };
+  const t = setTimeout(cleanup, 5000);
+  toast.querySelector('.undo').addEventListener('click', async () => {
+    clearTimeout(t);
+    cleanup();
+    try {
+      const participants = snapshot.shares.map(s => s.user_id);
+      const sp1wise = await api('/api/fredagsfett/sp1wise/expenses', {
+        method: 'POST',
+        body: JSON.stringify({
+          group_id: state.group.id,
+          description: snapshot.description,
+          amount: String(snapshot.amount_cents / 100),
+          date: snapshot.date,
+          paid_by_id: snapshot.paid_by_id,
+          split_method: snapshot.split_method,
+          event_id: snapshot.event_id || null,
+          participants,
+        }),
+      });
+      state = { ...sp1wise, events: state.events };
+      renderState();
+    } catch (err) {
+      errorBox.textContent = 'Kunde inte ångra: ' + (err.message || 'okänt fel');
+    }
+  });
+}
+
 async function submitExpense(event) {
   event.preventDefault();
   errorBox.textContent = '';
@@ -575,6 +630,57 @@ async function submitComment(event) {
 }
 
 document.getElementById('expense-form').addEventListener('submit', submitExpense);
+
+// QoL #23 — when an event is selected, prefill participants to the people who
+// RSVP'd ATTENDING (or, lacking RSVPs, those whose availability was AVAILABLE
+// or TENTATIVE for the event date).
+document.getElementById('expense-event')?.addEventListener('change', async event => {
+  const eventId = event.currentTarget.value;
+  const participantsWrap = document.getElementById('expense-participants');
+  if (!eventId || !participantsWrap) {
+    // Reset all checkboxes back to checked (the default behaviour pre-prefill)
+    participantsWrap.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+    return;
+  }
+  try {
+    // Pull both the RSVP list AND the event attendees (which is the
+    // availability-derived list) — RSVP wins where present.
+    const [rsvpData, eventsData] = await Promise.all([
+      api(`/api/fredagsfett/events/${encodeURIComponent(eventId)}/rsvp`),
+      // Cheap re-fetch — we already have the event in state.events but RSVP
+      // override needs a fresh pull
+      Promise.resolve({ events: state.events }),
+    ]);
+    const rsvp = rsvpData.rsvp || [];
+    const ev = (eventsData.events || []).find(e => e.id === eventId);
+    const attendingIds = new Set();
+    if (rsvp.length) {
+      rsvp.filter(r => r.status === 'ATTENDING').forEach(r => attendingIds.add(r.user_id));
+      // Anyone with NOT_ATTENDING is explicitly excluded
+      const notAttending = new Set(rsvp.filter(r => r.status === 'NOT_ATTENDING').map(r => r.user_id));
+      // Backfill from availability for users who didn't RSVP at all
+      (ev?.attendees || []).forEach(a => {
+        if (notAttending.has(a.user_id)) return;
+        if (a.status === 'AVAILABLE' || a.status === 'TENTATIVE') attendingIds.add(a.user_id);
+      });
+    } else {
+      (ev?.attendees || []).forEach(a => {
+        if (a.status === 'AVAILABLE' || a.status === 'TENTATIVE') attendingIds.add(a.user_id);
+      });
+    }
+    // Apply to checkboxes
+    if (attendingIds.size === 0) {
+      // Couldn't infer — leave everyone checked (the default)
+      participantsWrap.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+      return;
+    }
+    participantsWrap.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.checked = attendingIds.has(cb.value);
+    });
+  } catch (err) {
+    console.error('event prefill failed', err);
+  }
+});
 document.getElementById('settlement-form').addEventListener('submit', submitSettlement);
 document.getElementById('comment-form').addEventListener('submit', submitComment);
 document.getElementById('export-csv').addEventListener('click', () => {
@@ -586,9 +692,13 @@ document.getElementById('expense-list').addEventListener('click', async event =>
   try {
     if (editId) {
       const expense = state.expenses.find(row => row.id === editId);
-      const description = prompt('Ny beskrivning', expense?.description || '');
+      const description = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+        'Ny beskrivning', expense?.description || '', { title: 'Redigera utgift' }
+      );
       if (!description) return;
-      const amount = prompt('Nytt belopp', expense ? String(expense.amount_cents / 100) : '');
+      const amount = await (window.ffPrompt || ((m, d) => Promise.resolve(window.prompt(m, d))))(
+        'Nytt belopp', expense ? String(expense.amount_cents / 100) : '', { title: 'Belopp i SEK' }
+      );
       if (!amount) return;
       const sp1wise = await api(`/api/fredagsfett/sp1wise/expenses/${editId}`, {
         method: 'PATCH',
@@ -597,10 +707,17 @@ document.getElementById('expense-list').addEventListener('click', async event =>
       state = { ...sp1wise, events: state.events };
       renderState();
     }
-    if (deleteId && confirm('Ta bort utgiften?')) {
+    if (deleteId && await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+      'Ta bort utgiften?', { okLabel: 'Ta bort', danger: true }
+    )) {
+      // QoL #28 — snapshot the original before we delete, so the undo toast
+      // can re-create it via the regular POST endpoint if the user changes
+      // their mind within 5 seconds.
+      const snapshot = state.expenses.find(row => row.id === deleteId);
       const sp1wise = await api(`/api/fredagsfett/sp1wise/expenses/${deleteId}`, { method: 'DELETE' });
       state = { ...sp1wise, events: state.events };
       renderState();
+      if (snapshot) offerUndoForDeletedExpense(snapshot);
     }
   } catch (err) {
     errorBox.textContent = err.message;
@@ -622,5 +739,6 @@ async function boot() {
 }
 void boot();
 </script>
+<script src="/fredagsfett/theme.js" defer></script>
 </body>
 </html>

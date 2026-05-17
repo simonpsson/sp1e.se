@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>𓀂 · (S)planner</title>
 <meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.svg">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#6c7450">
+<meta property="og:title" content="𓀂 Kalender · Fredagsfett">
+<meta property="og:description" content="Gemensam kalender — tap-cycle tillgänglighet, inlåsta event, RSVP.">
+<meta property="og:image" content="/og-fredagsfett.svg">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -511,6 +519,34 @@
   .status-pill[data-status="MAYBE"].active { border-color: var(--maybe); background: rgba(212,194,133,0.10); }
   .status-pill[data-status="UNAVAILABLE"].active { border-color: var(--unavailable); background: rgba(208,154,144,0.10); }
 
+  /* QoL #30 — CSV export link in the locked-events panel footer */
+  .export-row { margin-top: 0.55rem; padding-top: 0.4rem; border-top: 1px dashed rgba(108,116,80,0.22); }
+  .export-link { color: var(--sage); text-decoration: none; font: 500 0.6rem var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; }
+  .export-link:hover { color: var(--ink); }
+
+  /* QoL #21 — RSVP block inside the event card */
+  .event-rsvp { margin-top: 0.7rem; padding-top: 0.55rem; border-top: 1px dashed rgba(108,116,80,0.32); }
+  .event-rsvp h4 { margin: 0 0 0.4rem; font: 500 0.58rem var(--font-mono); letter-spacing: 0.22em; color: var(--sage); text-transform: uppercase; }
+  .rsvp-row { display: flex; flex-wrap: wrap; gap: 0.32rem; margin-bottom: 0.4rem; }
+  .rsvp-btn {
+    padding: 0.38rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ink-2);
+    font: 500 0.58rem var(--font-mono);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .rsvp-btn:hover { border-color: var(--sage); background: rgba(108,116,80,0.10); }
+  .rsvp-btn.yes.active { background: var(--sage); color: var(--paper); border-color: var(--sage); }
+  .rsvp-btn.no.active  { background: var(--rust); color: var(--paper); border-color: var(--rust); }
+  .rsvp-list { display: grid; gap: 0.2rem; }
+  .rsvp-list .rsvp-entry { font-size: 0.78rem; color: var(--ink-2); }
+  .rsvp-list .rsvp-entry .yes-mark { color: var(--sage-deep); }
+  .rsvp-list .rsvp-entry .no-mark  { color: var(--rust); }
+
   /* Self-status dot in the day cell — fourth color */
   .day[data-self-status="TENTATIVE"]::after { background: var(--tentative) !important; opacity: 1; }
 
@@ -786,7 +822,11 @@
         <section class="sidebar-card news-card">
           <h3>Nyheter</h3>
           <div class="news-list" id="news-list" aria-live="polite">
-            <p class="tiny">Laddar...</p>
+            <div class="ff-skeleton-stack" aria-label="Laddar nyheter">
+              <span class="ff-skeleton"></span>
+              <span class="ff-skeleton"></span>
+              <span class="ff-skeleton"></span>
+            </div>
           </div>
         </section>
         <section class="sidebar-card chat-card">
@@ -802,7 +842,7 @@
         <div class="calendar-head">
           <button id="prev-month" type="button" title="Föregående månad (←)">‹ Föregående</button>
           <button id="today-btn" type="button" title="Gå till idag (G)">Idag</button>
-          <h2 id="month-title">Laddar...</h2>
+          <h2 id="month-title"><span class="ff-skeleton lg" style="width:8rem" aria-label="Laddar månad"></span></h2>
           <button id="next-month" type="button" title="Nästa månad (→)">Nästa ›</button>
         </div>
         <div class="year-bar" aria-label="År">
@@ -843,6 +883,17 @@
             <div class="nav admin-only" data-admin-only style="margin-top:0.6rem">
               <button type="button" data-action="edit-event">Redigera</button>
               <button type="button" data-action="cancel-event">Avbryt inlåsning</button>
+              <button type="button" data-action="copy-share">📋 Kopiera RSVP-länk</button>
+            </div>
+            <!-- QoL #21 — Per-event RSVP. Overrides date-level availability for attendees. -->
+            <div class="event-rsvp" id="event-rsvp">
+              <h4>Kommer du?</h4>
+              <div class="rsvp-row">
+                <button type="button" class="rsvp-btn yes" data-rsvp="ATTENDING">✓ Jag kommer</button>
+                <button type="button" class="rsvp-btn no"  data-rsvp="NOT_ATTENDING">✕ Kommer inte</button>
+                <button type="button" class="rsvp-btn clear" data-rsvp="CLEAR" title="Återgå till generell tillgänglighet">↺ Återställ</button>
+              </div>
+              <div class="rsvp-list tiny" id="event-rsvp-list"></div>
             </div>
             <div class="event-items">
               <h4>Vad tar ni med?</h4>
@@ -951,6 +1002,9 @@
           <h3 id="locked-events-heading">Inlåsta event</h3>
           <div class="locked-events-list" id="locked-events-list"></div>
           <div class="tiny" id="locked-events-empty" hidden>Inga inlåsta datum framåt. <span id="best-dates-hint"></span></div>
+          <div class="export-row">
+            <a href="/api/fredagsfett/availability/export" id="csv-export-link" class="tiny export-link" title="Ladda ner alla dina svar som CSV">📥 Mina datum (CSV)</a>
+          </div>
         </section>
         <section class="panel-block" id="past-events-block" hidden>
           <h3 id="past-events-heading">Tidigare fredagsfett</h3>
@@ -1014,6 +1068,16 @@ const lockStartInput = document.getElementById('lock-start-input');
 const lockEndInput = document.getElementById('lock-end-input');
 const lockNotesInput = document.getElementById('lock-notes-input');
 const lockEventError = document.getElementById('lock-event-error');
+
+// QoL #34 — Visibility-aware polling. Replacement for setInterval that
+// suspends ticks while the tab is hidden (no network, no battery). The
+// timer keeps running, it just no-ops the callback when document.hidden.
+function pollWhenVisible(fn, intervalMs) {
+  return setInterval(() => {
+    if (document.hidden) return;
+    try { fn(); } catch (err) { console.error('poll error', err); }
+  }, intervalMs);
+}
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -1306,6 +1370,7 @@ function renderEventForSelectedDay() {
     void loadEventComments(event.id);
     void loadEventItems(event.id);
     void loadEventPhotos(event.id);
+    void loadEventRsvp(event.id);
   } else {
     eventCard.hidden = true;
     state.currentEventId = null;
@@ -1587,13 +1652,26 @@ async function loadNews() {
 
 // Group chat in the left sidebar (polled, last 80 messages)
 let chatLastSeen = '';
+let _chatNotifPrimed = false;
 async function loadChat() {
   const list = document.getElementById('chat-list');
   if (!list) return;
   try {
     const data = await api('/api/fredagsfett/chat?limit=80');
     const msgs = data.messages || [];
-    if (msgs.length) chatLastSeen = msgs[msgs.length - 1].created_at;
+    // QoL #22 — fire a foreground OS notification on new messages from others.
+    const selfId = currentSession?.user?.id;
+    if (msgs.length) {
+      if (_chatNotifPrimed && chatLastSeen) {
+        const fresh = msgs.filter(m => m.created_at > chatLastSeen && m.user_id !== selfId);
+        if (fresh.length && typeof window.ffNotify === 'function') {
+          const last = fresh[fresh.length - 1];
+          window.ffNotify(`${last.user_name} i Fredagsfett`, last.body);
+        }
+      }
+      chatLastSeen = msgs[msgs.length - 1].created_at;
+      _chatNotifPrimed = true;
+    }
     if (!msgs.length) {
       list.innerHTML = '<p class="tiny">Inga meddelanden ännu — säg något!</p>';
     } else {
@@ -1687,6 +1765,64 @@ async function loadActivity() {
 }
 
 // B1 — comments per locked event
+// QoL #21 — load the RSVP block for a locked event + render it
+async function loadEventRsvp(eventId) {
+  const listEl = document.getElementById('event-rsvp-list');
+  const rowEl = document.querySelector('.event-rsvp .rsvp-row');
+  if (!listEl || !rowEl) return;
+  try {
+    const data = await api(`/api/fredagsfett/events/${encodeURIComponent(eventId)}/rsvp`);
+    const rsvp = data.rsvp || [];
+    const selfId = currentSession?.user?.id;
+    const own = rsvp.find(r => r.user_id === selfId);
+    // Highlight the active button
+    rowEl.querySelectorAll('.rsvp-btn').forEach(b => b.classList.remove('active'));
+    if (own?.status === 'ATTENDING') rowEl.querySelector('[data-rsvp="ATTENDING"]')?.classList.add('active');
+    if (own?.status === 'NOT_ATTENDING') rowEl.querySelector('[data-rsvp="NOT_ATTENDING"]')?.classList.add('active');
+    // Render list
+    if (!rsvp.length) {
+      listEl.innerHTML = '<span class="empty tiny">Inga RSVP-svar ännu.</span>';
+    } else {
+      const fmt = r => {
+        const mark = r.status === 'ATTENDING'
+          ? '<span class="yes-mark">JA</span>'
+          : '<span class="no-mark">NEJ</span>';
+        return `<div class="rsvp-entry">${mark} · ${escapeHtml(r.user_name)}${r.note ? ' · ' + escapeHtml(r.note) : ''}</div>`;
+      };
+      listEl.innerHTML = rsvp.map(fmt).join('');
+    }
+  } catch (err) {
+    listEl.innerHTML = `<span class="error">${escapeHtml(err.message || 'Kunde inte ladda RSVP.')}</span>`;
+  }
+}
+
+document.getElementById('event-rsvp')?.addEventListener('click', async event => {
+  const btn = event.target.closest('[data-rsvp]');
+  if (!btn) return;
+  const eventId = state.currentEventId;
+  if (!eventId) return;
+  const choice = btn.dataset.rsvp;
+  btn.disabled = true;
+  try {
+    if (choice === 'CLEAR') {
+      await api(`/api/fredagsfett/events/${encodeURIComponent(eventId)}/rsvp`, { method: 'DELETE' });
+      showToast('RSVP rensad — använder generell tillgänglighet.');
+    } else {
+      await api(`/api/fredagsfett/events/${encodeURIComponent(eventId)}/rsvp`, {
+        method: 'POST',
+        body: JSON.stringify({ status: choice }),
+      });
+      showToast(choice === 'ATTENDING' ? 'Tack — du kommer!' : 'Noterat — du kommer inte.');
+    }
+    await loadEventRsvp(eventId);
+    void loadActivity();
+  } catch (err) {
+    showToast(err.message || 'Kunde inte spara RSVP.');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 async function loadEventComments(eventId) {
   const list = document.getElementById('event-comments-list');
   if (!list) return;
@@ -1897,6 +2033,25 @@ lockEventForm.addEventListener('click', event => {
 eventCard.addEventListener('click', async event => {
   const editBtn = event.target.closest('[data-action="edit-event"]');
   const cancelBtn = event.target.closest('[data-action="cancel-event"]');
+  const shareBtn = event.target.closest('[data-action="copy-share"]');
+  // QoL #29 — copy a public RSVP share link for non-members
+  if (shareBtn) {
+    const ev = eventsByDate.get(state.selectedDate);
+    if (!ev) return;
+    try {
+      const data = await api(`/api/fredagsfett/events/${encodeURIComponent(ev.id)}/share-token`);
+      const url = `${location.origin}/fredagsfett/rsvp/${ev.id}/${data.token}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast('RSVP-länken kopierad.');
+      } catch {
+        await (window.ffPrompt || window.prompt)('Kopiera RSVP-länken:', url, { title: 'RSVP-länk', okLabel: 'Stäng', cancelLabel: 'Stäng' });
+      }
+    } catch (err) {
+      errorBox.textContent = err.message || 'Kunde inte hämta länken.';
+    }
+    return;
+  }
   if (editBtn) {
     const ev = eventsByDate.get(state.selectedDate);
     if (!ev) return;
@@ -1914,7 +2069,10 @@ eventCard.addEventListener('click', async event => {
   if (cancelBtn) {
     const ev = eventsByDate.get(state.selectedDate);
     if (!ev) return;
-    if (!window.confirm(`Avbryt eventet för ${state.selectedDate}?`)) return;
+    if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+      `Avbryt eventet för ${state.selectedDate}?`,
+      { title: 'Avbryt inlåsning', okLabel: 'Avbryt eventet', cancelLabel: 'Behåll', danger: true }
+    )) return;
     try {
       await api(`/api/fredagsfett/events/${encodeURIComponent(ev.id)}`, { method: 'DELETE' });
       await Promise.all([loadEvents(), loadUpcomingEvents()]);
@@ -2091,7 +2249,7 @@ document.getElementById('ical-copy-btn')?.addEventListener('click', async () => 
       showToast('iCal-länken kopierad. Prenumerera i din kalenderapp.');
     } catch {
       // Fallback when clipboard isn't available (e.g. insecure context) — show a prompt
-      window.prompt('Kopiera den här länken till din kalenderapp:', url);
+      await (window.ffPrompt || window.prompt)('Kopiera den här länken till din kalenderapp:', url, { title: 'iCal-länk' });
     }
   } catch (err) {
     errorBox.textContent = err.message || 'Kunde inte hämta iCal-länken.';
@@ -2127,7 +2285,10 @@ document.getElementById('sidebar-toggle-btn')?.addEventListener('click', event =
   event.currentTarget.textContent = isCollapsed ? 'Visa sidopanel' : 'Dölj sidopanel';
 });
 
-// Background theme cycler — galleri / sommarljus / park / café
+// Legacy background theme cycler (galleri / sommarljus / park / café) — superseded by
+// /fredagsfett/theme.js (QoL #26). The button still exists in markup but the
+// container is hidden by light-ui.css. Keeping the code here so older deployments
+// without theme.js still cycle the legacy bg images.
 const THEMES = ['galleri', 'sommarljus', 'park', 'cafe'];
 const THEME_LABELS = { galleri: 'Galleri (mörkt)', sommarljus: 'Sommarljus', park: 'Park', cafe: 'Café' };
 function applyTheme(name) {
@@ -2188,7 +2349,9 @@ document.getElementById('event-items-list')?.addEventListener('click', async eve
         body: JSON.stringify({ claimed_by: isClaimed ? null : currentSession.user.id }),
       });
     } else if (action === 'remove') {
-      if (!window.confirm('Ta bort den här saken?')) { button.disabled = false; return; }
+      if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+        'Ta bort den här saken?', { okLabel: 'Ta bort', danger: true }
+      )) { button.disabled = false; return; }
       await api(`/api/fredagsfett/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
     }
     if (eventId) await loadEventItems(eventId);
@@ -2240,7 +2403,9 @@ document.getElementById('event-photo-input')?.addEventListener('change', async e
 document.getElementById('event-photo-grid')?.addEventListener('click', async event => {
   const button = event.target.closest('button.remove[data-photo-id]');
   if (!button) return;
-  if (!window.confirm('Ta bort bilden?')) return;
+  if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+    'Ta bort bilden?', { okLabel: 'Ta bort', danger: true }
+  )) return;
   const photoId = button.dataset.photoId;
   const eventId = state.currentEventId;
   button.disabled = true;
@@ -2303,12 +2468,22 @@ async function boot() {
     }
     await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents(), loadActivity(), loadNews(), loadChat()]);
     renderCalendar();
-    // Poll news every 5 min and chat every 7 s
-    setInterval(loadNews, 5 * 60 * 1000);
-    setInterval(loadChat, 7 * 1000);
+    // QoL #34 — pollWhenVisible() skips ticks while document.hidden is true,
+    // saving network + battery when the user has the tab in the background.
+    // A visibilitychange handler does a single refresh when the tab comes back
+    // so the user never sees stale data on focus.
+    pollWhenVisible(loadNews, 5 * 60 * 1000);
+    pollWhenVisible(loadChat, 7 * 1000);
     // Note: a tap mid-poll may briefly flicker if loadAvailability returns before
     // the tap's POST resolves. Last-write-wins on the server, self-corrects on next poll.
-    setInterval(reloadCalendarData, 15000);
+    pollWhenVisible(reloadCalendarData, 15000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      // One-shot refresh on focus — pollWhenVisible's timers will resume from
+      // the next tick onwards.
+      void loadChat();
+      void reloadCalendarData();
+    });
   } catch {
     location.href = `/fredagsfett?next=${encodeURIComponent('/fredagsfett/kalender')}`;
   }
@@ -2316,5 +2491,6 @@ async function boot() {
 
 void boot();
 </script>
+<script src="/fredagsfett/theme.js" defer></script>
 </body>
 </html>
