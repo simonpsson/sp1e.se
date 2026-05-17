@@ -359,6 +359,79 @@
   .bj-status.push  { background: rgba(196, 164, 74, 0.18); border-color: rgba(196, 164, 74, 0.42); color: var(--noir-amber-2); }
   .bj-status.idle  { background: transparent; border-color: var(--noir-line); color: var(--noir-dim); }
 
+  /* Active-hand indicator (split turn highlights the active row) */
+  .bj-row.active .bj-row-total {
+    box-shadow: 0 0 0 1px var(--noir-amber), 0 0 12px rgba(196,164,74,0.18);
+  }
+  .bj-row.active .bj-row-label { color: var(--noir-amber-2); }
+
+  /* Per-hand bet + result chips next to the row label */
+  .bj-bet-tag {
+    display: inline-block;
+    margin-left: 0.4rem;
+    padding: 0.04rem 0.45rem;
+    border-radius: 999px;
+    background: rgba(10, 14, 11, 0.6);
+    border: 1px solid var(--noir-line-strong);
+    color: var(--noir-text);
+    font: 500 0.58rem var(--ff-font-mono);
+    letter-spacing: 0.10em;
+  }
+  .bj-bet-tag.amber {
+    color: var(--noir-amber-2);
+    border-color: var(--noir-amber);
+    background: rgba(196,164,74,0.12);
+  }
+  .bj-hand-result {
+    display: inline-block;
+    margin-left: 0.32rem;
+    padding: 0.04rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--noir-line-strong);
+    font: 600 0.55rem var(--ff-font-mono);
+    letter-spacing: 0.16em;
+  }
+  .bj-hand-result.win  { color: #c0e6c8; border-color: rgba(76,175,106,0.42); background: rgba(76,175,106,0.16); }
+  .bj-hand-result.lose { color: #f5b8a8; border-color: rgba(194,58,34,0.42);  background: rgba(194,58,34,0.16); }
+  .bj-hand-result.push { color: var(--noir-amber-2); border-color: rgba(196,164,74,0.42); background: rgba(196,164,74,0.16); }
+
+  /* ── Hand history strips (blackjack + hold'em) ───────────────────── */
+  .bj-history-row, .hold-history-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.4rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .bj-history-label, .hold-history-label {
+    color: var(--noir-amber);
+    font: 500 0.55rem var(--ff-font-mono);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  .bj-history-strip, .hold-history-strip {
+    display: flex; flex-wrap: wrap; gap: 0.28rem;
+  }
+  .history-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.12rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--noir-line-strong);
+    background: rgba(10,14,11,0.55);
+    color: var(--noir-text);
+    font: 500 0.55rem var(--ff-font-mono);
+    letter-spacing: 0.10em;
+  }
+  .history-tag.win  { border-color: rgba(76,175,106,0.5);  color: #c0e6c8; background: rgba(76,175,106,0.12); }
+  .history-tag.lose { border-color: rgba(194,58,34,0.5);   color: #f5b8a8; background: rgba(194,58,34,0.12); }
+  .history-tag.push { border-color: rgba(196,164,74,0.5);  color: var(--noir-amber-2); background: rgba(196,164,74,0.12); }
+  .history-tag .delta-num { color: var(--noir-ivory); }
+  .history-tag .delta-num.pos { color: #c0e6c8; }
+  .history-tag .delta-num.neg { color: #f5b8a8; }
+
   /* ── Roulette: European number layout + chip selector + history ─── */
   .rou-felt {
     display: grid;
@@ -506,9 +579,43 @@
   .hold-seat[data-pos="1"] { right: -1rem; top: 50%; transform: translateY(-50%); }
   .hold-seat[data-pos="2"] { left: 50%; bottom: -1rem; transform: translateX(-50%); }
   .hold-seat[data-pos="3"] { left: -1rem; top: 50%; transform: translateY(-50%); }
+  .hold-seat .seat-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.4rem;
+  }
   .hold-seat .name {
     color: var(--noir-ivory);
     font: italic 500 0.92rem var(--ff-font-display);
+  }
+  .hold-seat .seat-badge {
+    flex-shrink: 0;
+    padding: 0.04rem 0.32rem;
+    border: 1px solid var(--noir-amber);
+    border-radius: 999px;
+    color: var(--noir-amber-2);
+    background: rgba(196, 164, 74, 0.12);
+    font: 500 0.5rem var(--ff-font-mono);
+    letter-spacing: 0.18em;
+  }
+  .hold-seat .seat-arche {
+    display: flex;
+    align-items: center;
+    gap: 0.32rem;
+    margin-top: 0.05rem;
+    color: var(--noir-amber-2);
+    font: italic 400 0.78rem var(--ff-font-display);
+    letter-spacing: 0.005em;
+  }
+  .hold-seat .seat-arche.tone-cool { color: #b8d0c2; }
+  .hold-seat .seat-arche.tone-warm { color: var(--noir-amber-2); }
+  .hold-seat .seat-arche.tone-hot  { color: #f0a896; }
+  .hold-seat .seat-arche .seat-personality {
+    color: var(--noir-dim);
+    font: 500 0.5rem var(--ff-font-mono);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
   }
   .hold-seat .stack {
     color: var(--noir-amber);
@@ -626,19 +733,23 @@
       <div class="casino-table" aria-label="Blackjackbord">
         <div class="bj-felt" id="bj-felt">
           <div class="bj-row" id="bj-dealer">
-            <div class="bj-row-label">Dealer <span class="bj-row-total" id="bj-dealer-total">—</span></div>
+            <div class="bj-row-label">Dealer <span class="bj-row-total" id="bj-dealer-total">—</span> <span id="bj-dealer-row-extras"></span></div>
             <div class="bj-cards" id="bj-dealer-cards"></div>
           </div>
-          <div class="bj-row" id="bj-player">
-            <div class="bj-row-label">Din hand <span class="bj-row-total" id="bj-player-total">—</span></div>
+          <div class="bj-row" id="bj-player-row">
+            <div class="bj-row-label">Din hand <span class="bj-row-total" id="bj-player-total">—</span> <span id="bj-player-row-extras"></span></div>
             <div class="bj-cards" id="bj-player-cards"></div>
           </div>
           <div class="bj-row" id="bj-split-row" hidden>
-            <div class="bj-row-label">Split <span class="bj-row-total" id="bj-split-total">—</span></div>
+            <div class="bj-row-label">Split <span class="bj-row-total" id="bj-split-total">—</span> <span id="bj-split-row-extras"></span></div>
             <div class="bj-cards" id="bj-split-cards"></div>
           </div>
           <div>
             <span class="bj-status idle" id="bj-status">Välj insats och tryck Dela för att börja.</span>
+          </div>
+          <div class="bj-history-row" hidden id="bj-history-row">
+            <span class="bj-history-label">Senaste händer</span>
+            <span class="bj-history-strip" id="bj-history-strip"></span>
           </div>
         </div>
       </div>
@@ -712,6 +823,10 @@
             <div class="hold-empty" id="hold-empty">Hämtar bordet…</div>
           </div>
           <div><span class="bj-status idle" id="hold-status">Köp in dig för att sätta dig vid bordet.</span></div>
+          <div class="hold-history-row" hidden id="hold-history-row">
+            <span class="hold-history-label">Senaste händer</span>
+            <span class="hold-history-strip" id="hold-history-strip"></span>
+          </div>
         </div>
       </div>
       <aside class="casino-tools" aria-label="Hold'em kontroller">

@@ -177,6 +177,30 @@ check('Hold’em panel renders the oval felt + 4 seat layout + community board',
   && /data-hold-action="fold"/.test(casinoPage)
   && /renderHoldem/.test(casinoAdapter));
 
+// Casino polish pass: bot personality, blackjack split/insurance labels,
+// history ledgers, roulette chip stacks.
+check('Hold’em seat surfaces bot archetype + personality flavour',
+  /HOLD_ARCHETYPE_LABEL/.test(casinoAdapter)
+  && /seat\.archetype/.test(casinoAdapter)
+  && /seat\.personality/.test(casinoAdapter)
+  && /\.seat-arche/.test(casinoPage));
+check('Blackjack split + insurance show per-hand bet/insurance tags + active row',
+  /bj-bet-tag/.test(casinoPage)
+  && /bj-hand-result/.test(casinoPage)
+  && /bj-player-row-extras/.test(casinoPage)
+  && /bj-split-row-extras/.test(casinoPage)
+  && /\.bj-row\.active/.test(casinoPage)
+  && /insurance_bet/.test(casinoAdapter));
+check('Hand-history ledgers persist to sessionStorage for blackjack + hold’em',
+  /BJ_HISTORY_KEY\s*=\s*'ff-casino-bj-history'/.test(casinoAdapter)
+  && /HOLD_HISTORY_KEY\s*=\s*'ff-casino-hold-history'/.test(casinoAdapter)
+  && /id="bj-history-strip"/.test(casinoPage)
+  && /id="hold-history-strip"/.test(casinoPage));
+check('Roulette pending chips carry tooltips + cell stacks render',
+  /renderRouCellStacks/.test(casinoAdapter)
+  && /rouBetLabel/.test(casinoAdapter)
+  && /title="\$\{escapeAttr\(tip\)\}"/.test(casinoAdapter));
+
 check('Migration 008 widens the ff_availability CHECK to include TENTATIVE',
   fs.existsSync('fredagsfett-migration-008-tentative-status.sql')
   && /CHECK \(status IN \('AVAILABLE', 'TENTATIVE', 'MAYBE', 'UNAVAILABLE'\)\)/.test(
