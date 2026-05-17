@@ -322,6 +322,114 @@ function fmtSek(n) {
   return Number(n || 0).toLocaleString('sv-SE');
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+ * Hand history ledgers — sessionStorage-backed strips under each game's
+ * felt. Persist across page refreshes for the duration of the tab. The
+ * server doesn't expose a per-player ledger endpoint so we record locally
+ * the moment each hand finishes; one entry per finalised result.
+ * ────────────────────────────────────────────────────────────────────── */
+const HISTORY_LIMIT = 12;
+
+function loadHistory(key) {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.slice(0, HISTORY_LIMIT) : [];
+  } catch { return []; }
+}
+function saveHistory(key, list) {
+  try { sessionStorage.setItem(key, JSON.stringify(list.slice(0, HISTORY_LIMIT))); } catch {}
+}
+
+const BJ_HISTORY_KEY = 'ff-casino-bj-history';
+const HOLD_HISTORY_KEY = 'ff-casino-hold-history';
+const _bjSeen = new Set();   // hand IDs already recorded this page-life
+const _holdSeen = new Set(); // (table-id, hand-number) keys already recorded
+
+function recordBjHistory(hand) {
+  if (!hand || !hand.id || !hand.finished) return;
+  if (_bjSeen.has(hand.id)) return;
+  _bjSeen.add(hand.id);
+  const list = loadHistory(BJ_HISTORY_KEY);
+  const entries = [];
+  if (hand.result) entries.push({ result: hand.result, bet: hand.bet, label: 'main' });
+  if (hand.split_result) entries.push({ result: hand.split_result, bet: hand.split_bet, label: 'split' });
+  for (const e of entries) {
+    list.unshift({ ...e, at: Date.now() });
+  }
+  saveHistory(BJ_HISTORY_KEY, list);
+  renderBjHistory();
+}
+
+function renderBjHistory() {
+  const row = document.getElementById('bj-history-row');
+  const strip = document.getElementById('bj-history-strip');
+  if (!row || !strip) return;
+  const list = loadHistory(BJ_HISTORY_KEY);
+  if (!list.length) { row.hidden = true; return; }
+  row.hidden = false;
+  strip.innerHTML = list.map(h => {
+    const cls = (h.result === 'win' || h.result === 'blackjack') ? 'win'
+              : (h.result === 'push') ? 'push' : 'lose';
+    const sign = cls === 'win' ? '+' : cls === 'lose' ? '−' : '±';
+    const num = cls === 'win'  ? Math.round(h.bet * (h.result === 'blackjack' ? 1.5 : 1))
+              : cls === 'lose' ? h.bet
+              : 0;
+    const labelPrefix = h.label === 'split' ? 'SPLIT · ' : '';
+    return `<span class="history-tag ${cls}" title="${escapeAttr(labelPrefix + (h.result || ''))} · insats ${fmtSek(h.bet)} kr">
+      <span class="delta-num ${cls === 'win' ? 'pos' : cls === 'lose' ? 'neg' : ''}">${sign}${fmtSek(num)}</span>
+    </span>`;
+  }).join('');
+}
+
+function recordHoldHistory(table) {
+  if (!table || table.street !== 'hand_over') return;
+  const key = `${table.id}|${table.hand_number}`;
+  if (_holdSeen.has(key)) return;
+  _holdSeen.add(key);
+  const list = loadHistory(HOLD_HISTORY_KEY);
+  list.unshift({
+    hand: table.hand_number,
+    pot: table.pot,
+    result: table.result || null, // win / lose / push from server
+    message: table.message || '',
+    at: Date.now(),
+  });
+  saveHistory(HOLD_HISTORY_KEY, list);
+  renderHoldHistory();
+}
+
+function renderHoldHistory() {
+  const row = document.getElementById('hold-history-row');
+  const strip = document.getElementById('hold-history-strip');
+  if (!row || !strip) return;
+  const list = loadHistory(HOLD_HISTORY_KEY);
+  if (!list.length) { row.hidden = true; return; }
+  row.hidden = false;
+  strip.innerHTML = list.map(h => {
+    const cls = h.result === 'win' ? 'win' : h.result === 'lose' ? 'lose' : h.result === 'push' ? 'push' : '';
+    return `<span class="history-tag ${cls}" title="Hand #${h.hand} · pot ${fmtSek(h.pot)} kr — ${escapeAttr(h.message || '')}">
+      #${h.hand} · ${fmtSek(h.pot)} kr
+    </span>`;
+  }).join('');
+}
+
+function bjResultBadge(result) {
+  if (!result) return '';
+  const map = {
+    win: { label: 'VINST', cls: 'win' },
+    blackjack: { label: 'BLACKJACK', cls: 'win' },
+    lose: { label: 'FÖRLUST', cls: 'lose' },
+    bust: { label: 'BUST', cls: 'lose' },
+    dealer_blackjack: { label: 'DEALER BJ', cls: 'lose' },
+    push: { label: 'PUSH', cls: 'push' },
+  };
+  const m = map[result];
+  if (!m) return '';
+  return ` <span class="bj-hand-result ${m.cls}">${m.label}</span>`;
+}
+
 function renderBlackjack(state) {
   const cashEl = $bj('casino-cash');
   const subEl = $bj('casino-cash-sub');
@@ -332,26 +440,69 @@ function renderBlackjack(state) {
     renderBjCards('bj-player-cards', []);
     $bj('bj-dealer-total').textContent = '—';
     $bj('bj-player-total').textContent = '—';
+    // reset row labels (drop any bet/result chips from a previous hand)
+    document.getElementById('bj-player-row-extras')?.replaceChildren();
+    document.getElementById('bj-dealer-row-extras')?.replaceChildren();
     $bj('bj-split-row').hidden = true;
+    document.getElementById('bj-player-row')?.classList.remove('active');
+    document.getElementById('bj-split-row')?.classList.remove('active');
     setBjStatus('Välj insats och tryck Dela för att börja.', 'idle');
     setBjActions({ deal: true });
     return;
   }
   const hand = state.hand || {};
-  if (subEl) subEl.textContent = `Pågående hand · ${fmtSek(hand.bet)} kr`;
+  if (subEl) {
+    const totalRisk = (hand.bet || 0) + (hand.split_bet || 0) + (hand.insurance_bet || 0);
+    subEl.textContent = `Pågående · ${fmtSek(totalRisk)} kr i spel`;
+  }
   renderBjCards('bj-dealer-cards', hand.dealer_cards || []);
   renderBjCards('bj-player-cards', hand.player_cards || []);
   $bj('bj-dealer-total').textContent = hand.dealer_total ?? (hand.dealer_visible_total != null ? `${hand.dealer_visible_total}?` : '—');
   $bj('bj-player-total').textContent = hand.player_total ?? '—';
+
+  // Per-hand bet + result chips
+  const playerExtras = document.getElementById('bj-player-row-extras');
+  if (playerExtras) {
+    const mainResult = hand.split_cards && hand.split_cards.length ? null : hand.result;
+    const doubled = hand.doubled ? ' ·×2' : '';
+    playerExtras.innerHTML = `<span class="bj-bet-tag">${fmtSek(hand.bet)} kr${doubled}</span>${bjResultBadge(mainResult)}`;
+  }
+  // Dealer side: surface insurance bet here, plus dealer_blackjack outcome
+  const dealerExtras = document.getElementById('bj-dealer-row-extras');
+  if (dealerExtras) {
+    const parts = [];
+    if (hand.insurance_bet) {
+      parts.push(`<span class="bj-bet-tag amber">Insurance ${fmtSek(hand.insurance_bet)} kr</span>`);
+    }
+    dealerExtras.innerHTML = parts.join('');
+  }
 
   // Split row
   if (hand.split_cards && hand.split_cards.length) {
     $bj('bj-split-row').hidden = false;
     renderBjCards('bj-split-cards', hand.split_cards);
     $bj('bj-split-total').textContent = hand.split_total ?? '—';
+    const splitExtras = document.getElementById('bj-split-row-extras');
+    if (splitExtras) {
+      const doubled = hand.split_doubled ? ' ·×2' : '';
+      splitExtras.innerHTML = `<span class="bj-bet-tag">${fmtSek(hand.split_bet)} kr${doubled}</span>${bjResultBadge(hand.split_result)}`;
+    }
+    // Reflect main hand result separately too once we're past split_turn
+    if (playerExtras && hand.finished) {
+      playerExtras.innerHTML = `<span class="bj-bet-tag">${fmtSek(hand.bet)} kr${hand.doubled ? ' ·×2' : ''}</span>${bjResultBadge(hand.result)}`;
+    }
   } else {
     $bj('bj-split-row').hidden = true;
   }
+
+  // Active-hand indicator during split_turn (the API switches the action to
+  // the split cards once you finish the main hand).
+  const playerRowEl = document.getElementById('bj-player-row');
+  const splitRowEl = document.getElementById('bj-split-row');
+  playerRowEl?.classList.toggle('active', !hand.finished && !hand.in_split_turn && hand.split_cards?.length > 0);
+  splitRowEl?.classList.toggle('active', !!hand.in_split_turn);
+  // If there's no split at all, highlight the player row as active by default
+  if (!hand.split_cards?.length) playerRowEl?.classList.toggle('active', !hand.finished);
 
   let klass = 'idle';
   if (hand.result === 'win' || hand.result === 'blackjack') klass = 'win';
@@ -361,6 +512,7 @@ function renderBlackjack(state) {
 
   if (hand.finished) {
     setBjActions({ deal: true });
+    recordBjHistory(hand);
   } else {
     setBjActions({
       hit: !!hand.can_hit,
@@ -414,6 +566,7 @@ function initBjActions() {
 }
 
 async function bootBlackjack() {
+  renderBjHistory();
   try {
     renderBlackjack(await loadBlackjackState());
   } catch (err) {
@@ -506,6 +659,12 @@ function renderRouletteGrid() {
   evenStrip.addEventListener('click', onRouCellClick);
 }
 
+function rouBetKey(bet) {
+  // Stable key for grouping pending chips by cell (so we can stack them).
+  if (!bet) return '';
+  return `${bet.kind}|${bet.target ?? ''}`;
+}
+
 function onRouCellClick(event) {
   const cell = event.target.closest('[data-bet]');
   if (!cell) return;
@@ -516,9 +675,53 @@ function onRouCellClick(event) {
     roulettePlaceBet(bet);
     rouletteUi.pendings.push(bet);
     renderRouPendings();
+    renderRouCellStacks();
   } catch (err) {
     setRouError(err.message || 'Kunde inte lägga insats.');
   }
+}
+
+// Paint a stacked chip indicator on each cell where the user has dropped
+// pending bets. Stake totals are summed per cell.
+function renderRouCellStacks() {
+  const grid = $rou('rou-grid');
+  if (!grid) return;
+  // Wipe existing chip-stack markers
+  grid.querySelectorAll('.chip-stack').forEach(n => n.remove());
+  document.querySelectorAll('#casino-panel-roulette .rou-cell .chip-stack').forEach(n => n.remove());
+  // Re-aggregate
+  const totals = new Map();
+  for (const b of rouletteUi.pendings) {
+    const k = rouBetKey(b);
+    totals.set(k, (totals.get(k) || 0) + (b.stake || 0));
+  }
+  // Apply to every visible cell whose data-bet matches
+  document.querySelectorAll('#casino-panel-roulette [data-bet]').forEach(cell => {
+    let bet;
+    try { bet = JSON.parse(cell.dataset.bet); } catch { return; }
+    const total = totals.get(rouBetKey(bet)) || 0;
+    if (total > 0) {
+      const chip = document.createElement('span');
+      chip.className = 'chip-stack';
+      chip.textContent = total >= 1000 ? `${Math.round(total/100)/10}k` : String(total);
+      chip.title = `${rouBetLabel(bet)} · ${fmtSek(total)} kr`;
+      cell.appendChild(chip);
+    }
+  });
+}
+
+function rouBetLabel(b) {
+  if (!b) return '';
+  if (b.kind === 'straight') return `Straight · ${b.target}`;
+  if (b.kind === 'red')   return 'Röd (jämn vinst)';
+  if (b.kind === 'black') return 'Svart (jämn vinst)';
+  if (b.kind === 'odd')   return 'Udda (jämn vinst)';
+  if (b.kind === 'even')  return 'Jämn (jämn vinst)';
+  if (b.kind === 'low')   return '1–18 (jämn vinst)';
+  if (b.kind === 'high')  return '19–36 (jämn vinst)';
+  if (b.kind === 'dozen') return `Dozen ${b.target} (2:1)`;
+  if (b.kind === 'column') return `Kolumn ${b.target} (2:1)`;
+  return b.kind;
 }
 
 function renderRouPendings() {
@@ -533,9 +736,20 @@ function renderRouPendings() {
     wrap.textContent = 'Klicka i rutnätet för att lägga marker.';
     if (spinBtn) spinBtn.disabled = true;
     if (clearBtn) clearBtn.disabled = true;
+    renderRouCellStacks();
     return;
   }
-  wrap.innerHTML = rouletteUi.pendings.map(b => {
+  // Aggregate same-cell bets so the pending list shows one chip per target
+  // with a summed stake (cleaner UX than 5 chips on the same number).
+  const agg = new Map();
+  for (const b of rouletteUi.pendings) {
+    const k = rouBetKey(b);
+    const cur = agg.get(k) || { kind: b.kind, target: b.target, stake: 0, count: 0 };
+    cur.stake += b.stake || 0;
+    cur.count += 1;
+    agg.set(k, cur);
+  }
+  wrap.innerHTML = [...agg.values()].map(b => {
     const label = b.kind === 'straight' ? `${b.target}` :
                   b.kind === 'red' ? 'Röd' :
                   b.kind === 'black' ? 'Svart' :
@@ -546,10 +760,13 @@ function renderRouPendings() {
                   b.kind === 'dozen' ? `Dozen ${b.target}` :
                   b.kind === 'column' ? `Kol ${b.target}` :
                   b.kind;
-    return `<span class="rou-pending-chip"><span class="dot"></span>${escapeText(label)} · ${fmtSek(b.stake)} kr</span>`;
+    const countTag = b.count > 1 ? ` ×${b.count}` : '';
+    const tip = `${rouBetLabel(b)} — ${b.count} marker à ${fmtSek(Math.round(b.stake / b.count))} kr · totalt ${fmtSek(b.stake)} kr`;
+    return `<span class="rou-pending-chip" title="${escapeAttr(tip)}"><span class="dot"></span>${escapeText(label)}${countTag} · ${fmtSek(b.stake)} kr</span>`;
   }).join('');
   if (spinBtn) spinBtn.disabled = false;
   if (clearBtn) clearBtn.disabled = false;
+  renderRouCellStacks();
 }
 
 function renderRouletteState(state, lastSpin) {
@@ -597,6 +814,7 @@ function initRouletteActions() {
         // Adapter has internal state for queued bets — reset it by re-syncing
         try { renderRouletteState(await loadRouletteState()); } catch {}
         renderRouPendings();
+        renderRouCellStacks();
         setRouStatus('Insatser rensade.', 'idle');
         return;
       }
@@ -667,6 +885,21 @@ function setHoldError(msg) {
   else { el.textContent = ''; el.hidden = true; }
 }
 
+// Hold'em archetype → short Swedish flavour label. Matches the
+// HOLDEM_ARCHETYPES enum on the server side (see functions/api/[[route]].ts).
+const HOLD_ARCHETYPE_LABEL = {
+  tight: 'noggrann',
+  loose: 'lös',
+  aggressive: 'aggressiv',
+  passive: 'passiv',
+  gambler: 'vild',
+  shark: 'haj',
+};
+const HOLD_ARCHETYPE_TONE = {
+  tight: 'tone-cool', loose: 'tone-warm', aggressive: 'tone-hot',
+  passive: 'tone-cool', gambler: 'tone-warm', shark: 'tone-hot',
+};
+
 function renderHoldCardBig(card) {
   if (!card || card.hidden) return '<div class="hold-card hold-big-card" data-color="hidden"></div>';
   return `<div class="hold-card hold-big-card" data-color="${escapeAttr(card.color)}">${escapeText(card.rank || '')}${escapeText(card.suit || '')}</div>`;
@@ -725,9 +958,21 @@ function renderHoldem(state) {
     const div = document.createElement('div');
     div.className = cls.join(' ');
     div.dataset.pos = String(pos);
-    const blindBadge = seat.small_blind ? ' · SB' : seat.big_blind ? ' · BB' : seat.dealer ? ' · D' : '';
+    const blindBadge = seat.small_blind ? 'SB' : seat.big_blind ? 'BB' : seat.dealer ? 'D' : '';
+    // Bot personality flavour: archetype is the table-poker trait (tight/loose
+    // /aggressive/passive/gambler/shark); personality is the broader NPC
+    // disposition. Show archetype as an italic tag, personality only when it
+    // adds info (skip generic 'passive').
+    const archLabel = !isSelf && seat.archetype ? (HOLD_ARCHETYPE_LABEL[seat.archetype] || seat.archetype) : '';
+    const archTone  = HOLD_ARCHETYPE_TONE[seat.archetype] || '';
+    const flavor = !isSelf && seat.personality && seat.personality !== seat.archetype
+      ? `<span class="seat-personality">${escapeText(seat.personality)}</span>` : '';
     div.innerHTML = `
-      <div class="name">${escapeText(seat.name || '—')}${escapeText(blindBadge)}</div>
+      <div class="seat-head">
+        <span class="name">${escapeText(seat.name || '—')}</span>
+        ${blindBadge ? `<span class="seat-badge">${blindBadge}</span>` : ''}
+      </div>
+      ${archLabel ? `<div class="seat-arche ${archTone}">${escapeText(archLabel)}${flavor}</div>` : ''}
       <div class="stack">${fmtSek(seat.stack)} kr</div>
       <div class="action">${escapeText(seat.last_action || (seat.is_turn ? 'i tur' : ''))}</div>
       <div class="cards">${cardsHtml}</div>
@@ -751,6 +996,7 @@ function renderHoldem(state) {
     leave: !!t.can_leave,
     buyIn: false, // already seated
   });
+  recordHoldHistory(t);
 }
 
 function setHoldActions(enabled) {
@@ -800,6 +1046,7 @@ function initHoldActions() {
 async function bootHoldem() {
   initHoldBuyinPills();
   initHoldActions();
+  renderHoldHistory();
   try {
     renderHoldem(await loadHoldemState());
   } catch (err) {
