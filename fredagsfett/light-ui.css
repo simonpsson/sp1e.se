@@ -333,22 +333,28 @@ body.ff-light-page main {
 }
 
 .ff-calendar-page .summer {
-  padding: 0.6rem 1rem !important;
-  gap: 0.32rem !important;
+  padding: 0.55rem 1rem !important;
+  gap: 0.3rem !important;
   border-bottom: 1px solid var(--ff-line);
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .ff-calendar-page .summer button,
 .ff-calendar-page .year-bar button,
 .ff-calendar-page .view-switch-card button {
-  padding: 0.32rem 0.7rem !important;
-  font-size: 0.6rem !important;
+  padding: 0.3rem 0.65rem !important;
+  font-size: 0.58rem !important;
   border-radius: 999px !important;
 }
 
+/* The view-switch sits AT THE END of .summer; force it onto its own row
+ * so the 12 month buttons get a clean row of their own above it. */
 .ff-calendar-page .view-switch-card {
-  margin-left: auto;
-  border-radius: 12px;
+  margin: 0.35rem 0 0 !important;
+  width: 100%;
+  justify-content: center;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.35);
 }
 
@@ -500,10 +506,20 @@ body.ff-light-page main {
   left: 4.5rem;
   right: 1.6rem;
   z-index: 500;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem !important;
+  padding: 0.45rem 0.65rem !important;
   border: 1px solid var(--ff-line);
-  border-radius: 999px;
+  border-radius: 16px;
   background: rgba(249, 246, 237, 0.86) !important;
   backdrop-filter: blur(12px);
+}
+.ff-karta-page .map-toolbar > button,
+.ff-karta-page .map-toolbar > a {
+  padding: 0.36rem 0.7rem !important;
+  font-size: 0.56rem !important;
 }
 
 /* Anchor the Leaflet zoom and draw controls at the top of the map without
@@ -521,8 +537,11 @@ body.ff-light-page main {
 }
 
 .ff-karta-page .map-searchbar {
-  min-width: 260px;
-  flex: 1 1 320px;
+  /* Take its own row so the buttons + swatches fit cleanly below without
+   * 3-row wrapping. The pill stretches to fill the toolbar width. */
+  flex: 1 1 100%;
+  min-width: 0;
+  padding: 0.36rem 0.85rem !important;
   border: 0 !important;
   background: transparent !important;
   color: var(--ff-text) !important;

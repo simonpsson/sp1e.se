@@ -495,9 +495,14 @@
     gap: 0.32rem;
     margin-bottom: 0.55rem;
   }
+  /* Override the light-ui.css `.ff-light-page button { padding: 0.45rem 0.85rem !important }`
+   * so the 4 status pills ("Tillgänglig", "Troligen", "Kanske", "Inte tillgänglig")
+   * have enough horizontal room in the 2-col grid. Without this the longest label
+   * gets truncated to "TILLGÄNGLI…". */
   .status-row .status-pill {
-    font-size: 0.58rem;
-    padding: 0.42rem 0.35rem;
+    font-size: 0.56rem !important;
+    letter-spacing: 0.12em !important;
+    padding: 0.42rem 0.3rem !important;
     min-height: 30px;
     min-width: 0;
     overflow: hidden;

@@ -126,8 +126,9 @@
   }
   .place-list {
     display: grid;
-    max-height: 42vh;
-    overflow: auto;
+    /* No inner max-height: previously caused a second scrollbar to appear
+     * inside the sidebar (which itself overflows). Let the sidebar's outer
+     * scroll be the single source of truth. */
   }
   .place-row {
     border: 0;
