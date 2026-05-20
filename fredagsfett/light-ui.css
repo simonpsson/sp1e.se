@@ -518,9 +518,18 @@ body.ff-light-page main {
 }
 .ff-karta-page .map-toolbar > button,
 .ff-karta-page .map-toolbar > a {
-  padding: 0.36rem 0.7rem !important;
-  font-size: 0.56rem !important;
+  padding: 0.32rem 0.55rem !important;
+  font-size: 0.54rem !important;
+  letter-spacing: 0.14em !important;
 }
+/* Tighten swatch row + measure/undo so the 8-9 action items fit in a single
+ * row below the search bar instead of wrapping to a 3rd row. */
+.ff-karta-page .map-toolbar .color-swatches { gap: 0.22rem !important; }
+.ff-karta-page .map-toolbar .color-swatches .swatch {
+  width: 16px !important; height: 16px !important; min-width: 16px !important;
+  border-width: 1.5px !important;
+}
+.ff-karta-page .map-toolbar .map-divider { display: none !important; }
 
 /* Anchor the Leaflet zoom and draw controls at the top of the map without
  * letting them hug the toolbar pill. */
@@ -537,11 +546,14 @@ body.ff-light-page main {
 }
 
 .ff-karta-page .map-searchbar {
-  /* Take its own row so the buttons + swatches fit cleanly below without
-   * 3-row wrapping. The pill stretches to fill the toolbar width. */
+  /* Take its own row AND stretch to the toolbar's full content width.
+   * `flex: 1 1 100%` alone wasn't enough — input elements ignore
+   * flex-basis on width, so we set width: 100% directly. */
   flex: 1 1 100%;
+  width: 100% !important;
+  box-sizing: border-box !important;
   min-width: 0;
-  padding: 0.36rem 0.85rem !important;
+  padding: 0.36rem 0.95rem !important;
   border: 0 !important;
   background: transparent !important;
   color: var(--ff-text) !important;
