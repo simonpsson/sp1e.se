@@ -17,6 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500;1,600&family=Public+Sans:wght@300;400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/fredagsfett/light-ui.css">
 <style>
 /* ─────────────────────────────────────────────────────────────────────────
  * Fredagsfett · Hem  (Gotland · Limestone · Lichen)
@@ -824,6 +825,20 @@ body.cmdk-open .cmdk-backdrop { display: flex; }
   .hero-aside { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
   .hint-bar { font-size: 0.55rem; }
 }
+@media (max-width: 620px) {
+  button, .button { min-height: 44px; }
+}
+button:focus-visible, a:focus-visible { outline: 2px solid var(--sage, #6c7450); outline-offset: 2px; }
+
+/* ── ff-toast (shared pill toast style) ───────────────────────────────── */
+.ff-toast {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(1rem);
+  background: #2e271f; color: #f3efe7; padding: 0.55rem 1.1rem;
+  border-radius: 999px; font: 500 0.7rem 'DM Mono', monospace; letter-spacing: 0.1em;
+  text-transform: uppercase; opacity: 0; transition: opacity 0.2s, transform 0.2s;
+  z-index: 9999; white-space: nowrap; pointer-events: none;
+}
+.ff-toast--show { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
@@ -869,7 +884,7 @@ body.cmdk-open .cmdk-backdrop { display: flex; }
         <span class="sep" aria-hidden="true">·</span>
         <span class="inlast">Inlåst</span>
       </div>
-      <h1 class="hero-title" id="hero-title-el"><span class="ff-skeleton lg" style="width:62%"></span></h1>
+      <h1 class="hero-title" id="hero-title-el"></h1>
       <div class="hero-meta">
         <div>
           <div class="label">Kl.</div>
@@ -1165,6 +1180,11 @@ function renderClock() {
 }
 
 function renderHero() {
+  const titleEl = $('hero-title-el');
+  // Show skeleton while no data yet; cleared as soon as real content is set below
+  if (!state.nextEvent && !state.events.length) {
+    titleEl.innerHTML = '<span class="ff-skeleton" style="width:62%;height:1.2rem;display:block"></span>';
+  }
   const e = state.nextEvent;
   if (!e) {
     $('date-wd').textContent = '—';
@@ -1317,7 +1337,7 @@ function renderDebts() {
       <div class="debt-row">
         ${avatarHtml(d.from_name)}
         <span class="from">${escapeHtml(d.from_name)}</span>
-        <span class="arrow">→</span>
+        <span class="arrow" aria-label="betalar till" style="color:var(--sage,#6c7450);font-size:1.1rem;font-weight:bold">→</span>
         ${avatarHtml(d.to_name)}
         <span><span class="amt">${sek.toLocaleString('sv-SE')}</span><span class="unit">SEK</span></span>
       </div>`;
@@ -1335,6 +1355,7 @@ async function claimItem(itemId, claimedByMe) {
     await Promise.all([loadItems(), loadActivity()]);
     renderChecklist();
     renderActivity();
+    showToast('Sparad!');
   } catch (err) { showToast(err.message || 'Kunde inte uppdatera.'); }
 }
 async function addItem(label) {
@@ -1345,12 +1366,14 @@ async function addItem(label) {
     });
     await Promise.all([loadItems(), loadActivity()]);
     renderChecklist(); renderActivity();
+    showToast('Sparad!');
   } catch (err) { showToast(err.message || 'Kunde inte lägga till.'); }
 }
 async function sendChat(body) {
   try {
     await api('/api/fredagsfett/chat', { method: 'POST', body: JSON.stringify({ body }) });
     await loadChat(); renderChat();
+    showToast('Skickat!');
   } catch (err) { showToast(err.message || 'Kunde inte skicka.'); }
 }
 

@@ -958,3 +958,46 @@ body.ff-light-page.ff-theme-whisky .ff-skeleton {
     font-size: 0.8rem;
   }
 }
+
+/* ── Global utilities (added in polish pass) ──────────────────────────────── */
+
+/* Focus rings — all interactive elements on light pages */
+.ff-light-page button:focus-visible,
+.ff-light-page .button:focus-visible,
+.ff-light-page a:focus-visible,
+.ff-light-page input:focus-visible,
+.ff-light-page select:focus-visible,
+.ff-light-page textarea:focus-visible {
+  outline: 2px solid var(--ff-sage);
+  outline-offset: 2px;
+}
+
+/* Touch targets — all buttons ≥44px on mobile */
+@media (max-width: 720px) {
+  .ff-light-page button,
+  .ff-light-page .button {
+    min-height: 44px !important;
+  }
+}
+
+/* Error row with retry affordance */
+.ff-error-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: rgba(164, 91, 61, 0.08);
+  color: var(--ff-rust);
+  font: 400 0.82rem var(--ff-font-body);
+}
+.ff-error-row button {
+  border: 1px solid var(--ff-rust) !important;
+  background: transparent !important;
+  color: var(--ff-rust) !important;
+  padding: 0.3rem 0.7rem !important;
+  font-size: 0.7rem !important;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.ff-error-row button:hover { background: rgba(164,91,61,0.10) !important; }

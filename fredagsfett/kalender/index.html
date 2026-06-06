@@ -13,18 +13,28 @@
 <meta property="og:description" content="Gemensam kalender — tap-cycle tillgänglighet, inlåsta event, RSVP.">
 <meta property="og:image" content="/og-fredagsfett.svg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/fredagsfett/style.css">
 <style>
-  /* Local overrides — most tokens inherit from /fredagsfett/style.css.
+  /* Local overrides — tokens come from /fredagsfett/light-ui.css (loaded in body).
    * The 3 status swatches are local because they're calendar-specific. */
   :root {
     --available: #a3cdb0;
     --tentative: #c5d49a; /* between sage and straw, 75% lean-yes */
     --maybe: #d4c285;
     --unavailable: #d09a90;
+    /* Bridge: map light-ui.css --ff-* tokens to legacy unprefixed names used below */
+    --bg: var(--ff-bg);
+    --panel: var(--ff-panel);
+    --line: var(--ff-line);
+    --line-hot: var(--ff-line-strong);
+    --text: var(--ff-text);
+    --muted: var(--ff-muted);
+    --faint: var(--ff-faint);
+    --accent: var(--ff-gold);
+    --accent-soft: rgba(164, 146, 93, 0.16);
+    --danger: var(--ff-rust);
+    --font-display: var(--ff-font-display);
+    --font-body: var(--ff-font-body);
+    --font-mono: var(--ff-font-mono);
   }
   main {
     width: min(1440px, 100%);
@@ -358,7 +368,12 @@
   .day[data-self-status="AVAILABLE"]::after   { background: var(--available); opacity: 1; }
   .day[data-self-status="MAYBE"]::after       { background: var(--maybe); opacity: 1; }
   .day[data-self-status="UNAVAILABLE"]::after { background: var(--unavailable); opacity: 1; }
-  /* A2 — today marker: small accent dot next to the day number */
+  /* A2 — today marker: background tint + left-border accent + small dot */
+  .day.today {
+    background: rgba(108,116,80,0.10);
+    box-shadow: inset 3px 0 0 #6c7450;
+  }
+  .day:focus-visible { outline: 2px solid var(--accent, #a4925d); outline-offset: -2px; }
   .day.today .day-number > span:first-child::after {
     content: '';
     display: inline-block;
@@ -703,6 +718,14 @@
   .day.locked-event { border-color: var(--line-hot); box-shadow: inset 0 0 0 1px var(--line-hot); }
   .day.locked-event::before { content: '𓀂'; display: block; color: var(--accent); }
   body:not(.is-admin) [data-admin-only] { display: none !important; }
+  .ff-toast {
+    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(1rem);
+    background: #2e271f; color: #f3efe7; padding: 0.55rem 1.1rem;
+    border-radius: 999px; font: 500 0.7rem 'DM Mono', monospace; letter-spacing: 0.1em;
+    text-transform: uppercase; opacity: 0; transition: opacity 0.2s, transform 0.2s;
+    z-index: 9999; white-space: nowrap; pointer-events: none;
+  }
+  .ff-toast--show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .toast {
     position: fixed;
     left: 50%;
@@ -761,6 +784,10 @@
     .day { min-height: 60px; padding: 0.32rem 0.4rem; }
     .day-number { font-size: 0.8rem; }
     .avatar { width: 18px; height: 18px; font-size: 0.52rem; }
+  }
+  /* Touch targets — 44px minimum on mobile for year-bar, month, and view-mode buttons */
+  @media (max-width: 620px) {
+    [data-year], [data-summer], .view-mode button, .view-btn { min-height: 44px; }
   }
   /* Phones — tighten and reflow nav + status pills */
   @media (max-width: 620px) {
@@ -1169,22 +1196,13 @@ function applyOptimisticStatus(date, nextStatus) {
   renderCalendar();
 }
 
-let toastTimer = null;
-function showToast(message) {
-  let toast = document.getElementById('ff-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'ff-toast';
-    toast.className = 'toast';
-    toast.setAttribute('role', 'status');
-    document.body.appendChild(toast);
-  }
-  toast.textContent = message;
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    toast.remove();
-    toastTimer = null;
-  }, 4000);
+function showToast(msg, ms = 2200) {
+  const t = document.createElement('div');
+  t.className = 'ff-toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('ff-toast--show'));
+  setTimeout(() => { t.classList.remove('ff-toast--show'); setTimeout(() => t.remove(), 300); }, ms);
 }
 
 function showTapCycleHintOnce() {
@@ -1659,7 +1677,7 @@ async function loadNews() {
       </a>`;
     }).join('');
   } catch (err) {
-    list.innerHTML = `<p class="tiny">Kunde inte ladda nyheter.</p>`;
+    list.innerHTML = `<p class="ff-error-row">Kunde inte ladda. <button type="button" onclick="loadNews()">Försök igen</button></p>`;
   }
 }
 
@@ -1698,10 +1716,13 @@ async function loadChat() {
           <div class="cm-body">${escapeHtml(m.body)}</div>
         </div>`;
       }).join('');
-      list.scrollTop = list.scrollHeight;
+      list.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   } catch (err) {
-    // Stay silent on chat poll errors to avoid spamming the UI
+    // Stay silent on chat poll errors to avoid spamming the UI — but show a retry on first failure
+    if (!list.querySelector('.ff-error-row')) {
+      list.innerHTML = `<p class="ff-error-row">Kunde inte ladda. <button type="button" onclick="loadChat()">Försök igen</button></p>`;
+    }
     console.error('chat poll failed', err);
   }
 }
@@ -1773,7 +1794,7 @@ async function loadActivity() {
       `<div class="activity-row">${escapeHtml(r.message)}<span class="av-when">${escapeHtml((r.created_at || '').replace('T', ' ').slice(0, 16))}</span></div>`
     ).join('');
   } catch (err) {
-    feed.innerHTML = `<p class="error">${escapeHtml(err.message || 'Kunde inte ladda aktivitet.')}</p>`;
+    feed.innerHTML = `<p class="ff-error-row">Kunde inte ladda. <button type="button" onclick="loadActivity()">Försök igen</button></p>`;
   }
 }
 
@@ -1905,6 +1926,19 @@ async function reloadCalendarData() {
     await Promise.all([loadAvailability(), loadEvents(), loadUpcomingEvents(), loadActivity()]);
     renderCalendar();
     renderLockedEvents();
+    // Clear any previous calendar-load error banner
+    const prevBanner = document.getElementById('calendar-load-error');
+    if (prevBanner) prevBanner.remove();
+  } catch (err) {
+    // Show an error banner at the top of the calendar grid
+    let banner = document.getElementById('calendar-load-error');
+    if (!banner) {
+      banner = document.createElement('p');
+      banner.id = 'calendar-load-error';
+      banner.className = 'ff-error-row';
+      grid.parentElement.insertBefore(banner, grid);
+    }
+    banner.innerHTML = `Kunde inte ladda kalenderdata. <button type="button" onclick="reloadCalendarData()">Försök igen</button>`;
   } finally {
     // Give the browser one paint to apply the fade, then clear it
     requestAnimationFrame(() => requestAnimationFrame(() => grid.classList.remove('transitioning')));
@@ -1913,6 +1947,9 @@ async function reloadCalendarData() {
 
 async function saveAvailability() {
   errorBox.textContent = '';
+  const saveBtn = document.getElementById('save-availability');
+  const prevText = saveBtn ? saveBtn.textContent : '';
+  if (saveBtn) { saveBtn.classList.add('saving'); saveBtn.textContent = '·'; saveBtn.disabled = true; }
   try {
     await api('/api/fredagsfett/availability', {
       method: 'POST',
@@ -1928,8 +1965,11 @@ async function saveAvailability() {
       }),
     });
     await loadAvailability();
+    showToast('Sparad!');
   } catch (err) {
     errorBox.textContent = err.message;
+  } finally {
+    if (saveBtn) { saveBtn.classList.remove('saving'); saveBtn.textContent = prevText; saveBtn.disabled = false; }
   }
 }
 
@@ -2284,6 +2324,7 @@ document.getElementById('chat-form')?.addEventListener('submit', async event => 
     await api('/api/fredagsfett/chat', { method: 'POST', body: JSON.stringify({ body: text }) });
     input.value = '';
     await loadChat();
+    input.focus();
   } catch (err) {
     errorBox.textContent = err.message || 'Kunde inte skicka meddelandet.';
   } finally {

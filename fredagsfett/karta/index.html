@@ -13,13 +13,20 @@
 <meta property="og:description" content="Gruppens platser, ritbara rutter och möteszoner.">
 <meta property="og:image" content="/og-fredagsfett.svg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/fredagsfett/style.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin>
-<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" crossorigin>
+<!-- SRI: add integrity hash for CSP hardening --><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
+<!-- SRI: add integrity hash for CSP hardening --><link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" crossorigin="anonymous">
 <style>
+  :root {
+    /* Bridge: light-ui.css --ff-* → legacy unprefixed names */
+    --bg: var(--ff-bg);
+    --line: var(--ff-line);
+    --line-hot: var(--ff-line-strong);
+    --text: var(--ff-text);
+    --muted: var(--ff-muted);
+    --accent: var(--ff-gold);
+    --danger: var(--ff-rust);
+    --font-mono: var(--ff-font-mono);
+  }
   main { width: min(1400px, 100%); margin: 0 auto; padding: 0; }
   .room { display: grid; grid-template-rows: auto 1fr; min-height: 78vh; }
   header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; padding: 1.4rem 1.6rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
@@ -349,6 +356,14 @@
   .leaflet-popup-content .ff-popup-actions button:hover { background: rgba(108,116,80,0.12); }
   .leaflet-popup-content .ff-popup-actions button.danger { color: #a45b3d; }
   .leaflet-popup-content .ff-popup-actions button.danger:hover { background: rgba(164,91,61,0.10); }
+
+  /* Focus rings */
+  button:focus-visible, a:focus-visible { outline: 2px solid var(--ff-sage, #6c7450); outline-offset: 2px; }
+
+  /* Touch targets */
+  @media (max-width: 620px) {
+    .ff-topbar button, .ff-topbar .button, .map-toolbar button { min-height: 44px !important; }
+  }
 </style>
 <link rel="stylesheet" href="/fredagsfett/light-ui.css">
 </head>
@@ -408,6 +423,7 @@
           <span class="save-status" id="save-status" hidden></span>
         </div>
         <div id="map">
+          <div id="map-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(238,235,226,0.82);z-index:1000;font:500 0.7rem 'DM Mono',monospace;letter-spacing:0.12em;text-transform:uppercase;color:#87806a;pointer-events:none;">Laddar karta…</div>
           <div class="map-coords" id="map-coords" aria-hidden="true">—</div>
           <div class="map-measure-readout" id="map-measure-readout" hidden></div>
         </div>
@@ -437,8 +453,8 @@
   </section>
 </main>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
-<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js" crossorigin></script>
+<!-- SRI: add integrity hash for CSP hardening --><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+<!-- SRI: add integrity hash for CSP hardening --><script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js" crossorigin="anonymous"></script>
 <script>
 // ─ Auth gate (matches the other fredagsfett pages) ───────────────────────────
 async function api(path, options = {}) {
@@ -502,6 +518,10 @@ let measurePoints = [];
 
 function initMap() {
   map = L.map('map', { center: STOCKHOLM, zoom: 13 });
+  map.whenReady(() => {
+    const el = document.getElementById('map-loading');
+    if (el) el.remove();
+  });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors',
@@ -964,11 +984,25 @@ function placeCategoryLabel(category) {
   return (PLACE_FILTERS.find(filter => filter.id === category)?.label || category).toUpperCase();
 }
 
-function setStatus(text) {
+let _statusTimer = null;
+function setStatus(text, { error = false, retryFn = null } = {}) {
   const el = document.getElementById('save-status');
   if (!el) return;
-  if (text) { el.textContent = text; el.hidden = false; }
-  else { el.textContent = ''; el.hidden = true; }
+  if (_statusTimer) { clearTimeout(_statusTimer); _statusTimer = null; }
+  if (!text) { el.innerHTML = ''; el.hidden = true; return; }
+  if (error) {
+    // Error messages stay until the next action; optionally include a retry button
+    const retryHtml = retryFn
+      ? ` <button type="button" onclick="(${retryFn})()" style="margin-left:0.4em;padding:0.15rem 0.5rem;font:inherit;border:1px solid currentColor;border-radius:4px;background:transparent;cursor:pointer;">Försök igen</button>`
+      : '';
+    el.innerHTML = escapeHtml(text) + retryHtml;
+    el.hidden = false;
+  } else {
+    el.textContent = text;
+    el.hidden = false;
+    // Auto-dismiss success messages after 5 seconds
+    _statusTimer = setTimeout(() => { el.textContent = ''; el.hidden = true; }, 5000);
+  }
 }
 
 // QoL #7 — transient toast that matches Hem/Kalender's unified pill styling.

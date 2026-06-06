@@ -244,7 +244,10 @@ $('rsvp-form').addEventListener('submit', async event => {
   if (!selectedStatus) return;
   const msg = $('msg');
   msg.hidden = true; msg.className = 'msg';
-  $('submit-btn').disabled = true;
+  const submitBtn = $('submit-btn');
+  const originalBtnText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Skickar…';
   try {
     const res = await fetch(`/api/fredagsfett/rsvp-public/${encodeURIComponent(eventId)}/${encodeURIComponent(token)}`, {
       method: 'POST',
@@ -260,12 +263,13 @@ $('rsvp-form').addEventListener('submit', async event => {
     msg.textContent = 'Tack! Ditt svar är registrerat.';
     msg.classList.add('ok');
     msg.hidden = false;
-    $('rsvp-form').querySelector('button[type="submit"]').textContent = 'Skickat';
+    submitBtn.textContent = 'Skickat ✓';
   } catch (err) {
     msg.textContent = err.message;
     msg.classList.add('err');
     msg.hidden = false;
-    $('submit-btn').disabled = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalBtnText;
   }
 });
 
