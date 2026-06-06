@@ -823,7 +823,6 @@
         <a class="button" href="/fredagsfett/hem" title="Hem-dashboard">🏠 Hem</a>
         <a class="button" href="/fredagsfett/sp1wise">SP1Wise</a>
         <a class="button" href="/fredagsfett/karta" title="Karta med ritbara rutter">🗺️ Karta</a>
-        <button class="button" type="button" id="theme-btn" title="Växla bakgrundstema">🎨 Tema</button>
         <button class="button ical-btn" type="button" id="ical-copy-btn" title="Kopiera din personliga iCal-länk. Klistra in den i Google Kalender, Apple Kalender eller annan kalenderapp för att prenumerera på inlåsta Fredagsfett-event.">📅 iCal-feed</button>
         <a class="button icon-button" href="/fredagsfett/admin" aria-label="Dev console" title="Dev console">⚙</a>
       </nav>
@@ -2035,6 +2034,18 @@ lockEventForm.addEventListener('submit', async event => {
   }
 });
 
+// QoL: Enter inside any single-line text input in the lock form should
+// submit the form. textareas keep their default behaviour (newline).
+lockEventForm.addEventListener('keydown', event => {
+  if (event.key !== 'Enter') return;
+  const t = event.target;
+  if (!t || t.tagName === 'TEXTAREA') return;
+  if (t.tagName === 'INPUT' || t.tagName === 'SELECT') {
+    event.preventDefault();
+    lockEventForm.requestSubmit();
+  }
+});
+
 lockEventForm.addEventListener('click', event => {
   const cancelBtn = event.target.closest('[data-action="cancel-lock-form"]');
   if (cancelBtn) {
@@ -2298,27 +2309,9 @@ document.getElementById('sidebar-toggle-btn')?.addEventListener('click', event =
   event.currentTarget.textContent = isCollapsed ? 'Visa sidopanel' : 'Dölj sidopanel';
 });
 
-// Legacy background theme cycler (galleri / sommarljus / park / café) — superseded by
-// /fredagsfett/theme.js (QoL #26). The button still exists in markup but the
-// container is hidden by light-ui.css. Keeping the code here so older deployments
-// without theme.js still cycle the legacy bg images.
-const THEMES = ['galleri', 'sommarljus', 'park', 'cafe'];
-const THEME_LABELS = { galleri: 'Galleri (mörkt)', sommarljus: 'Sommarljus', park: 'Park', cafe: 'Café' };
-function applyTheme(name) {
-  for (const t of THEMES) document.body.classList.remove(`theme-${t}`);
-  if (name && name !== 'galleri') document.body.classList.add(`theme-${name}`);
-  const btn = document.getElementById('theme-btn');
-  if (btn) btn.title = `Tema: ${THEME_LABELS[name] || 'Galleri'} — klicka för att växla`;
-}
-const savedTheme = localStorage.getItem('ff-kalender-theme') || 'galleri';
-applyTheme(THEMES.includes(savedTheme) ? savedTheme : 'galleri');
-document.getElementById('theme-btn')?.addEventListener('click', () => {
-  const current = localStorage.getItem('ff-kalender-theme') || 'galleri';
-  const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
-  localStorage.setItem('ff-kalender-theme', next);
-  applyTheme(next);
-  showToast(`Tema: ${THEME_LABELS[next]}`);
-});
+// Dead code removed: legacy background theme cycler. Superseded by
+// /fredagsfett/theme.js. The hidden #theme-btn element has been removed
+// from the markup as well.
 
 // B2 — add a new item
 document.getElementById('event-item-form')?.addEventListener('submit', async event => {

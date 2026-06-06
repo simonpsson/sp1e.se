@@ -1,0 +1,19 @@
+{
+  "name": "sp1e-se",
+  "version": "0.0.0",
+  "private": true,
+  "description": "sp1e.se — Cloudflare Pages site (landing + Mosquito game + Fredagsfett app)",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev . --d1=DB=sp1e-db",
+    "db:migrate:local":  "node scripts/apply-migrations.mjs --local",
+    "db:migrate:remote": "node scripts/apply-migrations.mjs --remote",
+    "db:migrate:dry":    "node scripts/apply-migrations.mjs --remote --dry-run",
+    "test:contracts":    "node scripts/fredagsfett-auth-contract-check.mjs && node scripts/fredagsfett-feature-contract-check.mjs",
+    "test:adapter":      "node --test scripts/casino-adapter.test.mjs",
+    "test":              "npm run test:contracts && npm run test:adapter"
+  },
+  "devDependencies": {
+    "wrangler": "^3.114.0"
+  }
+}

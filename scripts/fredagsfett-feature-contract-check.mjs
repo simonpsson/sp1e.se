@@ -125,6 +125,45 @@ check('Loading skeletons replace bare "Laddar..." copy on Kalender + Hem',
 const casinoPage = read(files.casinoPage);
 const casinoAdapter = read(files.casinoAdapter);
 const casinoMigration = read(files.casinoMigration);
+// 1-day-wins tier (project opportunity review)
+check('Migration 010 ships the ff_schema_migrations tracking table',
+  fs.existsSync('fredagsfett-migration-010-schema-migrations.sql')
+  && /CREATE TABLE IF NOT EXISTS ff_schema_migrations/.test(
+       fs.readFileSync('fredagsfett-migration-010-schema-migrations.sql', 'utf8')));
+check('apply-migrations.mjs exists and supports --local / --remote / --dry-run',
+  fs.existsSync('scripts/apply-migrations.mjs')
+  && /--remote|--local|--dry-run/.test(fs.readFileSync('scripts/apply-migrations.mjs', 'utf8')));
+check('schema.sql declares ff_schema_migrations for fresh-install parity',
+  /CREATE TABLE IF NOT EXISTS ff_schema_migrations/.test(fs.readFileSync('schema.sql', 'utf8')));
+check('package.json exposes dev / db:migrate / test scripts',
+  fs.existsSync('package.json')
+  && /"dev":\s*"wrangler pages dev/.test(fs.readFileSync('package.json', 'utf8'))
+  && /"db:migrate:remote"/.test(fs.readFileSync('package.json', 'utf8'))
+  && /"test:contracts"/.test(fs.readFileSync('package.json', 'utf8')));
+// GitHub Actions CI: the workflow file can't be created via OAuth without
+// the `workflow` scope, so we ship the content in docs/ci-workflow.yml and
+// the user copies it into .github/workflows/ci.yml via the GitHub web UI.
+// This assertion checks that the documented copy exists; once the live
+// workflow is in place we can also assert .github/workflows/ci.yml.
+check('CI workflow shipped as docs/ci-workflow.yml (paste into .github/workflows/ci.yml)',
+  fs.existsSync('docs/ci-workflow.yml')
+  && /fredagsfett-auth-contract-check\.mjs/.test(fs.readFileSync('docs/ci-workflow.yml', 'utf8'))
+  && /fredagsfett-feature-contract-check\.mjs/.test(fs.readFileSync('docs/ci-workflow.yml', 'utf8'))
+  && /casino-adapter\.test\.mjs/.test(fs.readFileSync('docs/ci-workflow.yml', 'utf8')));
+check('Site-wide CSP + security headers are declared in _headers',
+  /Content-Security-Policy:/.test(fs.readFileSync('_headers', 'utf8'))
+  && /X-Content-Type-Options:\s*nosniff/.test(fs.readFileSync('_headers', 'utf8'))
+  && /Permissions-Policy:/.test(fs.readFileSync('_headers', 'utf8')));
+check('Admin page loads theme.js + uses ffConfirm for destructive actions',
+  /\/fredagsfett\/theme\.js/.test(fs.readFileSync('fredagsfett/admin/index.html', 'utf8'))
+  && /window\.ffConfirm/.test(fs.readFileSync('fredagsfett/admin/index.html', 'utf8')));
+check('Kalender lock-form supports Enter-to-submit on single-line inputs',
+  /lockEventForm\.addEventListener\('keydown'/.test(calendar)
+  && /requestSubmit/.test(calendar));
+check('Dead legacy theme cycler removed from kalender',
+  !/getElementById\('theme-btn'\)/.test(calendar)
+  && !/THEMES = \['galleri'/.test(calendar));
+
 check('Casino migration scaffold files exist (audit + migration + page + adapter)',
   fs.existsSync(files.casinoAudit)
   && fs.existsSync(files.casinoMigration)

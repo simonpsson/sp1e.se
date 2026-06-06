@@ -373,18 +373,18 @@ usersEl.addEventListener('click', async event => {
       setStatus('Namnet sparades.', true);
     }
     if (action === 'delete') {
-      if (!window.confirm('Ta bort användaren och återkalla alla enheter?')) {
-        button.disabled = false;
-        return;
-      }
+      if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+        'Ta bort användaren och återkalla alla enheter?',
+        { title: 'Ta bort användare', okLabel: 'Ta bort', danger: true }
+      )) { button.disabled = false; return; }
       await adminApi(`/api/fredagsfett/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
       setStatus('Användaren togs bort.', true);
     }
     if (action === 'revoke') {
-      if (!window.confirm('Återkalla den här enheten?')) {
-        button.disabled = false;
-        return;
-      }
+      if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+        'Återkalla den här enheten?',
+        { title: 'Återkalla enhet', okLabel: 'Återkalla', danger: true }
+      )) { button.disabled = false; return; }
       const device = button.closest('.device');
       await adminApi(`/api/fredagsfett/admin/devices/${encodeURIComponent(device.dataset.deviceId)}`, { method: 'DELETE' });
       setStatus('Enheten återkallades.', true);
@@ -444,7 +444,10 @@ adminLogoutBtn.addEventListener('click', async () => {
 
 document.getElementById('refresh-btn').addEventListener('click', loadUsers);
 document.getElementById('cleanup-btn').addEventListener('click', async event => {
-  if (!window.confirm('Ta bort alla återkallade enheter äldre än 90 dagar?')) return;
+  if (!await (window.ffConfirm || (m => Promise.resolve(window.confirm(m))))(
+    'Ta bort alla återkallade enheter äldre än 90 dagar?',
+    { title: 'Städa upp gamla enheter', okLabel: 'Ta bort', danger: true }
+  )) return;
   const btn = event.currentTarget;
   btn.disabled = true;
   try {
@@ -459,5 +462,6 @@ document.getElementById('cleanup-btn').addEventListener('click', async event => 
 });
 void loadUsers();
 </script>
+<script src="/fredagsfett/theme.js" defer></script>
 </body>
 </html>

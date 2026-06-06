@@ -1,0 +1,37 @@
+# GitHub Actions CI for sp1e.se
+#
+# This file is shipped here (not in .github/workflows/) because the OAuth
+# token used by the development tooling doesn't carry the `workflow` scope
+# and can't push files under .github/workflows/. To activate CI:
+#
+#   1. Open GitHub → repo → "Actions" tab → "New workflow" → "set up a
+#      workflow yourself"
+#   2. Name the file ci.yml and paste the contents below
+#   3. Commit on main
+#
+# Once installed it runs on every push to main + every PR.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  contracts-and-tests:
+    name: Contract checks + adapter tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # No `npm ci` step — the contract checks and the adapter test only use
+      # stdlib Node modules (no third-party imports). Keeping CI offline-pure.
+      - name: Fredagsfett auth contracts
+        run: node scripts/fredagsfett-auth-contract-check.mjs
+      - name: Fredagsfett feature contracts
+        run: node scripts/fredagsfett-feature-contract-check.mjs
+      - name: Casino adapter unit tests
+        run: node --test scripts/casino-adapter.test.mjs

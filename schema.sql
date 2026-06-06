@@ -416,6 +416,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ff_casino_links_device       ON ff_casino_
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ff_casino_links_game_player  ON ff_casino_player_links (game_player_id);
 CREATE INDEX        IF NOT EXISTS idx_ff_casino_links_updated      ON ff_casino_player_links (updated_at DESC);
 
+-- Schema-migration tracking: scripts/apply-migrations.mjs consults this
+-- table before applying each fredagsfett-migration-*.sql file so they are
+-- never re-run. See fredagsfett-migration-010-schema-migrations.sql.
+CREATE TABLE IF NOT EXISTS ff_schema_migrations (
+  filename   TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL DEFAULT (datetime('now')),
+  sha256     TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS ff_chat_messages (
   id         TEXT PRIMARY KEY,
   group_id   TEXT NOT NULL REFERENCES ff_groups(id) ON DELETE CASCADE,

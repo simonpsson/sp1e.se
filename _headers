@@ -12,3 +12,16 @@
 /.dev.vars*
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-store
+
+# Site-wide security headers.
+# - frame-ancestors 'none' so nothing can iframe the site (clickjacking).
+# - img-src + connect-src cover the Art Institute proxy, OpenStreetMap tiles,
+#   Nominatim geocoding, Spotify embeds, and Cloudflare itself.
+# - script-src 'unsafe-inline' is needed because every page bundles JS in
+#   <script> blocks — we'll tighten this once A5 (hoist JS) lands.
+/*
+  Content-Security-Policy: default-src 'self'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://www.artic.edu https://*.spotify.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-inline' https://unpkg.com; connect-src 'self' https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org; frame-src https://open.spotify.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(self), microphone=(), camera=(), payment=()
+  X-Frame-Options: DENY

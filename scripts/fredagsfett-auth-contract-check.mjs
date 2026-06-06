@@ -93,8 +93,12 @@ check('Dev console wraps fetch in adminApi with 401 re-auth handling',
   /function adminApi/.test(admin)
   && /res\.status === 401/.test(admin)
   && /setAdminUnlocked\(false\)/.test(admin));
-check('Dev console confirms destructive actions in Swedish',
-  /window\.confirm\(['"`].*\?['"`]\)/.test(admin));
+check('Dev console confirms destructive actions in Swedish (via ffConfirm or native fallback)',
+  // Either the legacy native window.confirm path OR the new ffConfirm path
+  // with a fallback to window.confirm is acceptable. Both surface a Swedish
+  // "Ta bort …" string to the user before the destructive request fires.
+  (/window\.confirm\(['"`].*\?['"`]\)/.test(admin) || /window\.ffConfirm/.test(admin))
+  && /Ta bort/.test(admin));
 check('Dev console preserves scroll position across refreshes',
   /window\.scrollY/.test(admin) && /scrollTo\(/.test(admin));
 check('Dev console disables buttons while requests are in flight',

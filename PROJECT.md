@@ -37,8 +37,23 @@
 | `/fredagsfett/admin` | `fredagsfett/admin/index.html` | Dev console — manage users, rename, toggle `is_admin` flag, revoke devices |
 | `/fredagsfett/karta` | `fredagsfett/karta/index.html` | Leaflet map (OpenStreetMap) with draw tools for routes/markers/polygons; routes saved in D1 with .geojson export |
 | `/fredagsfett/rsvp/:eventId/:token` | `fredagsfett/rsvp/index.html` | Public RSVP page for guests (token-signed, no login) — QoL #29 |
-| `/sw.js` | `sw.js` | Service Worker — offline read-only cache for shell + read APIs (QoL #35). Registered from `/fredagsfett/theme.js` |
+| `/sw.js` | `sw.js` | Service Worker — currently a TOMBSTONE that self-unregisters + clears caches. The original v1/v2 had an install-time bug; theme.js actively unregisters any leftover SW. |
 | `/favicon.svg`, `/apple-touch-icon.svg`, `/og-fredagsfett.svg`, `/site.webmanifest` | (root) | Brand assets + Web App Manifest (QoL #31) |
+
+### Local development
+
+```sh
+pnpm install                 # or `npm install`
+pnpm dev                     # `wrangler pages dev .` against local D1
+pnpm db:migrate:local        # apply unapplied migrations to the local DB
+pnpm db:migrate:remote       # apply to prod (idempotent — safe to re-run)
+pnpm db:migrate:dry          # see what `:remote` *would* apply
+pnpm test                    # contract checks + adapter tests
+```
+
+Migrations are tracked in the `ff_schema_migrations` D1 table (migration 010)
+so `db:migrate:remote` is fully idempotent — it computes a SHA-256 of each
+SQL file and only applies the ones the table doesn't know about.
 
 ### Deferred items
 
