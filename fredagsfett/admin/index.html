@@ -122,6 +122,8 @@
     text-decoration: none;
   }
   button:hover, .button:hover { border-color: rgba(255,255,255,0.32); color: rgba(255,255,255,0.95); }
+  button:focus-visible, .button:focus-visible, input:focus-visible { outline: 2px solid rgba(205,176,110,0.7); outline-offset: 2px; }
+  @media (max-width: 620px) { button, .button { min-height: 44px; } }
   button.danger { color: var(--danger); border-color: rgba(255,104,84,0.34); }
   button[disabled] { opacity: 0.42; cursor: not-allowed; }
   .badge {
@@ -192,6 +194,7 @@
       <h1>Dev Console</h1>
     </div>
     <div class="toolbar">
+      <a class="button" href="/fredagsfett/hem">← Hem</a>
       <a class="button" href="/fredagsfett/kalender">Till kalendern</a>
       <button id="refresh-btn" type="button">Uppdatera</button>
       <button id="cleanup-btn" type="button" title="Ta bort återkallade enheter äldre än 90 dagar">Rensa gamla enheter</button>

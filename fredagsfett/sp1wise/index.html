@@ -13,22 +13,22 @@
 <meta property="og:description" content="Gemensam kassabok — utgifter, kvittering och CSV-export.">
 <meta property="og:image" content="/og-fredagsfett.svg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/fredagsfett/style.css">
 <style>
   :root {
-    --bg: #eeebe2;
-    --panel: rgba(10, 10, 10, 0.74);
+    /* Bridge: map light-ui.css --ff-* tokens to legacy unprefixed names used in this page */
+    --bg: var(--ff-bg);
+    --panel: var(--ff-panel);
+    --line: var(--ff-line);
+    --text: var(--ff-text);
+    --muted: var(--ff-muted);
+    --accent: var(--ff-gold);
+    --danger: var(--ff-rust);
+    --font-body: var(--ff-font-body);
+    --font-mono: var(--ff-font-mono);
+    /* sp1wise-specific variables */
     --card: rgba(255,255,255,0.04);
-    --line: rgba(255,255,255,0.12);
     --line-hot: rgba(205,176,110,0.45);
-    --text: rgba(255,255,255,0.88);
-    --muted: rgba(255,255,255,0.50);
     --faint: rgba(255,255,255,0.30);
-    --accent: rgba(205,176,110,0.92);
-    --danger: rgba(255,104,84,0.94);
     --green: rgba(143,207,154,0.96);
     --red: rgba(214,111,100,0.96);
   }
@@ -264,6 +264,16 @@
   @media (max-width: 620px) {
     body { padding: 0.75rem; }
     .form-grid, .summary { grid-template-columns: 1fr; }
+    button, .button { min-height: 44px !important; }
+  }
+  button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--ff-sage, #6c7450); outline-offset: 2px;
+  }
+  .ff-skeleton-row {
+    display: flex; gap: 1rem; align-items: center;
+    padding: 0.8rem;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
   }
 </style>
 <link rel="stylesheet" href="/fredagsfett/light-ui.css">
@@ -459,7 +469,7 @@ function renderState() {
     ? state.balances.map(row => `<div class="balance-row"><strong>${escapeHtml(row.name)}</strong><div class="${row.amount_cents >= 0 ? 'positive' : 'negative'} amount">${kr(row.amount_cents)}</div></div>`).join('')
     : '<p class="tiny">Inga saldon ännu.</p>';
   document.getElementById('debt-list').innerHTML = state.simplified_debts.length
-    ? state.simplified_debts.map(row => `<div class="debt-row"><strong>${escapeHtml(row.from_name)} → ${escapeHtml(row.to_name)}</strong><div class="amount">${kr(row.amount_cents)}</div></div>`).join('')
+    ? state.simplified_debts.map(row => `<div class="debt-row"><strong>${escapeHtml(row.from_name)} <span aria-label="betalar till" style="color:var(--ff-sage,#6c7450);font-size:1.1rem;font-weight:bold">→</span> ${escapeHtml(row.to_name)}</strong><div class="amount">${kr(row.amount_cents)}</div></div>`).join('')
     : '<p class="tiny">Alla är kvitt just nu.</p>';
   document.getElementById('expense-list').innerHTML = state.expenses.length
     ? state.expenses.map(expense => `
@@ -500,6 +510,12 @@ async function loadEventsForTagging() {
 
 async function loadSp1wise() {
   errorBox.textContent = '';
+  const ledger = document.getElementById('expense-list');
+  if (ledger && !ledger.dataset.loaded) {
+    ledger.innerHTML = [1,2,3].map(() =>
+      `<div class="expense-row ff-skeleton-row"><span class="ff-skeleton" style="width:55%;height:1rem"></span><span class="ff-skeleton" style="width:15%;height:1rem"></span></div>`
+    ).join('');
+  }
   const groupId = state.group?.id || 'fredagsfett';
   const [sp1wise, events] = await Promise.all([
     api(`/api/fredagsfett/sp1wise?group_id=${encodeURIComponent(groupId)}`),
@@ -507,6 +523,7 @@ async function loadSp1wise() {
   ]);
   state = { ...sp1wise, events };
   renderState();
+  if (ledger) ledger.dataset.loaded = '1';
 }
 
 // QoL #28 — Show a 5-second toast with "Ångra" after deleting an expense.
@@ -560,6 +577,9 @@ async function submitExpense(event) {
   event.preventDefault();
   errorBox.textContent = '';
   const form = event.currentTarget;
+  const button = form.querySelector('[type="submit"]');
+  const originalText = button.textContent;
+  button.disabled = true; button.textContent = 'Skickar…';
   const participants = Array.from(document.querySelectorAll('#expense-participants input:checked')).map(input => input.value);
   try {
     const events = state.events; // preserve across the POST response (server returns sp1wise shape only)
@@ -583,6 +603,8 @@ async function submitExpense(event) {
     renderState();
   } catch (err) {
     errorBox.textContent = err.message;
+  } finally {
+    button.disabled = false; button.textContent = originalText;
   }
 }
 
@@ -590,6 +612,9 @@ async function submitSettlement(event) {
   event.preventDefault();
   errorBox.textContent = '';
   const form = event.currentTarget;
+  const button = form.querySelector('[type="submit"]');
+  const originalText = button.textContent;
+  button.disabled = true; button.textContent = 'Skickar…';
   try {
     const sp1wise = await api('/api/fredagsfett/sp1wise/settlements', {
       method: 'POST',
@@ -607,12 +632,18 @@ async function submitSettlement(event) {
     renderState();
   } catch (err) {
     errorBox.textContent = err.message;
+  } finally {
+    button.disabled = false; button.textContent = originalText;
   }
 }
 
 async function submitComment(event) {
   event.preventDefault();
   errorBox.textContent = '';
+  const form = event.currentTarget;
+  const button = form.querySelector('[type="submit"]');
+  const originalText = button.textContent;
+  button.disabled = true; button.textContent = 'Skickar…';
   try {
     const sp1wise = await api('/api/fredagsfett/sp1wise/comments', {
       method: 'POST',
@@ -626,6 +657,8 @@ async function submitComment(event) {
     renderState();
   } catch (err) {
     errorBox.textContent = err.message;
+  } finally {
+    button.disabled = false; button.textContent = originalText;
   }
 }
 

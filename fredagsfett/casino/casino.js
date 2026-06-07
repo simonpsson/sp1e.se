@@ -301,7 +301,7 @@ function renderBjCards(containerId, cards) {
   if (!cards || !cards.length) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = cards.map(card => {
     if (card.hidden) {
-      return '<div class="bj-card" data-color="hidden"><span class="suit">𓀂</span></div>';
+      return '<div class="bj-card" data-color="hidden" aria-label="Dolt kort"><span class="suit" aria-hidden="true">𓀂</span></div>';
     }
     return `<div class="bj-card" data-color="${escapeAttr(card.color || 'black')}">
       <span class="rank">${escapeText(card.rank ?? '')}</span>
@@ -570,7 +570,12 @@ async function bootBlackjack() {
   try {
     renderBlackjack(await loadBlackjackState());
   } catch (err) {
-    setBjError(err.message || 'Kunde inte ladda casinot.');
+    const el = document.getElementById('bj-error');
+    if (el) {
+      el.innerHTML = escapeText(err.message || 'Kunde inte ladda casinot.') +
+        ' <button type="button" onclick="bootBlackjack()" style="margin-left:0.4em;padding:0.15rem 0.5rem;font:inherit;border:1px solid currentColor;border-radius:4px;background:transparent;cursor:pointer;">Försök igen</button>';
+      el.hidden = false;
+    }
     const sub = document.getElementById('casino-cash-sub');
     if (sub) sub.textContent = 'Offline';
   }
@@ -860,7 +865,12 @@ async function bootRoulette() {
   try {
     renderRouletteState(await loadRouletteState());
   } catch (err) {
-    setRouError(err.message || 'Kunde inte ladda rouletten.');
+    const el = document.getElementById('rou-error');
+    if (el) {
+      el.innerHTML = escapeText(err.message || 'Kunde inte ladda rouletten.') +
+        ' <button type="button" onclick="bootRoulette()" style="margin-left:0.4em;padding:0.15rem 0.5rem;font:inherit;border:1px solid currentColor;border-radius:4px;background:transparent;cursor:pointer;">Försök igen</button>';
+      el.hidden = false;
+    }
   }
 }
 
@@ -901,11 +911,11 @@ const HOLD_ARCHETYPE_TONE = {
 };
 
 function renderHoldCardBig(card) {
-  if (!card || card.hidden) return '<div class="hold-card hold-big-card" data-color="hidden"></div>';
+  if (!card || card.hidden) return '<div class="hold-card hold-big-card" data-color="hidden" aria-label="Dolt kort"></div>';
   return `<div class="hold-card hold-big-card" data-color="${escapeAttr(card.color)}">${escapeText(card.rank || '')}${escapeText(card.suit || '')}</div>`;
 }
 function renderHoldCardSmall(card) {
-  if (!card || card.hidden) return '<div class="hold-card" data-color="hidden"></div>';
+  if (!card || card.hidden) return '<div class="hold-card" data-color="hidden" aria-label="Dolt kort"></div>';
   return `<div class="hold-card" data-color="${escapeAttr(card.color)}">${escapeText(card.rank || '')}${escapeText(card.suit || '')}</div>`;
 }
 
@@ -1047,10 +1057,31 @@ async function bootHoldem() {
   initHoldBuyinPills();
   initHoldActions();
   renderHoldHistory();
+
+  // Timeout guard: if loadHoldemState doesn’t resolve within 6 s, show error+retry
+  let holdemLoadDone = false;
+  const holdemTimeoutId = setTimeout(() => {
+    if (holdemLoadDone) return;
+    const el = document.getElementById(‘hold-error’);
+    if (el) {
+      el.innerHTML = ‘Hämtar bordet tog för lång tid.’ +
+        ‘ <button type="button" onclick="bootHoldem()" style="margin-left:0.4em;padding:0.15rem 0.5rem;font:inherit;border:1px solid currentColor;border-radius:4px;background:transparent;cursor:pointer;">Försök igen</button>’;
+      el.hidden = false;
+    }
+  }, 6000);
+
   try {
     renderHoldem(await loadHoldemState());
   } catch (err) {
-    setHoldError(err.message || 'Kunde inte ladda Hold’em.');
+    const el = document.getElementById(‘hold-error’);
+    if (el) {
+      el.innerHTML = escapeText(err.message || "Kunde inte ladda Hold’em.") +
+        ‘ <button type="button" onclick="bootHoldem()" style="margin-left:0.4em;padding:0.15rem 0.5rem;font:inherit;border:1px solid currentColor;border-radius:4px;background:transparent;cursor:pointer;">Försök igen</button>’;
+      el.hidden = false;
+    }
+  } finally {
+    holdemLoadDone = true;
+    clearTimeout(holdemTimeoutId);
   }
 }
 
